@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+@theme {
+  --color-arena-blue: #1e40af;
+  --color-arena-red: #dc2626;
+  --color-arena-gold: #f59e0b;
+  --color-arena-silver: #94a3b8;
+  --color-arena-cyan: #06b6d4;
+  --color-arena-purple: #9333ea;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(51 65 85) rgb(15 23 42);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgb(15 23 42);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgb(51 65 85);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(71 85 105);
+}
+
+/* Utility classes */
+.glass-panel {
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+}

@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Background -->
+  <circle cx="50" cy="50" r="50" fill="#1e3a5f"/>
+  
+  <!-- Shoulders / lab coat (head & shoulders crop) -->
+  <path d="M 5 100 Q 5 72 20 68 Q 35 64 50 66 Q 65 64 80 68 Q 95 72 95 100 Z" fill="#f0f0f0"/>
+  
+  <!-- Shirt collar under coat -->
+  <path d="M 38 72 Q 44 76 50 74 Q 56 76 62 72 L 58 100 L 42 100 Z" fill="#3b82f6"/>
+  
+  <!-- Neck -->
+  <rect x="42" y="62" width="16" height="12" rx="3" fill="#f5d5b0"/>
+  
+  <!-- Head -->
+  <ellipse cx="50" cy="45" rx="22" ry="24" fill="#f5d5b0"/>
+  
+  <!-- Hair (gray, swept) -->
+  <path d="M 28 38 Q 27 22 36 18 Q 44 14 50 14 Q 60 13 66 18 Q 75 24 73 38 Q 68 28 62 26 Q 54 22 46 26 Q 38 28 32 38 Z" fill="#9ca3af"/>
+  <path d="M 28 42 Q 27 34 29 30 Q 31 26 34 30 Q 30 36 30 42 Z" fill="#9ca3af"/>
+  <path d="M 72 42 Q 73 34 71 30 Q 69 26 66 30 Q 70 36 70 42 Z" fill="#9ca3af"/>
+  
+  <!-- Ears -->
+  <ellipse cx="28" cy="45" rx="4" ry="5" fill="#f5d5b0"/>
+  <ellipse cx="72" cy="45" rx="4" ry="5" fill="#f5d5b0"/>
+  
+  <!-- Eyes -->
+  <ellipse cx="42" cy="44" rx="4" ry="3.5" fill="white"/>
+  <ellipse cx="58" cy="44" rx="4" ry="3.5" fill="white"/>
+  <circle cx="43" cy="44" r="2.5" fill="#3b2c0a"/>
+  <circle cx="59" cy="44" r="2.5" fill="#3b2c0a"/>
+  <circle cx="44" cy="43" r="0.8" fill="white"/>
+  <circle cx="60" cy="43" r="0.8" fill="white"/>
+  
+  <!-- Eyebrows -->
+  <path d="M 38 39 Q 42 37 46 39" stroke="#6b5a2a" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  <path d="M 54 39 Q 58 37 62 39" stroke="#6b5a2a" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  
+  <!-- Nose -->
+  <path d="M 49 48 Q 50 51 51 48" stroke="#d4a080" stroke-width="1" fill="none"/>
+  
+  <!-- Warm smile -->
+  <path d="M 42 55 Q 50 61 58 55" stroke="#c07a60" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+
+  <!-- Lab coat lapels -->
+  <path d="M 20 68 L 38 72 L 42 100 L 5 100 Z" fill="#e8e8e8"/>
+  <path d="M 80 68 L 62 72 L 58 100 L 95 100 Z" fill="#e8e8e8"/>
+</svg>

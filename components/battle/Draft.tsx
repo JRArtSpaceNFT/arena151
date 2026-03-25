@@ -1,0 +1,1505 @@
+'use client'
+
+import { useState, useEffect, useRef } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { useGameStore } from '@/lib/game-store'
+import { playMusic, resumeAudioContext } from '@/lib/audio/musicEngine'
+import { CREATURES } from '@/lib/data/creatures'
+import { MOVES } from '@/lib/data/moves'
+import type { PokemonType, Creature } from '@/lib/game-types'
+
+// ─── Constants ───────────────────────────────────────────────────────────────
+
+const TYPE_COLORS: Record<string, string> = {
+  normal: '#9ca3af', fire: '#f97316', water: '#3b82f6', electric: '#eab308',
+  grass: '#22c55e', ice: '#67e8f9', fighting: '#dc2626', poison: '#a855f7',
+  ground: '#a16207', flying: '#818cf8', psychic: '#ec4899', bug: '#84cc16',
+  rock: '#78716c', ghost: '#6d28d9', dragon: '#7c3aed', dark: '#374151', steel: '#94a3b8',
+}
+
+const ALL_TYPES: PokemonType[] = [
+  'normal', 'fire', 'water', 'electric', 'grass', 'ice',
+  'fighting', 'poison', 'ground', 'flying', 'psychic', 'bug',
+  'rock', 'ghost', 'dragon',
+]
+
+const TEAM_SIZE = 5
+const BUDGET = 75
+const TOTAL_DRAFT_TIME = 120
+
+// ─── CSS keyframes injected once ─────────────────────────────────────────────
+
+const GLOBAL_CSS = `
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes orderSlotPulse {
+  0%, 100% { box-shadow: 0 0 10px 2px rgba(251,191,36,0.3); }
+  50%       { box-shadow: 0 0 22px 6px rgba(251,191,36,0.6); }
+}
+@keyframes orderBannerIn {
+  from { transform: translateY(30px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+@keyframes orderOverlayIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes orderCardIn {
+  from { transform: translateY(60px) scale(0.92); opacity: 0; }
+  to   { transform: translateY(0) scale(1); opacity: 1; }
+}
+@keyframes scanline {
+  0%   { background-position: 0 0; }
+  100% { background-position: 0 100px; }
+}
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+@keyframes pokeballPop {
+  0%   { transform: scale(0) rotate(-20deg); opacity: 0; }
+  60%  { transform: scale(1.2) rotate(5deg);  opacity: 1; }
+  100% { transform: scale(1) rotate(0deg);   opacity: 1; }
+}
+@keyframes pokemonEnter {
+  0%   { transform: scale(0) translateY(20px); opacity: 0; }
+  65%  { transform: scale(1.15) translateY(-4px); opacity: 1; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+@keyframes shadowPulse {
+  0%   { transform: scaleX(0.3); opacity: 0; }
+  60%  { transform: scaleX(1.1); opacity: 0.55; }
+  100% { transform: scaleX(1); opacity: 0.35; }
+}
+@keyframes timerPulse {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.18); }
+}
+@keyframes cloudDrift {
+  from { transform: translateX(0); }
+  to   { transform: translateX(60px); }
+}
+@keyframes grassSway {
+  0%, 100% { transform: skewX(0deg) scaleY(1); }
+  50%       { transform: skewX(1.5deg) scaleY(1.01); }
+}
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 12px 3px currentColor; }
+  50%       { box-shadow: 0 0 24px 8px currentColor; }
+}
+@keyframes autoPickFlash {
+  0%,100% { background: rgba(251,191,36,0.15); }
+  50%      { background: rgba(251,191,36,0.35); }
+}
+@keyframes statFill {
+  from { width: 0%; }
+  to   { width: var(--pct); }
+}
+`
+
+function injectCSS() {
+  if (typeof document === 'undefined') return
+  if (document.getElementById('draft-styles')) return
+  const s = document.createElement('style')
+  s.id = 'draft-styles'
+  s.textContent = GLOBAL_CSS
+  document.head.appendChild(s)
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
+export default function Draft() {
+  injectCSS()
+
+  const {
+    draftTeamA, draftTeamB, draftCurrentPicker,
+    draftBudgetA, draftBudgetB, gameMode,
+    p1Trainer, p2Trainer,
+    draftCreature, removeDraftCreature, proceedFromDraft, confirmVsAiDraft,
+    redraftTeam, redraftingPlayer, autoFillDraft, pickAITeamInstantly,
+    setDraftTeamOrder,
+  } = useGameStore()
+
+  useEffect(() => {
+    resumeAudioContext()
+    playMusic('menu')
+  }, [])
+
+  // vs_ai: AI picks its full team instantly at draft mount
+  useEffect(() => {
+    if (gameMode === 'vs_ai' && draftTeamB.length === 0) {
+      pickAITeamInstantly()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const [typeFilter, setTypeFilter] = useState<PokemonType | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [sortByCost, setSortByCost] = useState(false)
+  const [timeLeft, setTimeLeft] = useState(TOTAL_DRAFT_TIME)
+  const [autoPickFlash, setAutoPickFlash] = useState(false)
+  const [infoCreature, setInfoCreature] = useState<Creature | null>(null)
+  const [draftReveal, setDraftReveal] = useState<{ creatureId: number; creatureName: string; trainerName: string } | null>(null)
+  const [hoveredId, setHoveredId] = useState<number | null>(null)
+  const typeBarRef = useRef<HTMLDivElement>(null)
+
+  // Ordering phase
+  const [isOrdering, setIsOrdering] = useState(false)
+  const [selectedOrderIdx, setSelectedOrderIdx] = useState<number | null>(null)
+
+  const isP1Turn = gameMode === 'vs_ai' ? true : draftCurrentPicker === 'p1'
+  const myDrafted = new Set(draftTeamA.map(c => c.id))
+  const currentBudget = draftBudgetA
+
+  const bothDone = draftTeamA.length >= TEAM_SIZE && draftTeamB.length >= TEAM_SIZE
+  const isRedrafting = redraftingPlayer !== null
+  const redraftDone = isRedrafting && (
+    (redraftingPlayer === 'p1' && draftTeamA.length >= TEAM_SIZE) ||
+    (redraftingPlayer === 'p2' && draftTeamB.length >= TEAM_SIZE)
+  )
+
+  const filteredCreatures = (() => {
+    let list = CREATURES.filter(c => {
+      if (typeFilter && !c.types.includes(typeFilter)) return false
+      if (searchQuery && !c.name.toLowerCase().includes(searchQuery.toLowerCase())) return false
+      return true
+    })
+    if (sortByCost) list = [...list].sort((a, b) => a.pointCost - b.pointCost)
+    return list
+  })()
+
+  // Reset timer on picker change
+  useEffect(() => {
+    if (bothDone) return
+    setTimeLeft(TOTAL_DRAFT_TIME)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftCurrentPicker])
+
+  // Countdown + auto-fill
+  useEffect(() => {
+    if (bothDone) return
+    if (timeLeft <= 0) {
+      setAutoPickFlash(true)
+      setTimeout(() => {
+        autoFillDraft(isP1Turn ? 'p1' : 'p2')
+        setAutoPickFlash(false)
+      }, 600)
+      return
+    }
+    const t = setTimeout(() => setTimeLeft(prev => prev - 1), 1000)
+    return () => clearTimeout(t)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeLeft, bothDone])
+
+  const timerColor =
+    timeLeft > 60 ? '#22c55e' :
+    timeLeft > 20 ? '#eab308' : '#ef4444'
+
+  const timerStr = `${Math.floor(timeLeft / 60)}:${String(timeLeft % 60).padStart(2, '0')}`
+
+  const handleDraftCreature = (creature: Creature) => {
+    const trainer = draftCurrentPicker === 'p1' ? p1Trainer : p2Trainer
+    setDraftReveal({ creatureId: creature.id, creatureName: creature.name, trainerName: trainer?.name ?? 'Trainer' })
+    setTimeout(() => setDraftReveal(null), 1200)
+    draftCreature(creature)
+  }
+
+  // Trigger ordering phase when team is full
+  useEffect(() => {
+    if (draftTeamA.length >= TEAM_SIZE && !isRedrafting && !isOrdering) {
+      setIsOrdering(true)
+      setSelectedOrderIdx(null)
+    }
+    // Reset ordering if they redo the draft
+    if (draftTeamA.length < TEAM_SIZE) {
+      setIsOrdering(false)
+      setSelectedOrderIdx(null)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftTeamA.length, isRedrafting])
+
+  const handleOrderSlotClick = (idx: number) => {
+    if (selectedOrderIdx === null) {
+      setSelectedOrderIdx(idx)
+    } else if (selectedOrderIdx === idx) {
+      setSelectedOrderIdx(null)
+    } else {
+      // Swap
+      const newTeam = [...draftTeamA]
+      ;[newTeam[selectedOrderIdx], newTeam[idx]] = [newTeam[idx], newTeam[selectedOrderIdx]]
+      setDraftTeamOrder(newTeam, 'p1')
+      setSelectedOrderIdx(null)
+    }
+  }
+
+  const canLockIn = isOrdering
+    ? true // can always lock in once ordering phase starts
+    : gameMode === 'vs_ai'
+    ? draftTeamA.length >= TEAM_SIZE && !isRedrafting
+    : bothDone && !isRedrafting
+  const lockInAction = gameMode === 'vs_ai' ? confirmVsAiDraft : proceedFromDraft
+
+  return (
+    <>
+      {/* ── Root container ── */}
+      <div style={{
+        height: '100vh',
+        background: '#06060a',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        fontFamily: 'system-ui, -apple-system, sans-serif',
+        color: '#e2e8f0',
+      }}>
+
+        {/* ══════════════ ZONE 1 — HEADER ══════════════ */}
+        <div style={{
+          height: 80,
+          minHeight: 80,
+          background: '#0a0a14',
+          borderBottom: '2px solid #1a1a3a',
+          display: 'flex',
+          alignItems: 'center',
+          padding: '0 20px',
+          gap: 16,
+          boxShadow: '0 2px 24px rgba(0,0,0,0.6)',
+          zIndex: 10,
+          flexShrink: 0,
+        }}>
+          {/* Left: Title */}
+          <div style={{ flex: '0 0 auto' }}>
+            <div style={{
+              fontFamily: 'Impact, Arial Black, sans-serif',
+              fontSize: 22,
+              letterSpacing: '0.12em',
+              color: '#f1f5f9',
+              lineHeight: 1,
+            }}>
+              CHOOSE YOUR TEAM
+            </div>
+            <div style={{ fontSize: 11, color: '#4a5568', letterSpacing: '0.08em', marginTop: 2 }}>
+              DRAFT · SEASON {new Date().getFullYear()}
+            </div>
+          </div>
+
+          {/* Center: Player budgets */}
+          <div style={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+          }}>
+            {/* P1 */}
+            <div style={{
+              background: isP1Turn ? 'rgba(124,58,237,0.18)' : 'rgba(255,255,255,0.03)',
+              border: `1px solid ${isP1Turn ? '#7c3aed' : '#1e1e3a'}`,
+              borderRadius: 10,
+              padding: '6px 16px',
+              textAlign: 'center',
+              minWidth: 120,
+              transition: 'all 0.3s',
+            }}>
+              <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 1 }}>{p1Trainer?.name ?? 'Player 1'}</div>
+              <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 20, color: '#7c3aed', lineHeight: 1 }}>
+                {draftBudgetA} <span style={{ fontSize: 11, fontFamily: 'system-ui', fontWeight: 400 }}>pts</span>
+              </div>
+              <div style={{ fontSize: 10, color: '#64748b', marginTop: 1 }}>{draftTeamA.length}/{TEAM_SIZE} picked</div>
+            </div>
+
+            {/* VS divider */}
+            <div style={{ color: '#2d2d5e', fontFamily: 'Impact, sans-serif', fontSize: 18, padding: '0 4px' }}>VS</div>
+
+            {/* P2 */}
+            <div style={{
+              background: !isP1Turn ? 'rgba(239,68,68,0.18)' : 'rgba(255,255,255,0.03)',
+              border: `1px solid ${!isP1Turn ? '#ef4444' : '#1e1e3a'}`,
+              borderRadius: 10,
+              padding: '6px 16px',
+              textAlign: 'center',
+              minWidth: 120,
+              transition: 'all 0.3s',
+            }}>
+              <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 1 }}>{p2Trainer?.name ?? 'Player 2'}</div>
+              <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 20, color: '#ef4444', lineHeight: 1 }}>
+                {gameMode === 'vs_ai' ? '?' : draftBudgetB} <span style={{ fontSize: 11, fontFamily: 'system-ui', fontWeight: 400 }}>pts</span>
+              </div>
+              <div style={{ fontSize: 10, color: '#64748b', marginTop: 1 }}>
+                {gameMode === 'vs_ai' ? 'AI' : `${draftTeamB.length}/${TEAM_SIZE} picked`}
+              </div>
+            </div>
+          </div>
+
+          {/* Right: Count + Timer + Lock In */}
+          <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center', gap: 12 }}>
+            {/* Team count badge */}
+            <div style={{
+              background: '#12122a',
+              border: '1px solid #2d2d5e',
+              borderRadius: 8,
+              padding: '6px 12px',
+              textAlign: 'center',
+            }}>
+              <div style={{ fontSize: 10, color: '#64748b' }}>TEAM</div>
+              <div style={{ fontFamily: 'Impact, sans-serif', fontSize: 18, color: '#f1f5f9', lineHeight: 1 }}>
+                {draftTeamA.length}
+                <span style={{ color: '#2d2d5e' }}>/5</span>
+              </div>
+            </div>
+
+            {/* Timer */}
+            {!bothDone && (
+              <div style={{
+                background: '#12122a',
+                border: `1px solid ${timerColor}55`,
+                borderRadius: 8,
+                padding: '6px 12px',
+                textAlign: 'center',
+                animation: autoPickFlash ? 'autoPickFlash 0.4s linear infinite' : 'none',
+              }}>
+                <div style={{ fontSize: 10, color: '#64748b' }}>TIME</div>
+                <div style={{
+                  fontFamily: 'Impact, monospace, sans-serif',
+                  fontSize: 22,
+                  color: timerColor,
+                  lineHeight: 1,
+                  animation: timeLeft <= 20 && !bothDone ? 'timerPulse 0.6s ease infinite' : 'none',
+                }}>
+                  {timerStr}
+                </div>
+              </div>
+            )}
+
+            {/* Redo buttons */}
+            {bothDone && !isRedrafting && gameMode !== 'vs_ai' && (
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button onClick={() => redraftTeam('p1')} style={{
+                  padding: '6px 10px', background: 'rgba(124,58,237,0.15)',
+                  border: '1px solid #7c3aed55', borderRadius: 7,
+                  color: '#7c3aed', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                }}>🔄 {p1Trainer?.name ?? 'P1'}</button>
+                <button onClick={() => redraftTeam('p2')} style={{
+                  padding: '6px 10px', background: 'rgba(239,68,68,0.15)',
+                  border: '1px solid #ef444455', borderRadius: 7,
+                  color: '#ef4444', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                }}>🔄 {p2Trainer?.name ?? 'P2'}</button>
+              </div>
+            )}
+            {gameMode === 'vs_ai' && draftTeamA.length >= TEAM_SIZE && !isRedrafting && (
+              <button onClick={() => redraftTeam('p1')} style={{
+                padding: '6px 10px', background: 'rgba(124,58,237,0.15)',
+                border: '1px solid #7c3aed55', borderRadius: 7,
+                color: '#7c3aed', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+              }}>🔄 Redo</button>
+            )}
+            {redraftDone && (
+              <button onClick={proceedFromDraft} style={{
+                padding: '10px 20px', background: 'linear-gradient(135deg,#7c3aed,#5b21b6)',
+                border: 'none', borderRadius: 9, color: 'white',
+                fontSize: 14, fontWeight: 800, cursor: 'pointer',
+                boxShadow: '0 0 16px rgba(124,58,237,0.5)',
+              }}>✅ Done Re-drafting →</button>
+            )}
+
+            {/* Choose for Me */}
+            {!bothDone && (
+              <button
+                onClick={() => autoFillDraft(isP1Turn ? 'p1' : 'p2')}
+                style={{
+                  padding: '8px 14px',
+                  background: 'rgba(251,191,36,0.1)',
+                  border: '1px solid rgba(251,191,36,0.4)',
+                  borderRadius: 8,
+                  color: '#fbbf24',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                🎲 Auto
+              </button>
+            )}
+
+            {/* Lock In button — hidden during ordering (overlay has its own) */}
+            {!isOrdering && (
+              <button
+                disabled={!canLockIn}
+                onClick={canLockIn ? lockInAction : undefined}
+                style={{
+                  padding: '10px 20px',
+                  background: canLockIn
+                    ? 'linear-gradient(135deg, #22c55e, #16a34a)'
+                    : '#1a1a2e',
+                  border: canLockIn ? 'none' : '1px solid #2d2d5e',
+                  borderRadius: 10,
+                  color: canLockIn ? 'white' : '#334155',
+                  fontSize: 14,
+                  fontWeight: 900,
+                  cursor: canLockIn ? 'pointer' : 'not-allowed',
+                  letterSpacing: '0.04em',
+                  boxShadow: canLockIn ? '0 0 20px rgba(34,197,94,0.45)' : 'none',
+                  animation: canLockIn ? 'glowPulse 1.5s ease infinite' : 'none',
+                  transition: 'all 0.3s',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                LOCK IN TEAM →
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* ══════════════ ZONES 2+3 — BODY ══════════════ */}
+        <div style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          minHeight: 0,
+        }}>
+
+          {/* ══ ZONE 2 — ROSTER (55%) ══ */}
+          <div style={{
+            flex: '0 0 55%',
+            minHeight: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            borderBottom: '2px solid #0f0f1a',
+            position: 'relative',
+            transition: 'opacity 0.4s',
+          }}>
+            {/* Filter bar */}
+            <div style={{
+              padding: '8px 16px',
+              background: '#08080f',
+              borderBottom: '1px solid #12122a',
+              display: 'flex',
+              gap: 10,
+              alignItems: 'center',
+              flexShrink: 0,
+            }}>
+              {/* Search */}
+              <input
+                type="text"
+                placeholder="🔍 Search..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                style={{
+                  background: '#12122a',
+                  border: '1px solid #1e1e3a',
+                  borderRadius: 8,
+                  color: '#e2e8f0',
+                  padding: '5px 10px',
+                  fontSize: 12,
+                  outline: 'none',
+                  width: 130,
+                  flexShrink: 0,
+                }}
+              />
+
+              {/* Sort by cost toggle */}
+              <button
+                onClick={() => setSortByCost(v => !v)}
+                style={{
+                  background: sortByCost ? '#7c3aed' : '#12122a',
+                  border: `1px solid ${sortByCost ? '#7c3aed' : '#1e1e3a'}`,
+                  borderRadius: 8,
+                  color: sortByCost ? '#fff' : '#94a3b8',
+                  padding: '5px 10px',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                  whiteSpace: 'nowrap',
+                  transition: 'all 0.15s',
+                }}
+                title="Sort by point cost (low to high)"
+              >
+                {sortByCost ? '💰 Cost ↑' : '💰 Sort'}
+              </button>
+
+              {/* Type pills — horizontally scrollable */}
+              <div
+                ref={typeBarRef}
+                style={{
+                  display: 'flex',
+                  gap: 6,
+                  overflowX: 'auto',
+                  flex: 1,
+                  scrollbarWidth: 'none',
+                  paddingBottom: 2,
+                }}
+              >
+                <TypePill label="ALL" active={typeFilter === null} color="#7c3aed" onClick={() => setTypeFilter(null)} />
+                {ALL_TYPES.map(t => (
+                  <TypePill
+                    key={t}
+                    label={t}
+                    active={typeFilter === t}
+                    color={TYPE_COLORS[t] ?? '#666'}
+                    onClick={() => setTypeFilter(typeFilter === t ? null : t)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* No inline ordering overlay — handled by full-screen overlay below */}
+
+            {/* Card grid — scrollable */}
+            <div style={{
+              flex: 1,
+              overflow: 'auto',
+              padding: '12px 16px',
+              marginRight: infoCreature ? 320 : 0,
+              transition: 'margin-right 0.2s ease',
+            }}>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))',
+                gap: 8,
+                alignContent: 'start',
+              }}>
+                {filteredCreatures.map(creature => {
+                  const isDrafted = myDrafted.has(creature.id)
+                  const isOverBudget = !isDrafted && creature.pointCost > currentBudget
+                  const isRedraftLocked = isRedrafting && (
+                    (redraftingPlayer === 'p1' && !isP1Turn) ||
+                    (redraftingPlayer === 'p2' && isP1Turn)
+                  )
+                  const isDisabled = (isOverBudget && !isDrafted) || (bothDone && !isRedrafting) || isRedraftLocked
+                  const isHovered = hoveredId === creature.id
+
+                  // Find first type color for border
+                  const typeColor = TYPE_COLORS[creature.types[0]] ?? '#7c3aed'
+
+                  return (
+                    <div
+                      key={creature.id}
+                      onMouseEnter={() => !isDisabled && setHoveredId(creature.id)}
+                      onMouseLeave={() => setHoveredId(null)}
+                      onClick={() => {
+                        if (isDisabled) return
+                        if (isDrafted) {
+                          removeDraftCreature(creature)
+                        } else {
+                          handleDraftCreature(creature)
+                        }
+                      }}
+                      style={{
+                        width: '100%',
+                        height: 110,
+                        background: isDrafted ? '#0a0a12' : isHovered ? '#1a1a2e' : '#0f0f1a',
+                        border: isDrafted
+                          ? `2px solid ${typeColor}`
+                          : isOverBudget
+                          ? '1px solid #3f1515'
+                          : isHovered
+                          ? `1px solid ${typeColor}aa`
+                          : '1px solid #1a1a2e',
+                        borderRadius: 8,
+                        cursor: isDisabled ? 'not-allowed' : 'pointer',
+                        opacity: isDrafted ? 0.7 : isOverBudget ? 0.42 : 1,
+                        position: 'relative',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        padding: '6px 4px 4px',
+                        transform: isHovered && !isDisabled ? 'translateY(-3px) scale(1.04)' : 'none',
+                        boxShadow: isHovered && !isDisabled ? `0 6px 20px ${typeColor}44, 0 2px 8px rgba(0,0,0,0.5)` : '0 1px 4px rgba(0,0,0,0.3)',
+                        transition: 'transform 0.15s, box-shadow 0.15s, border-color 0.15s, background 0.15s',
+                        overflow: 'hidden',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {/* Cost badge — top right */}
+                      <div style={{
+                        position: 'absolute',
+                        top: 4,
+                        right: 4,
+                        background: creature.pointCost > currentBudget ? 'rgba(239,68,68,0.2)' : 'rgba(251,191,36,0.15)',
+                        border: `1px solid ${creature.pointCost > currentBudget ? '#ef444488' : '#fbbf2488'}`,
+                        borderRadius: 4,
+                        padding: '1px 4px',
+                        fontSize: 9,
+                        fontWeight: 800,
+                        color: creature.pointCost > currentBudget ? '#ef4444' : '#fbbf24',
+                        lineHeight: 1.4,
+                      }}>
+                        {creature.pointCost}
+                      </div>
+
+                      {/* Info button — top left */}
+                      <button
+                        onClick={e => { e.stopPropagation(); setInfoCreature(creature) }}
+                        style={{
+                          position: 'absolute',
+                          top: 4,
+                          left: 4,
+                          width: 16,
+                          height: 16,
+                          borderRadius: '50%',
+                          background: 'rgba(100,116,139,0.35)',
+                          border: '1px solid rgba(148,163,184,0.25)',
+                          color: '#94a3b8',
+                          fontSize: 9,
+                          fontWeight: 900,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          lineHeight: 1,
+                          padding: 0,
+                          zIndex: 2,
+                        }}
+                      >ⓘ</button>
+
+                      {/* Sprite */}
+                      <div style={{
+                        width: 56,
+                        height: 56,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginTop: 4,
+                        position: 'relative',
+                      }}>
+                        <img
+                          src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${creature.id}.png`}
+                          alt={creature.name}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'contain',
+                            imageRendering: 'pixelated',
+                            filter: isDrafted ? 'brightness(1.2)' : isOverBudget ? 'grayscale(0.8) brightness(0.6)' : 'none',
+                          }}
+                        />
+                        {/* Checkmark overlay for drafted */}
+                        {isDrafted && (
+                          <div style={{
+                            position: 'absolute',
+                            inset: 0,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            background: isHovered ? 'rgba(239,68,68,0.45)' : 'rgba(124,58,237,0.25)',
+                            borderRadius: 4,
+                            fontSize: isHovered ? 14 : 22,
+                            transition: 'background 0.15s',
+                          }}>
+                            {isHovered ? (
+                              <>
+                                <span style={{ fontSize: 18 }}>✕</span>
+                                <span style={{ fontSize: 8, color: '#fca5a5', fontWeight: 700, marginTop: 2 }}>REMOVE</span>
+                              </>
+                            ) : '✓'}
+                          </div>
+                        )}
+                        {/* Lock overlay for unaffordable */}
+                        {isOverBudget && !isDrafted && (
+                          <div style={{
+                            position: 'absolute',
+                            inset: 0,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: 16,
+                          }}>🔒</div>
+                        )}
+                      </div>
+
+                      {/* Name */}
+                      <div style={{
+                        fontSize: 9,
+                        fontWeight: 700,
+                        color: '#c7d0dd',
+                        textAlign: 'center',
+                        lineHeight: 1.2,
+                        marginTop: 2,
+                        maxWidth: '90%',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}>
+                        {creature.name}
+                      </div>
+
+                      {/* Type badges */}
+                      <div style={{
+                        display: 'flex',
+                        gap: 2,
+                        marginTop: 3,
+                        justifyContent: 'center',
+                        flexWrap: 'wrap',
+                      }}>
+                        {creature.types.map(t => (
+                          <span key={t} style={{
+                            fontSize: 7,
+                            padding: '1px 4px',
+                            borderRadius: 4,
+                            background: `${TYPE_COLORS[t] ?? '#666'}33`,
+                            color: TYPE_COLORS[t] ?? '#aaa',
+                            fontWeight: 700,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.03em',
+                          }}>
+                            {t}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* ══ ZONE 3 — BATTLEFIELD (45%) ══ */}
+          <div style={{
+            flex: '0 0 45%',
+            minHeight: 0,
+            position: 'relative',
+            overflow: 'hidden',
+          }}>
+            {/* Battlefield background image */}
+            <img
+              src="/BD1.png"
+              alt=""
+              aria-hidden="true"
+              style={{
+                position: 'absolute',
+                inset: 0,
+                width: '100%',
+                height: '100%',
+                objectFit: 'contain',
+                objectPosition: 'center center',
+                zIndex: 0,
+                pointerEvents: 'none',
+              }}
+            />
+            {/* Subtle dark overlay so Pokémon pop */}
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'rgba(0,0,0,0.15)',
+              zIndex: 1,
+              pointerEvents: 'none',
+            }} />
+
+
+
+            {/* Pokémon lineup or placeholder */}
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              bottom: 12,
+              zIndex: 4,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+            }}>
+              {draftTeamA.length === 0 ? null : (
+                /* ── NORMAL DRAFT MODE: standard lineup ── */
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'flex-end',
+                  gap: 0,
+                  paddingBottom: 4,
+                  paddingLeft: 0,
+                  paddingRight: 0,
+                  width: '100%',
+                  justifyContent: 'space-around',
+                }}>
+                  {/* Filled slots */}
+                  {draftTeamA.map((c, i) => (
+                    <BattlefieldPokemon key={c.id} creature={c} index={i} />
+                  ))}
+                  {/* Empty slots */}
+                  {Array.from({ length: TEAM_SIZE - draftTeamA.length }).map((_, i) => (
+                    <div key={`empty-${i}`} style={{
+                      width: 64,
+                      height: 64,
+                      border: '2px dashed rgba(255,255,255,0.12)',
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'rgba(255,255,255,0.12)',
+                      fontSize: 20,
+                      flexShrink: 0,
+                    }}>?</div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Player name label */}
+            <div style={{
+              position: 'absolute',
+              top: 10,
+              left: 16,
+              zIndex: 5,
+            }}>
+              <div style={{
+                background: 'rgba(0,0,0,0.45)',
+                border: '1px solid rgba(124,58,237,0.4)',
+                borderRadius: 6,
+                padding: '4px 10px',
+                fontSize: 11,
+                fontWeight: 700,
+                color: '#b39dfa',
+                letterSpacing: '0.06em',
+              }}>
+                ⚔ {p1Trainer?.name ?? 'YOUR TEAM'}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── FULL-SCREEN BATTLE ORDER OVERLAY ── */}
+      {isOrdering && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 200,
+          background: 'rgba(0,0,0,0.93)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          animation: 'orderOverlayIn 0.35s ease forwards',
+        }}>
+          {/* Scanline texture */}
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(255,255,255,0.018) 3px, rgba(255,255,255,0.018) 4px)',
+            pointerEvents: 'none',
+          }} />
+
+          {/* Gold accent line top */}
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 3,
+            background: 'linear-gradient(90deg, transparent, #fbbf24, transparent)',
+          }} />
+          {/* Gold accent line bottom */}
+          <div style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 3,
+            background: 'linear-gradient(90deg, transparent, #fbbf24, transparent)',
+          }} />
+
+          {/* Header */}
+          <div style={{
+            textAlign: 'center',
+            marginBottom: 12,
+            animation: 'orderCardIn 0.4s cubic-bezier(0.22,1,0.36,1) 0.05s both',
+          }}>
+            <div style={{
+              fontFamily: 'Impact, Arial Black, sans-serif',
+              fontSize: 13,
+              letterSpacing: '0.3em',
+              color: '#fbbf24',
+              textTransform: 'uppercase',
+              marginBottom: 6,
+            }}>⚔ Set Your Battle Order ⚔</div>
+            <div style={{
+              fontFamily: 'Impact, Arial Black, sans-serif',
+              fontSize: 38,
+              letterSpacing: '0.06em',
+              color: '#f1f5f9',
+              lineHeight: 1,
+              textShadow: '0 0 40px rgba(251,191,36,0.4)',
+            }}>WHO GOES FIRST?</div>
+            <div style={{
+              marginTop: 10,
+              fontSize: 13,
+              color: selectedOrderIdx !== null ? '#fbbf24' : '#64748b',
+              fontWeight: 600,
+              transition: 'color 0.2s',
+            }}>
+              {selectedOrderIdx !== null
+                ? `Slot ${selectedOrderIdx + 1} selected — tap another to swap positions`
+                : 'Tap a Pokémon to select it · Tap another to swap · Use arrows to nudge'}
+            </div>
+          </div>
+
+          {/* Pokemon order slots */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 16,
+            padding: '0 24px',
+            animation: 'orderCardIn 0.45s cubic-bezier(0.22,1,0.36,1) 0.12s both',
+          }}>
+            {draftTeamA.map((c, i) => {
+              const isSelected = selectedOrderIdx === i
+              const typeColor = TYPE_COLORS[c.types[0]] ?? '#7c3aed'
+              const positionLabels = ['1ST', '2ND', '3RD', '4TH', '5TH']
+              const positionColors = ['#22c55e', '#3b82f6', '#f97316', '#a855f7', '#ef4444']
+              return (
+                <div
+                  key={c.id}
+                  onClick={() => handleOrderSlotClick(i)}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    cursor: 'pointer',
+                    position: 'relative',
+                    flexShrink: 0,
+                  }}
+                >
+                  {/* Position number — big */}
+                  <div style={{
+                    fontFamily: 'Impact, Arial Black, sans-serif',
+                    fontSize: 32,
+                    lineHeight: 1,
+                    color: isSelected ? '#fbbf24' : positionColors[i],
+                    textShadow: isSelected ? '0 0 20px rgba(251,191,36,0.8)' : `0 0 12px ${positionColors[i]}88`,
+                    marginBottom: 6,
+                    transition: 'all 0.15s',
+                  }}>{i + 1}</div>
+
+                  {/* Sprite card */}
+                  <div style={{
+                    position: 'relative',
+                    width: 140,
+                    height: 140,
+                    borderRadius: 16,
+                    background: isSelected
+                      ? `radial-gradient(circle at center, ${typeColor}40 0%, #0a0a14 100%)`
+                      : 'rgba(255,255,255,0.04)',
+                    border: `2px solid ${isSelected ? typeColor : 'rgba(255,255,255,0.12)'}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.15s',
+                    animation: isSelected ? 'orderSlotPulse 1s ease infinite' : 'none',
+                    transform: isSelected ? 'scale(1.08) translateY(-6px)' : 'scale(1)',
+                    boxShadow: isSelected
+                      ? `0 0 30px 6px ${typeColor}55, 0 8px 24px rgba(0,0,0,0.6)`
+                      : '0 4px 16px rgba(0,0,0,0.4)',
+                  }}>
+                    <img
+                      src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${c.id}.png`}
+                      alt={c.name}
+                      style={{
+                        width: 110,
+                        height: 110,
+                        imageRendering: 'pixelated',
+                        objectFit: 'contain',
+                        filter: isSelected
+                          ? `drop-shadow(0 0 12px ${typeColor}) brightness(1.15)`
+                          : 'brightness(0.9)',
+                        transition: 'filter 0.15s',
+                      }}
+                    />
+                    {/* Selected checkmark */}
+                    {isSelected && (
+                      <div style={{
+                        position: 'absolute',
+                        top: 6,
+                        right: 6,
+                        width: 22,
+                        height: 22,
+                        borderRadius: '50%',
+                        background: '#fbbf24',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: 12,
+                        fontWeight: 900,
+                        color: '#000',
+                        boxShadow: '0 0 8px rgba(251,191,36,0.8)',
+                      }}>✓</div>
+                    )}
+                  </div>
+
+                  {/* Badge label */}
+                  <div style={{
+                    marginTop: 8,
+                    background: isSelected ? '#fbbf24' : positionColors[i] + '22',
+                    border: `1px solid ${isSelected ? '#fbbf24' : positionColors[i] + '55'}`,
+                    borderRadius: 5,
+                    padding: '3px 12px',
+                    fontSize: 10,
+                    fontWeight: 900,
+                    color: isSelected ? '#000' : positionColors[i],
+                    letterSpacing: '0.12em',
+                    transition: 'all 0.15s',
+                  }}>
+                    {positionLabels[i]}
+                  </div>
+
+                  {/* Name */}
+                  <div style={{
+                    marginTop: 5,
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: isSelected ? '#f1f5f9' : '#64748b',
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    transition: 'color 0.15s',
+                  }}>
+                    {c.name}
+                  </div>
+
+                  {/* Arrow nudge buttons */}
+                  <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                    <button
+                      disabled={i === 0}
+                      onClick={e => {
+                        e.stopPropagation()
+                        const newTeam = [...draftTeamA]
+                        ;[newTeam[i - 1], newTeam[i]] = [newTeam[i], newTeam[i - 1]]
+                        setDraftTeamOrder(newTeam, 'p1')
+                        setSelectedOrderIdx(null)
+                      }}
+                      style={{
+                        background: i === 0 ? 'transparent' : 'rgba(255,255,255,0.06)',
+                        border: `1px solid ${i === 0 ? 'transparent' : 'rgba(255,255,255,0.15)'}`,
+                        borderRadius: 6,
+                        color: i === 0 ? 'transparent' : '#94a3b8',
+                        fontSize: 12,
+                        cursor: i === 0 ? 'default' : 'pointer',
+                        padding: '4px 10px',
+                        lineHeight: 1,
+                        transition: 'all 0.1s',
+                      }}
+                    >◀</button>
+                    <button
+                      disabled={i === draftTeamA.length - 1}
+                      onClick={e => {
+                        e.stopPropagation()
+                        const newTeam = [...draftTeamA]
+                        ;[newTeam[i], newTeam[i + 1]] = [newTeam[i + 1], newTeam[i]]
+                        setDraftTeamOrder(newTeam, 'p1')
+                        setSelectedOrderIdx(null)
+                      }}
+                      style={{
+                        background: i === draftTeamA.length - 1 ? 'transparent' : 'rgba(255,255,255,0.06)',
+                        border: `1px solid ${i === draftTeamA.length - 1 ? 'transparent' : 'rgba(255,255,255,0.15)'}`,
+                        borderRadius: 6,
+                        color: i === draftTeamA.length - 1 ? 'transparent' : '#94a3b8',
+                        fontSize: 12,
+                        cursor: i === draftTeamA.length - 1 ? 'default' : 'pointer',
+                        padding: '4px 10px',
+                        lineHeight: 1,
+                        transition: 'all 0.1s',
+                      }}
+                    >▶</button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Direction hint */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            marginTop: 20,
+            animation: 'orderCardIn 0.5s cubic-bezier(0.22,1,0.36,1) 0.2s both',
+          }}>
+            <div style={{ color: '#22c55e', fontSize: 11, fontWeight: 700 }}>⚔ FIRST OUT</div>
+            <div style={{
+              flex: 1,
+              height: 1,
+              width: 300,
+              background: 'linear-gradient(90deg, #22c55e55, #ef444455)',
+            }} />
+            <div style={{ color: '#ef4444', fontSize: 11, fontWeight: 700 }}>LAST RESORT ⚔</div>
+          </div>
+
+          {/* Confirm button */}
+          <button
+            onClick={lockInAction}
+            style={{
+              marginTop: 28,
+              padding: '14px 48px',
+              background: 'linear-gradient(135deg, #fbbf24, #d97706)',
+              border: 'none',
+              borderRadius: 12,
+              color: '#000',
+              fontSize: 16,
+              fontWeight: 900,
+              cursor: 'pointer',
+              letterSpacing: '0.08em',
+              boxShadow: '0 0 32px rgba(251,191,36,0.55), 0 4px 16px rgba(0,0,0,0.5)',
+              animation: 'orderCardIn 0.5s cubic-bezier(0.22,1,0.36,1) 0.25s both, glowPulse 2s ease infinite 0.75s',
+              transition: 'transform 0.1s',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.04)')}
+            onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+          >
+            ⚔ LOCK IN ORDER — LET'S BATTLE
+          </button>
+        </div>
+      )}
+
+      {/* ── Draft Pick Reveal Overlay ── */}
+      {draftReveal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 100,
+          background: 'rgba(0,0,0,0.8)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          pointerEvents: 'none',
+          animation: 'fadeIn 0.1s ease forwards',
+        }}>
+          <img
+            src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${draftReveal.creatureId}.png`}
+            alt={draftReveal.creatureName}
+            style={{
+              width: 192,
+              height: 192,
+              imageRendering: 'pixelated',
+              animation: 'pokeballPop 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards',
+              filter: 'drop-shadow(0 0 30px rgba(255,255,255,0.6))',
+            }}
+          />
+          <div style={{
+            fontSize: 26,
+            fontWeight: 900,
+            color: '#fff',
+            textShadow: '0 0 20px rgba(255,255,255,0.5)',
+            letterSpacing: '0.05em',
+            textTransform: 'uppercase',
+            marginTop: 8,
+            fontFamily: 'Impact, Arial Black, sans-serif',
+            animation: 'fadeIn 0.2s ease 0.15s both',
+          }}>
+            {draftReveal.trainerName} chose {draftReveal.creatureName}!
+          </div>
+        </div>
+      )}
+
+      {/* ── Info Panel (slide in from right) ── */}
+      {infoCreature && (
+        <div
+          onClick={() => setInfoCreature(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.7)',
+            zIndex: 9000,
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'stretch',
+            justifyContent: 'flex-end',
+            animation: 'fadeIn 0.15s ease forwards',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              width: 320,
+              background: '#0d0d20',
+              borderLeft: `3px solid ${TYPE_COLORS[infoCreature.types[0]] ?? '#7c3aed'}`,
+              padding: '24px 20px',
+              overflowY: 'auto',
+              animation: 'slideInRight 0.2s cubic-bezier(0.22,1,0.36,1) forwards',
+              boxShadow: `-8px 0 48px rgba(0,0,0,0.8), 0 0 60px ${TYPE_COLORS[infoCreature.types[0]] ?? '#7c3aed'}33`,
+            }}
+          >
+            {/* Close */}
+            <button
+              onClick={() => setInfoCreature(null)}
+              style={{
+                position: 'absolute',
+                top: 14,
+                right: 16,
+                background: 'none',
+                border: 'none',
+                color: '#64748b',
+                fontSize: 20,
+                cursor: 'pointer',
+                lineHeight: 1,
+              }}
+            >✕</button>
+
+            {/* Big sprite */}
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+              <img
+                src={infoCreature.spriteUrl}
+                alt={infoCreature.name}
+                style={{
+                  width: 160,
+                  height: 160,
+                  imageRendering: 'pixelated',
+                  objectFit: 'contain',
+                  objectPosition: 'center',
+                  marginLeft: 24,
+                  filter: `drop-shadow(0 0 16px ${TYPE_COLORS[infoCreature.types[0]] ?? '#7c3aed'}88)`,
+                }}
+              />
+            </div>
+
+            {/* Name + types */}
+            <div style={{ textAlign: 'center', marginBottom: 18 }}>
+              <div style={{
+                fontFamily: 'Impact, Arial Black, sans-serif',
+                fontSize: 24,
+                color: '#f1f5f9',
+                marginBottom: 8,
+                letterSpacing: '0.06em',
+              }}>
+                {infoCreature.name.toUpperCase()}
+              </div>
+              <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+                {infoCreature.types.map(t => (
+                  <span key={t} style={{
+                    fontSize: 11,
+                    padding: '3px 10px',
+                    borderRadius: 10,
+                    background: `${TYPE_COLORS[t] ?? '#666'}33`,
+                    color: TYPE_COLORS[t] ?? '#aaa',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    border: `1px solid ${TYPE_COLORS[t] ?? '#666'}55`,
+                  }}>{t}</span>
+                ))}
+              </div>
+              <div style={{
+                marginTop: 10,
+                fontSize: 16,
+                fontWeight: 800,
+                color: '#fbbf24',
+              }}>
+                {infoCreature.pointCost} pts
+              </div>
+            </div>
+
+            {/* Stats */}
+            <div style={{ marginBottom: 18 }}>
+              <div style={{ fontSize: 10, color: '#475569', fontWeight: 700, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                BASE STATS
+              </div>
+              {[
+                { label: 'HP',  value: infoCreature.baseHp,  max: 106, color: '#22c55e' },
+                { label: 'ATK', value: infoCreature.baseAtk, max: 134, color: '#f97316' },
+                { label: 'DEF', value: infoCreature.baseDef, max: 130, color: '#3b82f6' },
+                { label: 'SPE', value: infoCreature.baseSpe, max: 130, color: '#a855f7' },
+              ].map(stat => {
+                const pct = Math.min(100, (stat.value / stat.max) * 100)
+                return (
+                  <div key={stat.label} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
+                    <div style={{ width: 36, fontSize: 10, color: '#94a3b8', fontWeight: 700 }}>{stat.label}</div>
+                    <div style={{
+                      flex: 1,
+                      height: 7,
+                      background: 'rgba(255,255,255,0.06)',
+                      borderRadius: 4,
+                      overflow: 'hidden',
+                    }}>
+                      <div style={{
+                        height: '100%',
+                        width: `${pct}%`,
+                        background: stat.color,
+                        borderRadius: 4,
+                        boxShadow: `0 0 6px ${stat.color}88`,
+                        transition: 'width 0.5s ease',
+                      }} />
+                    </div>
+                    <div style={{ width: 28, fontSize: 11, color: '#e2e8f0', fontWeight: 700, textAlign: 'right' }}>
+                      {stat.value}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Moves */}
+            <div>
+              <div style={{ fontSize: 10, color: '#475569', fontWeight: 700, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                MOVE POOL
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                {infoCreature.movePool.map(moveId => {
+                  const move = MOVES.find(m => m.id === moveId)
+                  if (!move) return null
+                  const tc = TYPE_COLORS[move.type] ?? '#9ca3af'
+                  return (
+                    <div key={moveId} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      background: 'rgba(255,255,255,0.03)',
+                      borderRadius: 8,
+                      padding: '6px 10px',
+                      border: `1px solid ${tc}22`,
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                        <span style={{
+                          fontSize: 8,
+                          padding: '2px 6px',
+                          borderRadius: 5,
+                          background: `${tc}33`,
+                          color: tc,
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                        }}>{move.type}</span>
+                        <span style={{ fontSize: 12, color: '#e2e8f0', fontWeight: 600 }}>{move.name}</span>
+                        {(move as { ultimateFlag?: boolean }).ultimateFlag && (
+                          <span style={{ fontSize: 8, color: '#fbbf24', fontWeight: 800 }}>★ ULT</span>
+                        )}
+                      </div>
+                      <span style={{ fontSize: 11, color: move.power > 0 ? '#f97316' : '#64748b', fontWeight: 700 }}>
+                        {move.power > 0 ? `${move.power}` : 'STATUS'}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function TypePill({ label, active, color, onClick }: {
+  label: string; active: boolean; color: string; onClick: () => void
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        padding: '4px 10px',
+        background: active ? color : `${color}22`,
+        border: `1px solid ${active ? color : `${color}55`}`,
+        borderRadius: 20,
+        color: active ? '#fff' : '#c7d0dd',
+        fontSize: 10,
+        cursor: 'pointer',
+        fontWeight: active ? 800 : 500,
+        textTransform: 'capitalize' as const,
+        letterSpacing: '0.04em',
+        whiteSpace: 'nowrap' as const,
+        boxShadow: active ? `0 0 8px ${color}66` : 'none',
+        flexShrink: 0,
+        transition: 'all 0.15s',
+      }}
+    >
+      {label}
+    </button>
+  )
+}
+
+function BattlefieldPokemon({ creature, index }: { creature: Creature; index: number }) {
+  const typeColor = TYPE_COLORS[creature.types[0]] ?? '#7c3aed'
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        flexShrink: 0,
+        animation: `pokemonEnter 0.45s cubic-bezier(0.34,1.56,0.64,1) ${index * 0.1}s both`,
+        position: 'relative',
+      }}
+    >
+      {/* Pokémon sprite — big, no drop shadow */}
+      <img
+        src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${creature.id}.png`}
+        alt={creature.name}
+        style={{
+          width: 180,
+          height: 180,
+          imageRendering: 'pixelated' as const,
+          objectFit: 'contain',
+        }}
+      />
+      {/* Pokéball on the ground */}
+      <div style={{
+        position: 'relative',
+        marginTop: -8,
+        zIndex: 2,
+      }}>
+        {/* Pokéball SVG */}
+        <svg width="22" height="22" viewBox="0 0 22 22" style={{ display: 'block' }}>
+          {/* Top half — red */}
+          <path d="M2,11 A9,9 0 0,1 20,11 Z" fill="#e53e3e" stroke="#1a1a1a" strokeWidth="1.2"/>
+          {/* Bottom half — white */}
+          <path d="M2,11 A9,9 0 0,0 20,11 Z" fill="#f7f7f7" stroke="#1a1a1a" strokeWidth="1.2"/>
+          {/* Center line */}
+          <line x1="2" y1="11" x2="20" y2="11" stroke="#1a1a1a" strokeWidth="1.5"/>
+          {/* Center circle outer */}
+          <circle cx="11" cy="11" r="3.2" fill="#f7f7f7" stroke="#1a1a1a" strokeWidth="1.2"/>
+          {/* Center circle inner */}
+          <circle cx="11" cy="11" r="1.4" fill={typeColor} />
+        </svg>
+      </div>
+      {/* Name label */}
+      <div style={{
+        fontSize: 9,
+        fontWeight: 700,
+        color: 'rgba(255,255,255,0.75)',
+        marginTop: 3,
+        letterSpacing: '0.05em',
+        textShadow: '0 1px 4px rgba(0,0,0,0.9)',
+        textTransform: 'uppercase' as const,
+      }}>
+        {creature.name}
+      </div>
+    </div>
+  )
+}
+
+function PixelCloud() {
+  return (
+    <div style={{ position: 'relative', width: 80, height: 30 }}>
+      <div style={{
+        position: 'absolute',
+        bottom: 0,
+        left: 10,
+        right: 10,
+        height: 14,
+        background: 'rgba(200,210,255,0.9)',
+        borderRadius: 3,
+      }} />
+      <div style={{
+        position: 'absolute',
+        bottom: 10,
+        left: 20,
+        width: 24,
+        height: 18,
+        background: 'rgba(200,210,255,0.9)',
+        borderRadius: 3,
+      }} />
+      <div style={{
+        position: 'absolute',
+        bottom: 10,
+        left: 36,
+        width: 18,
+        height: 14,
+        background: 'rgba(200,210,255,0.9)',
+        borderRadius: 3,
+      }} />
+    </div>
+  )
+}
