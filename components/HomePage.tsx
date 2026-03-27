@@ -61,45 +61,32 @@ export default function HomePage() {
   };
 
   return (
-    // Outer: full viewport, black background, centers the image box
-    <div className="h-screen w-screen overflow-hidden bg-black flex items-center justify-center">
-      {/*
-        Inner: maintains exact 3:2 aspect ratio of the image (1536×1024).
-        - maxWidth: 150vh ensures it never gets taller than the screen.
-        - w-full ensures it fills the width when viewport is narrower.
-        All overlays are % of THIS box so they track the image perfectly.
-      */}
-      <div
-        className="relative w-full"
-        style={{ aspectRatio: '3 / 2', maxWidth: '150vh' }}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/NewBackground.png"
-          alt="Arena 151 — Draft Battle Conquer"
-          className="absolute inset-0 w-full h-full select-none"
-          style={{ objectFit: 'fill' }}
-          draggable={false}
-        />
+    <div className="h-screen w-screen overflow-hidden relative">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/NewBackground.png"
+        alt="Arena 151 — Draft Battle Conquer"
+        className="absolute inset-0 w-full h-full select-none"
+        style={{ objectFit: 'cover', objectPosition: 'center center' }}
+        draggable={false}
+      />
 
-        {/* Enter Arena — invisible click zone, no visual effects */}
-        <button
-          onClick={handleEnterArena}
-          aria-label="Enter the Arena"
-          className="absolute"
-          style={{
-            top: '84%',
-            left: '33%',
-            width: '34%',
-            height: '9%',
-            background: 'transparent',
-            border: 'none',
-            cursor: 'pointer',
-          }}
-        />
-
-
-      </div>
+      {/* Enter Arena — invisible click zone, tracks center of image */}
+      <button
+        onClick={handleEnterArena}
+        aria-label="Enter the Arena"
+        className="absolute"
+        style={{
+          top: '84%',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: '34%',
+          height: '9%',
+          background: 'transparent',
+          border: 'none',
+          cursor: 'pointer',
+        }}
+      />
     </div>
   );
 }
