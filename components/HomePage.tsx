@@ -71,17 +71,16 @@ export default function HomePage() {
         draggable={false}
       />
 
-      {/* Enter Arena — invisible click zone, tracks center of image */}
+      {/* Enter Arena — invisible click zone over the button in the image */}
       <button
         onClick={handleEnterArena}
         aria-label="Enter the Arena"
         className="absolute"
         style={{
-          top: '84%',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          width: '34%',
-          height: '9%',
+          top: '48%',
+          left: '39%',
+          width: '22%',
+          height: '10%',
           background: 'transparent',
           border: 'none',
           cursor: 'pointer',
