@@ -88,10 +88,9 @@ export default function HomePage() {
           aria-label="Enter the Arena"
           className="absolute"
           style={{
-            bottom: '4%',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: '30%',
+            top: '84%',
+            left: '33%',
+            width: '34%',
             height: '9%',
             background: 'transparent',
             border: 'none',
