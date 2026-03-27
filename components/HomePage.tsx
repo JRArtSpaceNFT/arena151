@@ -80,66 +80,78 @@ export default function HomePage() {
   };
 
   return (
-    <div className="h-screen overflow-hidden relative bg-black">
-      {/* Hero Image — covers the full screen, anchored to bottom so Enter Arena button stays visible */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src="/home-hero.png"
-        alt="Arena 151 — Draft Battle Conquer"
-        className="absolute inset-0 w-full h-full object-cover select-none"
-        style={{ objectPosition: 'center top' }}
-        draggable={false}
-      />
-
-      {/* Invisible clickable overlay over the "ENTER THE ARENA" button in the image — no visual effects */}
-      <button
-        onClick={handleEnterArena}
-        aria-label="Enter the Arena"
-        className="absolute"
-        style={{
-          bottom: '2%',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          width: '32%',
-          height: '9%',
-          background: 'transparent',
-          border: 'none',
-          cursor: 'pointer',
-        }}
-      />
-
-      {/* Live Activity Feed — overlaid at TOP so it never covers the Enter Arena button */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4, duration: 0.6 }}
-        className="absolute top-4 left-1/2 -translate-x-1/2 w-full max-w-xl px-4"
+    // Outer: full viewport, black background, centers the image box
+    <div className="h-screen w-screen overflow-hidden bg-black flex items-center justify-center">
+      {/*
+        Inner: maintains exact 3:2 aspect ratio of the image (1536×1024).
+        - maxWidth: 150vh ensures it never gets taller than the screen.
+        - w-full ensures it fills the width when viewport is narrower.
+        All overlays are % of THIS box so they track the image perfectly.
+      */}
+      <div
+        className="relative w-full"
+        style={{ aspectRatio: '3 / 2', maxWidth: '150vh' }}
       >
-        <div className="rounded-xl px-3 py-2 overflow-hidden"
-          style={{ background: 'rgba(10,15,30,0.75)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)' }}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/home-hero.png"
+          alt="Arena 151 — Draft Battle Conquer"
+          className="absolute inset-0 w-full h-full select-none"
+          style={{ objectFit: 'fill' }}
+          draggable={false}
+        />
+
+        {/* Enter Arena — invisible click zone, no visual effects */}
+        <button
+          onClick={handleEnterArena}
+          aria-label="Enter the Arena"
+          className="absolute"
+          style={{
+            bottom: '4%',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: '30%',
+            height: '9%',
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+          }}
+        />
+
+        {/* Live Activity — overlaid near top of image */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4, duration: 0.6 }}
+          className="absolute top-3 left-1/2 -translate-x-1/2 w-2/3"
         >
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-            <span className="text-xs font-bold text-green-400 uppercase tracking-wide">Live Activity</span>
-            <span className="ml-auto text-xs text-slate-400">247 trainers online</span>
+          <div
+            className="rounded-xl px-3 py-2 overflow-hidden"
+            style={{ background: 'rgba(10,15,30,0.75)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)' }}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+              <span className="text-xs font-bold text-green-400 uppercase tracking-wide">Live Activity</span>
+              <span className="ml-auto text-xs text-slate-400">247 trainers online</span>
+            </div>
+            <div className="h-6 flex items-center overflow-hidden">
+              <motion.div
+                key={liveIdx}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.35 }}
+                className="flex items-center gap-2 text-sm w-full"
+              >
+                <span className="text-base">{LIVE_EVENTS[liveIdx].emoji}</span>
+                <span className="font-bold text-blue-300">{LIVE_EVENTS[liveIdx].trainer}</span>
+                <span className="text-slate-400">{LIVE_EVENTS[liveIdx].action}</span>
+                <span className="font-semibold text-slate-200">{LIVE_EVENTS[liveIdx].detail}</span>
+              </motion.div>
+            </div>
           </div>
-          <div className="h-6 flex items-center overflow-hidden">
-            <motion.div
-              key={liveIdx}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.35 }}
-              className="flex items-center gap-2 text-sm w-full"
-            >
-              <span className="text-base">{LIVE_EVENTS[liveIdx].emoji}</span>
-              <span className="font-bold text-blue-300">{LIVE_EVENTS[liveIdx].trainer}</span>
-              <span className="text-slate-400">{LIVE_EVENTS[liveIdx].action}</span>
-              <span className="font-semibold text-slate-200">{LIVE_EVENTS[liveIdx].detail}</span>
-            </motion.div>
-          </div>
-        </div>
-      </motion.div>
+        </motion.div>
+      </div>
     </div>
   );
 }
