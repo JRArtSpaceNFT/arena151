@@ -81,43 +81,39 @@ export default function HomePage() {
 
   return (
     <div className="h-screen overflow-hidden relative bg-black">
-      {/* Hero Image — covers the full screen */}
+      {/* Hero Image — covers the full screen, anchored to bottom so Enter Arena button stays visible */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/home-hero.png"
         alt="Arena 151 — Draft Battle Conquer"
-        className="absolute inset-0 w-full h-full object-cover object-center select-none"
+        className="absolute inset-0 w-full h-full object-cover select-none"
+        style={{ objectPosition: 'center top' }}
         draggable={false}
       />
 
-      {/* Invisible clickable overlay over the "ENTER THE ARENA" button in the image */}
+      {/* Invisible clickable overlay over the "ENTER THE ARENA" button in the image — no visual effects */}
       <button
         onClick={handleEnterArena}
         aria-label="Enter the Arena"
-        className="absolute group"
+        className="absolute"
         style={{
-          top: '77%',
+          bottom: '2%',
           left: '50%',
           transform: 'translateX(-50%)',
           width: '32%',
-          height: '10%',
+          height: '9%',
           background: 'transparent',
           border: 'none',
           cursor: 'pointer',
         }}
-      >
-        <span
-          className="block w-full h-full rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-          style={{ boxShadow: '0 0 0 3px rgba(255,255,255,0.45), 0 0 18px 4px rgba(59,130,246,0.5)' }}
-        />
-      </button>
+      />
 
-      {/* Live Activity Feed — overlaid at bottom of screen */}
+      {/* Live Activity Feed — overlaid at TOP so it never covers the Enter Arena button */}
       <motion.div
-        initial={{ opacity: 0, y: 10 }}
+        initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4, duration: 0.6 }}
-        className="absolute bottom-4 left-1/2 -translate-x-1/2 w-full max-w-xl px-4"
+        className="absolute top-4 left-1/2 -translate-x-1/2 w-full max-w-xl px-4"
       >
         <div className="rounded-xl px-3 py-2 overflow-hidden"
           style={{ background: 'rgba(10,15,30,0.75)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)' }}
