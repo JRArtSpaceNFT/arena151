@@ -80,21 +80,18 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center bg-black">
-      {/* Hero Image — full width with clickable Enter Arena overlay */}
-      <div className="relative w-full">
+    <div className="h-screen flex flex-col bg-black overflow-hidden">
+      {/* Hero Image — fills all remaining space above the activity bar */}
+      <div className="relative flex-1 min-h-0">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/home-hero.png"
           alt="Arena 151 — Draft Battle Conquer"
-          className="w-full h-auto block select-none"
+          className="w-full h-full object-contain object-top select-none"
           draggable={false}
         />
 
-        {/* Invisible button over the "ENTER THE ARENA" button in the image.
-            Position is tuned to the image layout:
-            - The button sits at ~77–87% from the top, centered horizontally
-            - Width covers the pill button (~30% of image width) */}
+        {/* Invisible clickable overlay over the "ENTER THE ARENA" button in the image */}
         <button
           onClick={handleEnterArena}
           aria-label="Enter the Arena"
@@ -110,7 +107,6 @@ export default function HomePage() {
             cursor: 'pointer',
           }}
         >
-          {/* Subtle hover ring so users know it's clickable */}
           <span
             className="block w-full h-full rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"
             style={{ boxShadow: '0 0 0 3px rgba(255,255,255,0.45), 0 0 18px 4px rgba(59,130,246,0.5)' }}
@@ -118,20 +114,20 @@ export default function HomePage() {
         </button>
       </div>
 
-      {/* Live Activity Feed */}
+      {/* Live Activity Feed — fixed strip at bottom */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4, duration: 0.6 }}
-        className="w-full max-w-xl mx-auto px-4 py-4"
+        className="flex-shrink-0 w-full max-w-xl mx-auto px-4 py-2"
       >
-        <div className="glass-panel rounded-xl p-3 overflow-hidden">
-          <div className="flex items-center gap-2 mb-2">
+        <div className="glass-panel rounded-xl px-3 py-2 overflow-hidden">
+          <div className="flex items-center gap-2 mb-1">
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
             <span className="text-xs font-bold text-green-400 uppercase tracking-wide">Live Activity</span>
             <span className="ml-auto text-xs text-slate-500">247 trainers online</span>
           </div>
-          <div className="h-8 flex items-center overflow-hidden">
+          <div className="h-6 flex items-center overflow-hidden">
             <motion.div
               key={liveIdx}
               initial={{ opacity: 0, y: 8 }}
