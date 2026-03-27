@@ -67,7 +67,7 @@ export default function HomePage() {
         src="/NewBackground2.png"
         alt="Arena 151 — Draft Battle Conquer"
         className="absolute inset-0 w-full h-full select-none"
-        style={{ objectFit: 'cover', objectPosition: 'center center' }}
+        style={{ objectFit: 'contain', objectPosition: 'center center' }}
         draggable={false}
       />
 
