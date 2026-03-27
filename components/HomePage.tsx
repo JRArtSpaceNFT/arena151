@@ -75,7 +75,7 @@ export default function HomePage() {
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/home-hero.png"
+          src="/NewBackground.png"
           alt="Arena 151 — Draft Battle Conquer"
           className="absolute inset-0 w-full h-full select-none"
           style={{ objectFit: 'fill' }}
