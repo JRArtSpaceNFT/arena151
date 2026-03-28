@@ -64,7 +64,7 @@ export default function HomePage() {
     <div className="h-screen w-screen overflow-hidden relative">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/BackgroundFinal55.png"
+        src="/Perfect.png"
         alt="Arena 151 — Draft Battle Conquer"
         className="absolute inset-0 w-full h-full select-none"
         style={{ objectFit: 'contain', objectPosition: 'center center' }}
