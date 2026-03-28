@@ -62,6 +62,18 @@ function getBgGradient(wins: number) {
   return 'from-blue-950 via-teal-950 to-slate-950';
 }
 
+// ─── Gym Badge definitions (5 wins each, in order) ───────────────────────────
+const GYM_BADGES = [
+  { name: 'Boulder Badge', file: '/BoulderBadge.png', wins: 5 },
+  { name: 'Cascade Badge', file: '/CascadeBadge.png', wins: 10 },
+  { name: 'Thunder Badge', file: '/ThunderBadge.png', wins: 15 },
+  { name: 'Rainbow Badge', file: '/RainbowBadge.png', wins: 20 },
+  { name: 'Soul Badge',    file: '/SoulBadge.png',    wins: 25 },
+  { name: 'Marsh Badge',   file: '/MarshBadge.png',   wins: 30 },
+  { name: 'Volcano Badge', file: '/VolcanoBadge.png', wins: 35 },
+  { name: 'Earth Badge',   file: '/EarthBadge.png',   wins: 40 },
+];
+
 // ─── Static mock battle history ──────────────────────────────────────────────
 const MOCK_BATTLES = [
   { opponent: 'TrainerRed', result: 'win' as const },
@@ -95,6 +107,26 @@ export default function TrainerProfile() {
   // ── avatar picker ──
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── badge announcement ──
+  const [badgeAnnouncement, setBadgeAnnouncement] = useState<number | null>(null); // index into GYM_BADGES
+
+  // Check on mount if player just crossed a badge threshold
+  const prevWinsRef = useRef<number | null>(null);
+  if (currentTrainer && prevWinsRef.current === null) {
+    // On first render: check if wins just hit a badge milestone (within the last 5 wins)
+    const wins = currentTrainer.record.wins;
+    const badgeIdx = GYM_BADGES.findIndex(b => wins === b.wins);
+    if (badgeIdx !== -1) {
+      // Show announcement once — use sessionStorage so it only fires once per login
+      const key = `badge_announced_${badgeIdx}`;
+      if (typeof window !== 'undefined' && !sessionStorage.getItem(key)) {
+        sessionStorage.setItem(key, '1');
+        setTimeout(() => setBadgeAnnouncement(badgeIdx), 800);
+      }
+    }
+    prevWinsRef.current = wins;
+  }
 
   // ── wallet ──
   const [walletView, setWalletView] = useState<WalletView>(null);
@@ -216,6 +248,74 @@ export default function TrainerProfile() {
 
   return (
     <div className={`min-h-screen relative overflow-hidden bg-gradient-to-b ${bgGradient}`}>
+
+      {/* ── Badge Unlock Announcement ──────────────────────── */}
+      <AnimatePresence>
+        {badgeAnnouncement !== null && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+            onClick={() => setBadgeAnnouncement(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.5, y: 60 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.5, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+              className="text-center px-10 py-12 rounded-3xl max-w-sm mx-4"
+              style={{
+                background: 'linear-gradient(135deg, rgba(15,15,40,0.98), rgba(30,15,60,0.98))',
+                border: `2px solid ${typeColor}`,
+                boxShadow: `0 0 60px ${typeColor}55, 0 0 120px ${typeColor}22`,
+              }}
+              onClick={e => e.stopPropagation()}
+            >
+              <motion.div
+                animate={{ rotate: [0, -8, 8, -8, 8, 0], scale: [1, 1.2, 1.2, 1.2, 1.2, 1] }}
+                transition={{ duration: 0.8, delay: 0.3 }}
+                className="text-6xl mb-4"
+              >
+                🎉
+              </motion.div>
+              <h2 className="text-3xl font-black text-white mb-1">LEVEL UP!</h2>
+              <p className="text-lg font-bold mb-6" style={{ color: typeColor }}>
+                You reached Level {getTrainerLevel(wins)}!
+              </p>
+              <div className="relative mb-6">
+                <motion.div
+                  className="absolute inset-0 rounded-full blur-2xl"
+                  style={{ background: typeColor, opacity: 0.4 }}
+                  animate={{ opacity: [0.3, 0.6, 0.3] }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={GYM_BADGES[badgeAnnouncement].file}
+                  alt={GYM_BADGES[badgeAnnouncement].name}
+                  className="w-28 h-28 mx-auto object-contain relative z-10"
+                />
+              </div>
+              <p className="text-yellow-300 font-black text-xl mb-1">
+                🏅 {GYM_BADGES[badgeAnnouncement].name} Earned!
+              </p>
+              <p className="text-slate-400 text-sm mb-8">
+                You're unstoppable, Trainer. Keep battling!
+              </p>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setBadgeAnnouncement(null)}
+                className="px-8 py-3 rounded-xl font-black text-white text-sm uppercase tracking-wide"
+                style={{ background: `linear-gradient(135deg, ${typeColor}, #6366f1)` }}
+              >
+                Let's Go! ⚡
+              </motion.button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Floating particle dots ─────────────────────────── */}
       {PARTICLES.map((p, i) => (
@@ -504,6 +604,63 @@ export default function TrainerProfile() {
               </div>
             </div>
           </div>
+        </motion.div>
+
+        {/* ── Gym Badges ─────────────────────────────────────── */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.12 }}
+          className="rounded-2xl p-6"
+          style={{
+            background: 'rgba(15,15,25,0.65)',
+            backdropFilter: 'blur(24px)',
+            WebkitBackdropFilter: 'blur(24px)',
+            border: '1px solid rgba(255,255,255,0.08)',
+          }}
+        >
+          <h2 className="text-xl font-bold flex items-center gap-2 mb-5">
+            <span className="text-2xl">🏅</span>
+            Gym Badges
+            <span className="ml-auto text-sm font-normal text-slate-400">{Math.min(8, Math.floor(wins / 5))}/8 earned</span>
+          </h2>
+          <div className="grid grid-cols-4 md:grid-cols-8 gap-4">
+            {GYM_BADGES.map((badge, idx) => {
+              const earned = wins >= badge.wins;
+              return (
+                <motion.div
+                  key={badge.name}
+                  whileHover={{ scale: earned ? 1.1 : 1.03 }}
+                  className="flex flex-col items-center gap-2"
+                  title={earned ? badge.name : `${badge.name} — Win ${badge.wins} battles to unlock`}
+                >
+                  <div className="relative">
+                    {earned && (
+                      <motion.div
+                        className="absolute inset-0 rounded-full blur-md"
+                        style={{ background: typeColor, opacity: 0.5 }}
+                        animate={{ opacity: [0.35, 0.65, 0.35] }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                      />
+                    )}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={badge.file}
+                      alt={badge.name}
+                      className="w-14 h-14 object-contain relative z-10 transition-all duration-300"
+                      style={earned ? {} : { filter: 'grayscale(100%) brightness(0.25)', opacity: 0.5 }}
+                    />
+                  </div>
+                  <p className={`text-xs font-bold text-center leading-tight ${earned ? 'text-yellow-300' : 'text-slate-600'}`}>
+                    {badge.name.replace(' Badge', '')}
+                  </p>
+                </motion.div>
+              );
+            })}
+          </div>
+          {wins < 5 && (
+            <p className="text-center text-xs text-slate-500 mt-4">Win 5 battles to earn your first badge!</p>
+          )}
         </motion.div>
 
         {/* ── Battle Funds (Wallet) ─────────────────────────── */}
@@ -884,9 +1041,6 @@ export default function TrainerProfile() {
                     <span className="text-xl">{isWin ? '🏆' : '💀'}</span>
                     <div>
                       <p className="font-bold text-white text-sm">vs {battle.opponent}</p>
-                      <p className="text-xs text-slate-500">
-                        Pokémon: <span className="text-slate-400">{currentTrainer.favoritePokemon.name}</span>
-                      </p>
                     </div>
                   </div>
                   <span
