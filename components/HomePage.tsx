@@ -61,19 +61,19 @@ export default function HomePage() {
       setTimeout(() => {
         audio.pause();
         audio.currentTime = 0;
-      }, 2000);
+      }, 2500);
     } catch (e) {
       // audio not critical
     }
 
-    // Navigate after the full 2s sound plays
+    // Navigate after the full sound plays
     setTimeout(() => {
       if (currentTrainer) {
         setScreen('draft-mode-intro');
       } else {
         setScreen('signup');
       }
-    }, 2000);
+    }, 2500);
   };
 
   return (
