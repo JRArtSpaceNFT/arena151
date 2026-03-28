@@ -77,7 +77,7 @@ export default function HomePage() {
         aria-label="Enter the Arena"
         className="absolute"
         style={{
-          top: '48%',
+          top: '42%',
           left: '39%',
           width: '22%',
           height: '10%',
