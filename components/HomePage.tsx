@@ -53,11 +53,27 @@ export default function HomePage() {
   }, []);
 
   const handleEnterArena = () => {
-    if (currentTrainer) {
-      setScreen('draft-mode-intro');
-    } else {
-      setScreen('signup');
+    // Play only the first 2 seconds of the Pikachu sound
+    try {
+      const audio = new Audio('/pikachu sounds.mp3');
+      audio.currentTime = 0;
+      audio.play();
+      setTimeout(() => {
+        audio.pause();
+        audio.currentTime = 0;
+      }, 2000);
+    } catch (e) {
+      // audio not critical
     }
+
+    // Navigate after a brief moment so the sound starts before transition
+    setTimeout(() => {
+      if (currentTrainer) {
+        setScreen('draft-mode-intro');
+      } else {
+        setScreen('signup');
+      }
+    }, 300);
   };
 
   return (
