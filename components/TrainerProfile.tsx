@@ -63,15 +63,17 @@ function getBgGradient(wins: number) {
 }
 
 // ─── Gym Badge definitions (5 wins each, in order) ───────────────────────────
+// Badge thresholds: first at 5 wins, last at 100 wins, evenly spaced
+// 5, 19, 33, 47, 61, 75, 89, 100  (approx equal gaps of ~13-14)
 const GYM_BADGES = [
-  { name: 'Boulder Badge', file: '/BoulderBadge.png', wins: 5 },
-  { name: 'Cascade Badge', file: '/CascadeBadge.png', wins: 10 },
-  { name: 'Thunder Badge', file: '/ThunderBadge.png', wins: 15 },
-  { name: 'Rainbow Badge', file: '/RainbowBadge.png', wins: 20 },
-  { name: 'Soul Badge',    file: '/SoulBadge.png',    wins: 25 },
-  { name: 'Marsh Badge',   file: '/MarshBadge.png',   wins: 30 },
-  { name: 'Volcano Badge', file: '/VolcanoBadge.png', wins: 35 },
-  { name: 'Earth Badge',   file: '/EarthBadge.png',   wins: 40 },
+  { name: 'Boulder Badge', file: '/BoulderBadge.png', wins: 5   },
+  { name: 'Cascade Badge', file: '/CascadeBadge.png', wins: 19  },
+  { name: 'Thunder Badge', file: '/ThunderBadge.png', wins: 33  },
+  { name: 'Rainbow Badge', file: '/RainbowBadge.png', wins: 47  },
+  { name: 'Soul Badge',    file: '/SoulBadge.png',    wins: 61  },
+  { name: 'Marsh Badge',   file: '/MarshBadge.png',   wins: 75  },
+  { name: 'Volcano Badge', file: '/VolcanoBadge.png', wins: 89  },
+  { name: 'Earth Badge',   file: '/EarthBadge.png',   wins: 100 },
 ];
 
 // ─── Static mock battle history ──────────────────────────────────────────────
@@ -473,28 +475,9 @@ export default function TrainerProfile() {
                   </div>
                   <p className={`text-base font-bold ${titleColor} mb-1`}>{trainerTitle}</p>
 
-                  {/* Username + rank badge */}
+                  {/* Username */}
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-slate-400">@{currentTrainer.username}</span>
-                    {rankInfo.isRainbow ? (
-                      <span
-                        className="px-2 py-0.5 rounded-full text-xs font-black"
-                        style={{
-                          background: 'linear-gradient(90deg,#ff6b6b,#ffd93d,#6bcb77,#4d96ff,#cc5de8)',
-                          color: '#fff',
-                          boxShadow: '0 0 8px rgba(255,150,50,0.6)',
-                        }}
-                      >
-                        ★ {rankInfo.label}
-                      </span>
-                    ) : (
-                      <span
-                        className="px-2 py-0.5 rounded-full text-xs font-black"
-                        style={{ color: rankInfo.color, border: `1px solid ${rankInfo.color}`, boxShadow: `0 0 6px ${rankInfo.color}55` }}
-                      >
-                        ★ {rankInfo.label}
-                      </span>
-                    )}
                   </div>
                 </div>
 
@@ -533,6 +516,9 @@ export default function TrainerProfile() {
                     <span className="text-xs font-semibold uppercase">Wins</span>
                   </div>
                   <p className="text-2xl font-black text-green-300">{wins}</p>
+                  {earnings > 0 && (
+                    <p className="text-xs text-green-500 mt-0.5">+${(earnings * SOL_PRICE_USD).toFixed(2)} earned</p>
+                  )}
                 </motion.div>
 
                 {/* Losses */}
@@ -550,6 +536,9 @@ export default function TrainerProfile() {
                     <span className="text-xs font-semibold uppercase">Losses</span>
                   </div>
                   <p className="text-2xl font-black text-red-300">{currentTrainer.record.losses}</p>
+                  {earnings < 0 && (
+                    <p className="text-xs text-red-500 mt-0.5">${(earnings * SOL_PRICE_USD).toFixed(2)} lost</p>
+                  )}
                 </motion.div>
 
                 {/* P&L */}
@@ -604,63 +593,6 @@ export default function TrainerProfile() {
               </div>
             </div>
           </div>
-        </motion.div>
-
-        {/* ── Gym Badges ─────────────────────────────────────── */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.12 }}
-          className="rounded-2xl p-6"
-          style={{
-            background: 'rgba(15,15,25,0.65)',
-            backdropFilter: 'blur(24px)',
-            WebkitBackdropFilter: 'blur(24px)',
-            border: '1px solid rgba(255,255,255,0.08)',
-          }}
-        >
-          <h2 className="text-xl font-bold flex items-center gap-2 mb-5">
-            <span className="text-2xl">🏅</span>
-            Gym Badges
-            <span className="ml-auto text-sm font-normal text-slate-400">{Math.min(8, Math.floor(wins / 5))}/8 earned</span>
-          </h2>
-          <div className="grid grid-cols-4 md:grid-cols-8 gap-4">
-            {GYM_BADGES.map((badge, idx) => {
-              const earned = wins >= badge.wins;
-              return (
-                <motion.div
-                  key={badge.name}
-                  whileHover={{ scale: earned ? 1.1 : 1.03 }}
-                  className="flex flex-col items-center gap-2"
-                  title={earned ? badge.name : `${badge.name} — Win ${badge.wins} battles to unlock`}
-                >
-                  <div className="relative">
-                    {earned && (
-                      <motion.div
-                        className="absolute inset-0 rounded-full blur-md"
-                        style={{ background: typeColor, opacity: 0.5 }}
-                        animate={{ opacity: [0.35, 0.65, 0.35] }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                      />
-                    )}
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={badge.file}
-                      alt={badge.name}
-                      className="w-14 h-14 object-contain relative z-10 transition-all duration-300"
-                      style={earned ? {} : { filter: 'grayscale(100%) brightness(0.25)', opacity: 0.5 }}
-                    />
-                  </div>
-                  <p className={`text-xs font-bold text-center leading-tight ${earned ? 'text-yellow-300' : 'text-slate-600'}`}>
-                    {badge.name.replace(' Badge', '')}
-                  </p>
-                </motion.div>
-              );
-            })}
-          </div>
-          {wins < 5 && (
-            <p className="text-center text-xs text-slate-500 mt-4">Win 5 battles to earn your first badge!</p>
-          )}
         </motion.div>
 
         {/* ── Battle Funds (Wallet) ─────────────────────────── */}
@@ -996,6 +928,60 @@ export default function TrainerProfile() {
               </motion.div>
             )}
           </AnimatePresence>
+        </motion.div>
+
+        {/* ── Gym Badges ─────────────────────────────────────── */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.12 }}
+          className="rounded-2xl p-6"
+          style={{
+            background: 'rgba(15,15,25,0.65)',
+            backdropFilter: 'blur(24px)',
+            WebkitBackdropFilter: 'blur(24px)',
+            border: '1px solid rgba(255,255,255,0.08)',
+          }}
+        >
+          <h2 className="text-xl font-bold flex items-center gap-2 mb-5">
+            Gym Badges
+            <span className="ml-auto text-sm font-normal text-slate-400">{GYM_BADGES.filter(b => wins >= b.wins).length}/8 earned</span>
+          </h2>
+          <div className="grid grid-cols-4 md:grid-cols-8 gap-4">
+            {GYM_BADGES.map((badge, idx) => {
+              const earned = wins >= badge.wins;
+              return (
+                <motion.div
+                  key={badge.name}
+                  whileHover={{ scale: earned ? 1.1 : 1.03 }}
+                  className="flex flex-col items-center gap-2"
+                  title={earned ? badge.name : `${badge.name} — Win ${badge.wins} battles to unlock`}
+                >
+                  <div className="relative">
+                    {earned && (
+                      <motion.div
+                        className="absolute inset-0 rounded-full blur-md"
+                        style={{ background: typeColor, opacity: 0.5 }}
+                        animate={{ opacity: [0.35, 0.65, 0.35] }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                      />
+                    )}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={badge.file}
+                      alt={badge.name}
+                      className="w-14 h-14 object-contain relative z-10 transition-all duration-300"
+                      style={earned ? {} : { filter: 'grayscale(100%) brightness(0.25)', opacity: 0.5 }}
+                    />
+                  </div>
+                  <p className={`text-xs font-bold text-center leading-tight ${earned ? 'text-yellow-300' : 'text-slate-600'}`}>
+                    {badge.name.replace(' Badge', '')}
+                  </p>
+                </motion.div>
+              );
+            })}
+          </div>
+
         </motion.div>
 
         {/* ── Recent Battles ─────────────────────────────────── */}
