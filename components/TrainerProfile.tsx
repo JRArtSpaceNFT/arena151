@@ -2,7 +2,10 @@
 
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trophy, Target, Heart, Wallet, ArrowLeft, Copy, Check, LogOut, Camera, Upload, AlertTriangle, ArrowDown, X, ShieldAlert, TrendingUp, TrendingDown } from 'lucide-react';
+import {
+  Trophy, Target, Wallet, ArrowLeft, Copy, Check, LogOut, Camera, Upload,
+  AlertTriangle, ArrowDown, X, ShieldAlert, TrendingUp, TrendingDown, Heart,
+} from 'lucide-react';
 import { useArenaStore } from '@/lib/store';
 import { TYPE_COLORS } from '@/lib/constants';
 import { getPokemonSpriteUrl } from '@/lib/pokemon-data';
@@ -20,6 +23,71 @@ const isValidSolAddress = (addr: string) => /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test
 
 type WalletView = 'deposit' | 'withdraw' | null;
 type WithdrawStep = 'form' | 'confirm' | 'success';
+
+// ─── Trainer rank helpers ────────────────────────────────────────────────────
+function getTrainerLevel(wins: number) {
+  return Math.min(99, Math.floor(wins / 5) + 1);
+}
+
+function getTrainerTitle(wins: number) {
+  if (wins >= 30) return 'Champion';
+  if (wins >= 15) return 'Elite Contender';
+  if (wins >= 5) return 'Gym Challenger';
+  return 'Rookie Trainer';
+}
+
+function getTitleColor(wins: number) {
+  if (wins >= 30) return 'text-yellow-400';
+  if (wins >= 15) return 'text-cyan-400';
+  if (wins >= 5) return 'text-purple-400';
+  return 'text-slate-400';
+}
+
+type RankInfo = { label: string; color: string; isRainbow?: boolean };
+function getRankInfo(wins: number): RankInfo {
+  if (wins >= 50) return { label: 'Champion', color: '#ffd700', isRainbow: true };
+  if (wins >= 30) return { label: 'Elite', color: 'cyan' };
+  if (wins >= 15) return { label: 'Gold', color: '#ffd700' };
+  if (wins >= 5) return { label: 'Silver', color: '#c0c0c0' };
+  return { label: 'Bronze', color: '#cd7f32' };
+}
+
+function getBgGradient(wins: number) {
+  if (wins >= 15) {
+    return 'from-orange-950 via-red-950 to-slate-950';
+  }
+  if (wins >= 5) {
+    return 'from-indigo-950 via-purple-950 to-slate-950';
+  }
+  return 'from-blue-950 via-teal-950 to-slate-950';
+}
+
+// ─── Static mock battle history ──────────────────────────────────────────────
+const MOCK_BATTLES = [
+  { opponent: 'TrainerRed', result: 'win' as const },
+  { opponent: 'GaryOak', result: 'loss' as const },
+  { opponent: 'MistyW', result: 'win' as const },
+  { opponent: 'BrockS', result: 'loss' as const },
+  { opponent: 'DragonTamer', result: 'win' as const },
+];
+
+// ─── Floating particle data (fixed to avoid hydration mismatch) ───────────────
+const PARTICLES = [
+  { x: '8%',  y: '12%', size: 3, duration: 6,  delay: 0   },
+  { x: '22%', y: '34%', size: 2, duration: 8,  delay: 1   },
+  { x: '41%', y: '8%',  size: 4, duration: 7,  delay: 0.5 },
+  { x: '57%', y: '25%', size: 2, duration: 9,  delay: 2   },
+  { x: '73%', y: '15%', size: 3, duration: 6,  delay: 1.5 },
+  { x: '88%', y: '40%', size: 2, duration: 8,  delay: 0.8 },
+  { x: '15%', y: '65%', size: 3, duration: 7,  delay: 3   },
+  { x: '32%', y: '78%', size: 2, duration: 10, delay: 1.2 },
+  { x: '50%', y: '55%', size: 4, duration: 6,  delay: 2.5 },
+  { x: '67%', y: '70%', size: 2, duration: 9,  delay: 0.3 },
+  { x: '80%', y: '82%', size: 3, duration: 7,  delay: 1.8 },
+  { x: '95%', y: '60%', size: 2, duration: 8,  delay: 0.6 },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function TrainerProfile() {
   const { currentTrainer, setScreen, setTrainer, clearTrainer, testingMode } = useArenaStore();
@@ -135,60 +203,117 @@ export default function TrainerProfile() {
 
   if (!currentTrainer) return null;
 
+  const wins = currentTrainer.record.wins;
+  const trainerLevel = getTrainerLevel(wins);
+  const trainerTitle = getTrainerTitle(wins);
+  const titleColor = getTitleColor(wins);
+  const rankInfo = getRankInfo(wins);
+  const bgGradient = getBgGradient(wins);
+  const partnerType = currentTrainer.favoritePokemon.types[0];
+  const typeColor = TYPE_COLORS[partnerType] ?? '#6366f1';
+  const earnings = currentTrainer.earnings ?? 0;
+  const isProfit = earnings >= 0;
+
   return (
-    <div className="min-h-screen p-8 pokeball-pattern relative overflow-hidden">
-      {/* Ambient effects */}
-      <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-blue-500/10 rounded-full blur-3xl" />
-      <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-purple-500/10 rounded-full blur-3xl" />
+    <div className={`min-h-screen relative overflow-hidden bg-gradient-to-b ${bgGradient}`}>
 
-      <div className="relative z-10 max-w-5xl mx-auto">
+      {/* ── Floating particle dots ─────────────────────────── */}
+      {PARTICLES.map((p, i) => (
+        <motion.div
+          key={i}
+          className="absolute rounded-full pointer-events-none"
+          style={{
+            left: p.x,
+            top: p.y,
+            width: p.size,
+            height: p.size,
+            background: typeColor,
+            opacity: 0.35,
+          }}
+          animate={{ y: [0, -18, 0], opacity: [0.25, 0.5, 0.25] }}
+          transition={{ duration: p.duration, delay: p.delay, repeat: Infinity, ease: 'easeInOut' }}
+        />
+      ))}
 
-        {/* Top nav */}
-        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="mb-6 flex items-center justify-between">
-          <button
+      {/* Ambient glows */}
+      <div className="absolute top-0 right-0 w-[600px] h-[600px] rounded-full blur-3xl opacity-20"
+        style={{ background: `radial-gradient(circle, ${typeColor}, transparent)` }} />
+      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-slate-900/60 rounded-full blur-3xl" />
+
+      <div className="relative z-10 max-w-5xl mx-auto px-4 py-8">
+
+        {/* ── Top nav ─────────────────────────────────────── */}
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="mb-6 flex items-center justify-between"
+        >
+          <motion.button
+            whileTap={{ scale: 0.97 }}
             onClick={() => setScreen('draft-mode-intro')}
-            className="flex items-center gap-2 glass-panel px-4 py-2 rounded-lg hover:border-blue-500/50 transition-all"
+            className="flex items-center gap-2 bg-black/30 backdrop-blur-md border border-white/10 px-4 py-2 rounded-xl hover:border-white/30 transition-all text-slate-200"
           >
             <ArrowLeft className="w-5 h-5" />Back to Arena
-          </button>
-          <button
+          </motion.button>
+          <motion.button
+            whileTap={{ scale: 0.97 }}
             onClick={handleLogout}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-700 text-slate-400 hover:text-red-400 hover:border-red-500/50 transition-all text-sm"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-black/30 backdrop-blur-md border border-slate-700 text-slate-400 hover:text-red-400 hover:border-red-500/50 transition-all text-sm"
           >
             <LogOut className="w-4 h-4" />Sign Out
-          </button>
+          </motion.button>
         </motion.div>
 
-        {/* ── Profile Header ─────────────────────────────── */}
+        {/* ── Trainer Card ─────────────────────────────────── */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="glass-panel rounded-2xl p-8 mb-6 relative overflow-hidden"
+          className="rounded-2xl p-8 mb-6 relative overflow-hidden"
+          style={{
+            background: 'rgba(15,15,25,0.65)',
+            backdropFilter: 'blur(24px)',
+            WebkitBackdropFilter: 'blur(24px)',
+            border: `1.5px solid ${typeColor}55`,
+            boxShadow: `0 8px 40px ${typeColor}22, 0 2px 8px rgba(0,0,0,0.5)`,
+          }}
         >
-          {/* Favorite Pokémon glow */}
+          {/* Partner type glow behind card */}
           <div
-            className="absolute top-0 right-0 w-96 h-96 opacity-10 blur-3xl"
-            style={{ background: `radial-gradient(circle, ${TYPE_COLORS[currentTrainer.favoritePokemon.types[0]]}, transparent)` }}
+            className="absolute top-0 right-0 w-96 h-96 opacity-10 blur-3xl pointer-events-none"
+            style={{ background: `radial-gradient(circle, ${typeColor}, transparent)` }}
           />
 
           <div className="relative z-10 flex flex-col md:flex-row gap-8">
-            {/* Avatar */}
-            <div className="flex-shrink-0 relative">
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                onClick={() => setShowAvatarPicker(true)}
-                className="w-40 h-40 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-800 border-4 border-blue-500 shadow-xl shadow-blue-500/30 overflow-hidden cursor-pointer relative group"
-              >
-                {currentTrainer.avatar?.startsWith('data:') || currentTrainer.avatar?.startsWith('/') ? (
-                  <img src={currentTrainer.avatar} alt="Avatar" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-7xl">{currentTrainer.avatar || '🧑‍🦱'}</div>
-                )}
-                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
-                  <Camera className="w-8 h-8 text-white" />
-                  <span className="text-xs text-white font-bold">Change Photo</span>
-                </div>
-              </motion.div>
+
+            {/* ── Avatar ──────────────────────────────────── */}
+            <div className="flex-shrink-0 relative flex flex-col items-center gap-3">
+              {/* Glowing aura ring */}
+              <div className="relative">
+                <motion.div
+                  className="absolute inset-0 rounded-full"
+                  style={{ boxShadow: `0 0 24px 8px ${typeColor}88`, border: `2px solid ${typeColor}66` }}
+                  animate={{ opacity: [0.5, 1, 0.5], scale: [1, 1.06, 1] }}
+                  transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
+                />
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  onClick={() => setShowAvatarPicker(true)}
+                  className="w-40 h-40 rounded-full overflow-hidden cursor-pointer relative group border-4"
+                  style={{ borderColor: typeColor }}
+                >
+                  {currentTrainer.avatar?.startsWith('data:') || currentTrainer.avatar?.startsWith('/') ? (
+                    <img src={currentTrainer.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-7xl">
+                      {currentTrainer.avatar || '🧑‍🦱'}
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 rounded-full">
+                    <Camera className="w-8 h-8 text-white" />
+                    <span className="text-xs text-white font-bold">Change Photo</span>
+                  </div>
+                </motion.div>
+              </div>
 
               {/* Avatar picker modal */}
               <AnimatePresence>
@@ -232,96 +357,174 @@ export default function TrainerProfile() {
               </AnimatePresence>
             </div>
 
-            {/* Info */}
+            {/* ── Trainer Identity ─────────────────────────── */}
             <div className="flex-1">
-              <div className="flex items-start justify-between mb-4">
+              {/* Name + level badge */}
+              <div className="flex items-start justify-between mb-2 flex-wrap gap-3">
                 <div>
-                  <h1 className="text-4xl font-black mb-2">{currentTrainer.displayName}</h1>
-                  <p className="text-lg text-blue-400">@{currentTrainer.username}</p>
+                  <div className="flex items-center gap-3 mb-1 flex-wrap">
+                    <h1 className="text-4xl font-black text-white">{currentTrainer.displayName}</h1>
+                    <span
+                      className="px-3 py-1 rounded-full text-sm font-black text-white"
+                      style={{ background: typeColor, boxShadow: `0 0 12px ${typeColor}88` }}
+                    >
+                      LVL {trainerLevel}
+                    </span>
+                  </div>
+                  <p className={`text-base font-bold ${titleColor} mb-1`}>{trainerTitle}</p>
+
+                  {/* Username + rank badge */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-slate-400">@{currentTrainer.username}</span>
+                    {rankInfo.isRainbow ? (
+                      <span
+                        className="px-2 py-0.5 rounded-full text-xs font-black"
+                        style={{
+                          background: 'linear-gradient(90deg,#ff6b6b,#ffd93d,#6bcb77,#4d96ff,#cc5de8)',
+                          color: '#fff',
+                          boxShadow: '0 0 8px rgba(255,150,50,0.6)',
+                        }}
+                      >
+                        ★ {rankInfo.label}
+                      </span>
+                    ) : (
+                      <span
+                        className="px-2 py-0.5 rounded-full text-xs font-black"
+                        style={{ color: rankInfo.color, border: `1px solid ${rankInfo.color}`, boxShadow: `0 0 6px ${rankInfo.color}55` }}
+                      >
+                        ★ {rankInfo.label}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="glass-panel px-4 py-2 rounded-lg">
-                  <div className="flex items-center gap-2 text-sm">
+
+                <div
+                  className="px-4 py-2 rounded-xl text-sm"
+                  style={{
+                    background: 'rgba(0,0,0,0.4)',
+                    border: `1px solid ${typeColor}44`,
+                  }}
+                >
+                  <div className="flex items-center gap-2">
                     <Wallet className="w-4 h-4 text-purple-400" />
-                    <span className="font-bold">{currentTrainer.balance.toFixed(3)} SOL</span>
+                    <span className="font-bold text-white">{currentTrainer.balance.toFixed(3)} SOL</span>
                   </div>
                 </div>
               </div>
 
               {currentTrainer.bio && (
-                <p className="text-slate-300 mb-6 max-w-2xl">{currentTrainer.bio}</p>
+                <p className="text-slate-300 mb-5 max-w-2xl">{currentTrainer.bio}</p>
               )}
 
-              {/* Stats + Favorite Pokémon */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="glass-panel p-4 rounded-lg">
+              {/* ── Stats — Game Badge Style ─────────────────── */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {/* Wins */}
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  className="p-4 rounded-xl"
+                  style={{
+                    background: 'rgba(0,0,0,0.4)',
+                    border: '1px solid rgba(74,222,128,0.35)',
+                    boxShadow: '0 0 12px rgba(74,222,128,0.12)',
+                  }}
+                >
                   <div className="flex items-center gap-2 mb-1 text-green-400">
                     <Trophy className="w-4 h-4" />
                     <span className="text-xs font-semibold uppercase">Wins</span>
                   </div>
-                  <p className="text-2xl font-black">{currentTrainer.record.wins}</p>
-                </div>
-                <div className="glass-panel p-4 rounded-lg">
+                  <p className="text-2xl font-black text-green-300">{wins}</p>
+                </motion.div>
+
+                {/* Losses */}
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  className="p-4 rounded-xl"
+                  style={{
+                    background: 'rgba(0,0,0,0.4)',
+                    border: '1px solid rgba(248,113,113,0.25)',
+                    boxShadow: '0 0 12px rgba(248,113,113,0.08)',
+                  }}
+                >
                   <div className="flex items-center gap-2 mb-1 text-red-400">
                     <Target className="w-4 h-4" />
                     <span className="text-xs font-semibold uppercase">Losses</span>
                   </div>
-                  <p className="text-2xl font-black">{currentTrainer.record.losses}</p>
-                </div>
-                {/* P&L card */}
-                {(() => {
-                  const earnings = currentTrainer.earnings ?? 0;
-                  const isProfit = earnings >= 0;
-                  return (
-                    <div className="glass-panel p-4 rounded-lg">
-                      <div className={`flex items-center gap-2 mb-1 ${isProfit ? 'text-green-400' : 'text-red-400'}`}>
-                        {isProfit ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-                        <span className="text-xs font-semibold uppercase">P&amp;L</span>
-                      </div>
-                      <p className={`text-2xl font-black ${isProfit ? 'text-green-400' : 'text-red-400'}`}>
-                        {isProfit ? '+' : ''}{earnings.toFixed(3)}
-                      </p>
-                      <p className="text-xs text-slate-500 mt-0.5">SOL</p>
-                      <p className={`text-xs mt-0.5 ${isProfit ? 'text-green-600' : 'text-red-600'}`}>
-                        {isProfit ? '+' : ''}${(earnings * SOL_PRICE_USD).toFixed(2)} USD
-                      </p>
-                    </div>
-                  );
-                })()}
-                <div className="glass-panel p-4 rounded-lg flex flex-col items-center justify-center gap-1 relative overflow-hidden">
-                  <div
-                    className="absolute inset-0 opacity-10"
-                    style={{ background: `radial-gradient(circle, ${TYPE_COLORS[currentTrainer.favoritePokemon.types[0]]}, transparent)` }}
-                  />
-                  <div className="flex items-center gap-2 mb-1 text-yellow-400 relative z-10">
-                    <Heart className="w-4 h-4 fill-yellow-400" />
-                    <span className="text-xs font-semibold uppercase">Favorite</span>
+                  <p className="text-2xl font-black text-red-300">{currentTrainer.record.losses}</p>
+                </motion.div>
+
+                {/* P&L */}
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  className="p-4 rounded-xl"
+                  style={{
+                    background: 'rgba(0,0,0,0.4)',
+                    border: isProfit ? '1px solid rgba(74,222,128,0.35)' : '1px solid rgba(248,113,113,0.35)',
+                    boxShadow: isProfit ? '0 0 12px rgba(74,222,128,0.12)' : '0 0 12px rgba(248,113,113,0.12)',
+                  }}
+                >
+                  <div className={`flex items-center gap-2 mb-1 ${isProfit ? 'text-green-400' : 'text-red-400'}`}>
+                    {isProfit ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                    <span className="text-xs font-semibold uppercase">P&amp;L</span>
                   </div>
-                  <img
+                  <p className={`text-2xl font-black ${isProfit ? 'text-green-300' : 'text-red-300'}`}>
+                    {isProfit ? '+' : ''}{earnings.toFixed(3)}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-0.5">SOL</p>
+                  <p className={`text-xs mt-0.5 ${isProfit ? 'text-green-500' : 'text-red-500'}`}>
+                    {isProfit ? '+' : ''}${(earnings * SOL_PRICE_USD).toFixed(2)} USD
+                  </p>
+                </motion.div>
+
+                {/* Partner Pokémon */}
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  className="p-4 rounded-xl flex flex-col items-center justify-center gap-1 relative overflow-hidden"
+                  style={{
+                    background: 'rgba(0,0,0,0.4)',
+                    border: `1px solid ${typeColor}55`,
+                    boxShadow: `0 0 16px ${typeColor}22`,
+                  }}
+                >
+                  <div className="absolute inset-0 opacity-10 pointer-events-none"
+                    style={{ background: `radial-gradient(circle, ${typeColor}, transparent)` }} />
+                  <div className="flex items-center gap-2 mb-1 relative z-10" style={{ color: typeColor }}>
+                    <Heart className="w-4 h-4 fill-current" />
+                    <span className="text-xs font-semibold uppercase">Partner</span>
+                  </div>
+                  <motion.img
                     src={getPokemonSpriteUrl(currentTrainer.favoritePokemon.id)}
                     alt={currentTrainer.favoritePokemon.name}
-                    className="w-12 h-12 object-contain relative z-10"
-                    style={{ imageRendering: 'pixelated' }}
+                    className="w-20 h-20 object-contain relative z-10"
+                    style={{ imageRendering: 'pixelated', filter: `drop-shadow(0 0 8px ${typeColor})` }}
+                    animate={{ y: [0, -5, 0] }}
+                    transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
                   />
                   <p className="text-xs font-bold relative z-10 text-white">{currentTrainer.favoritePokemon.name}</p>
-                </div>
+                </motion.div>
               </div>
             </div>
           </div>
         </motion.div>
 
-        {/* ── Wallet Section ─────────────────────────────── */}
+        {/* ── Battle Funds (Wallet) ─────────────────────────── */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-slate-900/50 backdrop-blur-xl border border-slate-800/50 rounded-2xl overflow-hidden"
+          className="rounded-2xl overflow-hidden mb-6"
+          style={{
+            background: 'rgba(15,15,25,0.65)',
+            backdropFilter: 'blur(24px)',
+            WebkitBackdropFilter: 'blur(24px)',
+            border: '1px solid rgba(255,255,255,0.08)',
+          }}
         >
           {/* Wallet header with paired action buttons */}
-          <div className="p-6 border-b border-slate-800/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="p-6 border-b border-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
               <h2 className="text-xl font-bold flex items-center gap-2">
                 <Wallet className="w-5 h-5 text-purple-400" />
-                Wallet
+                Battle Funds
               </h2>
               <p className="text-sm text-slate-400 mt-0.5">
                 Balance: <span className="font-bold text-white">{currentTrainer.balance.toFixed(4)} SOL</span>
@@ -333,30 +536,38 @@ export default function TrainerProfile() {
 
             {/* Paired deposit / withdraw CTAs */}
             <div className="flex gap-2">
-              <button
+              <motion.button
+                whileTap={{ scale: 0.97 }}
                 onClick={() => openWalletView('deposit')}
-                className={`px-5 py-2.5 rounded-lg font-bold text-sm transition-all flex items-center gap-2 ${
+                className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 ${
                   walletView === 'deposit'
-                    ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/40'
+                    ? 'text-white shadow-lg shadow-purple-500/40'
                     : 'bg-slate-800 border border-slate-700 text-slate-300 hover:border-purple-500/60 hover:text-purple-300'
                 }`}
+                style={walletView === 'deposit' ? {
+                  background: 'linear-gradient(135deg,#7c3aed,#6d28d9)',
+                } : {}}
               >
                 <ArrowDown className="w-4 h-4" />
-                Deposit SOL
-              </button>
-              <button
+                Add Battle Funds
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.97 }}
                 onClick={() => openWalletView('withdraw')}
                 disabled={testingMode}
                 title={testingMode ? 'Withdrawals disabled in testing mode' : undefined}
-                className={`px-5 py-2.5 rounded-lg font-bold text-sm transition-all flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed ${
+                className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed ${
                   walletView === 'withdraw'
-                    ? 'bg-orange-600 text-white shadow-lg shadow-orange-500/40'
+                    ? 'text-white shadow-lg shadow-orange-500/40'
                     : 'bg-slate-800 border border-slate-700 text-slate-300 hover:border-orange-500/60 hover:text-orange-300'
                 }`}
+                style={walletView === 'withdraw' ? {
+                  background: 'linear-gradient(135deg,#ea580c,#c2410c)',
+                } : {}}
               >
                 <ArrowDown className="w-4 h-4 rotate-180" />
-                Withdraw SOL
-              </button>
+                Withdraw Winnings
+              </motion.button>
             </div>
           </div>
 
@@ -450,12 +661,13 @@ export default function TrainerProfile() {
                       </p>
                       <p className="font-mono text-sm text-slate-400 break-all max-w-md mx-auto mb-6">{withdrawAddr}</p>
                       <p className="text-slate-500 text-sm mb-8">You received {netAmount.toFixed(4)} SOL after the {WITHDRAWAL_FEE_SOL} SOL network fee.</p>
-                      <button
+                      <motion.button
+                        whileTap={{ scale: 0.97 }}
                         onClick={handleWithdrawClose}
-                        className="px-8 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-bold transition-all"
+                        className="px-8 py-3 bg-slate-700 hover:bg-slate-600 rounded-xl font-bold transition-all"
                       >
                         Done
-                      </button>
+                      </motion.button>
                     </motion.div>
                   )}
 
@@ -508,18 +720,21 @@ export default function TrainerProfile() {
                       </div>
 
                       <div className="flex gap-3">
-                        <button
+                        <motion.button
+                          whileTap={{ scale: 0.97 }}
                           onClick={() => setWithdrawStep('form')}
-                          className="flex-1 py-3 rounded-lg border border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200 font-bold transition-all"
+                          className="flex-1 py-3 rounded-xl border border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200 font-bold transition-all"
                         >
                           ← Go Back
-                        </button>
-                        <button
+                        </motion.button>
+                        <motion.button
+                          whileTap={{ scale: 0.97 }}
                           onClick={handleWithdrawConfirm}
-                          className="flex-1 py-3 rounded-lg bg-orange-600 hover:bg-orange-500 font-black text-white transition-all shadow-lg shadow-orange-500/30"
+                          className="flex-1 py-3 rounded-xl font-black text-white transition-all shadow-lg shadow-orange-500/30"
+                          style={{ background: 'linear-gradient(135deg,#ea580c,#c2410c)' }}
                         >
                           Confirm Withdrawal
-                        </button>
+                        </motion.button>
                       </div>
                     </motion.div>
                   )}
@@ -610,18 +825,81 @@ export default function TrainerProfile() {
                         </div>
                       )}
 
-                      <button
+                      <motion.button
+                        whileTap={{ scale: 0.97 }}
                         onClick={handleWithdrawNext}
-                        className="w-full py-3 rounded-lg bg-orange-600 hover:bg-orange-500 font-black text-white transition-all shadow-lg shadow-orange-500/30"
+                        className="w-full py-3 rounded-xl font-black text-white transition-all shadow-lg shadow-orange-500/30"
+                        style={{ background: 'linear-gradient(135deg,#ea580c,#c2410c)' }}
                       >
                         Review Withdrawal →
-                      </button>
+                      </motion.button>
                     </motion.div>
                   )}
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
+        </motion.div>
+
+        {/* ── Recent Battles ─────────────────────────────────── */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="rounded-2xl overflow-hidden"
+          style={{
+            background: 'rgba(15,15,25,0.65)',
+            backdropFilter: 'blur(24px)',
+            WebkitBackdropFilter: 'blur(24px)',
+            border: '1px solid rgba(255,255,255,0.08)',
+          }}
+        >
+          <div className="p-6 border-b border-white/5">
+            <h2 className="text-xl font-bold flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-yellow-400" />
+              Recent Battles
+            </h2>
+          </div>
+
+          <div className="divide-y divide-white/5">
+            {MOCK_BATTLES.map((battle, idx) => {
+              const isWin = battle.result === 'win';
+              return (
+                <motion.div
+                  key={idx}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.25 + idx * 0.07 }}
+                  className="flex items-center justify-between px-6 py-4"
+                  style={{
+                    borderLeft: isWin
+                      ? '3px solid rgba(74,222,128,0.7)'
+                      : '3px solid rgba(248,113,113,0.7)',
+                    boxShadow: isWin
+                      ? 'inset 4px 0 12px rgba(74,222,128,0.06)'
+                      : 'inset 4px 0 12px rgba(248,113,113,0.06)',
+                  }}
+                >
+                  <div className="flex items-center gap-4">
+                    <span className="text-xl">{isWin ? '🏆' : '💀'}</span>
+                    <div>
+                      <p className="font-bold text-white text-sm">vs {battle.opponent}</p>
+                      <p className="text-xs text-slate-500">
+                        Pokémon: <span className="text-slate-400">{currentTrainer.favoritePokemon.name}</span>
+                      </p>
+                    </div>
+                  </div>
+                  <span
+                    className={`text-xs font-black px-3 py-1 rounded-full ${
+                      isWin ? 'bg-green-500/15 text-green-400' : 'bg-red-500/15 text-red-400'
+                    }`}
+                  >
+                    {isWin ? 'WIN' : 'LOSS'}
+                  </span>
+                </motion.div>
+              );
+            })}
+          </div>
         </motion.div>
 
       </div>
