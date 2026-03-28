@@ -66,14 +66,14 @@ export default function HomePage() {
       // audio not critical
     }
 
-    // Navigate after a brief moment so the sound starts before transition
+    // Navigate after the full 2s sound plays
     setTimeout(() => {
       if (currentTrainer) {
         setScreen('draft-mode-intro');
       } else {
         setScreen('signup');
       }
-    }, 300);
+    }, 2000);
   };
 
   return (
