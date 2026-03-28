@@ -242,11 +242,7 @@ export default function SignupFlow() {
             </div>
           </div>
 
-          <div className="text-center mt-6">
-            <button onClick={() => setScreen('home')} className="text-slate-500 hover:text-slate-300 text-sm transition-colors">
-              ← Back to home
-            </button>
-          </div>
+
         </motion.div>
       </div>
     );
