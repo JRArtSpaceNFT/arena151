@@ -63,42 +63,42 @@ export default function DraftModeIntro() {
       <div className="absolute inset-0 flex items-end justify-center pb-[10%]">
         <div className="relative w-full max-w-[1584px] mx-auto" style={{ aspectRatio: '1584/656' }}>
 
-          {/* ENTER THE ARENA — green button, nudged left + down */}
+          {/* ENTER THE ARENA — green button */}
           <button
             onClick={() => currentTrainer ? setScreen('room-select') : setScreen('signup')}
             aria-label="Enter the Arena"
-            className="absolute cursor-pointer rounded-md transition-all hover:bg-white/10 active:bg-white/20 focus:outline-none focus:ring-2 focus:ring-green-400/60"
+            className="absolute cursor-pointer rounded-lg transition-all hover:bg-white/10 active:bg-white/20 focus:outline-none focus:ring-2 focus:ring-green-400/60"
             style={{
-              left: '18%',
-              top: '83%',
-              width: '17%',
-              height: '9.5%',
+              left: '25.3%',
+              top: '71.6%',
+              width: '15.2%',
+              height: '7.9%',
             }}
           />
 
-          {/* VIEW PROFILE — blue button, center, down */}
+          {/* VIEW PROFILE — blue button */}
           <button
             onClick={() => setScreen(currentTrainer ? 'profile' : 'signup')}
             aria-label="View Profile"
-            className="absolute cursor-pointer rounded-md transition-all hover:bg-white/10 active:bg-white/20 focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+            className="absolute cursor-pointer rounded-lg transition-all hover:bg-white/10 active:bg-white/20 focus:outline-none focus:ring-2 focus:ring-blue-400/60"
             style={{
-              left: '40.9%',
-              top: '83%',
-              width: '14.2%',
-              height: '9.5%',
+              left: '41.7%',
+              top: '71.6%',
+              width: '12.6%',
+              height: '7.9%',
             }}
           />
 
-          {/* LEADERBOARD — gold button, nudged right + down */}
+          {/* LEADERBOARD — gold button */}
           <button
             onClick={() => setScreen('leaderboard')}
             aria-label="Leaderboard"
-            className="absolute cursor-pointer rounded-md transition-all hover:bg-white/10 active:bg-white/20 focus:outline-none focus:ring-2 focus:ring-amber-400/60"
+            className="absolute cursor-pointer rounded-lg transition-all hover:bg-white/10 active:bg-white/20 focus:outline-none focus:ring-2 focus:ring-amber-400/60"
             style={{
-              left: '60%',
-              top: '83%',
-              width: '17%',
-              height: '9.5%',
+              left: '55.6%',
+              top: '71.6%',
+              width: '13.3%',
+              height: '7.9%',
             }}
           />
 
