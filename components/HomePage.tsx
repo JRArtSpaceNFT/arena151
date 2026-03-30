@@ -53,27 +53,26 @@ export default function HomePage() {
   }, []);
 
   const handleEnterArena = () => {
-    // Play only the first 2 seconds of the Pikachu sound
-    try {
-      const audio = new Audio('/pikachu sounds.mp3');
-      audio.currentTime = 0;
-      audio.play();
-      setTimeout(() => {
-        audio.pause();
-        audio.currentTime = 0;
-      }, 3000);
-    } catch (e) {
-      // audio not critical
-    }
-
-    // Navigate after the full sound plays
-    setTimeout(() => {
+    const navigate = () => {
       if (currentTrainer) {
         setScreen('draft-mode-intro');
       } else {
         setScreen('signup');
       }
-    }, 3000);
+    };
+
+    try {
+      const audio = new Audio('/pikachu sounds.mp3');
+      audio.currentTime = 0;
+      // Navigate as soon as the soundbite naturally finishes
+      audio.addEventListener('ended', navigate, { once: true });
+      // Fallback: navigate after 5s max in case audio fails to fire 'ended'
+      audio.addEventListener('error', navigate, { once: true });
+      audio.play().catch(() => navigate());
+    } catch (e) {
+      // If audio fails entirely, just navigate
+      navigate();
+    }
   };
 
   return (
