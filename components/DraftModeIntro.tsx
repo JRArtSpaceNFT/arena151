@@ -61,28 +61,28 @@ export default function DraftModeIntro() {
           Image is 1584×656, cover+top anchored, so image% == viewport% vertically.
           Buttons in image: y≈430–476 out of 656 = 65.5%–72.6% top. */}
 
-      {/* ENTER THE ARENA — green: x530-730, y635-680 out of 1948×807 */}
+      {/* ENTER THE ARENA — green */}
       <button
         onClick={() => currentTrainer ? setScreen('room-select') : setScreen('signup')}
         aria-label="Enter the Arena"
         className="absolute cursor-pointer focus:outline-none"
-        style={{ left: '27.2%', top: '78.7%', width: '10.3%', height: '6.5%' }}
+        style={{ left: '33%', top: '78.7%', width: '10.3%', height: '6.5%' }}
       />
 
-      {/* VIEW PROFILE — blue: x755-940, y635-680 */}
+      {/* VIEW PROFILE — blue */}
       <button
         onClick={() => setScreen(currentTrainer ? 'profile' : 'signup')}
         aria-label="View Profile"
         className="absolute cursor-pointer focus:outline-none"
-        style={{ left: '38.8%', top: '78.7%', width: '9.5%', height: '6.5%' }}
+        style={{ left: '44.5%', top: '78.7%', width: '9.5%', height: '6.5%' }}
       />
 
-      {/* LEADERBOARD — orange: x965-1140, y635-680 */}
+      {/* LEADERBOARD — orange */}
       <button
         onClick={() => setScreen('leaderboard')}
         aria-label="Leaderboard"
         className="absolute cursor-pointer focus:outline-none"
-        style={{ left: '49.5%', top: '78.7%', width: '9.0%', height: '6.5%' }}
+        style={{ left: '55.5%', top: '78.7%', width: '10%', height: '6.5%' }}
       />
 
       {/* Live Activity Feed — floats at very bottom */}
