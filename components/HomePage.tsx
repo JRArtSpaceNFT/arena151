@@ -64,9 +64,15 @@ export default function HomePage() {
     try {
       const audio = new Audio('/pikachu sounds.mp3');
       audio.currentTime = 0;
-      // Navigate as soon as the soundbite naturally finishes
-      audio.addEventListener('ended', navigate, { once: true });
-      // Fallback: navigate after 5s max in case audio fails to fire 'ended'
+      // Once we know the duration, cut it 0.5s early
+      audio.addEventListener('loadedmetadata', () => {
+        const cutAt = Math.max(0, audio.duration - 0.5) * 1000;
+        setTimeout(() => {
+          audio.pause();
+          navigate();
+        }, cutAt);
+      }, { once: true });
+      // Fallback if metadata never loads
       audio.addEventListener('error', navigate, { once: true });
       audio.play().catch(() => navigate());
     } catch (e) {
