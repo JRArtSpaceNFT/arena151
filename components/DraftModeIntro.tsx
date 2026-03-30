@@ -63,41 +63,41 @@ export default function DraftModeIntro() {
       <div className="absolute inset-0 flex items-end justify-center pb-[10%]">
         <div className="relative w-full max-w-[1584px] mx-auto" style={{ aspectRatio: '1584/656' }}>
 
-          {/* ENTER THE ARENA — green button, left ~22.4%, width ~16.7% */}
+          {/* ENTER THE ARENA — green button, nudged left + down */}
           <button
             onClick={() => currentTrainer ? setScreen('room-select') : setScreen('signup')}
             aria-label="Enter the Arena"
             className="absolute cursor-pointer rounded-md transition-all hover:bg-white/10 active:bg-white/20 focus:outline-none focus:ring-2 focus:ring-green-400/60"
             style={{
-              left: '22.4%',
-              top: '76.2%',
-              width: '16.7%',
+              left: '18%',
+              top: '83%',
+              width: '17%',
               height: '9.5%',
             }}
           />
 
-          {/* VIEW PROFILE — blue button, left ~40.9%, width ~14.2% */}
+          {/* VIEW PROFILE — blue button, center, down */}
           <button
             onClick={() => setScreen(currentTrainer ? 'profile' : 'signup')}
             aria-label="View Profile"
             className="absolute cursor-pointer rounded-md transition-all hover:bg-white/10 active:bg-white/20 focus:outline-none focus:ring-2 focus:ring-blue-400/60"
             style={{
               left: '40.9%',
-              top: '76.2%',
+              top: '83%',
               width: '14.2%',
               height: '9.5%',
             }}
           />
 
-          {/* LEADERBOARD — gold button, left ~56.9%, width ~14.9% */}
+          {/* LEADERBOARD — gold button, nudged right + down */}
           <button
             onClick={() => setScreen('leaderboard')}
             aria-label="Leaderboard"
             className="absolute cursor-pointer rounded-md transition-all hover:bg-white/10 active:bg-white/20 focus:outline-none focus:ring-2 focus:ring-amber-400/60"
             style={{
-              left: '56.9%',
-              top: '76.2%',
-              width: '14.9%',
+              left: '60%',
+              top: '83%',
+              width: '17%',
               height: '9.5%',
             }}
           />
