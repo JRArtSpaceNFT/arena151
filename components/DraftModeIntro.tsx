@@ -66,7 +66,7 @@ export default function DraftModeIntro() {
         onClick={() => currentTrainer ? setScreen('room-select') : setScreen('signup')}
         aria-label="Enter the Arena"
         className="absolute cursor-pointer focus:outline-none"
-        style={{ left: '45%', top: '78.7%', width: '10.3%', height: '6.5%' }}
+        style={{ left: '43%', top: '78.7%', width: '10.3%', height: '6.5%' }}
       />
 
       {/* VIEW PROFILE — blue */}
@@ -82,7 +82,7 @@ export default function DraftModeIntro() {
         onClick={() => setScreen('leaderboard')}
         aria-label="Leaderboard"
         className="absolute cursor-pointer focus:outline-none"
-        style={{ left: '67.5%', top: '78.7%', width: '10%', height: '6.5%' }}
+        style={{ left: '69.5%', top: '78.7%', width: '10%', height: '6.5%' }}
       />
 
       {/* Live Activity Feed — floats at very bottom */}
