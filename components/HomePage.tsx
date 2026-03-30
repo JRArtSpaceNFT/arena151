@@ -61,7 +61,7 @@ export default function HomePage() {
       setTimeout(() => {
         audio.pause();
         audio.currentTime = 0;
-      }, 2500);
+      }, 3000);
     } catch (e) {
       // audio not critical
     }
@@ -73,7 +73,7 @@ export default function HomePage() {
       } else {
         setScreen('signup');
       }
-    }, 2500);
+    }, 3000);
   };
 
   return (
