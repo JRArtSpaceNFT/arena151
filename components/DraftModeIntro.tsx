@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sword, Users, Trophy, Coins, ArrowRight, Medal, Zap, ChevronRight } from 'lucide-react';
 import { useArenaStore } from '@/lib/store';
 
 const LIVE_EVENTS = [
@@ -26,49 +25,6 @@ const LIVE_EVENTS = [
   { trainer: 'StarmieGod', action: 'just swept 4-0 at', detail: 'Cerulean Water Arena', emoji: '💧', color: 'text-blue-400' },
 ];
 
-const STEP_CARDS = [
-  {
-    icon: Users,
-    emoji: '👤',
-    title: 'Choose Trainer',
-    desc: 'Select your battle identity',
-    bg: 'from-blue-700 to-blue-900',
-    border: 'border-blue-400/60',
-    iconBg: 'bg-blue-500',
-    glow: 'shadow-blue-500/40',
-  },
-  {
-    icon: Sword,
-    emoji: '⚔️',
-    title: 'Build Team',
-    desc: 'Draft your perfect squad',
-    bg: 'from-red-700 to-red-900',
-    border: 'border-red-400/60',
-    iconBg: 'bg-red-500',
-    glow: 'shadow-red-500/40',
-  },
-  {
-    icon: Trophy,
-    emoji: '⭐',
-    title: 'Select Room',
-    desc: 'Pick your stakes',
-    bg: 'from-amber-600 to-yellow-900',
-    border: 'border-yellow-400/60',
-    iconBg: 'bg-amber-500',
-    glow: 'shadow-amber-500/40',
-  },
-  {
-    icon: Coins,
-    emoji: '🆚',
-    title: 'Face A Rival',
-    desc: 'Battle when matched',
-    bg: 'from-blue-700 to-indigo-900',
-    border: 'border-indigo-400/60',
-    iconBg: 'bg-indigo-500',
-    glow: 'shadow-indigo-500/40',
-  },
-];
-
 export default function DraftModeIntro() {
   const { currentTrainer, setScreen } = useArenaStore();
   const [liveIdx, setLiveIdx] = useState(0);
@@ -88,232 +44,103 @@ export default function DraftModeIntro() {
   const ev = LIVE_EVENTS[liveIdx];
 
   return (
-    <div
-      className="h-screen flex items-center justify-center p-4 relative overflow-hidden"
-      style={{
-        backgroundImage: 'url(/road-to-victory-bg.png)',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-      }}
-    >
-      {/* Dark overlay */}
-      <div className="absolute inset-0 bg-black/50" />
+    <div className="h-screen flex flex-col relative overflow-hidden bg-black">
 
-      <div className="relative z-10 w-full max-w-4xl flex flex-col items-center gap-5">
+      {/* Background image — fills screen, centered/cropped */}
+      <div
+        className="absolute inset-0"
+        style={{
+          backgroundImage: 'url(/road-to-victory-bg.png)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center top',
+          backgroundRepeat: 'no-repeat',
+        }}
+      />
 
-        {/* LIVE ARENA badge */}
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-          <div
-            className="inline-flex items-center gap-2 px-5 py-1.5 rounded-full text-xs font-black uppercase tracking-widest"
+      {/* Invisible hit zones — positioned to match the three buttons baked into the image.
+          The image is 1584×656. Buttons row is at ~76% top, ~9.5% tall.
+          We use a max-width container to match the image's aspect ratio scaling. */}
+      <div className="absolute inset-0 flex items-end justify-center pb-[10%]">
+        <div className="relative w-full max-w-[1584px] mx-auto" style={{ aspectRatio: '1584/656' }}>
+
+          {/* ENTER THE ARENA — green button, left ~22.4%, width ~16.7% */}
+          <button
+            onClick={() => currentTrainer ? setScreen('room-select') : setScreen('signup')}
+            aria-label="Enter the Arena"
+            className="absolute cursor-pointer rounded-md transition-all hover:bg-white/10 active:bg-white/20 focus:outline-none focus:ring-2 focus:ring-green-400/60"
             style={{
-              background: 'linear-gradient(135deg, #7b0000 0%, #c0392b 50%, #7b0000 100%)',
-              border: '1px solid rgba(255,80,80,0.5)',
-              boxShadow: '0 0 20px rgba(200,0,0,0.4)',
+              left: '22.4%',
+              top: '76.2%',
+              width: '16.7%',
+              height: '9.5%',
             }}
-          >
-            <span className="w-2 h-2 bg-red-400 rounded-full animate-pulse" />
-            <span className="text-red-100">Live Arena</span>
-          </div>
-        </motion.div>
+          />
 
-        {/* ROAD TO VICTORY title */}
-        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.05 }} className="text-center">
-          <h1
-            className="text-5xl sm:text-6xl font-black uppercase tracking-tight leading-none"
+          {/* VIEW PROFILE — blue button, left ~40.9%, width ~14.2% */}
+          <button
+            onClick={() => setScreen(currentTrainer ? 'profile' : 'signup')}
+            aria-label="View Profile"
+            className="absolute cursor-pointer rounded-md transition-all hover:bg-white/10 active:bg-white/20 focus:outline-none focus:ring-2 focus:ring-blue-400/60"
             style={{
-              background: 'linear-gradient(180deg, #ffe066 0%, #fbbf24 40%, #d97706 70%, #92400e 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-              textShadow: 'none',
-              filter: 'drop-shadow(0 2px 8px rgba(251,191,36,0.5)) drop-shadow(0 0 30px rgba(251,191,36,0.3))',
-              fontFamily: 'system-ui, -apple-system, sans-serif',
+              left: '40.9%',
+              top: '76.2%',
+              width: '14.2%',
+              height: '9.5%',
             }}
-          >
-            ROAD TO VICTORY
-          </h1>
-          {/* Gold rule lines */}
-          <div className="flex items-center gap-3 mt-2 justify-center">
-            <div className="h-px w-16 bg-gradient-to-r from-transparent to-amber-400/60" />
-            <p className="text-sm text-slate-300 font-medium tracking-wide">Build your team. Face real rivals. Write your legend.</p>
-            <div className="h-px w-16 bg-gradient-to-l from-transparent to-amber-400/60" />
-          </div>
-        </motion.div>
+          />
 
-        {/* Step Cards */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="grid grid-cols-4 gap-2 w-full"
-        >
-          {STEP_CARDS.map((step, i) => (
-            <div key={step.title} className="flex items-center gap-1">
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.15 + i * 0.07 }}
-                className={`flex-1 flex flex-col items-center text-center p-4 rounded-xl border ${step.border} bg-gradient-to-b ${step.bg} shadow-xl ${step.glow}`}
-                style={{
-                  boxShadow: `0 4px 24px var(--tw-shadow-color), inset 0 1px 0 rgba(255,255,255,0.1)`,
-                }}
-              >
-                {/* Icon circle */}
-                <div className={`w-12 h-12 rounded-full ${step.iconBg} flex items-center justify-center text-2xl mb-2 shadow-lg`}>
-                  {step.emoji}
-                </div>
-                <p className="font-black text-sm text-white uppercase tracking-wide leading-tight">{step.title}</p>
-                <p className="text-xs text-white/60 mt-0.5 leading-tight">{step.desc}</p>
-              </motion.div>
-              {/* Arrow between cards */}
-              {i < STEP_CARDS.length - 1 && (
-                <div className="flex flex-col gap-0.5 shrink-0">
-                  <ChevronRight className="w-4 h-4 text-amber-400/70" />
-                  <ChevronRight className="w-4 h-4 text-amber-400/40" />
-                </div>
-              )}
-            </div>
-          ))}
-        </motion.div>
+          {/* LEADERBOARD — gold button, left ~56.9%, width ~14.9% */}
+          <button
+            onClick={() => setScreen('leaderboard')}
+            aria-label="Leaderboard"
+            className="absolute cursor-pointer rounded-md transition-all hover:bg-white/10 active:bg-white/20 focus:outline-none focus:ring-2 focus:ring-amber-400/60"
+            style={{
+              left: '56.9%',
+              top: '76.2%',
+              width: '14.9%',
+              height: '9.5%',
+            }}
+          />
 
-        {/* CTA Buttons */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="flex flex-col sm:flex-row gap-3 w-full justify-center"
-        >
-          {currentTrainer ? (
-            <>
-              {/* Green — Enter the Arena */}
-              <button
-                onClick={() => setScreen('room-select')}
-                className="flex items-center justify-center gap-2 px-8 py-3.5 rounded-lg font-black uppercase tracking-widest text-sm text-white transition-all hover:brightness-110 active:scale-95"
-                style={{
-                  background: 'linear-gradient(180deg, #22c55e 0%, #16a34a 50%, #15803d 100%)',
-                  border: '2px solid rgba(134,239,172,0.5)',
-                  boxShadow: '0 4px 20px rgba(34,197,94,0.4), inset 0 1px 0 rgba(255,255,255,0.2)',
-                }}
-              >
-                <Zap className="w-4 h-4" />
-                Enter the Arena
-              </button>
-
-              {/* Blue — View Profile */}
-              <button
-                onClick={() => setScreen('profile')}
-                className="flex items-center justify-center gap-2 px-8 py-3.5 rounded-lg font-black uppercase tracking-widest text-sm text-white transition-all hover:brightness-110 active:scale-95"
-                style={{
-                  background: 'linear-gradient(180deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%)',
-                  border: '2px solid rgba(147,197,253,0.5)',
-                  boxShadow: '0 4px 20px rgba(59,130,246,0.4), inset 0 1px 0 rgba(255,255,255,0.2)',
-                }}
-              >
-                View Profile
-              </button>
-
-              {/* Gold — Leaderboard */}
-              <button
-                onClick={() => setScreen('leaderboard')}
-                className="flex items-center justify-center gap-2 px-8 py-3.5 rounded-lg font-black uppercase tracking-widest text-sm text-white transition-all hover:brightness-110 active:scale-95"
-                style={{
-                  background: 'linear-gradient(180deg, #fbbf24 0%, #d97706 50%, #b45309 100%)',
-                  border: '2px solid rgba(253,230,138,0.5)',
-                  boxShadow: '0 4px 20px rgba(251,191,36,0.4), inset 0 1px 0 rgba(255,255,255,0.2)',
-                  color: '#1c1000',
-                }}
-              >
-                <Medal className="w-4 h-4" />
-                Leaderboard
-              </button>
-            </>
-          ) : (
-            <>
-              {/* Green — Create Trainer */}
-              <button
-                onClick={() => setScreen('signup')}
-                className="flex items-center justify-center gap-2 px-8 py-3.5 rounded-lg font-black uppercase tracking-widest text-sm text-white transition-all hover:brightness-110 active:scale-95"
-                style={{
-                  background: 'linear-gradient(180deg, #22c55e 0%, #16a34a 50%, #15803d 100%)',
-                  border: '2px solid rgba(134,239,172,0.5)',
-                  boxShadow: '0 4px 20px rgba(34,197,94,0.4), inset 0 1px 0 rgba(255,255,255,0.2)',
-                }}
-              >
-                <ArrowRight className="w-4 h-4" />
-                Create Trainer Profile
-              </button>
-
-              {/* Gold — Leaderboard */}
-              <button
-                onClick={() => setScreen('leaderboard')}
-                className="flex items-center justify-center gap-2 px-8 py-3.5 rounded-lg font-black uppercase tracking-widest text-sm transition-all hover:brightness-110 active:scale-95"
-                style={{
-                  background: 'linear-gradient(180deg, #fbbf24 0%, #d97706 50%, #b45309 100%)',
-                  border: '2px solid rgba(253,230,138,0.5)',
-                  boxShadow: '0 4px 20px rgba(251,191,36,0.4), inset 0 1px 0 rgba(255,255,255,0.2)',
-                  color: '#1c1000',
-                }}
-              >
-                <Medal className="w-4 h-4" />
-                Leaderboard
-              </button>
-
-              {/* Blue — Back */}
-              <button
-                onClick={() => setScreen('home')}
-                className="flex items-center justify-center gap-2 px-8 py-3.5 rounded-lg font-black uppercase tracking-widest text-sm text-white transition-all hover:brightness-110 active:scale-95"
-                style={{
-                  background: 'linear-gradient(180deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%)',
-                  border: '2px solid rgba(147,197,253,0.5)',
-                  boxShadow: '0 4px 20px rgba(59,130,246,0.4), inset 0 1px 0 rgba(255,255,255,0.2)',
-                }}
-              >
-                Back to Home
-              </button>
-            </>
-          )}
-        </motion.div>
-
-        {/* Live Activity Feed */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="w-full rounded-xl p-3 px-4"
-          style={{
-            background: 'rgba(0,0,0,0.55)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            backdropFilter: 'blur(10px)',
-          }}
-        >
-          <div className="flex items-center gap-2 mb-1.5">
-            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-            <span className="text-xs font-black text-green-400 uppercase tracking-widest">Live Activity</span>
-            <span className="ml-auto text-xs text-slate-400 font-medium">247 trainers online</span>
-          </div>
-          <div className="h-6 overflow-hidden">
-            <AnimatePresence mode="wait">
-              {visible && (
-                <motion.div
-                  key={liveIdx}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.25 }}
-                  className="flex items-center gap-2 text-sm"
-                >
-                  <span>{ev.emoji}</span>
-                  <span className={`font-black ${ev.color}`}>{ev.trainer}</span>
-                  <span className="text-slate-400">{ev.action}</span>
-                  <span className="font-bold text-white">{ev.detail}</span>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        </motion.div>
-
+        </div>
       </div>
+
+      {/* Live Activity Feed — floats at very bottom */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+        className="absolute bottom-0 left-0 right-0 px-4 py-2 flex items-center gap-3"
+        style={{
+          background: 'rgba(0,0,0,0.65)',
+          backdropFilter: 'blur(8px)',
+          borderTop: '1px solid rgba(255,255,255,0.08)',
+        }}
+      >
+        <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse shrink-0" />
+        <span className="text-xs font-black text-green-400 uppercase tracking-widest shrink-0">Live</span>
+        <div className="flex-1 overflow-hidden h-5">
+          <AnimatePresence mode="wait">
+            {visible && (
+              <motion.div
+                key={liveIdx}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.2 }}
+                className="flex items-center gap-2 text-xs"
+              >
+                <span>{ev.emoji}</span>
+                <span className={`font-black ${ev.color}`}>{ev.trainer}</span>
+                <span className="text-slate-400">{ev.action}</span>
+                <span className="font-bold text-white">{ev.detail}</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+        <span className="text-xs text-slate-500 shrink-0">247 online</span>
+      </motion.div>
+
     </div>
   );
 }
