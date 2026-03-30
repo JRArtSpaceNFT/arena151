@@ -54,6 +54,63 @@ const MOCK_BATTLES = [
   { opponent: 'DragonTamer',  result: 'win'  as const, room: 'Victory Road'   },
 ];
 
+// Badge colours keyed by filename
+const BADGE_COLORS: Record<string, string> = {
+  '/BoulderBadge.png': '#a8a878', // rock/grey
+  '/CascadeBadge.png': '#6890f0', // water blue
+  '/ThunderBadge.png': '#f8d030', // electric yellow
+  '/RainbowBadge.png': '#f85888', // poison/pink
+  '/SoulBadge.png':    '#a040a0', // poison purple
+  '/MarshBadge.png':   '#f08030', // ground orange
+  '/VolcanoBadge.png': '#f08030', // fire orange-red
+  '/EarthBadge.png':   '#705898', // ground/dark
+};
+
+function BadgeTile({ badge, earned, typeColor }: { badge: typeof GYM_BADGES[0]; earned: boolean; typeColor: string }) {
+  const [hovered, setHovered] = useState(false);
+  const badgeColor = BADGE_COLORS[badge.file] ?? typeColor;
+  const showGlow = earned || hovered;
+
+  return (
+    <motion.div
+      className="flex flex-col items-center justify-center gap-1.5 py-2"
+      whileHover={{ scale: 1.1 }}
+      onHoverStart={() => setHovered(true)}
+      onHoverEnd={() => setHovered(false)}
+      title={earned ? badge.name : `${badge.name} — ${badge.wins} wins to unlock`}
+    >
+      <div className="relative flex items-center justify-center">
+        {showGlow && (
+          <motion.div
+            className="absolute inset-0 rounded-full blur-md"
+            style={{ background: badgeColor }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: earned ? [0.4, 0.7, 0.4] : 0.35 }}
+            transition={earned ? { duration: 2, repeat: Infinity } : { duration: 0.2 }}
+          />
+        )}
+        <img
+          src={badge.file}
+          alt={badge.name}
+          className="w-14 h-14 object-contain relative z-10 transition-all duration-200"
+          style={earned
+            ? {}
+            : hovered
+              ? { filter: `grayscale(0%) brightness(0.75) drop-shadow(0 0 6px ${badgeColor})`, opacity: 0.85 }
+              : { filter: 'grayscale(100%) brightness(0.4)', opacity: 0.45 }
+          }
+        />
+      </div>
+      <p
+        className="text-center font-bold leading-none"
+        style={{ fontSize: '9px', color: earned ? '#d97706' : hovered ? badgeColor : '#94a3b8' }}
+      >
+        {badge.name.replace(' Badge', '')}
+      </p>
+    </motion.div>
+  );
+}
+
 export default function TrainerProfile() {
   const { currentTrainer, setScreen, setTrainer, clearTrainer, testingMode } = useArenaStore();
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
@@ -143,7 +200,6 @@ export default function TrainerProfile() {
   const losses = currentTrainer.record.losses;
   const total = wins + losses;
   const winRate = total > 0 ? Math.round((wins / total) * 100) : 0;
-  const trainerLevel = getTrainerLevel(wins);
   const trainerTitle = getTrainerTitle(wins);
   const titleColor = getTitleColor(wins);
   const partnerType = currentTrainer.favoritePokemon.types[0];
@@ -215,14 +271,10 @@ export default function TrainerProfile() {
           className="flex items-center gap-1.5 bg-white/60 backdrop-blur border border-white/80 px-3 py-1.5 rounded-xl text-slate-600 text-sm font-bold shadow-sm hover:bg-white transition-all">
           <ArrowLeft className="w-4 h-4" /> Arena
         </motion.button>
-        <div className="flex items-center gap-2 bg-white/60 backdrop-blur border border-white/80 px-4 py-1.5 rounded-xl shadow-sm">
-          <Wallet className="w-4 h-4 text-purple-400" />
-          <span className="font-black text-slate-700 text-sm">{currentTrainer.balance.toFixed(3)} SOL</span>
-          {!testingMode && <span className="text-xs text-slate-400">≈ ${(currentTrainer.balance * SOL_PRICE_USD).toFixed(0)}</span>}
-        </div>
+        <div />
         <motion.button whileTap={{ scale: 0.97 }} onClick={handleLogout}
           className="flex items-center gap-1.5 bg-white/60 backdrop-blur border border-white/80 px-3 py-1.5 rounded-xl text-slate-500 text-sm font-bold shadow-sm hover:text-red-500 hover:border-red-200 transition-all">
-          <LogOut className="w-4 h-4" /> Out
+          <LogOut className="w-4 h-4" /> Sign Out
         </motion.button>
       </div>
 
@@ -268,8 +320,6 @@ export default function TrainerProfile() {
             <div className="z-10 w-full">
               <div className="flex items-center justify-center gap-2 flex-wrap mb-0.5">
                 <h1 className="text-xl font-black text-slate-800">{currentTrainer.displayName}</h1>
-                <span className="px-2 py-0.5 rounded-full text-xs font-black text-white shadow-md"
-                  style={{ background: typeColor }}>LVL {trainerLevel}</span>
               </div>
               <p className="text-sm font-bold mb-0.5" style={{ color: titleColor }}>{trainerTitle}</p>
               <p className="text-xs text-slate-400 mb-3">@{currentTrainer.username}</p>
@@ -334,26 +384,12 @@ export default function TrainerProfile() {
               <span className="font-black text-slate-700 text-sm">🏅 Gym Badges</span>
               <span className="text-xs font-bold text-purple-400">{earnedBadges}/8 earned</span>
             </div>
-            {/* Badge grid — 4 per row */}
-            <div className="grid grid-cols-4 gap-3 mb-3">
+            {/* Badge grid — 4 per row, centered, large */}
+            <div className="grid grid-cols-4 gap-2 flex-1 content-center">
               {GYM_BADGES.map((badge) => {
                 const earned = wins >= badge.wins;
                 return (
-                  <motion.div key={badge.name} whileHover={{ scale: earned ? 1.12 : 1.03 }}
-                    className="flex flex-col items-center gap-1"
-                    title={earned ? badge.name : `${badge.name} — ${badge.wins} wins`}>
-                    <div className="relative">
-                      {earned && (
-                        <motion.div className="absolute inset-0 rounded-full blur-sm"
-                          style={{ background: typeColor, opacity: 0.35 }}
-                          animate={{ opacity: [0.25, 0.55, 0.25] }} transition={{ duration: 2, repeat: Infinity }} />
-                      )}
-                      <img src={badge.file} alt={badge.name} className="w-12 h-12 object-contain relative z-10"
-                        style={earned ? {} : { filter: 'grayscale(100%) brightness(0.45)', opacity: 0.5 }} />
-                    </div>
-                    <p className={`text-center font-bold leading-none ${earned ? 'text-yellow-600' : 'text-slate-300'}`}
-                      style={{ fontSize: '9px' }}>{badge.name.replace(' Badge', '')}</p>
-                  </motion.div>
+                  <BadgeTile key={badge.name} badge={badge} earned={earned} typeColor={typeColor} />
                 );
               })}
             </div>
