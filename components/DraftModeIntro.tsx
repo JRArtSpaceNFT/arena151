@@ -57,53 +57,33 @@ export default function DraftModeIntro() {
         }}
       />
 
-      {/* Invisible hit zones — positioned to match the three buttons baked into the image.
-          The image is 1584×656. Buttons row is at ~76% top, ~9.5% tall.
-          We use a max-width container to match the image's aspect ratio scaling. */}
-      <div className="absolute inset-0 flex items-end justify-center pb-[10%]">
-        <div className="relative w-full max-w-[1584px] mx-auto" style={{ aspectRatio: '1584/656' }}>
+      {/* Invisible hit zones — positioned directly on the full-screen div.
+          Image is 1584×656, cover+top anchored, so image% == viewport% vertically.
+          Buttons in image: y≈430–476 out of 656 = 65.5%–72.6% top. */}
 
-          {/* ENTER THE ARENA — green button */}
-          <button
-            onClick={() => currentTrainer ? setScreen('room-select') : setScreen('signup')}
-            aria-label="Enter the Arena"
-            className="absolute cursor-pointer rounded-lg transition-all hover:bg-white/10 active:bg-white/20 focus:outline-none focus:ring-2 focus:ring-green-400/60"
-            style={{
-              left: '25.3%',
-              top: '71.6%',
-              width: '15.2%',
-              height: '7.9%',
-            }}
-          />
+      {/* ENTER THE ARENA — green button */}
+      <button
+        onClick={() => currentTrainer ? setScreen('room-select') : setScreen('signup')}
+        aria-label="Enter the Arena"
+        className="absolute cursor-pointer rounded-lg transition-all hover:bg-white/10 active:bg-white/20 focus:outline-none"
+        style={{ left: '28%', top: '65%', width: '13%', height: '9%' }}
+      />
 
-          {/* VIEW PROFILE — blue button */}
-          <button
-            onClick={() => setScreen(currentTrainer ? 'profile' : 'signup')}
-            aria-label="View Profile"
-            className="absolute cursor-pointer rounded-lg transition-all hover:bg-white/10 active:bg-white/20 focus:outline-none focus:ring-2 focus:ring-blue-400/60"
-            style={{
-              left: '41.7%',
-              top: '71.6%',
-              width: '12.6%',
-              height: '7.9%',
-            }}
-          />
+      {/* VIEW PROFILE — blue button */}
+      <button
+        onClick={() => setScreen(currentTrainer ? 'profile' : 'signup')}
+        aria-label="View Profile"
+        className="absolute cursor-pointer rounded-lg transition-all hover:bg-white/10 active:bg-white/20 focus:outline-none"
+        style={{ left: '41.5%', top: '65%', width: '12%', height: '9%' }}
+      />
 
-          {/* LEADERBOARD — gold button */}
-          <button
-            onClick={() => setScreen('leaderboard')}
-            aria-label="Leaderboard"
-            className="absolute cursor-pointer rounded-lg transition-all hover:bg-white/10 active:bg-white/20 focus:outline-none focus:ring-2 focus:ring-amber-400/60"
-            style={{
-              left: '55.6%',
-              top: '71.6%',
-              width: '13.3%',
-              height: '7.9%',
-            }}
-          />
-
-        </div>
-      </div>
+      {/* LEADERBOARD — gold button */}
+      <button
+        onClick={() => setScreen('leaderboard')}
+        aria-label="Leaderboard"
+        className="absolute cursor-pointer rounded-lg transition-all hover:bg-white/10 active:bg-white/20 focus:outline-none"
+        style={{ left: '54%', top: '65%', width: '13%', height: '9%' }}
+      />
 
       {/* Live Activity Feed — floats at very bottom */}
       <motion.div
