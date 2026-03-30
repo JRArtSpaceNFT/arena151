@@ -284,18 +284,42 @@ export default function Leaderboard() {
           </div>
         </motion.div>
 
+        {/* Your rank strip — sits just above the table */}
+        {myRank && (
+          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+            className="flex items-center justify-end gap-2 mb-2 shrink-0">
+            <div className="flex items-center gap-2 px-4 py-1.5 rounded-xl text-sm font-black"
+              style={{ background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.3)', backdropFilter: 'blur(8px)' }}>
+              <span className="text-white/60 font-bold text-xs">Your Rank</span>
+              <span className="text-amber-300 text-base">#{myRank.rank}</span>
+              <span className="text-white/30">/</span>
+              <span className="text-white/80 text-xs">{myRank.total} trainers</span>
+              {myRank.rank <= 25 && <span className="text-green-400 text-xs">👆 On the board!</span>}
+            </div>
+          </motion.div>
+        )}
+
         {/* Table */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
           className="flex-1 min-h-0 rounded-2xl overflow-hidden shadow-md border border-white/80 flex flex-col"
           style={{ background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(20px)', borderColor: 'rgba(255,255,255,0.35)' }}>
 
-          <div className="grid grid-cols-[52px_1fr_80px_80px_80px] gap-2 px-4 py-2.5 border-b border-white/10 text-xs text-white/60 font-bold uppercase tracking-wider shrink-0"
+          <div className={`grid gap-2 px-4 py-2.5 border-b border-white/10 text-xs text-white/60 font-bold uppercase tracking-wider shrink-0 ${sortMode === 'earnings' ? 'grid-cols-[52px_1fr_100px_80px]' : 'grid-cols-[52px_1fr_80px_80px_80px]'}`}
             style={{ background: 'rgba(255,255,255,0.08)' }}>
             <span>Rank</span>
             <span>Trainer</span>
-            <span className="text-center">Wins</span>
-            <span className="text-center">Losses</span>
-            <span className="text-center">{sortMode === 'earnings' ? 'Earnings' : 'Win %'}</span>
+            {sortMode === 'earnings' ? (
+              <>
+                <span className="text-center text-green-300">💰 Earnings (SOL)</span>
+                <span className="text-center">Win %</span>
+              </>
+            ) : (
+              <>
+                <span className="text-center">Wins</span>
+                <span className="text-center">Losses</span>
+                <span className="text-center">Win %</span>
+              </>
+            )}
           </div>
 
           {entries.length === 0 ? (
@@ -316,7 +340,7 @@ export default function Leaderboard() {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: Math.min(i * 0.02, 0.4) }}
                     onClick={() => setSelected(entry)}
-                    className="w-full grid grid-cols-[52px_1fr_80px_80px_80px] gap-2 items-center px-4 py-2.5 hover:bg-white/10 active:bg-white/15 transition-colors text-left cursor-pointer"
+                    className={`w-full grid gap-2 items-center px-4 py-2.5 hover:bg-white/10 active:bg-white/15 transition-colors text-left cursor-pointer ${sortMode === 'earnings' ? 'grid-cols-[52px_1fr_100px_80px]' : 'grid-cols-[52px_1fr_80px_80px_80px]'}`}
                     style={isTop3 ? { borderLeft: `3px solid ${leftBorder}` } : { borderLeft: '3px solid transparent' }}
                   >
                     <div className="flex items-center justify-center w-9 h-9 rounded-xl font-black text-sm border"
@@ -334,16 +358,23 @@ export default function Leaderboard() {
                         <p className="text-xs text-slate-400 truncate">@{entry.username}</p>
                       </div>
                     </div>
-                    <p className="text-center font-black text-green-400 text-sm">{entry.wins}</p>
-                    <p className="text-center font-bold text-red-400 text-sm">{entry.losses}</p>
                     {sortMode === 'earnings' ? (
-                      <p className={`text-center font-black text-sm ${entry.earnings >= 0 ? 'text-green-300' : 'text-red-400'}`}>
-                        {entry.earnings >= 0 ? '+' : ''}{entry.earnings.toFixed(2)}◎
-                      </p>
+                      <>
+                        <p className={`text-center font-black text-sm ${entry.earnings >= 0 ? 'text-green-300' : 'text-red-400'}`}>
+                          {entry.earnings >= 0 ? '+' : ''}{entry.earnings.toFixed(3)} ◎
+                        </p>
+                        <p className={`text-center font-bold text-sm ${entry.winRate >= 60 ? 'text-green-300' : entry.winRate >= 40 ? 'text-white/70' : 'text-red-400'}`}>
+                          {entry.winRate.toFixed(0)}%
+                        </p>
+                      </>
                     ) : (
-                      <p className={`text-center font-bold text-sm ${entry.winRate >= 60 ? 'text-green-300' : entry.winRate >= 40 ? 'text-white/70' : 'text-red-400'}`}>
-                        {entry.winRate.toFixed(0)}%
-                      </p>
+                      <>
+                        <p className="text-center font-black text-green-400 text-sm">{entry.wins}</p>
+                        <p className="text-center font-bold text-red-400 text-sm">{entry.losses}</p>
+                        <p className={`text-center font-bold text-sm ${entry.winRate >= 60 ? 'text-green-300' : entry.winRate >= 40 ? 'text-white/70' : 'text-red-400'}`}>
+                          {entry.winRate.toFixed(0)}%
+                        </p>
+                      </>
                     )}
                   </motion.button>
                 );
@@ -352,23 +383,8 @@ export default function Leaderboard() {
           )}
         </motion.div>
 
-        {myRank && (
-          <motion.div
-            initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-            className="mt-2 shrink-0 flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-black"
-            style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', backdropFilter: 'blur(8px)' }}
-          >
-            <span className="text-white/60">Your rank:</span>
-            <span className="text-amber-300">#{myRank.rank}</span>
-            <span className="text-white/40">/</span>
-            <span className="text-white/80">{myRank.total} trainers</span>
-            {myRank.rank <= 25 && <span className="text-green-400 text-xs ml-1">👆 You're on the board!</span>}
-          </motion.div>
-        )}
         {!myRank && (
-          <p className="text-center text-xs text-white/30 mt-2 shrink-0">
-            Sign in to see your rank
-          </p>
+          <p className="text-center text-xs text-white/30 mt-2 shrink-0">Sign in to see your rank</p>
         )}
       </div>
     </div>
