@@ -215,7 +215,7 @@ export default function Leaderboard() {
       total: u.wins + u.losses,
       winRate: u.wins + u.losses > 0 ? (u.wins / (u.wins + u.losses)) * 100 : 0,
     }));
-    setAllUsers(mapped);
+    setAllUsers(mapped.map((u, i) => ({ ...u, rank: i + 1 })));
   }, []);
 
   useEffect(() => {
