@@ -65,24 +65,24 @@ export default function DraftModeIntro() {
       <button
         onClick={() => currentTrainer ? setScreen('room-select') : setScreen('signup')}
         aria-label="Enter the Arena"
-        className="absolute cursor-pointer rounded-lg transition-all hover:bg-white/10 active:bg-white/20 focus:outline-none"
-        style={{ left: '28%', top: '65%', width: '13%', height: '9%' }}
+        className="absolute cursor-pointer focus:outline-none"
+        style={{ left: '33%', top: '65%', width: '13%', height: '9%' }}
       />
 
       {/* VIEW PROFILE — blue button */}
       <button
         onClick={() => setScreen(currentTrainer ? 'profile' : 'signup')}
         aria-label="View Profile"
-        className="absolute cursor-pointer rounded-lg transition-all hover:bg-white/10 active:bg-white/20 focus:outline-none"
-        style={{ left: '41.5%', top: '65%', width: '12%', height: '9%' }}
+        className="absolute cursor-pointer focus:outline-none"
+        style={{ left: '46.5%', top: '65%', width: '12%', height: '9%' }}
       />
 
       {/* LEADERBOARD — gold button */}
       <button
         onClick={() => setScreen('leaderboard')}
         aria-label="Leaderboard"
-        className="absolute cursor-pointer rounded-lg transition-all hover:bg-white/10 active:bg-white/20 focus:outline-none"
-        style={{ left: '54%', top: '65%', width: '13%', height: '9%' }}
+        className="absolute cursor-pointer focus:outline-none"
+        style={{ left: '59%', top: '65%', width: '13%', height: '9%' }}
       />
 
       {/* Live Activity Feed — floats at very bottom */}
