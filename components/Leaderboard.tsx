@@ -222,13 +222,16 @@ export default function Leaderboard() {
   }, []);
 
   return (
-    <div className="h-screen overflow-hidden flex flex-col"
-      style={{ background: 'linear-gradient(135deg, #dbeafe 0%, #ede9fe 40%, #fce7f3 70%, #fef3c7 100%)' }}>
+    <div className="h-screen overflow-hidden flex flex-col relative"
+      style={{
+        backgroundImage: 'url(/leaderboard-bg.png)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      }}>
 
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[500px] rounded-full blur-3xl pointer-events-none opacity-30"
-        style={{ background: 'radial-gradient(circle, #fde68a, transparent)' }} />
-      <div className="absolute bottom-0 right-0 w-[400px] h-[400px] rounded-full blur-3xl pointer-events-none opacity-20"
-        style={{ background: 'radial-gradient(circle, #c4b5fd, transparent)' }} />
+      {/* Dark overlay for readability */}
+      <div className="absolute inset-0 bg-black/55" />
 
       {/* Profile modal */}
       <AnimatePresence>
@@ -240,7 +243,7 @@ export default function Leaderboard() {
         {/* Header */}
         <motion.div initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-4 mb-4 shrink-0">
           <button onClick={() => setScreen('draft-mode-intro')}
-            className="flex items-center gap-2 bg-white/60 backdrop-blur border border-white/80 px-3 py-1.5 rounded-xl text-slate-600 text-sm font-bold shadow-sm hover:bg-white transition-all">
+            className="flex items-center gap-2 bg-white/20 backdrop-blur border border-white/30 px-3 py-1.5 rounded-xl text-white text-sm font-bold shadow-sm hover:bg-white/30 transition-all">
             <ArrowLeft className="w-4 h-4" /> Back
           </button>
           <div>
@@ -249,17 +252,17 @@ export default function Leaderboard() {
               <Trophy className="w-6 h-6 text-amber-400" style={{ WebkitTextFillColor: 'initial' }} />
               Top 100 Trainers
             </h1>
-            <p className="text-xs text-slate-400 mt-0.5">Click any trainer to view their profile · Ranked by wins</p>
+            <p className="text-xs text-white/60 mt-0.5">Click any trainer to view their profile · Ranked by wins</p>
           </div>
         </motion.div>
 
         {/* Table */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
           className="flex-1 min-h-0 rounded-2xl overflow-hidden shadow-md border border-white/80 flex flex-col"
-          style={{ background: 'rgba(255,255,255,0.65)', backdropFilter: 'blur(16px)' }}>
+          style={{ background: 'rgba(10,10,20,0.65)', backdropFilter: 'blur(16px)', borderColor: 'rgba(255,255,255,0.15)' }}>
 
-          <div className="grid grid-cols-[52px_1fr_72px_72px_72px] gap-2 px-4 py-2.5 border-b border-slate-100 text-xs text-slate-400 font-bold uppercase tracking-wider shrink-0"
-            style={{ background: 'rgba(255,255,255,0.8)' }}>
+          <div className="grid grid-cols-[52px_1fr_72px_72px_72px] gap-2 px-4 py-2.5 border-b border-white/10 text-xs text-white/50 font-bold uppercase tracking-wider shrink-0"
+            style={{ background: 'rgba(0,0,0,0.3)' }}>
             <span>Rank</span>
             <span>Trainer</span>
             <span className="text-center">Wins</span>
@@ -274,7 +277,7 @@ export default function Leaderboard() {
               <p className="text-slate-400">Be the first legend!</p>
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto divide-y divide-slate-100/80">
+            <div className="flex-1 overflow-y-auto divide-y divide-white/5">
               {entries.map((entry, i) => {
                 const { medal, color, bg, border, leftBorder } = getRankMedal(entry.rank);
                 const isTop3 = entry.rank <= 3;
@@ -285,7 +288,7 @@ export default function Leaderboard() {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: Math.min(i * 0.02, 0.4) }}
                     onClick={() => setSelected(entry)}
-                    className="w-full grid grid-cols-[52px_1fr_72px_72px_72px] gap-2 items-center px-4 py-2.5 hover:bg-white/70 active:bg-white/90 transition-colors text-left cursor-pointer"
+                    className="w-full grid grid-cols-[52px_1fr_72px_72px_72px] gap-2 items-center px-4 py-2.5 hover:bg-white/10 active:bg-white/15 transition-colors text-left cursor-pointer"
                     style={isTop3 ? { borderLeft: `3px solid ${leftBorder}` } : { borderLeft: '3px solid transparent' }}
                   >
                     <div className="flex items-center justify-center w-9 h-9 rounded-xl font-black text-sm border"
@@ -299,7 +302,7 @@ export default function Leaderboard() {
                         ) : <span>{entry.avatar || '🧑'}</span>}
                       </div>
                       <div className="min-w-0">
-                        <p className={`font-bold text-sm truncate ${isTop3 ? 'text-slate-800' : 'text-slate-700'}`}>{entry.displayName}</p>
+                        <p className={`font-bold text-sm truncate ${isTop3 ? 'text-white' : 'text-slate-200'}`}>{entry.displayName}</p>
                         <p className="text-xs text-slate-400 truncate">@{entry.username}</p>
                       </div>
                     </div>
@@ -315,7 +318,7 @@ export default function Leaderboard() {
           )}
         </motion.div>
 
-        <p className="text-center text-xs text-slate-400 mt-2 shrink-0">
+        <p className="text-center text-xs text-white/40 mt-2 shrink-0">
           Showing top {Math.min(entries.length, 100)} of {entries.length} trainers
         </p>
       </div>
