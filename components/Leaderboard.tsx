@@ -187,47 +187,52 @@ function TrainerModal({ entry, onClose }: { entry: LeaderboardEntry; onClose: ()
   );
 }
 
+type SortMode = 'wins' | 'earnings';
+
 export default function Leaderboard() {
   const { setScreen, currentTrainer } = useArenaStore();
+  const [allUsers, setAllUsers] = useState<LeaderboardEntry[]>([]);
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [selected, setSelected] = useState<LeaderboardEntry | null>(null);
   const [myRank, setMyRank] = useState<{ rank: number; total: number } | null>(null);
+  const [sortMode, setSortMode] = useState<SortMode>('wins');
 
   useEffect(() => {
     const users = getAllUsers();
-    const total = users.length;
-    const sorted = users
-      .map(u => ({
-        avatar: u.avatar,
-        displayName: u.displayName,
-        username: u.username,
-        bio: u.bio,
-        wins: u.wins,
-        losses: u.losses,
-        joinedDate: u.joinedDate,
-        favoritePokemonId: u.favoritePokemonId,
-        favoritePokemonName: u.favoritePokemonName,
-        favoritePokemonTypes: u.favoritePokemonTypes,
-        balance: u.balance,
-        earnings: u.earnings ?? 0,
-        total: u.wins + u.losses,
-        winRate: u.wins + u.losses > 0 ? (u.wins / (u.wins + u.losses)) * 100 : 0,
-      }))
-      .sort((a, b) => {
-        if (b.wins !== a.wins) return b.wins - a.wins;
-        if (b.winRate !== a.winRate) return b.winRate - a.winRate;
-        return new Date(a.joinedDate).getTime() - new Date(b.joinedDate).getTime();
-      })
-      .map((u, i) => ({ ...u, rank: i + 1 }));
+    const mapped = users.map(u => ({
+      avatar: u.avatar,
+      displayName: u.displayName,
+      username: u.username,
+      bio: u.bio,
+      wins: u.wins,
+      losses: u.losses,
+      joinedDate: u.joinedDate,
+      favoritePokemonId: u.favoritePokemonId,
+      favoritePokemonName: u.favoritePokemonName,
+      favoritePokemonTypes: u.favoritePokemonTypes,
+      balance: u.balance,
+      earnings: u.earnings ?? 0,
+      total: u.wins + u.losses,
+      winRate: u.wins + u.losses > 0 ? (u.wins / (u.wins + u.losses)) * 100 : 0,
+    }));
+    setAllUsers(mapped);
+  }, []);
 
-    // Find current trainer's rank
+  useEffect(() => {
+    if (!allUsers.length) return;
+    const sorted = [...allUsers].sort((a, b) => {
+      if (sortMode === 'earnings') return b.earnings - a.earnings;
+      if (b.wins !== a.wins) return b.wins - a.wins;
+      if (b.winRate !== a.winRate) return b.winRate - a.winRate;
+      return new Date(a.joinedDate).getTime() - new Date(b.joinedDate).getTime();
+    }).map((u, i) => ({ ...u, rank: i + 1 }));
+
     if (currentTrainer) {
       const me = sorted.find(u => u.username === currentTrainer.username);
-      if (me) setMyRank({ rank: me.rank, total });
+      if (me) setMyRank({ rank: me.rank, total: allUsers.length });
     }
-
     setEntries(sorted.slice(0, 25));
-  }, [currentTrainer]);
+  }, [allUsers, sortMode, currentTrainer]);
 
   return (
     <div className="h-screen overflow-hidden flex flex-col relative"
@@ -238,8 +243,8 @@ export default function Leaderboard() {
         backgroundRepeat: 'no-repeat',
       }}>
 
-      {/* Dark overlay for readability */}
-      <div className="absolute inset-0 bg-black/55" />
+      {/* Lighter overlay */}
+      <div className="absolute inset-0 bg-black/35" />
 
       {/* Profile modal */}
       <AnimatePresence>
@@ -254,28 +259,43 @@ export default function Leaderboard() {
             className="flex items-center gap-2 bg-white/20 backdrop-blur border border-white/30 px-3 py-1.5 rounded-xl text-white text-sm font-bold shadow-sm hover:bg-white/30 transition-all">
             <ArrowLeft className="w-4 h-4" /> Back
           </button>
-          <div>
+          <div className="flex-1">
             <h1 className="text-2xl font-black flex items-center gap-2"
               style={{ background: 'linear-gradient(135deg, #d97706, #f59e0b, #fbbf24)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
               <Trophy className="w-6 h-6 text-amber-400" style={{ WebkitTextFillColor: 'initial' }} />
               Top 25 Trainers
             </h1>
-            <p className="text-xs text-white/60 mt-0.5">Click any trainer to view their profile · Ranked by wins</p>
+            <p className="text-xs text-white/70 mt-0.5">Click any trainer · {allUsers.length} total trainers</p>
+          </div>
+          {/* Sort tabs */}
+          <div className="flex gap-1 bg-white/15 backdrop-blur rounded-xl p-1 border border-white/20">
+            <button
+              onClick={() => setSortMode('wins')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${sortMode === 'wins' ? 'bg-amber-400 text-slate-900 shadow' : 'text-white/70 hover:text-white'}`}
+            >
+              🏆 Most Wins
+            </button>
+            <button
+              onClick={() => setSortMode('earnings')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${sortMode === 'earnings' ? 'bg-green-400 text-slate-900 shadow' : 'text-white/70 hover:text-white'}`}
+            >
+              💰 Most Earnings
+            </button>
           </div>
         </motion.div>
 
         {/* Table */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
           className="flex-1 min-h-0 rounded-2xl overflow-hidden shadow-md border border-white/80 flex flex-col"
-          style={{ background: 'rgba(10,10,20,0.65)', backdropFilter: 'blur(16px)', borderColor: 'rgba(255,255,255,0.15)' }}>
+          style={{ background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(20px)', borderColor: 'rgba(255,255,255,0.35)' }}>
 
-          <div className="grid grid-cols-[52px_1fr_72px_72px_72px] gap-2 px-4 py-2.5 border-b border-white/10 text-xs text-white/50 font-bold uppercase tracking-wider shrink-0"
-            style={{ background: 'rgba(0,0,0,0.3)' }}>
+          <div className="grid grid-cols-[52px_1fr_80px_80px_80px] gap-2 px-4 py-2.5 border-b border-white/10 text-xs text-white/60 font-bold uppercase tracking-wider shrink-0"
+            style={{ background: 'rgba(255,255,255,0.08)' }}>
             <span>Rank</span>
             <span>Trainer</span>
             <span className="text-center">Wins</span>
             <span className="text-center">Losses</span>
-            <span className="text-center">Win %</span>
+            <span className="text-center">{sortMode === 'earnings' ? 'Earnings' : 'Win %'}</span>
           </div>
 
           {entries.length === 0 ? (
@@ -296,7 +316,7 @@ export default function Leaderboard() {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: Math.min(i * 0.02, 0.4) }}
                     onClick={() => setSelected(entry)}
-                    className="w-full grid grid-cols-[52px_1fr_72px_72px_72px] gap-2 items-center px-4 py-2.5 hover:bg-white/10 active:bg-white/15 transition-colors text-left cursor-pointer"
+                    className="w-full grid grid-cols-[52px_1fr_80px_80px_80px] gap-2 items-center px-4 py-2.5 hover:bg-white/10 active:bg-white/15 transition-colors text-left cursor-pointer"
                     style={isTop3 ? { borderLeft: `3px solid ${leftBorder}` } : { borderLeft: '3px solid transparent' }}
                   >
                     <div className="flex items-center justify-center w-9 h-9 rounded-xl font-black text-sm border"
@@ -304,7 +324,7 @@ export default function Leaderboard() {
                       {medal}
                     </div>
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex-shrink-0 flex items-center justify-center text-base">
+                      <div className="w-8 h-8 rounded-xl bg-white/30 border border-white/40 overflow-hidden flex-shrink-0 flex items-center justify-center text-base">
                         {entry.avatar?.startsWith('data:') || entry.avatar?.startsWith('/') ? (
                           <img src={entry.avatar} alt="" className="w-full h-full object-cover" />
                         ) : <span>{entry.avatar || '🧑'}</span>}
@@ -314,11 +334,17 @@ export default function Leaderboard() {
                         <p className="text-xs text-slate-400 truncate">@{entry.username}</p>
                       </div>
                     </div>
-                    <p className="text-center font-black text-green-500 text-sm">{entry.wins}</p>
+                    <p className="text-center font-black text-green-400 text-sm">{entry.wins}</p>
                     <p className="text-center font-bold text-red-400 text-sm">{entry.losses}</p>
-                    <p className={`text-center font-bold text-sm ${entry.winRate >= 60 ? 'text-green-500' : entry.winRate >= 40 ? 'text-slate-500' : 'text-red-400'}`}>
-                      {entry.winRate.toFixed(0)}%
-                    </p>
+                    {sortMode === 'earnings' ? (
+                      <p className={`text-center font-black text-sm ${entry.earnings >= 0 ? 'text-green-300' : 'text-red-400'}`}>
+                        {entry.earnings >= 0 ? '+' : ''}{entry.earnings.toFixed(2)}◎
+                      </p>
+                    ) : (
+                      <p className={`text-center font-bold text-sm ${entry.winRate >= 60 ? 'text-green-300' : entry.winRate >= 40 ? 'text-white/70' : 'text-red-400'}`}>
+                        {entry.winRate.toFixed(0)}%
+                      </p>
+                    )}
                   </motion.button>
                 );
               })}
