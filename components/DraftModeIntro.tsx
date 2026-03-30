@@ -52,7 +52,16 @@ export default function DraftModeIntro() {
   const ev = LIVE_EVENTS[liveIdx];
 
   return (
-    <div className="h-screen flex items-center justify-center p-4 pokeball-pattern relative overflow-hidden">
+    <div className="h-screen flex items-center justify-center p-4 relative overflow-hidden"
+      style={{
+        backgroundImage: 'url(/road-to-victory-bg.png)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      }}
+    >
+      {/* Dark overlay for readability */}
+      <div className="absolute inset-0 bg-black/55" />
       {/* Ambient effects */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-blue-500/10 rounded-full blur-3xl" />
       <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-red-500/10 rounded-full blur-3xl" />
