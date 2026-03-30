@@ -188,12 +188,14 @@ function TrainerModal({ entry, onClose }: { entry: LeaderboardEntry; onClose: ()
 }
 
 export default function Leaderboard() {
-  const { setScreen } = useArenaStore();
+  const { setScreen, currentTrainer } = useArenaStore();
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [selected, setSelected] = useState<LeaderboardEntry | null>(null);
+  const [myRank, setMyRank] = useState<{ rank: number; total: number } | null>(null);
 
   useEffect(() => {
     const users = getAllUsers();
+    const total = users.length;
     const sorted = users
       .map(u => ({
         avatar: u.avatar,
@@ -216,10 +218,16 @@ export default function Leaderboard() {
         if (b.winRate !== a.winRate) return b.winRate - a.winRate;
         return new Date(a.joinedDate).getTime() - new Date(b.joinedDate).getTime();
       })
-      .slice(0, 100)
       .map((u, i) => ({ ...u, rank: i + 1 }));
-    setEntries(sorted);
-  }, []);
+
+    // Find current trainer's rank
+    if (currentTrainer) {
+      const me = sorted.find(u => u.username === currentTrainer.username);
+      if (me) setMyRank({ rank: me.rank, total });
+    }
+
+    setEntries(sorted.slice(0, 25));
+  }, [currentTrainer]);
 
   return (
     <div className="h-screen overflow-hidden flex flex-col relative"
@@ -250,7 +258,7 @@ export default function Leaderboard() {
             <h1 className="text-2xl font-black flex items-center gap-2"
               style={{ background: 'linear-gradient(135deg, #d97706, #f59e0b, #fbbf24)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
               <Trophy className="w-6 h-6 text-amber-400" style={{ WebkitTextFillColor: 'initial' }} />
-              Top 100 Trainers
+              Top 25 Trainers
             </h1>
             <p className="text-xs text-white/60 mt-0.5">Click any trainer to view their profile · Ranked by wins</p>
           </div>
@@ -318,9 +326,24 @@ export default function Leaderboard() {
           )}
         </motion.div>
 
-        <p className="text-center text-xs text-white/40 mt-2 shrink-0">
-          Showing top {Math.min(entries.length, 100)} of {entries.length} trainers
-        </p>
+        {myRank && (
+          <motion.div
+            initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+            className="mt-2 shrink-0 flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-black"
+            style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', backdropFilter: 'blur(8px)' }}
+          >
+            <span className="text-white/60">Your rank:</span>
+            <span className="text-amber-300">#{myRank.rank}</span>
+            <span className="text-white/40">/</span>
+            <span className="text-white/80">{myRank.total} trainers</span>
+            {myRank.rank <= 25 && <span className="text-green-400 text-xs ml-1">👆 You're on the board!</span>}
+          </motion.div>
+        )}
+        {!myRank && (
+          <p className="text-center text-xs text-white/30 mt-2 shrink-0">
+            Sign in to see your rank
+          </p>
+        )}
       </div>
     </div>
   );
