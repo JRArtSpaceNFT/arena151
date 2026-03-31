@@ -292,7 +292,6 @@ export default function RoomSelect() {
                         }}
                         whileHover={{ background: `linear-gradient(135deg, ${identity.accent}55, ${identity.accent}33)` } as any}
                       >
-                        <TrendingUp className="w-3 h-3" />
                         {identity.btnLabel}
                       </motion.div>
                     ) : (
