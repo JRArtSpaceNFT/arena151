@@ -63,6 +63,18 @@ export default function RoomSelect() {
     <div className="h-screen flex flex-col overflow-hidden relative"
       style={{ background: 'linear-gradient(160deg,#08060f 0%,#0d0a1e 40%,#0a0d18 80%,#060608 100%)' }}>
 
+      {/* Kanto map background — very low opacity */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div style={{
+          position: 'absolute', inset: 0,
+          backgroundImage: 'url(/kanto-map.png)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          opacity: 0.06,
+          imageRendering: 'pixelated',
+        }} />
+      </div>
+
       {/* Background ambient */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[400px] opacity-10 blur-3xl rounded-full"
