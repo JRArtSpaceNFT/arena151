@@ -70,7 +70,7 @@ export default function RoomSelect() {
           backgroundImage: 'url(/kanto-map.png)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
-          opacity: 0.1,
+          opacity: 0.08,
           imageRendering: 'pixelated',
         }} />
       </div>
