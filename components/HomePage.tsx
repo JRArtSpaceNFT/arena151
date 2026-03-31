@@ -74,13 +74,13 @@ export default function HomePage() {
   };
 
   return (
-    <div className="h-screen w-screen overflow-hidden relative">
+    <div className="h-full w-full overflow-hidden relative">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/Perfect.png"
         alt="Arena 151 — Draft Battle Conquer"
         className="absolute inset-0 w-full h-full select-none"
-        style={{ objectFit: 'contain', objectPosition: 'center center' }}
+        style={{ objectFit: 'cover', objectPosition: 'center center' }}
         draggable={false}
       />
 
