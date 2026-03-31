@@ -148,7 +148,7 @@ export default function DraftModeIntro() {
         onClick={() => setScreen('battle-guide')}
         aria-label="Battle Guide"
         className="absolute cursor-pointer focus:outline-none"
-        style={{ left: '77%', top: '31.9%', width: '11.6%', height: '9.3%' }}
+        style={{ left: '77%', top: '44%', width: '11.6%', height: '9.3%' }}
       />
 
       {/* Live Activity Feed — floats at very bottom */}
