@@ -4,54 +4,50 @@ import { motion } from 'framer-motion';
 import { useArenaStore } from '@/lib/store';
 import { ARENA_BADGES } from '@/lib/constants';
 
+// Drop screenshots into /public/guide/ with these exact filenames
+// Each should be a screenshot of that step in the game
 const STEPS = [
   {
     num: '01',
-    icon: '🧑‍💻',
-    title: 'Create Your Account',
-    desc: 'Sign up and choose your trainer avatar. Your profile tracks your wins, losses, earnings, and every gym badge you earn.',
+    title: 'Pick Your Trainer',
+    desc: 'Choose from 18 legendary trainers, each with a unique ability that fires in battle. Ash, Giovanni, Misty and more are waiting. Who are you?',
+    img: '/guide/trainer-select.png',
   },
   {
     num: '02',
-    icon: '⚔️',
-    title: 'Pick Your Trainer',
-    desc: 'Browse 18 legendary trainers — each with a unique ability that activates in battle. Ash, Giovanni, Misty, and more. Choose wisely.',
+    title: 'Draft Your Team',
+    desc: 'Build a squad of 5 Pokémon from all 151 Gen 1 originals. Real stats, real types, real moves. Type matchups can change everything.',
+    img: '/guide/draft.png',
   },
   {
     num: '03',
-    icon: '🎯',
-    title: 'Draft Your Team',
-    desc: 'Build a team of 6 Pokémon from all 151 Gen 1 originals. Each Pokémon has real stats, types, and moves. Draft smart — type matchups matter.',
+    title: 'Choose Your Battlefield',
+    desc: 'Pick one of 8 Kanto Gym arenas. Entry fees range from $5 at Pewter City to $1,000 at Viridian City. Higher stakes means bigger prizes!',
+    img: '/guide/room-select.png',
   },
   {
     num: '04',
-    icon: '🏟️',
-    title: 'Choose Your Battlefield',
-    desc: 'Pick one of 8 Kanto Gym arenas, each with a different entry fee — from $5 at Pewter City up to $1,000 at Viridian City. Higher stakes, bigger prizes.',
+    title: 'Set Your Battle Order',
+    desc: 'Lock in the order your 5 Pokémon will fight. This is your last chance to strategize before the battle begins. Choose well!',
+    img: '/guide/battle-order.png',
   },
   {
     num: '05',
-    icon: '🪙',
-    title: 'Set Your Battle Order',
-    desc: 'Arrange your 6 Pokémon in the order they\'ll fight. Your lineup is locked in — plan your strategy before the battle begins.',
+    title: 'Battle!',
+    desc: 'Your team fights using real Pokémon mechanics: type advantages, status effects, crits, trainer abilities. Watch your squad dominate!',
+    img: '/guide/battle.png',
   },
   {
     num: '06',
-    icon: '⚡',
-    title: 'Battle!',
-    desc: 'Your team fights automatically using real Pokémon mechanics — type advantages, status effects, crits, and trainer abilities. Watch it all play out.',
+    title: 'Win All 8 Kanto Gym Badges!',
+    desc: 'Beat an opponent in any arena and you earn that gym badge. Win once, own it forever. Collect all 8 and prove you are the greatest trainer alive.',
+    img: '/guide/badge.png',
   },
   {
     num: '07',
-    icon: '🏅',
-    title: 'Win the Gym Badge',
-    desc: 'Beat an opponent in any arena and you earn that gym\'s badge — first time only. Collect all 8 Kanto badges to prove you\'re the greatest trainer.',
-  },
-  {
-    num: '08',
-    icon: '💰',
     title: 'Collect Your Prize',
-    desc: 'Winner takes 95% of the pot. Your balance updates instantly. Keep climbing arenas, keep earning badges, keep winning.',
+    desc: 'Winner takes the pot. Your balance updates instantly. Keep climbing arenas, stacking badges, and banking wins!',
+    img: '/guide/victory.png',
   },
 ];
 
@@ -74,7 +70,7 @@ export default function BattleGuide() {
       <div className="relative z-10 flex flex-col h-full max-w-6xl mx-auto w-full px-6 pt-4 pb-4">
 
         {/* Header */}
-        <div className="flex items-center justify-between mb-4 shrink-0">
+        <div className="flex items-center justify-between mb-3 shrink-0">
           <motion.button
             initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }}
             onClick={() => setScreen('draft-mode-intro')}
@@ -100,7 +96,7 @@ export default function BattleGuide() {
             }}>
               BATTLE GUIDE
             </h1>
-            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase', marginTop: 2 }}>
+            <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase', marginTop: 2 }}>
               How to play Arena 151
             </p>
           </div>
@@ -108,76 +104,89 @@ export default function BattleGuide() {
           <div style={{ width: 80 }} />
         </div>
 
-        {/* Steps grid — 4 across, 2 rows */}
-        <div className="grid grid-cols-4 gap-2.5 mb-3 shrink-0">
+        {/* Steps — 7 cards in a row, with screenshot thumbnails */}
+        <div className="grid grid-cols-7 gap-2 mb-3 flex-1 min-h-0">
           {STEPS.map((step, i) => (
             <motion.div
               key={step.num}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.03 + i * 0.04 }}
-              className="rounded-xl p-3 flex flex-col gap-1.5"
+              className="rounded-xl flex flex-col overflow-hidden"
               style={{
                 background: 'rgba(255,255,255,0.04)',
                 border: '1px solid rgba(255,255,255,0.08)',
               }}
             >
-              <div className="flex items-center gap-2">
-                <span style={{
-                  fontFamily: '"Impact", "Arial Black", sans-serif',
-                  fontSize: 22, color: 'rgba(251,191,36,0.25)', lineHeight: 1, fontWeight: 900,
-                }}>
+              {/* Screenshot thumbnail */}
+              <div className="relative shrink-0" style={{ aspectRatio: '16/10', background: 'rgba(0,0,0,0.4)' }}>
+                <img
+                  src={step.img}
+                  alt={step.title}
+                  className="w-full h-full object-cover"
+                  style={{ opacity: 0.9 }}
+                  onError={e => { (e.target as HTMLImageElement).style.opacity = '0'; }}
+                />
+                {/* Step number pill */}
+                <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-md font-black"
+                  style={{
+                    fontFamily: '"Impact", "Arial Black", sans-serif',
+                    fontSize: 11, background: 'rgba(0,0,0,0.75)',
+                    color: '#fbbf24', letterSpacing: '0.05em',
+                  }}>
                   {step.num}
-                </span>
-                <span style={{ fontSize: 18 }}>{step.icon}</span>
+                </div>
               </div>
-              <p className="font-black text-white text-xs leading-none">{step.title}</p>
-              <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10.5, lineHeight: 1.45 }}>{step.desc}</p>
+
+              {/* Text */}
+              <div className="p-2 flex flex-col gap-1 flex-1">
+                <p className="font-black text-white leading-tight" style={{ fontSize: 10 }}>{step.title}</p>
+                <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 9.5, lineHeight: 1.4 }}>{step.desc}</p>
+              </div>
             </motion.div>
           ))}
         </div>
 
-        {/* Badge section */}
+        {/* Badges row */}
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="rounded-xl p-3 shrink-0"
-          style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}
+          className="flex items-center justify-center gap-5 mb-3 shrink-0"
         >
-          <p className="text-center font-black text-white text-xs uppercase tracking-widest mb-2.5" style={{ letterSpacing: '0.2em' }}>
-            The 8 Kanto Gym Badges — Win Once to Earn Forever
-          </p>
-          <div className="flex items-center justify-center gap-4">
-            {BADGES.map(([arenaId, badge]) => (
-              <div key={arenaId} className="flex flex-col items-center gap-1">
-                <div className="relative flex items-center justify-center">
-                  <div className="absolute inset-0 rounded-full blur-md" style={{ background: badge.color, opacity: 0.35 }} />
-                  <img
-                    src={badge.file}
-                    alt={badge.name}
-                    style={{
-                      width: 36, height: 36, objectFit: 'contain',
-                      imageRendering: 'pixelated',
-                      filter: `drop-shadow(0 0 5px ${badge.color})`,
-                      position: 'relative', zIndex: 1,
-                    }}
-                  />
-                </div>
-                <p style={{ fontSize: 9, color: badge.color, fontWeight: 900, textAlign: 'center', letterSpacing: '0.03em' }}>
-                  {badge.city}
-                </p>
+          {BADGES.map(([arenaId, badge]) => (
+            <div key={arenaId} className="flex flex-col items-center gap-1">
+              <div className="relative flex items-center justify-center">
+                <motion.div
+                  className="absolute inset-0 rounded-full blur-md"
+                  style={{ background: badge.color }}
+                  animate={{ opacity: [0.3, 0.7, 0.3] }}
+                  transition={{ duration: 2 + Math.random(), repeat: Infinity }}
+                />
+                <img
+                  src={badge.file}
+                  alt={badge.name}
+                  style={{
+                    width: 38, height: 38, objectFit: 'contain',
+                    imageRendering: 'pixelated',
+                    filter: `drop-shadow(0 0 7px ${badge.color}) drop-shadow(0 0 14px ${badge.color}66)`,
+                    position: 'relative', zIndex: 1,
+                  }}
+                />
               </div>
-            ))}
-          </div>
+              <p style={{ fontSize: 8.5, color: badge.color, fontWeight: 900, textAlign: 'center', letterSpacing: '0.03em' }}>
+                {badge.city}
+              </p>
+            </div>
+          ))}
         </motion.div>
 
-        {/* Footer CTA */}
+        {/* CTA */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.55 }}
-          className="mt-3 flex justify-center shrink-0"
+          className="flex justify-center shrink-0"
         >
           <motion.button
             whileHover={{ scale: 1.04, boxShadow: '0 0 32px rgba(251,191,36,0.4)' }}
