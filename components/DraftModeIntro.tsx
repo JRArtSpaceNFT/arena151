@@ -72,7 +72,7 @@ export default function DraftModeIntro() {
   // Crowd cheer — first 10s on loop, very low volume
   useEffect(() => {
     const audio = new Audio('/music/Crowd Cheer Sound Effect.mp3');
-    audio.volume = 0.07;
+    audio.volume = 0.15;
     audio.currentTime = 0;
 
     const handleTimeUpdate = () => {
