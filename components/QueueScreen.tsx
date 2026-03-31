@@ -19,7 +19,8 @@ const SEARCH_LINES = [
 ]
 
 // 20 popular Pokémon IDs (using their PokeAPI sprite IDs)
-const FLOAT_POKEMON = [25,6,9,3,150,149,131,143,130,196,197,39,94,248,289,448,445,249,250,384]
+// 20 popular Gen 1 Pokémon only (IDs 1–151)
+const FLOAT_POKEMON = [25,6,9,3,150,149,131,143,130,39,94,54,52,133,7,4,1,90,59,37]
 
 // Deterministic positions so SSR and client match
 const FLOAT_CONFIG = FLOAT_POKEMON.map((id, i) => ({
