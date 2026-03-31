@@ -113,13 +113,15 @@ export default function ArenaReveal() {
 
   return (
     <div style={{
-      minHeight: '100vh',
+      width: '100%',
+      height: '100%',
       position: 'relative',
       overflow: 'hidden',
     }}>
         <div
           style={{
-            minHeight: '100vh',
+            width: '100%',
+            height: '100%',
             background: displayArena.bgGradient,
             display: 'flex',
             flexDirection: 'column',
@@ -127,23 +129,26 @@ export default function ArenaReveal() {
             justifyContent: 'center',
             position: 'relative',
             overflow: 'hidden',
-            // snap-change during spin; smooth reveal on lock
             transition: isLocked ? 'background 0.4s ease' : 'none',
-            animation: isLocked ? 'fadeIn 0.3s ease forwards' : 'none',
           }}
         >
           {/* Arena image background — keyed so React fully replaces it on every index change */}
-          <div
-            key={`arena-bg-${currentIndex}`}
-            style={{
-              position: 'absolute', inset: 0,
-              backgroundImage: displayArena.image ? `url(${displayArena.image})` : 'none',
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              opacity: 0.55,
-              pointerEvents: 'none',
-            }}
-          />
+          {displayArena.image && (
+            <img
+              key={`arena-bg-${currentIndex}`}
+              src={displayArena.image}
+              alt=""
+              aria-hidden="true"
+              style={{
+                position: 'absolute', inset: 0,
+                width: '100%', height: '100%',
+                objectFit: 'cover',
+                objectPosition: 'center',
+                opacity: 0.55,
+                pointerEvents: 'none',
+              }}
+            />
+          )}
 
           {/* Scanline overlay */}
           <div style={{
