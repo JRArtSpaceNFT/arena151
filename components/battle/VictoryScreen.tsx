@@ -22,7 +22,7 @@ function SpeedLines({ color }: { color: string }) {
           <line key={i} x1={x1} y1={y1} x2={x2} y2={y2}
             stroke={color}
             strokeWidth={i % 4 === 0 ? 4 : i % 2 === 0 ? 2 : 1}
-            opacity={i % 4 === 0 ? 0.7 : 0.25}
+            opacity={i % 4 === 0 ? 0.6 : 0.2}
           />
         )
       })}
@@ -37,19 +37,16 @@ export default function VictoryScreen() {
   const [showButton, setShowButton] = useState(false)
 
   const isStoryMode = gameMode === 'story'
-
   const winner = battleState?.winner
   const winnerTrainer = winner === 'A' ? p1Trainer : p2Trainer
-  const loserTrainer = winner === 'A' ? p2Trainer : p1Trainer
+  const loserTrainer  = winner === 'A' ? p2Trainer : p1Trainer
   const quote = winnerTrainer?.winQuote ?? '...'
 
   useEffect(() => { playMusic('victory') }, [])
-
   useEffect(() => {
-    const t1 = setTimeout(() => setShowQuote(true), 1000)
+    const t1 = setTimeout(() => setShowQuote(true), 800)
     return () => clearTimeout(t1)
   }, [])
-
   useEffect(() => {
     if (!showQuote) return
     setDisplayed('')
@@ -59,7 +56,7 @@ export default function VictoryScreen() {
       setDisplayed(quote.slice(0, i))
       if (i >= quote.length) {
         clearInterval(iv)
-        setTimeout(() => setShowButton(true), 500)
+        setTimeout(() => setShowButton(true), 400)
       }
     }, 28)
     return () => clearInterval(iv)
@@ -68,216 +65,244 @@ export default function VictoryScreen() {
   if (!winnerTrainer) return null
   const wColor = winnerTrainer.color
 
+  const OVERRIDES: Record<string, { height?: string; left?: string; bottom?: string }> = {
+    'gary':        { height: '50vh', left: '41%' },
+    'surge':       { height: '50vh', left: '41%' },
+    'koga':        { left: '42%' },
+    'sabrina':     { height: '48vh', left: '42%' },
+    'blaine':      { height: '50vh' },
+    'giovanni':    { height: '50vh', left: '41%' },
+    'lorelei':     { height: '52vh', left: '40%' },
+    'bruno':       { height: '50vh', left: '41%' },
+    'jessie-james':{ height: '72vh', bottom: '20%', left: '38%' },
+  }
+  const ov = OVERRIDES[winnerTrainer.id] ?? {}
+  const trainerH = ov.height ?? '58vh'
+  const trainerLeft = ov.left ?? '39%'
+  const trainerBottom = ov.bottom ?? '28%'
+
   return (
     <div style={{
-      height: '100vh',
-      background: '#0a0a0f',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      position: 'relative', overflow: 'hidden',
+      width: '100vw', height: '100vh',
+      overflow: 'hidden', position: 'relative',
+      background: '#000',
     }}>
+
+      {/* ── Background image ── */}
+      <div style={{
+        position: 'absolute', inset: 0,
+        backgroundImage: 'url(/victory-bg.png)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }} />
+
+      {/* Dark overlay for legibility */}
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.45)' }} />
+
       {/* Speed lines */}
-      <motion.div
-        initial={{ opacity: 1 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}
-        style={{ position: 'absolute', inset: 0 }}
-      >
+      <div style={{ position: 'absolute', inset: 0, opacity: 0.5 }}>
         <SpeedLines color={wColor} />
-      </motion.div>
+      </div>
 
       {/* Halftone dots */}
       <div style={{
         position: 'absolute', inset: 0,
-        backgroundImage: `radial-gradient(${wColor}20 1.5px, transparent 1.5px)`,
+        backgroundImage: `radial-gradient(${wColor}18 1.5px, transparent 1.5px)`,
         backgroundSize: '22px 22px',
       }} />
 
-      {/* Radial vignette */}
-      <div style={{
-        position: 'absolute', inset: 0,
-        background: `radial-gradient(ellipse 70% 70% at center, transparent 0%, rgba(0,0,0,0.75) 100%)`,
-      }} />
+      {/* ── Trainer name + WINS — top center ── */}
+      <motion.div
+        initial={{ opacity: 0, y: -16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15, type: 'spring', stiffness: 300, damping: 28 }}
+        style={{
+          position: 'absolute', top: '4%', left: 0, right: 0,
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          zIndex: 10,
+        }}
+      >
+        <div style={{
+          fontFamily: '"Impact", "Arial Black", sans-serif',
+          fontSize: 64, fontWeight: 900, lineHeight: 0.95,
+          color: wColor,
+          textShadow: `0 0 40px ${wColor}, 4px 4px 0 rgba(0,0,0,0.9)`,
+          textTransform: 'uppercase', letterSpacing: '0.04em',
+          textAlign: 'center',
+        }}>
+          {winnerTrainer.name}
+        </div>
+        <div style={{
+          fontFamily: '"Impact", "Arial Black", sans-serif',
+          fontSize: 28, fontWeight: 900, color: '#ffffff',
+          letterSpacing: '0.5em', textTransform: 'uppercase',
+          textShadow: '2px 2px 0 rgba(0,0,0,0.8)',
+        }}>
+          WINS!
+        </div>
+        <div style={{
+          color: '#94a3b8', fontSize: 12, fontWeight: 600,
+          letterSpacing: '0.15em', marginTop: 4,
+          textTransform: 'uppercase',
+        }}>
+          defeated {loserTrainer?.name ?? 'challenger'}
+        </div>
+      </motion.div>
 
+      {/* ── TRAINER SPRITE — centered on pokeball spotlight ── */}
+      {/* Pokeball spotlight is ~55% from left, feet at ~30% from bottom */}
+      <motion.div
+        initial={{ scale: 0.85, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: 'spring', stiffness: 220, damping: 22, delay: 0.05 }}
+        style={{
+          position: 'absolute',
+          bottom: trainerBottom,
+          left: trainerLeft,
+          transform: 'translateX(-50%)',
+          zIndex: 5,
+        }}
+      >
+        {/* Ground glow under feet */}
+        <div style={{
+          position: 'absolute', bottom: -8, left: '50%',
+          transform: 'translateX(-50%)',
+          width: 260, height: 60,
+          background: `radial-gradient(ellipse, ${wColor}77 0%, transparent 70%)`,
+          filter: 'blur(12px)',
+          pointerEvents: 'none',
+        }} />
 
-
-      {/* Main content — centered column, compact to fit viewport */}
-      <div style={{
-        position: 'relative', zIndex: 2,
-        display: 'flex', flexDirection: 'column', alignItems: 'center',
-        gap: 0,
-        maxHeight: '100vh',
-        paddingTop: 8,
-        paddingBottom: 8,
-      }}>
-
-        {/* BATTLE OVER label */}
-        <motion.div
-          initial={{ y: 0, opacity: 1 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-          style={{
-            fontFamily: '"Impact", "Arial Black", sans-serif',
-            fontSize: 14, fontWeight: 900, letterSpacing: '0.45em',
-            color: wColor, textTransform: 'uppercase',
-            textShadow: `0 0 20px ${wColor}`,
-            marginBottom: 10,
-          }}
-        >
-          ⚔️ BATTLE OVER ⚔️
-        </motion.div>
-
-        {/* Trainer sprite — large, centered, no box */}
-        <motion.div
-          initial={{ scale: 1, opacity: 1, y: 0 }}
-          animate={{ scale: 1, opacity: 1, y: 0 }}
-          transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.05 }}
-          style={{ position: 'relative' }}
-        >
-          {/* Glow ring behind trainer */}
+        {winnerTrainer.spriteUrl ? (
+          <img
+            src={winnerTrainer.spriteUrl}
+            alt={winnerTrainer.name}
+            style={{
+              height: trainerH,
+              width: 'auto',
+              objectFit: 'contain',
+              objectPosition: 'bottom center',
+              imageRendering: 'pixelated',
+              filter: `drop-shadow(0 0 28px ${wColor}) drop-shadow(0 0 56px ${wColor}88)`,
+              display: 'block',
+            }}
+          />
+        ) : (
           <div style={{
-            position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)',
-            width: 220, height: 80,
-            background: `radial-gradient(ellipse, ${wColor}66 0%, transparent 70%)`,
-            filter: 'blur(10px)',
-            pointerEvents: 'none',
-          }} />
-
-          {winnerTrainer.spriteUrl ? (
-            <img
-              src={winnerTrainer.spriteUrl}
-              alt={winnerTrainer.name}
-              style={{
-                width: winnerTrainer.id === 'jessie-james' ? 340 : 180,
-                height: winnerTrainer.id === 'jessie-james' ? 420 : 240,
-                objectFit: 'contain',
-                objectPosition: 'center',
-                imageRendering: 'pixelated',
-                filter: `drop-shadow(0 0 20px ${wColor}) drop-shadow(0 0 40px ${wColor}88)`,
-                display: 'block',
-              }}
-            />
-          ) : (
-            <div style={{
-              width: 240, height: 320,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 120, color: wColor,
-            }}>
-              {winnerTrainer.name[0]}
-            </div>
-          )}
-        </motion.div>
-
-        {/* Name + WINS */}
-        <motion.div
-          initial={{ y: 0, opacity: 1 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.2, type: 'spring', stiffness: 400, damping: 30 }}
-          style={{ textAlign: 'center', marginTop: 4 }}
-        >
-          <div style={{
-            fontFamily: '"Impact", "Arial Black", sans-serif',
-            fontSize: 42, fontWeight: 900, lineHeight: 1,
-            color: wColor,
-            textShadow: `0 0 30px ${wColor}, 4px 4px 0 rgba(0,0,0,0.8)`,
-            textTransform: 'uppercase', letterSpacing: '0.05em',
+            height: trainerH, width: '20vw',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 160, color: wColor,
           }}>
-            {winnerTrainer.name}
+            {winnerTrainer.name[0]}
           </div>
-          <div style={{
-            fontFamily: '"Impact", "Arial Black", sans-serif',
-            fontSize: 20, fontWeight: 900, color: '#fff',
-            letterSpacing: '0.35em', textTransform: 'uppercase',
-          }}>
-            WINS!
-          </div>
-          <div style={{
-            color: '#475569', fontSize: 12, fontWeight: 600,
-            letterSpacing: '0.1em', marginTop: 2,
-          }}>
-            defeated {loserTrainer?.name ?? 'challenger'}
-          </div>
-        </motion.div>
+        )}
+      </motion.div>
 
-        {/* Speech bubble — floats up from below */}
-        <AnimatePresence>
-          {showQuote && (
-            <motion.div
-              initial={{ opacity: 1, y: 0, scale: 1 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 320, damping: 28 }}
-              style={{
-                marginTop: 10,
+      {/* ── SPEECH BUBBLE — right side, at mouth height ── */}
+      {/* Mouth is roughly 85% up the sprite = near top of sprite */}
+      {/* Trainer top ≈ (100 - 28 - 68) = ~4% from top → mouth ~4% + 8% = ~12% from top */}
+      <AnimatePresence>
+        {showQuote && (
+          <motion.div
+            initial={{ opacity: 0, x: 20, scale: 0.9 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 280, damping: 26 }}
+            style={{
+              position: 'absolute',
+              // Vertically: ~head/mouth level (trainer top is ~4%, head ~10-20% from top)
+              top: '14%',
+              // Horizontally: right of trainer center (trainer at 50%, so right side ~58%+)
+              left: '54%',
+              maxWidth: '32%',
+              zIndex: 10,
+            }}
+          >
+            {/* Bubble arrow pointing LEFT toward trainer */}
+            <div style={{ position: 'relative' }}>
+              {/* Arrow shadow */}
+              <div style={{
+                position: 'absolute',
+                top: 22,
+                left: -20,
+                width: 0, height: 0,
+                borderTop: '12px solid transparent',
+                borderBottom: '12px solid transparent',
+                borderRight: '20px solid #181818',
+              }} />
+              {/* Arrow fill */}
+              <div style={{
+                position: 'absolute',
+                top: 24,
+                left: -15,
+                width: 0, height: 0,
+                borderTop: '10px solid transparent',
+                borderBottom: '10px solid transparent',
+                borderRight: '16px solid #f8f8e0',
+              }} />
+
+              {/* Bubble body */}
+              <div style={{
                 background: '#f8f8e0',
                 border: '4px solid #181818',
-                borderRadius: 4,
-                padding: '14px 20px',
-                position: 'relative',
-                boxShadow: '4px 4px 0 #181818',
-                maxWidth: 380,
-              }}
-            >
-              {/* Bubble pointer pointing UP toward trainer */}
-              <div style={{
-                position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)',
-                width: 0, height: 0,
-                borderLeft: '12px solid transparent',
-                borderRight: '12px solid transparent',
-                borderBottom: '16px solid #181818',
-              }} />
-              <div style={{
-                position: 'absolute', bottom: 'calc(100% - 5px)', left: '50%', transform: 'translateX(-50%)',
-                width: 0, height: 0,
-                borderLeft: '9px solid transparent',
-                borderRight: '9px solid transparent',
-                borderBottom: '12px solid #f8f8e0',
-              }} />
-              <div style={{
-                fontFamily: '"Courier New", monospace',
-                fontSize: 14, fontWeight: 700, color: '#181818',
-                letterSpacing: '0.02em', lineHeight: 1.6,
-                minHeight: 44,
-                textAlign: 'center',
+                borderRadius: 6,
+                padding: '16px 20px',
+                boxShadow: '5px 5px 0 #181818',
               }}>
-                &ldquo;{displayed}
-                <motion.span
-                  animate={{ opacity: [1, 0, 1] }}
-                  transition={{ duration: 0.55, repeat: Infinity }}
-                  style={{ marginLeft: 1 }}
-                >▎</motion.span>
-                &rdquo;
+                <div style={{
+                  fontFamily: '"Courier New", monospace',
+                  fontSize: 15, fontWeight: 700, color: '#181818',
+                  letterSpacing: '0.02em', lineHeight: 1.6,
+                  minHeight: 48,
+                }}>
+                  &ldquo;{displayed}
+                  <motion.span
+                    animate={{ opacity: [1, 0, 1] }}
+                    transition={{ duration: 0.55, repeat: Infinity }}
+                    style={{ marginLeft: 1 }}
+                  >▎</motion.span>
+                  &rdquo;
+                </div>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-        {/* View Results button / Continue Journey */}
-        <AnimatePresence>
-          {showButton && (
-            <motion.button
-              initial={{ opacity: 1, y: 0 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              whileHover={{ scale: 1.06, boxShadow: `0 0 28px ${wColor}88` }}
-              whileTap={{ scale: 0.96 }}
-              onClick={isStoryMode ? completeStoryBattle : proceedToResults}
-              style={{
-                marginTop: 12,
-                padding: '13px 40px',
-                background: wColor,
-                border: '3px solid white',
-                borderRadius: 4,
-                color: '#fff',
-                fontSize: 17, fontWeight: 900,
-                fontFamily: '"Impact", "Arial Black", sans-serif',
-                letterSpacing: '0.1em', textTransform: 'uppercase',
-                cursor: 'pointer',
-                boxShadow: `0 5px 0 rgba(0,0,0,0.4), 0 0 18px ${wColor}66`,
-              }}
-            >
-              {isStoryMode ? '⚔️ CONTINUE JOURNEY →' : '📊 VIEW RESULTS →'}
-            </motion.button>
-          )}
-        </AnimatePresence>
-      </div>
+      {/* ── VIEW RESULTS button — pinned to bottom ── */}
+      <AnimatePresence>
+        {showButton && (
+          <motion.button
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            whileHover={{ scale: 1.06, boxShadow: `0 0 32px ${wColor}aa` }}
+            whileTap={{ scale: 0.96 }}
+            onClick={isStoryMode ? completeStoryBattle : proceedToResults}
+            style={{
+              position: 'absolute',
+              bottom: '3%',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 20,
+              padding: '14px 48px',
+              background: wColor,
+              border: '3px solid white',
+              borderRadius: 4,
+              color: '#fff',
+              fontSize: 18, fontWeight: 900,
+              fontFamily: '"Impact", "Arial Black", sans-serif',
+              letterSpacing: '0.1em', textTransform: 'uppercase',
+              cursor: 'pointer',
+              boxShadow: `0 5px 0 rgba(0,0,0,0.5), 0 0 22px ${wColor}77`,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {isStoryMode ? '⚔️ CONTINUE JOURNEY →' : '📊 VIEW RESULTS →'}
+          </motion.button>
+        )}
+      </AnimatePresence>
+
     </div>
   )
 }
