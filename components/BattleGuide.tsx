@@ -197,13 +197,7 @@ export default function BattleGuide() {
               transition={{ type: 'spring', stiffness: 300, damping: 28 }}
               style={{ width: '62vw', maxWidth: 900 }}
             >
-              {/* Glow behind */}
-              <div style={{
-                position: 'absolute', inset: -20,
-                background: 'radial-gradient(ellipse, rgba(251,191,36,0.12) 0%, transparent 70%)',
-                borderRadius: 24,
-                pointerEvents: 'none',
-              }} />
+
 
               <div style={{
                 borderRadius: 16,
