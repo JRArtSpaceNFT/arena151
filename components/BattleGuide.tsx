@@ -191,19 +191,17 @@ export default function BattleGuide() {
         {/* ── Zoom lightbox ── */}
         <AnimatePresence>
           {hoveredStep !== null && (
+            <div
+              className="fixed z-50 pointer-events-none"
+              style={{ inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
             <motion.div
               key={hoveredStep}
               initial={{ opacity: 0, scale: 0.88 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.92 }}
               transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-              className="fixed z-50 pointer-events-none"
-              style={{
-                top: '50%', left: '50%',
-                transform: 'translate(-50%, -50%)',
-                width: '62vw',
-                maxWidth: 900,
-              }}
+              style={{ width: '62vw', maxWidth: 900 }}
             >
               {/* Glow behind */}
               <div style={{
@@ -246,6 +244,7 @@ export default function BattleGuide() {
                 />
               </div>
             </motion.div>
+            </div>
           )}
         </AnimatePresence>
 
