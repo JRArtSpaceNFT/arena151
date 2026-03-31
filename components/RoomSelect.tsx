@@ -172,12 +172,6 @@ export default function RoomSelect() {
                 <div className="absolute bottom-0 right-0 w-3 h-3 pointer-events-none"
                   style={{ borderBottom: `2px solid ${identity.accent}77`, borderRight: `2px solid ${identity.accent}77`, borderBottomRightRadius: 10 }} />
 
-                {/* Faint elemental symbol in background */}
-                <div className="absolute bottom-6 right-3 text-4xl pointer-events-none select-none"
-                  style={{ opacity: isHigh ? 0.1 : 0.06, filter: 'blur(1px)', fontSize: identity.stakeTier === 'high' ? 52 : 38 }}>
-                  {identity.elementalSymbol}
-                </div>
-
                 {/* Escalating glow intensity — bottom edge */}
                 <div className="absolute bottom-0 left-0 right-0 h-1 pointer-events-none rounded-b-xl"
                   style={{ background: `linear-gradient(90deg, transparent, ${identity.accent}${identity.stakeTier === 'high' ? '88' : identity.stakeTier === 'mid' ? '55' : '33'}, transparent)` }} />
