@@ -78,25 +78,34 @@ export default function Lineup() {
 
         {/* Timer */}
         {(lineupPhase as string) !== 'done' && !(gameMode === 'vs_ai' && isP2Phase) && (
-          <div style={{
-            marginTop: 12,
-            display: 'inline-flex', alignItems: 'center', gap: 8,
-            background: timeLeft <= 8 ? 'rgba(239,68,68,0.15)' : 'rgba(124,58,237,0.1)',
-            border: `2px solid ${timeLeft <= 8 ? '#ef4444' : currentColor}`,
-            borderRadius: 10, padding: '6px 16px',
-          }}>
-            <motion.span
-              animate={timeLeft <= 8 ? { scale: [1, 1.25, 1] } : { scale: 1 }}
-              transition={{ duration: 0.4, repeat: timeLeft <= 8 ? Infinity : 0 }}
-              style={{ fontSize: 18 }}
-            >⏱</motion.span>
-            <span style={{
-              fontSize: 24, fontWeight: 900,
-              color: timeLeft <= 8 ? '#ef4444' : '#e2e8f0',
-              fontVariantNumeric: 'tabular-nums',
-              minWidth: 28, textAlign: 'center', display: 'inline-block',
-            }}>{timeLeft}</span>
-            <span style={{ fontSize: 12, color: '#64748b' }}>sec — lineup locks when it hits 0</span>
+          <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+            {/* Big countdown number */}
+            <motion.div
+              animate={timeLeft <= 8 ? { scale: [1, 1.12, 1] } : { scale: 1 }}
+              transition={{ duration: 0.5, repeat: timeLeft <= 8 ? Infinity : 0 }}
+              style={{
+                fontSize: 56, fontWeight: 900, lineHeight: 1,
+                color: timeLeft <= 5 ? '#ef4444' : timeLeft <= 10 ? '#f97316' : '#e2e8f0',
+                textShadow: timeLeft <= 5 ? '0 0 30px rgba(239,68,68,0.8)' : timeLeft <= 10 ? '0 0 20px rgba(249,115,22,0.6)' : `0 0 16px ${currentColor}66`,
+                fontVariantNumeric: 'tabular-nums',
+                minWidth: 64, textAlign: 'center',
+              }}
+            >
+              {timeLeft}
+            </motion.div>
+
+            {/* Progress bar */}
+            <div style={{ width: 280, height: 6, background: 'rgba(255,255,255,0.08)', borderRadius: 3, overflow: 'hidden' }}>
+              <motion.div
+                style={{ height: '100%', borderRadius: 3, background: timeLeft <= 5 ? '#ef4444' : timeLeft <= 10 ? '#f97316' : currentColor }}
+                animate={{ width: `${(timeLeft / 30) * 100}%` }}
+                transition={{ duration: 0.9, ease: 'linear' }}
+              />
+            </div>
+
+            <span style={{ fontSize: 11, color: '#475569', letterSpacing: '0.08em' }}>
+              LINEUP LOCKS IN {timeLeft}s
+            </span>
           </div>
         )}
         {gameMode === 'vs_ai' && isP2Phase && (
