@@ -1275,10 +1275,15 @@ export function resolveBattle(
       if (attBCS.ac.currentHp <= 0 || defBCS.ac.currentHp <= 0) continue
 
       // ── PRE-MOVE STATUS CHECKS ───────────────────────────────
+      // Pick the intended move first so we can stamp lastMoveId even on skipped turns,
+      // preventing the AI from repeating the same move after a forced skip.
+      const intendedMove = pickMove(attBCS, defBCS, arena, attkSide === 'A' ? trainerA : trainerB)
 
       // Flinch: skip this attack (cleared immediately)
       if (attBCS.flinched) {
         attBCS.flinched = false
+        attBCS.lastMoveId = intendedMove.id  // count as used so next turn picks something different
+        attBCS.lastMoveCount = 1
         log.push({
           id: nextId(), type: 'move', side: attkSide,
           text: `😨 ${attBCS.ac.creature.name} flinched and couldn't move!`,
@@ -1291,6 +1296,8 @@ export function resolveBattle(
       if (attBCS.status === 'frozen') {
         attBCS.status = 'none'
         attBCS.statusTurns = 0
+        attBCS.lastMoveId = intendedMove.id  // count as used so next turn picks something different
+        attBCS.lastMoveCount = 1
         log.push({
           id: nextId(), type: 'move', side: attkSide,
           text: `🧊 ${attBCS.ac.creature.name} is frozen solid and can't move! It thawed out after!`,
@@ -1301,6 +1308,8 @@ export function resolveBattle(
 
       // Paralysis: 25% chance to skip
       if (attBCS.status === 'paralyzed' && Math.random() < 0.25) {
+        attBCS.lastMoveId = intendedMove.id  // count as used so next turn picks something different
+        attBCS.lastMoveCount = 1
         log.push({
           id: nextId(), type: 'move', side: attkSide,
           text: `⚡ ${attBCS.ac.creature.name} is paralyzed and can't move!`,
@@ -1343,7 +1352,7 @@ export function resolveBattle(
       // Check Ash boost trigger
       checkAshBoost(attBCS, attkSide === 'A' ? trainerA : trainerB)
 
-      const move = pickMove(attBCS, defBCS, arena, attkSide === 'A' ? trainerA : trainerB)
+      const move = intendedMove
 
       // Handle weather-setting moves
       if (move.id === 'sunny_day') { weather = 'sunny'; weatherTurns = 5 }
