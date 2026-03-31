@@ -22,7 +22,7 @@ export default function MusicToggle() {
       title={muted ? 'Unmute music' : 'Mute music'}
       style={{
         position: 'fixed',
-        bottom: 18,
+        bottom: 36,
         left: 18,
         zIndex: 9999,
         width: 38,
