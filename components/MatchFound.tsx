@@ -88,20 +88,6 @@ export default function MatchFound() {
           transition={{ type: 'spring', stiffness: 200, damping: 20 }}
           className="text-center mb-16"
         >
-          <motion.div
-            animate={{
-              scale: [1, 1.1, 1],
-              rotate: [0, 5, -5, 0],
-            }}
-            transition={{
-              duration: 0.5,
-              repeat: Infinity,
-              repeatDelay: 1,
-            }}
-            className="inline-block"
-          >
-            <Zap className="w-24 h-24 mx-auto mb-6 text-yellow-400 drop-shadow-[0_0_30px_rgba(250,204,21,0.8)]" />
-          </motion.div>
           <h1 className="text-7xl font-black mb-4 arena-glow bg-gradient-to-r from-yellow-400 via-orange-400 to-yellow-400 bg-clip-text text-transparent">
             RIVAL FOUND!
           </h1>

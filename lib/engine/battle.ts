@@ -467,6 +467,14 @@ function simulateAttack(
             creatureName: attackerBCS.ac.creature.name,
             defenderName: defenderBCS.ac.creature.name,
           })
+        } else {
+          // Target has a different status — sleep move fails, show miss
+          log.push({
+            id: nextId(), type: 'move', side,
+            text: `💨 ${attackerBCS.ac.creature.name} used ${move.name} but it missed!`,
+            moveName: move.name,
+            creatureName: attackerBCS.ac.creature.name,
+          })
         }
       } else if (move.id === 'confuse_ray' || move.id === 'supersonic') {
         if (defenderBCS.status !== 'confused') {
@@ -552,6 +560,11 @@ function simulateAttack(
           // Custom field: signals BattleScreen to reveal the new sprite on this entry
           ...(({ dittoRevealSide: side, dittoRevealSprite: target.spriteUrl }) as any),
         })
+        // ── Immediately attack with a move from the new form ──────
+        const followUpMove = attackerBCS.ac.assignedMoves.find(m => m.power > 0) ?? attackerBCS.ac.assignedMoves[0]
+        if (followUpMove) {
+          simulateAttack(attackerBCS, defenderBCS, followUpMove, arena, trainerAtk, trainerDef, side, log, crowdMeter)
+        }
       } else if (move.id === 'sunny_day') {
         // weather handled outside, just log here
         log.push({ id: nextId(), type: 'move', side, text: `☀️ ${attackerBCS.ac.creature.name} used Sunny Day! The sunlight turned harsh!`, moveName: move.name, creatureName: attackerBCS.ac.creature.name })

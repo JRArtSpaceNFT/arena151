@@ -1,10 +1,15 @@
 'use client'
 
+import { useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useGameStore } from '@/lib/game-store'
+import { playMusic } from '@/lib/audio/musicEngine'
 
 export default function DefeatScreen() {
-  const { navigateTo, gameMode, storyProgress } = useGameStore()
+  const { navigateTo, gameMode, storyProgress, battleState, p1Trainer, p2Trainer, arena } = useGameStore()
+
+  // Play victory/end music when defeat screen shows
+  useEffect(() => { playMusic('victory') }, [])
 
   const handleContinue = () => {
     if (gameMode === 'story') {
@@ -14,33 +19,62 @@ export default function DefeatScreen() {
     }
   }
 
+  // Loser is whoever didn't win
+  const loserTrainer = battleState?.winner === 'A' ? p2Trainer : p1Trainer
+  const arenaImage = arena?.image ?? null
+
   return (
     <div style={{
       height: '100vh',
-      background: 'linear-gradient(135deg, #7f1d1d 0%, #450a0a 50%, #1c1917 100%)',
+      position: 'relative',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
       padding: '20px 24px',
-      position: 'relative',
       overflow: 'hidden',
     }}>
+
+      {/* Arena background — very dark */}
+      {arenaImage ? (
+        <div style={{
+          position: 'absolute', inset: 0,
+          backgroundImage: `url(${arenaImage})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          filter: 'brightness(0.18) saturate(0.6)',
+          zIndex: 0,
+        }} />
+      ) : (
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: 'linear-gradient(135deg, #1c0a0a 0%, #0a0a0f 100%)',
+          zIndex: 0,
+        }} />
+      )}
+
+      {/* Subtle red vignette overlay */}
+      <div style={{
+        position: 'absolute', inset: 0,
+        background: 'radial-gradient(ellipse at center, transparent 30%, rgba(80,0,0,0.7) 100%)',
+        zIndex: 1,
+      }} />
+
       {/* Falling embers */}
       {[...Array(12)].map((_, i) => (
         <motion.div
           key={i}
           initial={{ y: -20, opacity: 0 }}
-          animate={{ y: '100vh', opacity: [0, 0.6, 0] }}
+          animate={{ y: '100vh', opacity: [0, 0.5, 0] }}
           transition={{ duration: 4 + Math.random() * 3, repeat: Infinity, delay: i * 0.4 }}
           style={{
             position: 'absolute',
             left: `${Math.random() * 100}%`,
-            width: 3,
-            height: 6,
+            width: 3, height: 6,
             background: '#ef4444',
             borderRadius: 2,
             boxShadow: '0 0 6px #ef4444',
+            zIndex: 2,
           }}
         />
       ))}
@@ -50,19 +84,37 @@ export default function DefeatScreen() {
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.45 }}
         style={{
-          maxWidth: 640,
-          width: '100%',
+          maxWidth: 640, width: '100%',
           textAlign: 'center',
           position: 'relative',
           zIndex: 10,
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
         }}
       >
-        {/* Broken Pokéball icon */}
+        {/* Loser trainer sprite */}
+        {loserTrainer?.spriteUrl && (
+          <motion.img
+            src={loserTrainer.spriteUrl}
+            alt={loserTrainer.name}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 0.55, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.5 }}
+            style={{
+              height: 140,
+              width: 'auto',
+              imageRendering: 'pixelated',
+              filter: 'grayscale(100%) brightness(0.5)',
+              marginBottom: 8,
+            }}
+          />
+        )}
+
+        {/* 💔 icon */}
         <motion.div
           initial={{ rotate: 0 }}
           animate={{ rotate: [0, -10, 10, -5, 5, 0] }}
           transition={{ duration: 0.6, delay: 0.2 }}
-          style={{ fontSize: 72, marginBottom: 20, filter: 'grayscale(100%)', opacity: 0.7 }}
+          style={{ fontSize: 52, marginBottom: 12, filter: 'grayscale(100%)', opacity: 0.7 }}
         >
           💔
         </motion.div>
@@ -73,11 +125,9 @@ export default function DefeatScreen() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
           style={{
-            fontSize: 56,
-            fontWeight: 900,
+            fontSize: 56, fontWeight: 900, margin: '0 0 12px',
             color: '#ef4444',
             textShadow: '0 0 32px rgba(239,68,68,0.8), 4px 4px 8px rgba(0,0,0,0.9)',
-            marginBottom: 16,
             letterSpacing: '0.1em',
           }}
         >
@@ -89,11 +139,8 @@ export default function DefeatScreen() {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5 }}
           style={{
-            fontSize: 15,
-            color: '#fca5a5',
-            marginBottom: 36,
-            lineHeight: 1.5,
-            whiteSpace: 'nowrap',
+            fontSize: 15, color: '#fca5a5',
+            marginBottom: 32, lineHeight: 1.5,
           }}
         >
           {gameMode === 'story'
@@ -111,11 +158,8 @@ export default function DefeatScreen() {
             border: '3px solid #ef4444',
             borderRadius: 12,
             padding: '16px 48px',
-            color: '#fff',
-            fontSize: 22,
-            fontWeight: 900,
-            cursor: 'pointer',
-            letterSpacing: '0.1em',
+            color: '#fff', fontSize: 22, fontWeight: 900,
+            cursor: 'pointer', letterSpacing: '0.1em',
             boxShadow: '0 0 32px rgba(239,68,68,0.5), 0 6px 18px rgba(0,0,0,0.4)',
           }}
         >
