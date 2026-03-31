@@ -72,7 +72,7 @@ export default function DraftModeIntro() {
   // Crowd cheer — first 10s on loop, very low volume
   useEffect(() => {
     const audio = new Audio('/music/Crowd Cheer Sound Effect.mp3');
-    audio.volume = 0.15;
+    audio.volume = 0.22;
     audio.currentTime = 0;
 
     const handleTimeUpdate = () => {
@@ -144,7 +144,7 @@ export default function DraftModeIntro() {
         onClick={() => currentTrainer ? setScreen('room-select') : setScreen('signup')}
         aria-label="Enter the Arena"
         className="absolute cursor-pointer focus:outline-none"
-        style={{ left: '38%', top: '72%', width: '18.5%', height: '8%' }}
+        style={{ left: '40%', top: '72%', width: '18.5%', height: '8%' }}
       />
 
       {/* PROFILE — top left */}
