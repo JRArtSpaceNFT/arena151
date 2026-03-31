@@ -148,19 +148,20 @@ export default function RoomSelect() {
               >
                 {/* ── Arena background image ── */}
                 {/* To replace: drop new PNG into /public/arenas/gyms/<arena-id>.png */}
+                {/* Images are B&W Game Boy style — no saturation filter applied */}
                 <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none">
                   <div style={{
                     position: 'absolute', inset: 0,
                     backgroundImage: `url(${identity.bgImage})`,
                     backgroundSize: 'cover',
                     backgroundPosition: 'center',
-                    opacity: isHigh ? 0.35 : 0.28,
-                    filter: 'saturate(0.7)',
+                    opacity: isHigh ? 0.45 : 0.38,
+                    imageRendering: 'pixelated',
                   }} />
-                  {/* Dark overlay — keeps text readable */}
-                  <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(160deg, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.82) 100%)` }} />
-                  {/* Subtle tint from arena accent */}
-                  <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(160deg, ${identity.accentDark}55 0%, transparent 60%)` }} />
+                  {/* Dark overlay — keeps text readable over B&W art */}
+                  <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(160deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.78) 100%)` }} />
+                  {/* Accent color tint — gives each card its identity even on B&W */}
+                  <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(160deg, ${identity.accentDark}66 0%, transparent 55%)` }} />
                 </div>
 
                 {/* Corner accents */}
