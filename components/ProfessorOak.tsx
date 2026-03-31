@@ -364,6 +364,7 @@ export default function ProfessorOak() {
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [remaining, setRemaining] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const currentScreen = useArenaStore((state) => state.currentScreen);
 
@@ -378,32 +379,58 @@ export default function ProfessorOak() {
     scrollToBottom();
   }, [messages]);
 
-  const handleSend = () => {
-    if (!input.trim()) return;
+  const handleSend = async () => {
+    if (!input.trim() || isTyping) return;
 
-    // Add user message
+    const userText = input.trim();
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: input.trim(),
+      content: userText,
       timestamp: new Date(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    const updatedMessages = [...messages, userMessage];
+    setMessages(updatedMessages);
     setInput('');
     setIsTyping(true);
 
-    // Simulate typing delay
-    setTimeout(() => {
-      const oakMessage: Message = {
+    try {
+      const res = await fetch('/api/oak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: updatedMessages }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        // Rate limited or error
+        setMessages((prev) => [...prev, {
+          id: (Date.now() + 1).toString(),
+          role: 'oak',
+          content: data.error || "My research notes seem to be out of reach at the moment. Try again shortly!",
+          timestamp: new Date(),
+        }]);
+      } else {
+        if (data.remaining !== undefined) setRemaining(data.remaining);
+        setMessages((prev) => [...prev, {
+          id: (Date.now() + 1).toString(),
+          role: 'oak',
+          content: data.reply,
+          timestamp: new Date(),
+        }]);
+      }
+    } catch {
+      setMessages((prev) => [...prev, {
         id: (Date.now() + 1).toString(),
         role: 'oak',
-        content: getOakResponse(input),
+        content: "My Pokédex seems to be having a moment. Please try again!",
         timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, oakMessage]);
+      }]);
+    } finally {
       setIsTyping(false);
-    }, 1000 + Math.random() * 1000);
+    }
   };
 
   if (shouldHide) return null;
@@ -562,7 +589,9 @@ export default function ProfessorOak() {
                 </button>
               </div>
               <p className="text-xs text-slate-500 mt-2 text-center">
-                Ask about Pokémon, battles, rooms, or deposits!
+                {remaining !== null
+                  ? `${remaining} message${remaining === 1 ? '' : 's'} remaining today`
+                  : 'Ask me anything about Pokémon or the game!'}
               </p>
             </div>
           </motion.div>
