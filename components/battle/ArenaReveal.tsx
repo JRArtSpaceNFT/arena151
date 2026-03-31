@@ -113,15 +113,13 @@ export default function ArenaReveal() {
 
   return (
     <div style={{
-      width: '100%',
-      height: '100%',
+      minHeight: '100vh',
       position: 'relative',
       overflow: 'hidden',
     }}>
         <div
           style={{
-            width: '100%',
-            height: '100%',
+            minHeight: '100vh',
             background: displayArena.bgGradient,
             display: 'flex',
             flexDirection: 'column',
@@ -130,6 +128,7 @@ export default function ArenaReveal() {
             position: 'relative',
             overflow: 'hidden',
             transition: isLocked ? 'background 0.4s ease' : 'none',
+            animation: isLocked ? 'fadeIn 0.3s ease forwards' : 'none',
           }}
         >
           {/* Arena image background — keyed so React fully replaces it on every index change */}
