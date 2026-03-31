@@ -64,19 +64,11 @@ export default function HomePage() {
     try {
       const audio = new Audio('/pikachu sounds.mp3');
       audio.currentTime = 0;
-      // Once we know the duration, cut it 0.5s early
-      audio.addEventListener('loadedmetadata', () => {
-        const cutAt = Math.max(0, audio.duration - 0.5) * 1000;
-        setTimeout(() => {
-          audio.pause();
-          navigate();
-        }, cutAt);
-      }, { once: true });
-      // Fallback if metadata never loads
-      audio.addEventListener('error', navigate, { once: true });
-      audio.play().catch(() => navigate());
+      audio.play().catch(() => {});
+      // Cut audio after 2s, then navigate after another 0.5s
+      setTimeout(() => { audio.pause(); }, 2000);
+      setTimeout(navigate, 2500);
     } catch (e) {
-      // If audio fails entirely, just navigate
       navigate();
     }
   };
