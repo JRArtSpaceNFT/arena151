@@ -613,12 +613,20 @@ function simulateAttack(
           creatureName: attackerBCS.ac.creature.name,
         })
       } else {
+        // Announce the move call first
+        log.push({
+          id: nextId(), type: 'move', side,
+          text: `${attackerBCS.ac.creature.name} used ${move.name}!`,
+          moveName: move.name,
+          creatureName: attackerBCS.ac.creature.name,
+        })
         const healAmt = Math.floor(attackerBCS.ac.maxHp * 0.50)
         attackerBCS.ac.currentHp = Math.min(attackerBCS.ac.maxHp, attackerBCS.ac.currentHp + healAmt)
         if (isStatusHeal) attackerBCS.healUsed = true
+        // Then the heal result
         log.push({
           id: nextId(), type: 'move', side,
-          text: `💚 ${attackerBCS.ac.creature.name} used ${move.name} and restored ${healAmt} HP!${isStatusHeal ? ' (1 use per match)' : ''}`,
+          text: `💚 ${attackerBCS.ac.creature.name} restored ${healAmt} HP!${isStatusHeal ? ' (1 use per match)' : ''}`,
           moveName: move.name,
           creatureName: attackerBCS.ac.creature.name,
         })
