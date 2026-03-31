@@ -34,7 +34,7 @@ export default function HomePage() {
         earnings: session.earnings ?? 0,
       });
     }
-  }, [setTrainer]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Start intro music on first interaction
   useEffect(() => {
