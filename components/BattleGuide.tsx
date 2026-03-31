@@ -88,9 +88,9 @@ export default function BattleGuide() {
           <motion.button
             initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }}
             onClick={() => setScreen('draft-mode-intro')}
-            whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
+            whileHover={{ scale: 1.04, boxShadow: '0 0 16px rgba(251,191,36,0.4)' }} whileTap={{ scale: 0.96 }}
             className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-bold border"
-            style={{ background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)' }}
+            style={{ background: 'rgba(251,191,36,0.12)', borderColor: 'rgba(251,191,36,0.5)', color: '#fbbf24' }}
           >
             ← Back
           </motion.button>
@@ -226,29 +226,7 @@ export default function BattleGuide() {
 
 
 
-        {/* CTA */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.55 }}
-          className="flex justify-center shrink-0"
-        >
-          <motion.button
-            whileHover={{ scale: 1.04, boxShadow: '0 0 32px rgba(251,191,36,0.4)' }}
-            whileTap={{ scale: 0.97 }}
-            onClick={() => setScreen('draft-mode-intro')}
-            className="px-10 py-2.5 rounded-xl font-black text-sm uppercase tracking-widest"
-            style={{
-              fontFamily: '"Impact", "Arial Black", sans-serif',
-              background: 'linear-gradient(135deg, rgba(251,191,36,0.2), rgba(249,115,22,0.2))',
-              border: '1px solid rgba(251,191,36,0.4)',
-              color: '#fbbf24',
-              letterSpacing: '0.12em',
-            }}
-          >
-← Back
-          </motion.button>
-        </motion.div>
+
 
         </div>{/* end center content */}
 
