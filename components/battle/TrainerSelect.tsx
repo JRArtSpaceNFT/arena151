@@ -198,10 +198,10 @@ function DossierCard({ trainer, isTaken }: { trainer: Trainer; isTaken: boolean 
             animate={{ y: [0, -7, 0] }}
             transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
             style={{
-              width: trainer.id === 'jessie-james' ? 230 : trainer.id === 'fuji' ? 180 : 160,
-              height: trainer.id === 'jessie-james' ? 230 : trainer.id === 'fuji' ? 190 : 170,
+              width: 160,
+              height: 170,
               objectFit: 'contain',
-              objectPosition: trainer.id === 'jessie-james' ? '25% 50%' : '50% 50%',
+              objectPosition: '50% 50%',
               imageRendering: trainer.id === 'jessie-james' ? 'auto' : 'pixelated',
               filter: `drop-shadow(0 10px 24px ${trainer.color}66)`,
             }}
