@@ -1117,14 +1117,14 @@ export default function Draft() {
             marginTop: 20,
             animation: 'orderCardIn 0.5s cubic-bezier(0.22,1,0.36,1) 0.2s both',
           }}>
-            <div style={{ color: '#22c55e', fontSize: 11, fontWeight: 700 }}>⚔ FIRST OUT</div>
+            <div style={{ color: '#22c55e', fontSize: 11, fontWeight: 700 }}>⚔ FIRST STRIKE</div>
             <div style={{
               flex: 1,
               height: 1,
               width: 300,
               background: 'linear-gradient(90deg, #22c55e55, #ef444455)',
             }} />
-            <div style={{ color: '#ef4444', fontSize: 11, fontWeight: 700 }}>LAST RESORT ⚔</div>
+            <div style={{ color: '#ef4444', fontSize: 11, fontWeight: 700 }}>FINAL STAND ⚔</div>
           </div>
 
           {/* Confirm button */}
