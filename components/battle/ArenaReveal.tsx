@@ -32,19 +32,11 @@ export default function ArenaReveal() {
   useEffect(() => {
     resumeAudioContext()
     playMusic('menu')
-    // Preload all arena images so they're in browser cache before the spin starts
-    ARENAS.forEach(a => {
-      if (a.image) {
-        const img = new window.Image()
-        img.src = a.image
-      }
-    })
   }, [])
 
   useEffect(() => {
     if (!arena) return
 
-    // Build the spin sequence
     const targetIndex = ARENAS.findIndex(a => a.id === arena.id)
     const finalTarget = targetIndex >= 0 ? targetIndex : 0
 
@@ -58,28 +50,46 @@ export default function ArenaReveal() {
     }
     seq.push(finalTarget)
 
-    // Reset everything cleanly before starting
     if (timeoutRef.current) clearTimeout(timeoutRef.current)
     stepRef.current = 0
     setIsLocked(false)
     setSequenceBuilt(seq)
     setCurrentIndex(seq[0])
 
-    // Advance through the sequence with the schedule timings
-    let step = 0
-    function advance() {
-      if (step >= seq.length - 1) {
-        setCurrentIndex(seq[seq.length - 1])
-        setIsLocked(true)
-        return
+    function startSpin() {
+      let step = 0
+      function advance() {
+        if (step >= seq.length - 1) {
+          setCurrentIndex(seq[seq.length - 1])
+          setIsLocked(true)
+          return
+        }
+        step += 1
+        stepRef.current = step
+        setCurrentIndex(seq[step])
+        timeoutRef.current = setTimeout(advance, SCHEDULE[step] ?? 1050)
       }
-      step += 1
-      stepRef.current = step
-      setCurrentIndex(seq[step])
-      timeoutRef.current = setTimeout(advance, SCHEDULE[step] ?? 1050)
+      timeoutRef.current = setTimeout(advance, SCHEDULE[0])
     }
 
-    timeoutRef.current = setTimeout(advance, SCHEDULE[0])
+    // Preload all arena images first, then start spin once they're cached
+    const imageSrcs = ARENAS.map(a => a.image).filter(Boolean) as string[]
+    let loaded = 0
+    const total = imageSrcs.length
+
+    if (total === 0) {
+      startSpin()
+      return
+    }
+
+    imageSrcs.forEach(src => {
+      const img = new window.Image()
+      img.onload = img.onerror = () => {
+        loaded++
+        if (loaded >= total) startSpin()
+      }
+      img.src = src
+    })
 
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current)
