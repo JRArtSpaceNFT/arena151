@@ -39,12 +39,6 @@ const STEPS = [
   },
   {
     num: '06',
-    title: 'Win All 8 Kanto Gym Badges!',
-    desc: 'Beat an opponent in any arena and you earn that gym badge. Win once, own it forever. Collect all 8 and prove you are the greatest trainer alive.',
-    img: '/guide/badge.png',
-  },
-  {
-    num: '07',
     title: 'Collect Your Prize',
     desc: 'Winner takes the pot. Your balance updates instantly. Keep climbing arenas, stacking badges, and banking wins!',
     img: '/guide/victory.png',
@@ -104,44 +98,44 @@ export default function BattleGuide() {
           <div style={{ width: 80 }} />
         </div>
 
-        {/* Steps — 7 cards in a row, with screenshot thumbnails */}
-        <div className="grid grid-cols-7 gap-2 mb-3 flex-1 min-h-0">
+        {/* Steps — 3×2 grid */}
+        <div className="grid grid-cols-3 grid-rows-2 gap-2.5 flex-1 min-h-0">
           {STEPS.map((step, i) => (
             <motion.div
               key={step.num}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.03 + i * 0.04 }}
-              className="rounded-xl flex flex-col overflow-hidden"
+              transition={{ delay: 0.03 + i * 0.05 }}
+              className="rounded-xl flex flex-col overflow-hidden min-h-0"
               style={{
                 background: 'rgba(255,255,255,0.04)',
                 border: '1px solid rgba(255,255,255,0.08)',
               }}
             >
-              {/* Screenshot thumbnail */}
-              <div className="relative shrink-0" style={{ aspectRatio: '16/10', background: 'rgba(0,0,0,0.4)' }}>
+              {/* Screenshot — takes most of the card */}
+              <div className="relative flex-1 min-h-0" style={{ background: 'rgba(0,0,0,0.4)' }}>
                 <img
                   src={step.img}
                   alt={step.title}
                   className="w-full h-full object-cover"
-                  style={{ opacity: 0.9 }}
+                  style={{ opacity: 0.92 }}
                   onError={e => { (e.target as HTMLImageElement).style.opacity = '0'; }}
                 />
                 {/* Step number pill */}
-                <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-md font-black"
+                <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md font-black"
                   style={{
                     fontFamily: '"Impact", "Arial Black", sans-serif',
-                    fontSize: 11, background: 'rgba(0,0,0,0.75)',
+                    fontSize: 13, background: 'rgba(0,0,0,0.8)',
                     color: '#fbbf24', letterSpacing: '0.05em',
                   }}>
                   {step.num}
                 </div>
               </div>
 
-              {/* Text */}
-              <div className="p-2 flex flex-col gap-1 flex-1">
-                <p className="font-black text-white leading-tight" style={{ fontSize: 10 }}>{step.title}</p>
-                <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 9.5, lineHeight: 1.4 }}>{step.desc}</p>
+              {/* Text — compact strip at bottom */}
+              <div className="px-3 py-2 shrink-0" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                <p className="font-black text-white leading-tight mb-0.5" style={{ fontSize: 11 }}>{step.title}</p>
+                <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, lineHeight: 1.4 }}>{step.desc}</p>
               </div>
             </motion.div>
           ))}
