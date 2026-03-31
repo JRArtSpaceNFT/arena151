@@ -144,7 +144,7 @@ export default function DraftModeIntro() {
         onClick={() => currentTrainer ? setScreen('room-select') : setScreen('signup')}
         aria-label="Enter the Arena"
         className="absolute cursor-pointer focus:outline-none"
-        style={{ left: '40%', top: '72%', width: '18.5%', height: '8%' }}
+        style={{ left: '43%', top: '72%', width: '18.5%', height: '8%' }}
       />
 
       {/* PROFILE — top left */}
