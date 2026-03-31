@@ -129,7 +129,7 @@ function DossierCard({ trainer, isTaken }: { trainer: Trainer; isTaken: boolean 
       background: '#0d0d1f',
       border: `2px solid ${trainer.color}88`,
       borderRadius: 4,
-      width: 360,
+      width: 320,
       overflow: 'hidden',
       boxShadow: `0 0 40px ${trainer.color}33, inset 0 0 40px rgba(0,0,0,0.5)`,
       position: 'relative',
@@ -188,7 +188,7 @@ function DossierCard({ trainer, isTaken }: { trainer: Trainer; isTaken: boolean 
       <div style={{
         display: 'flex', justifyContent: 'center', alignItems: 'flex-end',
         background: `radial-gradient(ellipse at 50% 100%, ${trainer.color}33 0%, transparent 65%)`,
-        paddingTop: 8, paddingBottom: 0, minHeight: 200, position: 'relative',
+        paddingTop: 6, paddingBottom: 0, minHeight: 160, position: 'relative',
       }}>
         {!imgError && trainer.spriteUrl ? (
           <motion.img
@@ -198,8 +198,8 @@ function DossierCard({ trainer, isTaken }: { trainer: Trainer; isTaken: boolean 
             animate={{ y: [0, -7, 0] }}
             transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
             style={{
-              width: trainer.id === 'jessie-james' ? 290 : trainer.id === 'fuji' ? 225 : 200,
-              height: trainer.id === 'jessie-james' ? 290 : trainer.id === 'fuji' ? 242 : 215,
+              width: trainer.id === 'jessie-james' ? 230 : trainer.id === 'fuji' ? 180 : 160,
+              height: trainer.id === 'jessie-james' ? 230 : trainer.id === 'fuji' ? 190 : 170,
               objectFit: 'contain',
               objectPosition: trainer.id === 'jessie-james' ? '25% 50%' : '50% 50%',
               imageRendering: trainer.id === 'jessie-james' ? 'auto' : 'pixelated',

@@ -148,6 +148,7 @@ export default function Draft() {
   // Ordering phase
   const [isOrdering, setIsOrdering] = useState(false)
   const [selectedOrderIdx, setSelectedOrderIdx] = useState<number | null>(null)
+  const [orderTimeLeft, setOrderTimeLeft] = useState(30)
 
   const isP1Turn = gameMode === 'vs_ai' ? true : draftCurrentPicker === 'p1'
   const myDrafted = new Set(draftTeamA.map(c => c.id))
@@ -211,14 +212,28 @@ export default function Draft() {
     if (draftTeamA.length >= TEAM_SIZE && !isRedrafting && !isOrdering) {
       setIsOrdering(true)
       setSelectedOrderIdx(null)
+      setOrderTimeLeft(30)
     }
     // Reset ordering if they redo the draft
     if (draftTeamA.length < TEAM_SIZE) {
       setIsOrdering(false)
       setSelectedOrderIdx(null)
+      setOrderTimeLeft(30)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftTeamA.length, isRedrafting])
+
+  // 30-second order timer — auto-lock when it hits 0
+  useEffect(() => {
+    if (!isOrdering) return
+    if (orderTimeLeft <= 0) {
+      lockInAction()
+      return
+    }
+    const iv = setInterval(() => setOrderTimeLeft(t => t - 1), 1000)
+    return () => clearInterval(iv)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOrdering, orderTimeLeft])
 
   const handleOrderSlotClick = (idx: number) => {
     if (selectedOrderIdx === null) {
@@ -916,7 +931,7 @@ export default function Draft() {
               color: '#fbbf24',
               textTransform: 'uppercase',
               marginBottom: 6,
-            }}>⚔ Set Your Battle Order ⚔</div>
+            }}>Set Your Battle Order</div>
             <div style={{
               fontFamily: 'Impact, Arial Black, sans-serif',
               fontSize: 38,
@@ -925,8 +940,27 @@ export default function Draft() {
               lineHeight: 1,
               textShadow: '0 0 40px rgba(251,191,36,0.4)',
             }}>WHO GOES FIRST?</div>
+
+            {/* 30-second countdown */}
             <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
               marginTop: 10,
+              padding: '4px 16px', borderRadius: 20,
+              background: orderTimeLeft <= 10 ? 'rgba(239,68,68,0.15)' : 'rgba(251,191,36,0.1)',
+              border: `1px solid ${orderTimeLeft <= 10 ? 'rgba(239,68,68,0.4)' : 'rgba(251,191,36,0.3)'}`,
+              transition: 'all 0.3s',
+            }}>
+              <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>⏱</span>
+              <span style={{
+                fontFamily: 'monospace', fontSize: 18, fontWeight: 900,
+                color: orderTimeLeft <= 10 ? '#ef4444' : '#fbbf24',
+                animation: orderTimeLeft <= 10 ? 'timerPulse 0.6s ease infinite' : 'none',
+              }}>{orderTimeLeft}s</span>
+              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', fontWeight: 600 }}>to lock in</span>
+            </div>
+
+            <div style={{
+              marginTop: 8,
               fontSize: 13,
               color: selectedOrderIdx !== null ? '#fbbf24' : '#64748b',
               fontWeight: 600,
@@ -1148,7 +1182,7 @@ export default function Draft() {
             onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.04)')}
             onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
           >
-            ⚔ LOCK IN ORDER — LET'S BATTLE
+            LOCK IN ORDER — LET'S BATTLE
           </button>
         </div>
       )}
