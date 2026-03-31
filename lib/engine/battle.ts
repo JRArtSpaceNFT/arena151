@@ -97,6 +97,8 @@ interface BattleCreatureState {
   ppMap: Record<string, number>
   // Ditto: has Transform been used yet?
   dittoTransformed: boolean
+  // Ditto: used follow-up attack after Transform this turn — skip next attack opportunity
+  dittoSkipNextAttack: boolean
 }
 
 function buildPpMap(moves: Move[]): Record<string, number> {
@@ -124,6 +126,7 @@ function initBCS(ac: ActiveCreature): BattleCreatureState {
     atkStage: 0, defStage: 0, speStage: 0,
     ppMap: buildPpMap(ac.assignedMoves),
     dittoTransformed: false,
+    dittoSkipNextAttack: false,
   }
 }
 
@@ -564,9 +567,11 @@ function simulateAttack(
           ...(({ dittoRevealSide: side, dittoRevealSprite: target.spriteUrl }) as any),
         })
         // ── Immediately attack with a move from the new form ──────
+        // After this follow-up, Ditto's next attack opportunity is skipped (opponent goes next)
         const followUpMove = attackerBCS.ac.assignedMoves.find(m => m.power > 0) ?? attackerBCS.ac.assignedMoves[0]
         if (followUpMove) {
           simulateAttack(attackerBCS, defenderBCS, followUpMove, arena, trainerAtk, trainerDef, side, log, crowdMeter)
+          attackerBCS.dittoSkipNextAttack = true
         }
       } else if (move.id === 'sunny_day') {
         // weather handled outside, just log here
@@ -1313,6 +1318,19 @@ export function resolveBattle(
         log.push({
           id: nextId(), type: 'move', side: attkSide,
           text: `⚡ ${attBCS.ac.creature.name} is paralyzed and can't move!`,
+          creatureName: attBCS.ac.creature.name,
+        })
+        continue
+      }
+
+      // Ditto Transform follow-up: skip this attack so the opponent goes next
+      if (attBCS.dittoSkipNextAttack) {
+        attBCS.dittoSkipNextAttack = false
+        attBCS.lastMoveId = intendedMove.id
+        attBCS.lastMoveCount = 1
+        log.push({
+          id: nextId(), type: 'move', side: attkSide,
+          text: `🌀 ${attBCS.ac.creature.name} is adjusting to its new form...`,
           creatureName: attBCS.ac.creature.name,
         })
         continue
