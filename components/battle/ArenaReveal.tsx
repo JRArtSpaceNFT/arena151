@@ -51,6 +51,15 @@ export default function ArenaReveal() {
     }
     seq.push(finalTarget)
 
+    // Play the first 2s of the arena selection sound
+    try {
+      const sfx = new Audio('/music/The Greatest Pokemon Sound Effects.mp3')
+      sfx.currentTime = 0
+      sfx.volume = 0.8
+      sfx.play().catch(() => {})
+      setTimeout(() => { sfx.pause(); sfx.currentTime = 0 }, 2000)
+    } catch (e) {}
+
     // Reset everything cleanly before starting
     if (timeoutRef.current) clearTimeout(timeoutRef.current)
     stepRef.current = 0
