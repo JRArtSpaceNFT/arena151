@@ -11,20 +11,21 @@ import type { BattleRoom } from '@/types';
 const ARENA_IDENTITY: Record<string, {
   flavor: string;
   icon: string;
-  bgImage?: string;
-  accent: string;       // main color
-  accentDark: string;   // darker shade
+  bgImage: string;
+  elementalSymbol: string;
+  accent: string;
+  accentDark: string;
   stakeTier: 'low' | 'mid' | 'high';
   btnLabel: string;
 }> = {
-  'pallet-town':    { flavor: 'Where every journey begins',         icon: '🌱', accent: '#4ade80', accentDark: '#166534', stakeTier: 'low',  btnLabel: 'Begin Journey →' },
-  'viridian-city':  { flavor: 'Step beyond the safety of home',      icon: '🌲', accent: '#34d399', accentDark: '#065f46', stakeTier: 'low',  btnLabel: 'Enter Forest →' },
-  'pewter-city':    { flavor: 'Built on grit, stone, and resolve',   icon: '🪨', accent: '#a8a29e', accentDark: '#292524', stakeTier: 'low',  btnLabel: 'Face the Rock →' },
-  'cerulean-city':  { flavor: 'Calm waters hide fierce rivals',      icon: '💧', accent: '#38bdf8', accentDark: '#075985', stakeTier: 'mid',  btnLabel: 'Dive In →' },
-  'vermilion-city': { flavor: 'Fast hands and electric nerves',      icon: '⚡', accent: '#facc15', accentDark: '#713f12', stakeTier: 'mid',  btnLabel: 'Charge Up →' },
-  'celadon-city':   { flavor: 'Fortunes bloom where skill survives', icon: '💎', accent: '#c084fc', accentDark: '#4c1d95', stakeTier: 'mid',  btnLabel: 'Claim Fortune →' },
-  'victory-road':   { flavor: 'Only the strongest endure the climb', icon: '🔥', accent: '#fb923c', accentDark: '#7c2d12', stakeTier: 'high', btnLabel: 'Brave the Road →' },
-  'indigo-plateau': { flavor: 'Where champions are remembered',      icon: '👑', accent: '#fbbf24', accentDark: '#451a03', stakeTier: 'high', btnLabel: 'Claim the Throne →' },
+  'pallet-town':    { flavor: 'Where every journey begins',         icon: '🌱', bgImage: '/arenas/Ash Pallet Town.png',    elementalSymbol: '🍃', accent: '#4ade80', accentDark: '#166534', stakeTier: 'low',  btnLabel: 'Begin Journey →' },
+  'viridian-city':  { flavor: 'Step beyond the safety of home',     icon: '🌲', bgImage: '/arenas/Ash Pallet Town.png',    elementalSymbol: '🌿', accent: '#34d399', accentDark: '#065f46', stakeTier: 'low',  btnLabel: 'Enter Forest →' },
+  'pewter-city':    { flavor: 'Built on grit, stone, and resolve',  icon: '🪨', bgImage: '/arenas/Brocks Gym.png',          elementalSymbol: '⛰️', accent: '#a8a29e', accentDark: '#292524', stakeTier: 'low',  btnLabel: 'Face the Rock →' },
+  'cerulean-city':  { flavor: 'Calm waters hide fierce rivals',     icon: '💧', bgImage: '/arenas/MistysGym.png',           elementalSymbol: '🌊', accent: '#38bdf8', accentDark: '#075985', stakeTier: 'mid',  btnLabel: 'Dive In →' },
+  'vermilion-city': { flavor: 'Fast hands and electric nerves',     icon: '⚡', bgImage: '/arenas/LtSurgeGym.png',          elementalSymbol: '⚡', accent: '#facc15', accentDark: '#713f12', stakeTier: 'mid',  btnLabel: 'Charge Up →' },
+  'celadon-city':   { flavor: 'Fortunes bloom where skill survives',icon: '💎', bgImage: '/arenas/Erikas Gym.png',          elementalSymbol: '🌸', accent: '#c084fc', accentDark: '#4c1d95', stakeTier: 'mid',  btnLabel: 'Claim Fortune →' },
+  'victory-road':   { flavor: 'Only the strongest endure the climb',icon: '🔥', bgImage: '/arenas/Brunos Stone Arenea.png', elementalSymbol: '💀', accent: '#fb923c', accentDark: '#7c2d12', stakeTier: 'high', btnLabel: 'Brave the Road →' },
+  'indigo-plateau': { flavor: 'Where champions are remembered',     icon: '👑', bgImage: '/arenas/MewTwos Lab.png',         elementalSymbol: '✨', accent: '#fbbf24', accentDark: '#451a03', stakeTier: 'high', btnLabel: 'Claim the Throne →' },
 }
 
 const STAKE_BAND = {
@@ -145,6 +146,42 @@ export default function RoomSelect() {
                   opacity: canAfford ? 1 : 0.38,
                 }}
               >
+                {/* Arena background image — faint silhouette */}
+                <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none">
+                  <div
+                    style={{
+                      position: 'absolute', inset: 0,
+                      backgroundImage: `url(${identity.bgImage})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      opacity: isHigh ? 0.12 : 0.07,
+                      filter: 'saturate(0.6)',
+                    }}
+                  />
+                  {/* Gradient over image so text stays readable */}
+                  <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(160deg, ${identity.accentDark}cc 0%, rgba(6,4,16,0.92) 60%)` }} />
+                </div>
+
+                {/* Badge-inspired corner accents */}
+                <div className="absolute top-0 left-0 w-3 h-3 pointer-events-none"
+                  style={{ borderTop: `2px solid ${identity.accent}77`, borderLeft: `2px solid ${identity.accent}77`, borderTopLeftRadius: 10 }} />
+                <div className="absolute top-0 right-0 w-3 h-3 pointer-events-none"
+                  style={{ borderTop: `2px solid ${identity.accent}77`, borderRight: `2px solid ${identity.accent}77`, borderTopRightRadius: 10 }} />
+                <div className="absolute bottom-0 left-0 w-3 h-3 pointer-events-none"
+                  style={{ borderBottom: `2px solid ${identity.accent}77`, borderLeft: `2px solid ${identity.accent}77`, borderBottomLeftRadius: 10 }} />
+                <div className="absolute bottom-0 right-0 w-3 h-3 pointer-events-none"
+                  style={{ borderBottom: `2px solid ${identity.accent}77`, borderRight: `2px solid ${identity.accent}77`, borderBottomRightRadius: 10 }} />
+
+                {/* Faint elemental symbol in background */}
+                <div className="absolute bottom-6 right-3 text-4xl pointer-events-none select-none"
+                  style={{ opacity: isHigh ? 0.1 : 0.06, filter: 'blur(1px)', fontSize: identity.stakeTier === 'high' ? 52 : 38 }}>
+                  {identity.elementalSymbol}
+                </div>
+
+                {/* Escalating glow intensity — bottom edge */}
+                <div className="absolute bottom-0 left-0 right-0 h-1 pointer-events-none rounded-b-xl"
+                  style={{ background: `linear-gradient(90deg, transparent, ${identity.accent}${identity.stakeTier === 'high' ? '88' : identity.stakeTier === 'mid' ? '55' : '33'}, transparent)` }} />
+
                 {/* Animated shimmer for high stakes */}
                 {isHigh && canAfford && (
                   <motion.div className="absolute inset-0 pointer-events-none rounded-xl"
