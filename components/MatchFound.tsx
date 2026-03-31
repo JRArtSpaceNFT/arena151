@@ -85,6 +85,13 @@ export default function MatchFound() {
     // Initial flash
     const flashTimeout = setTimeout(() => {
       setRevealed(true);
+      // Play SFX when RIVAL FOUND! reveals
+      try {
+        const sfx = new Audio('/music/The Greatest Pokemon Sound Effects.mp3');
+        sfx.currentTime = 0; sfx.volume = 0.8;
+        sfx.play().catch(() => {});
+        setTimeout(() => { sfx.pause(); sfx.currentTime = 0; }, 2800);
+      } catch (e) {}
     }, 500);
 
     // Auto-advance to versus screen

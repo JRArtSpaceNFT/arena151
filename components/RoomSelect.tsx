@@ -44,12 +44,6 @@ export default function RoomSelect() {
     const room = ROOM_TIERS[roomId];
     const entryFee = getEntryFee(room.tier);
     if (currentTrainer.balance < entryFee) return;
-    try {
-      const sfx = new Audio('/music/The Greatest Pokemon Sound Effects.mp3');
-      sfx.currentTime = 0; sfx.volume = 0.8;
-      sfx.play().catch(() => {});
-      setTimeout(() => { sfx.pause(); sfx.currentTime = 0; }, 2800);
-    } catch (e) {}
     startQueue(roomId, currentTrainer);
     setScreen('queue');
   };
