@@ -32,6 +32,13 @@ export default function ArenaReveal() {
   useEffect(() => {
     resumeAudioContext()
     playMusic('menu')
+    // Preload all arena images so they're in browser cache before the spin starts
+    ARENAS.forEach(a => {
+      if (a.image) {
+        const img = new window.Image()
+        img.src = a.image
+      }
+    })
   }, [])
 
   useEffect(() => {
@@ -115,21 +122,18 @@ export default function ArenaReveal() {
             animation: isLocked ? 'fadeIn 0.3s ease forwards' : 'none',
           }}
         >
-          {/* Arena image background */}
-          {displayArena.image && (
-            <img
-              src={displayArena.image}
-              alt=""
-              aria-hidden="true"
-              style={{
-                position: 'absolute', inset: 0,
-                width: '100%', height: '100%',
-                objectFit: 'cover',
-                opacity: 0.55,
-                pointerEvents: 'none',
-              }}
-            />
-          )}
+          {/* Arena image background — div swap is instant since images are preloaded */}
+          <div
+            style={{
+              position: 'absolute', inset: 0,
+              backgroundImage: displayArena.image ? `url(${displayArena.image})` : 'none',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              opacity: 0.55,
+              pointerEvents: 'none',
+              transition: isLocked ? 'opacity 0.4s ease' : 'none',
+            }}
+          />
 
           {/* Scanline overlay */}
           <div style={{
