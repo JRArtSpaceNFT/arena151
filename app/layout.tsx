@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import ScaleWrapper from "@/components/ScaleWrapper";
+import MusicToggle from "@/components/MusicToggle";
 
 export const metadata: Metadata = {
   title: "Arena 151 - Build Your Legend",
@@ -18,6 +19,7 @@ export default function RootLayout({
         className="bg-slate-950 text-white antialiased"
         style={{ margin: 0, padding: 0, overflow: 'hidden' }}
       >
+        <MusicToggle />
         <ScaleWrapper>
           <div
             style={{

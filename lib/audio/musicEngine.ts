@@ -140,6 +140,22 @@ function startTrack(track: 'menu' | 'battle' | 'victory') {
   }
 }
 
+let _muted = false
+
+export function isMusicMuted(): boolean { return _muted }
+
+export function setMusicMuted(muted: boolean) {
+  _muted = muted
+  if (typeof window === 'undefined') return
+  if (muted) {
+    if (currentAudio) { currentAudio.pause() }
+  } else {
+    // Resume current track if one was playing
+    if (currentAudio) { currentAudio.play().catch(() => {}) }
+    else if (currentTrack) { startTrack(currentTrack) }
+  }
+}
+
 export function playMusic(track: 'menu' | 'battle' | 'victory') {
   if (typeof window === 'undefined') return
   if (currentTrack === track) return
@@ -152,7 +168,8 @@ export function playMusic(track: 'menu' | 'battle' | 'victory') {
     currentAudio.currentTime = 0
     currentAudio = null
   }
-  startTrack(track)
+  if (!_muted) startTrack(track)
+  else currentTrack = track // remember it so unmute can resume
 }
 
 export function stopMusic() {
