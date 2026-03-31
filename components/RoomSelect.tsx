@@ -10,22 +10,20 @@ import type { BattleRoom } from '@/types';
 // Per-arena identity config
 const ARENA_IDENTITY: Record<string, {
   flavor: string;
-  icon: string;
   bgImage: string;
-  elementalSymbol: string;
   accent: string;
   accentDark: string;
   stakeTier: 'low' | 'mid' | 'high';
   btnLabel: string;
 }> = {
-  'pallet-town':    { flavor: 'Where every journey begins',         icon: '🌱', bgImage: '/arenas/Ash Pallet Town.png',    elementalSymbol: '🍃', accent: '#4ade80', accentDark: '#166534', stakeTier: 'low',  btnLabel: 'Begin Journey →' },
-  'viridian-city':  { flavor: 'Step beyond the safety of home',     icon: '🌲', bgImage: '/arenas/Ash Pallet Town.png',    elementalSymbol: '🌿', accent: '#34d399', accentDark: '#065f46', stakeTier: 'low',  btnLabel: 'Enter Forest →' },
-  'pewter-city':    { flavor: 'Built on grit, stone, and resolve',  icon: '🪨', bgImage: '/arenas/Brocks Gym.png',          elementalSymbol: '⛰️', accent: '#a8a29e', accentDark: '#292524', stakeTier: 'low',  btnLabel: 'Face the Rock →' },
-  'cerulean-city':  { flavor: 'Calm waters hide fierce rivals',     icon: '💧', bgImage: '/arenas/MistysGym.png',           elementalSymbol: '🌊', accent: '#38bdf8', accentDark: '#075985', stakeTier: 'mid',  btnLabel: 'Dive In →' },
-  'vermilion-city': { flavor: 'Fast hands and electric nerves',     icon: '⚡', bgImage: '/arenas/LtSurgeGym.png',          elementalSymbol: '⚡', accent: '#facc15', accentDark: '#713f12', stakeTier: 'mid',  btnLabel: 'Charge Up →' },
-  'celadon-city':   { flavor: 'Fortunes bloom where skill survives',icon: '💎', bgImage: '/arenas/Erikas Gym.png',          elementalSymbol: '🌸', accent: '#c084fc', accentDark: '#4c1d95', stakeTier: 'mid',  btnLabel: 'Claim Fortune →' },
-  'victory-road':   { flavor: 'Only the strongest endure the climb',icon: '🔥', bgImage: '/arenas/Brunos Stone Arenea.png', elementalSymbol: '💀', accent: '#fb923c', accentDark: '#7c2d12', stakeTier: 'high', btnLabel: 'Brave the Road →' },
-  'indigo-plateau': { flavor: 'Where champions are remembered',     icon: '👑', bgImage: '/arenas/MewTwos Lab.png',         elementalSymbol: '✨', accent: '#fbbf24', accentDark: '#451a03', stakeTier: 'high', btnLabel: 'Claim the Throne →' },
+  'pallet-town':    { flavor: 'Where every journey begins',          bgImage: '/arenas/Ash Pallet Town.png',    accent: '#4ade80', accentDark: '#166534', stakeTier: 'low',  btnLabel: 'Begin Journey →' },
+  'viridian-city':  { flavor: 'Step beyond the safety of home',      bgImage: '/arenas/Ash Pallet Town.png',    accent: '#34d399', accentDark: '#065f46', stakeTier: 'low',  btnLabel: 'Enter Forest →' },
+  'pewter-city':    { flavor: 'Built on grit, stone, and resolve',   bgImage: '/arenas/Brocks Gym.png',         accent: '#a8a29e', accentDark: '#292524', stakeTier: 'low',  btnLabel: 'Face the Rock →' },
+  'cerulean-city':  { flavor: 'Calm waters hide fierce rivals',      bgImage: '/arenas/MistysGym.png',          accent: '#38bdf8', accentDark: '#075985', stakeTier: 'mid',  btnLabel: 'Dive In →' },
+  'vermilion-city': { flavor: 'Fast hands and electric nerves',      bgImage: '/arenas/LtSurgeGym.png',         accent: '#facc15', accentDark: '#713f12', stakeTier: 'mid',  btnLabel: 'Charge Up →' },
+  'celadon-city':   { flavor: 'Fortunes bloom where skill survives', bgImage: '/arenas/Erikas Gym.png',         accent: '#c084fc', accentDark: '#4c1d95', stakeTier: 'mid',  btnLabel: 'Claim Fortune →' },
+  'victory-road':   { flavor: 'Only the strongest endure the climb', bgImage: '/arenas/Brunos Stone Arenea.png',accent: '#fb923c', accentDark: '#7c2d12', stakeTier: 'high', btnLabel: 'Brave the Road →' },
+  'indigo-plateau': { flavor: 'Where champions are remembered',      bgImage: '/arenas/MewTwos Lab.png',        accent: '#fbbf24', accentDark: '#451a03', stakeTier: 'high', btnLabel: 'Claim the Throne →' },
 }
 
 const STAKE_BAND = {
@@ -120,7 +118,7 @@ export default function RoomSelect() {
         <div className="grid grid-cols-4 gap-2.5 flex-1 min-h-0">
           {rooms.map((room, i) => {
             const id = room.id as string;
-            const identity = ARENA_IDENTITY[id] ?? { flavor: '', icon: '⚔️', accent: '#6366f1', accentDark: '#1e1b4b', stakeTier: 'mid' as const, btnLabel: 'Enter Arena →' };
+            const identity = ARENA_IDENTITY[id] ?? { flavor: '', bgImage: '', accent: '#6366f1', accentDark: '#1e1b4b', stakeTier: 'mid' as const, btnLabel: 'Enter Arena →' };
             const band = STAKE_BAND[identity.stakeTier];
             const entryFee = getEntryFee(room.tier);
             const prizePool = getPrizePool(room.tier);
@@ -202,7 +200,6 @@ export default function RoomSelect() {
                   <div className="flex items-start justify-between mb-1.5">
                     <div>
                       <div className="flex items-center gap-1.5 mb-0.5">
-                        <span style={{ fontSize: 16 }}>{identity.icon}</span>
                         <h2 className="font-black text-sm leading-none" style={{ color: identity.accent }}>
                           {room.name}
                         </h2>

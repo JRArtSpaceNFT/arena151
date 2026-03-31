@@ -19,17 +19,22 @@ const SEARCH_LINES = [
 ]
 
 // 20 popular Pokémon IDs (using their PokeAPI sprite IDs)
-// 20 popular Gen 1 Pokémon only (IDs 1–151)
-const FLOAT_POKEMON = [25,6,9,3,150,149,131,143,130,39,94,54,52,133,7,4,1,90,59,37]
+// 40 Gen 1 Pokémon (IDs 1–151) — fill the whole background
+const FLOAT_POKEMON = [
+  25,6,9,3,150,149,131,143,130,39,
+  94,54,52,133,7,4,1,90,59,37,
+  63,66,74,92,102,113,115,116,120,122,
+  123,124,125,126,127,128,129,132,135,137,
+]
 
-// Deterministic positions so SSR and client match
+// Deterministic positions spread across full screen
 const FLOAT_CONFIG = FLOAT_POKEMON.map((id, i) => ({
   id,
-  left: `${4 + (i * 17 + i * 3) % 90}%`,
-  top:  `${5 + (i * 23 + i * 7) % 85}%`,
-  duration: 6 + (i % 5) * 1.2,
-  delay: i * 0.6,
-  drift: 12 + (i % 4) * 6,
+  left: `${2 + (i * 7 + i * 2) % 95}%`,
+  top:  `${2 + (i * 11 + i * 5) % 92}%`,
+  duration: 5 + (i % 6) * 1.1,
+  delay: i * 0.28,
+  drift: 10 + (i % 5) * 5,
 }))
 
 function FloatingElements() {
