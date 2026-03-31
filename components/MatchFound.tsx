@@ -86,12 +86,12 @@ export default function MatchFound() {
           initial={{ scale: 0, opacity: 0 }}
           animate={{ scale: revealed ? 1 : 0, opacity: revealed ? 1 : 0 }}
           transition={{ type: 'spring', stiffness: 200, damping: 20 }}
-          className="text-center mb-16"
+          className="text-center mb-6"
         >
-          <h1 className="text-7xl font-black mb-4 arena-glow bg-gradient-to-r from-yellow-400 via-orange-400 to-yellow-400 bg-clip-text text-transparent">
+          <h1 className="text-5xl font-black mb-2 arena-glow bg-gradient-to-r from-yellow-400 via-orange-400 to-yellow-400 bg-clip-text text-transparent">
             RIVAL FOUND!
           </h1>
-          <p className="text-2xl text-cyan-300 font-bold">
+          <p className="text-lg text-cyan-300 font-bold">
             Prepare for battle
           </p>
         </motion.div>
@@ -101,14 +101,14 @@ export default function MatchFound() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: revealed ? 1 : 0, y: revealed ? 0 : 30 }}
           transition={{ delay: 0.3, duration: 0.6 }}
-          className="grid grid-cols-3 gap-8 items-center"
+          className="grid grid-cols-3 gap-5 items-center"
         >
           {/* Player 1 */}
           <motion.div
             initial={{ x: -100, opacity: 0 }}
             animate={{ x: revealed ? 0 : -100, opacity: revealed ? 1 : 0 }}
             transition={{ delay: 0.5, type: 'spring', stiffness: 100 }}
-            className="glass-panel p-8 rounded-2xl border-2 border-blue-500 relative overflow-hidden"
+            className="glass-panel p-5 rounded-2xl border-2 border-blue-500 relative overflow-hidden"
           >
             <div
               className="absolute inset-0 opacity-10"
@@ -117,31 +117,31 @@ export default function MatchFound() {
               }}
             />
             <div className="relative z-10">
-              <div className="w-32 h-32 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-800 border-4 border-blue-500 shadow-xl shadow-blue-500/50 overflow-hidden flex items-center justify-center">
+              <div className="w-20 h-20 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-800 border-4 border-blue-500 shadow-xl shadow-blue-500/50 overflow-hidden flex items-center justify-center">
                 {currentTrainer.avatar ? (
                   <img src={currentTrainer.avatar} alt={currentTrainer.displayName} className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-6xl">🧑‍🦱</span>
+                  <span className="text-4xl">🧑‍🦱</span>
                 )}
               </div>
-              <h3 className="text-2xl font-black text-center mb-2">{currentTrainer.displayName}</h3>
-              <p className="text-blue-400 text-center font-bold">@{currentTrainer.username}</p>
-              <div className="mt-4 text-center">
-                <p className="text-sm text-slate-400 mb-2">Record</p>
-                <p className="font-mono font-bold text-lg">
+              <h3 className="text-xl font-black text-center mb-1">{currentTrainer.displayName}</h3>
+              <p className="text-blue-400 text-center font-bold text-sm">@{currentTrainer.username}</p>
+              <div className="mt-3 text-center">
+                <p className="text-xs text-slate-400 mb-1">Record</p>
+                <p className="font-mono font-bold">
                   {currentTrainer.record.wins}W - {currentTrainer.record.losses}L
                 </p>
               </div>
-              <div className="mt-4 pt-4 border-t border-slate-700">
-                <p className="text-xs text-slate-500 mb-2 text-center">Partner Pokémon</p>
-                <div className="flex flex-col items-center gap-2">
+              <div className="mt-3 pt-3 border-t border-slate-700">
+                <p className="text-xs text-slate-500 mb-1 text-center">Partner Pokémon</p>
+                <div className="flex flex-col items-center gap-1">
                   <img
                     src={getPokemonSpriteUrl(currentTrainer.favoritePokemon.id)}
                     alt={currentTrainer.favoritePokemon.name}
-                    className="w-16 h-16 object-contain"
+                    className="w-12 h-12 object-contain"
                     style={{ imageRendering: 'pixelated' }}
                   />
-                  <span className="font-bold">{currentTrainer.favoritePokemon.name}</span>
+                  <span className="font-bold text-sm">{currentTrainer.favoritePokemon.name}</span>
                 </div>
               </div>
             </div>
@@ -165,21 +165,21 @@ export default function MatchFound() {
                   repeat: Infinity,
                   ease: 'easeInOut',
                 }}
-                className={`w-32 h-32 mx-auto rounded-full bg-gradient-to-r ${room.color} flex items-center justify-center ${room.glow} shadow-2xl relative`}
+                className={`w-24 h-24 mx-auto rounded-full bg-gradient-to-r ${room.color} flex items-center justify-center ${room.glow} shadow-2xl relative`}
               >
-                <span className="text-5xl font-black text-white">VS</span>
+                <span className="text-4xl font-black text-white">VS</span>
                 <motion.div
                   animate={{ rotate: 360 }}
                   transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
                   className="absolute inset-0 rounded-full border-4 border-transparent border-t-white/30"
                 />
               </motion.div>
-              <div className="mt-6">
-                <div className={`inline-flex items-center gap-2 glass-panel px-6 py-3 rounded-full border ${room.glow}`}>
-                  <Trophy className="w-5 h-5 text-amber-400" />
-                  <span className="font-bold">{room.name}</span>
+              <div className="mt-4">
+                <div className={`inline-flex items-center gap-2 glass-panel px-4 py-2 rounded-full border ${room.glow}`}>
+                  <Trophy className="w-4 h-4 text-amber-400" />
+                  <span className="font-bold text-sm">{room.name}</span>
                 </div>
-                <p className="text-sm text-slate-400 mt-3">
+                <p className="text-xs text-slate-400 mt-2">
                   Prize: <span className="text-green-400 font-bold">{room.prizePool} SOL</span>
                 </p>
               </div>
@@ -191,7 +191,7 @@ export default function MatchFound() {
             initial={{ x: 100, opacity: 0 }}
             animate={{ x: revealed ? 0 : 100, opacity: revealed ? 1 : 0 }}
             transition={{ delay: 0.5, type: 'spring', stiffness: 100 }}
-            className="glass-panel p-8 rounded-2xl border-2 border-red-500 relative overflow-hidden"
+            className="glass-panel p-5 rounded-2xl border-2 border-red-500 relative overflow-hidden"
           >
             <div
               className="absolute inset-0 opacity-10"
@@ -200,27 +200,27 @@ export default function MatchFound() {
               }}
             />
             <div className="relative z-10">
-              <div className="w-32 h-32 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-6xl border-4 border-red-500 shadow-xl shadow-red-500/50">
+              <div className="w-20 h-20 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-4xl border-4 border-red-500 shadow-xl shadow-red-500/50">
                 😎
               </div>
-              <h3 className="text-2xl font-black text-center mb-2">{opponent.displayName}</h3>
-              <p className="text-red-400 text-center font-bold">@{opponent.username}</p>
-              <div className="mt-4 text-center">
-                <p className="text-sm text-slate-400 mb-2">Record</p>
-                <p className="font-mono font-bold text-lg">
+              <h3 className="text-xl font-black text-center mb-1">{opponent.displayName}</h3>
+              <p className="text-red-400 text-center font-bold text-sm">@{opponent.username}</p>
+              <div className="mt-3 text-center">
+                <p className="text-xs text-slate-400 mb-1">Record</p>
+                <p className="font-mono font-bold">
                   {opponent.record.wins}W - {opponent.record.losses}L
                 </p>
               </div>
-              <div className="mt-4 pt-4 border-t border-slate-700">
-                <p className="text-xs text-slate-500 mb-2 text-center">Partner Pokémon</p>
-                <div className="flex flex-col items-center gap-2">
+              <div className="mt-3 pt-3 border-t border-slate-700">
+                <p className="text-xs text-slate-500 mb-1 text-center">Partner Pokémon</p>
+                <div className="flex flex-col items-center gap-1">
                   <img
                     src={getPokemonSpriteUrl(opponent.favoritePokemon.id)}
                     alt={opponent.favoritePokemon.name}
-                    className="w-16 h-16 object-contain"
+                    className="w-12 h-12 object-contain"
                     style={{ imageRendering: 'pixelated' }}
                   />
-                  <span className="font-bold">{opponent.favoritePokemon.name}</span>
+                  <span className="font-bold text-sm">{opponent.favoritePokemon.name}</span>
                 </div>
               </div>
             </div>
@@ -232,9 +232,9 @@ export default function MatchFound() {
           initial={{ opacity: 0 }}
           animate={{ opacity: revealed ? 1 : 0 }}
           transition={{ delay: 1 }}
-          className="text-center mt-12"
+          className="text-center mt-6"
         >
-          <p className="text-slate-400 text-lg">
+          <p className="text-slate-400">
             Battle begins soon...
           </p>
         </motion.div>
