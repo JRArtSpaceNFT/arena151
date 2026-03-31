@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Trophy, Target, Wallet, ArrowLeft, Copy, Check, LogOut, Camera, Upload,
-  AlertTriangle, ArrowDown, X, TrendingUp, TrendingDown, ShieldAlert, Star, Swords,
+  AlertTriangle, ArrowDown, X, TrendingUp, TrendingDown, Swords,
 } from 'lucide-react';
 import { useArenaStore } from '@/lib/store';
 import { TYPE_COLORS } from '@/lib/constants';
@@ -36,76 +36,110 @@ function getTitleColor(wins: number) {
 }
 
 const GYM_BADGES = [
-  { name: 'Boulder Badge', file: '/BoulderBadge.png', wins: 5   },
-  { name: 'Cascade Badge', file: '/CascadeBadge.png', wins: 19  },
-  { name: 'Thunder Badge', file: '/ThunderBadge.png', wins: 33  },
-  { name: 'Rainbow Badge', file: '/RainbowBadge.png', wins: 47  },
-  { name: 'Soul Badge',    file: '/SoulBadge.png',    wins: 61  },
-  { name: 'Marsh Badge',   file: '/MarshBadge.png',   wins: 75  },
-  { name: 'Volcano Badge', file: '/VolcanoBadge.png', wins: 89  },
-  { name: 'Earth Badge',   file: '/EarthBadge.png',   wins: 100 },
+  { name: 'Boulder Badge', file: '/BoulderBadge.png', wins: 5,   type: 'rock',     color: '#a8a878', city: 'Pewter'    },
+  { name: 'Cascade Badge', file: '/CascadeBadge.png', wins: 19,  type: 'water',    color: '#6890f0', city: 'Cerulean'  },
+  { name: 'Thunder Badge', file: '/ThunderBadge.png', wins: 33,  type: 'electric', color: '#f8d030', city: 'Vermilion' },
+  { name: 'Rainbow Badge', file: '/RainbowBadge.png', wins: 47,  type: 'grass',    color: '#78c850', city: 'Celadon'   },
+  { name: 'Soul Badge',    file: '/SoulBadge.png',    wins: 61,  type: 'poison',   color: '#a040a0', city: 'Fuchsia'   },
+  { name: 'Marsh Badge',   file: '/MarshBadge.png',   wins: 75,  type: 'psychic',  color: '#f85888', city: 'Saffron'   },
+  { name: 'Volcano Badge', file: '/VolcanoBadge.png', wins: 89,  type: 'fire',     color: '#f08030', city: 'Cinnabar'  },
+  { name: 'Earth Badge',   file: '/EarthBadge.png',   wins: 100, type: 'ground',   color: '#705898', city: 'Viridian'  },
 ];
 
 const MOCK_BATTLES = [
-  { opponent: 'TrainerRed',   result: 'win'  as const, room: 'Indigo Plateau' },
-  { opponent: 'GaryOak',      result: 'loss' as const, room: 'Cerulean Arena' },
-  { opponent: 'MistyW',       result: 'win'  as const, room: 'Viridian Gym'   },
-  { opponent: 'BrockS',       result: 'loss' as const, room: 'Pewter City'    },
-  { opponent: 'DragonTamer',  result: 'win'  as const, room: 'Victory Road'   },
+  { opponent: 'TrainerRed',  result: 'win'  as const, room: 'Indigo Plateau',  arena: '🏔️', hoursAgo: 1  },
+  { opponent: 'GaryOak',     result: 'loss' as const, room: 'Cerulean Arena',  arena: '💧', hoursAgo: 3  },
+  { opponent: 'MistyW',      result: 'win'  as const, room: 'Viridian Gym',    arena: '🌿', hoursAgo: 5  },
+  { opponent: 'BrockS',      result: 'loss' as const, room: 'Pewter City',     arena: '🪨', hoursAgo: 8  },
+  { opponent: 'DragonTamer', result: 'win'  as const, room: 'Victory Road',    arena: '🐉', hoursAgo: 24 },
 ];
 
-// Badge colours keyed by filename
-const BADGE_COLORS: Record<string, string> = {
-  '/BoulderBadge.png': '#a8a878', // rock/grey
-  '/CascadeBadge.png': '#6890f0', // water blue
-  '/ThunderBadge.png': '#f8d030', // electric yellow
-  '/RainbowBadge.png': '#f85888', // poison/pink
-  '/SoulBadge.png':    '#a040a0', // poison purple
-  '/MarshBadge.png':   '#f08030', // ground orange
-  '/VolcanoBadge.png': '#f08030', // fire orange-red
-  '/EarthBadge.png':   '#705898', // ground/dark
-};
+function timeAgo(hoursAgo: number) {
+  if (hoursAgo < 1) return 'just now';
+  if (hoursAgo === 1) return '1h ago';
+  if (hoursAgo < 24) return `${hoursAgo}h ago`;
+  return '1d ago';
+}
 
-function BadgeTile({ badge, earned, typeColor }: { badge: typeof GYM_BADGES[0]; earned: boolean; typeColor: string }) {
+// ── Floating particle background ──
+function Particles({ color }: { color: string }) {
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      {Array.from({ length: 8 }).map((_, i) => (
+        <motion.div key={i}
+          className="absolute rounded-full opacity-20"
+          style={{
+            width: 4 + (i % 3) * 3,
+            height: 4 + (i % 3) * 3,
+            background: color,
+            left: `${10 + i * 11}%`,
+            top: `${20 + (i % 4) * 20}%`,
+          }}
+          animate={{ y: [0, -14, 0], opacity: [0.1, 0.3, 0.1] }}
+          transition={{ duration: 3 + i * 0.5, repeat: Infinity, delay: i * 0.4, ease: 'easeInOut' }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ── Pokéball divider ──
+function PokeBallDivider({ color }: { color: string }) {
+  return (
+    <div className="flex items-center gap-2 my-1">
+      <div className="flex-1 h-px" style={{ background: `linear-gradient(to right, transparent, ${color}44)` }} />
+      <div className="w-3 h-3 rounded-full border-2 flex items-center justify-center shrink-0" style={{ borderColor: `${color}88` }}>
+        <div className="w-1 h-1 rounded-full" style={{ background: `${color}99` }} />
+      </div>
+      <div className="flex-1 h-px" style={{ background: `linear-gradient(to left, transparent, ${color}44)` }} />
+    </div>
+  );
+}
+
+// ── Badge tile ──
+function BadgeTile({ badge, earned, isNext }: { badge: typeof GYM_BADGES[0]; earned: boolean; isNext: boolean }) {
   const [hovered, setHovered] = useState(false);
-  const badgeColor = BADGE_COLORS[badge.file] ?? typeColor;
-  const showGlow = earned || hovered;
-
   return (
     <motion.div
-      className="flex flex-col items-center justify-center gap-1.5 py-2"
-      whileHover={{ scale: 1.1 }}
+      className="flex flex-col items-center justify-center gap-1 py-1 cursor-default"
+      whileHover={{ scale: 1.12 }}
       onHoverStart={() => setHovered(true)}
       onHoverEnd={() => setHovered(false)}
-      title={earned ? badge.name : `${badge.name} — ${badge.wins} wins to unlock`}
+      title={earned ? badge.name : `${badge.name} — ${badge.wins} wins`}
     >
       <div className="relative flex items-center justify-center">
-        {showGlow && (
-          <motion.div
-            className="absolute inset-0 rounded-full blur-md"
-            style={{ background: badgeColor }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: earned ? [0.4, 0.7, 0.4] : 0.35 }}
-            transition={earned ? { duration: 2, repeat: Infinity } : { duration: 0.2 }}
+        {earned && (
+          <motion.div className="absolute inset-0 rounded-full blur-md"
+            style={{ background: badge.color }}
+            animate={{ opacity: [0.35, 0.7, 0.35] }}
+            transition={{ duration: 2, repeat: Infinity }}
           />
         )}
-        <img
-          src={badge.file}
-          alt={badge.name}
-          className="w-14 h-14 object-contain relative z-10 transition-all duration-200"
+        {isNext && !earned && (
+          <motion.div className="absolute inset-0 rounded-full blur-sm"
+            style={{ background: badge.color }}
+            animate={{ opacity: [0.1, 0.4, 0.1] }}
+            transition={{ duration: 1.5, repeat: Infinity }}
+          />
+        )}
+        <img src={badge.file} alt={badge.name}
+          className="w-12 h-12 object-contain relative z-10 transition-all duration-300"
           style={earned
-            ? {}
-            : hovered
-              ? { filter: `grayscale(0%) brightness(0.75) drop-shadow(0 0 6px ${badgeColor})`, opacity: 0.85 }
-              : { filter: 'grayscale(100%) brightness(0.4)', opacity: 0.45 }
+            ? { filter: `drop-shadow(0 0 6px ${badge.color})` }
+            : hovered || isNext
+              ? { filter: `grayscale(60%) brightness(0.65) drop-shadow(0 0 4px ${badge.color})`, opacity: 0.75 }
+              : { filter: 'grayscale(100%) brightness(0.3)', opacity: 0.35 }
           }
         />
+        {earned && (
+          <motion.div className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-yellow-400 border-2 border-white flex items-center justify-center z-20"
+            initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 400 }}>
+            <span style={{ fontSize: 7 }}>✓</span>
+          </motion.div>
+        )}
       </div>
-      <p
-        className="text-center font-bold leading-none"
-        style={{ fontSize: '9px', color: earned ? '#d97706' : hovered ? badgeColor : '#94a3b8' }}
-      >
-        {badge.name.replace(' Badge', '')}
+      <p className="text-center font-black leading-none" style={{ fontSize: '8px', color: earned ? badge.color : isNext ? `${badge.color}99` : '#475569', letterSpacing: '0.03em' }}>
+        {badge.city}
       </p>
     </motion.div>
   );
@@ -142,30 +176,21 @@ export default function TrainerProfile() {
   const copyAddress = () => {
     if (!currentTrainer) return;
     navigator.clipboard.writeText(currentTrainer.internalWalletId);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopied(true); setTimeout(() => setCopied(false), 2000);
   };
-
   const handleLogout = () => { clearSession(); clearTrainer(); setScreen('home'); };
-
   const handleAvatarChange = (newAvatar: string) => {
     if (!currentTrainer) return;
     const updated = { ...currentTrainer, avatar: newAvatar };
-    setTrainer(updated);
-    updateUser(currentTrainer.id, { avatar: newAvatar });
-    setShowAvatarPicker(false);
+    setTrainer(updated); updateUser(currentTrainer.id, { avatar: newAvatar }); setShowAvatarPicker(false);
   };
-
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) return;
-    if (file.size > 5 * 1024 * 1024) return;
+    if (!file || !['image/jpeg','image/png','image/webp','image/gif'].includes(file.type) || file.size > 5*1024*1024) return;
     const reader = new FileReader();
     reader.onload = (ev) => handleAvatarChange(ev.target?.result as string);
     reader.readAsDataURL(file);
   };
-
   const openWalletView = (view: WalletView) => {
     setWalletView(walletView === view ? null : view);
     if (view === 'withdraw') { setWithdrawAddr(''); setWithdrawAmount(''); setWithdrawStep('form'); setWithdrawError(''); }
@@ -182,18 +207,13 @@ export default function TrainerProfile() {
     if (!currentTrainer || parsedAmount > currentTrainer.balance) { setWithdrawError('Insufficient balance.'); return false; }
     setWithdrawError(''); return true;
   };
-
   const handleWithdrawNext = () => { if (validateWithdraw()) setWithdrawStep('confirm'); };
   const handleWithdrawConfirm = () => {
     if (!currentTrainer) return;
     const updated = { ...currentTrainer, balance: currentTrainer.balance - parsedAmount };
-    setTrainer(updated); updateUser(currentTrainer.id, { balance: updated.balance });
-    setWithdrawStep('success');
+    setTrainer(updated); updateUser(currentTrainer.id, { balance: updated.balance }); setWithdrawStep('success');
   };
-  const handleWithdrawClose = () => {
-    setWalletView(null); setWithdrawAddr(''); setWithdrawAmount('');
-    setWithdrawStep('form'); setWithdrawError('');
-  };
+  const handleWithdrawClose = () => { setWalletView(null); setWithdrawAddr(''); setWithdrawAmount(''); setWithdrawStep('form'); setWithdrawError(''); };
 
   if (!currentTrainer) return null;
 
@@ -212,41 +232,52 @@ export default function TrainerProfile() {
   const nextBadgeProgress = nextBadge ? Math.min(100, Math.round((wins / nextBadge.wins) * 100)) : 100;
 
   return (
-    <div className="h-screen overflow-hidden flex flex-col"
-      style={{ background: 'linear-gradient(135deg, #dbeafe 0%, #ede9fe 40%, #fce7f3 70%, #fef3c7 100%)' }}>
+    <div className="h-screen overflow-hidden flex flex-col" style={{ background: 'linear-gradient(160deg, #0f0c24 0%, #151030 40%, #0d1a2e 80%, #0a0a1a 100%)' }}>
 
-      {/* Badge Announcement */}
+      {/* ── Badge Announcement ── */}
       <AnimatePresence>
         {badgeAnnouncement !== null && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
             onClick={() => setBadgeAnnouncement(null)}>
-            <motion.div initial={{ scale: 0.5 }} animate={{ scale: 1 }} exit={{ scale: 0.5, opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-              className="text-center px-10 py-10 rounded-3xl max-w-sm mx-4 bg-white shadow-2xl border-4"
-              style={{ borderColor: typeColor }} onClick={e => e.stopPropagation()}>
+            <motion.div initial={{ scale: 0.4, rotate: -8 }} animate={{ scale: 1, rotate: 0 }} exit={{ scale: 0.5, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 280, damping: 18 }}
+              className="text-center px-10 py-10 rounded-3xl max-w-sm mx-4 shadow-2xl border-2 relative overflow-hidden"
+              style={{ background: 'linear-gradient(135deg, #1a0a2e, #0d1a2e)', borderColor: GYM_BADGES[badgeAnnouncement].color }}
+              onClick={e => e.stopPropagation()}>
+              <Particles color={GYM_BADGES[badgeAnnouncement].color} />
               <div className="text-5xl mb-3">🎉</div>
-              <h2 className="text-3xl font-black text-slate-800 mb-1">BADGE EARNED!</h2>
-              <img src={GYM_BADGES[badgeAnnouncement].file} alt="" className="w-24 h-24 mx-auto my-4 object-contain" />
-              <p className="text-yellow-600 font-black text-xl mb-4">🏅 {GYM_BADGES[badgeAnnouncement].name}</p>
+              <h2 className="text-3xl font-black text-white mb-1 uppercase tracking-wider">Badge Earned!</h2>
+              <motion.img src={GYM_BADGES[badgeAnnouncement].file} alt="" className="w-28 h-28 mx-auto my-4 object-contain"
+                animate={{ rotate: [0, 5, -5, 0], scale: [1, 1.08, 1] }}
+                transition={{ duration: 1.5, repeat: Infinity }}
+                style={{ filter: `drop-shadow(0 0 20px ${GYM_BADGES[badgeAnnouncement].color})` }}
+              />
+              <p className="font-black text-xl mb-5" style={{ color: GYM_BADGES[badgeAnnouncement].color }}>
+                🏅 {GYM_BADGES[badgeAnnouncement].name}
+              </p>
               <button onClick={() => setBadgeAnnouncement(null)}
-                className="px-8 py-3 rounded-xl font-black text-white text-sm uppercase tracking-wide"
-                style={{ background: `linear-gradient(135deg, ${typeColor}, #6366f1)` }}>Let's Go! ⚡</button>
+                className="px-8 py-3 rounded-xl font-black text-white text-sm uppercase tracking-widest shadow-lg"
+                style={{ background: `linear-gradient(135deg, ${GYM_BADGES[badgeAnnouncement].color}, #7c3aed)` }}>
+                Let's Go! ⚡
+              </button>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Avatar Picker */}
+      {/* ── Avatar Picker ── */}
       <AnimatePresence>
         {showAvatarPicker && (
           <>
-            <div className="fixed inset-0 z-40 bg-black/30" onClick={() => setShowAvatarPicker(false)} />
+            <div className="fixed inset-0 z-40 bg-black/60" onClick={() => setShowAvatarPicker(false)} />
             <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
-              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[420px] bg-white border border-slate-200 rounded-2xl p-4 shadow-2xl">
-              <p className="font-bold text-sm mb-3 text-slate-700">Choose your avatar</p>
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[420px] rounded-2xl p-4 shadow-2xl border"
+              style={{ background: 'linear-gradient(135deg, #1a1040, #0d1a2e)', borderColor: `${typeColor}44` }}>
+              <p className="font-black text-sm mb-3 text-white uppercase tracking-wider">Choose Your Avatar</p>
               <button onClick={() => fileInputRef.current?.click()}
-                className="w-full mb-3 py-2 px-4 border-2 border-dashed border-slate-300 hover:border-blue-400 rounded-xl text-sm text-slate-500 hover:text-blue-500 transition-all flex items-center justify-center gap-2">
+                className="w-full mb-3 py-2 px-4 border-2 border-dashed rounded-xl text-sm transition-all flex items-center justify-center gap-2"
+                style={{ borderColor: `${typeColor}44`, color: typeColor }}>
                 <Upload className="w-4 h-4" /> Upload your own photo
               </button>
               <input ref={fileInputRef} type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
@@ -254,10 +285,11 @@ export default function TrainerProfile() {
                 {getAvatarOptions().map((opt) => (
                   <motion.button key={opt.value} whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.95 }}
                     onClick={() => handleAvatarChange(opt.value)}
-                    className={`aspect-square rounded-xl overflow-hidden border-2 transition-all ${currentTrainer.avatar === opt.value ? 'border-blue-500' : 'border-slate-200 hover:border-slate-400'}`}>
+                    className="aspect-square rounded-xl overflow-hidden border-2 transition-all"
+                    style={{ borderColor: currentTrainer.avatar === opt.value ? typeColor : 'rgba(255,255,255,0.1)' }}>
                     {opt.type === 'image'
                       ? <img src={opt.value} alt="Avatar" className="w-full h-full object-cover" />
-                      : <div className="w-full h-full bg-slate-100 flex items-center justify-center text-2xl">{opt.value}</div>}
+                      : <div className="w-full h-full bg-white/10 flex items-center justify-center text-2xl">{opt.value}</div>}
                   </motion.button>
                 ))}
               </div>
@@ -269,12 +301,14 @@ export default function TrainerProfile() {
       {/* ── Top nav ── */}
       <div className="flex items-center justify-between px-4 pt-3 pb-2 shrink-0">
         <motion.button whileTap={{ scale: 0.97 }} onClick={() => setScreen('draft-mode-intro')}
-          className="flex items-center gap-1.5 bg-white/60 backdrop-blur border border-white/80 px-3 py-1.5 rounded-xl text-slate-600 text-sm font-bold shadow-sm hover:bg-white transition-all">
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-bold transition-all border"
+          style={{ background: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.7)' }}>
           <ArrowLeft className="w-4 h-4" /> Arena
         </motion.button>
         <div />
         <motion.button whileTap={{ scale: 0.97 }} onClick={handleLogout}
-          className="flex items-center gap-1.5 bg-white/60 backdrop-blur border border-white/80 px-3 py-1.5 rounded-xl text-slate-500 text-sm font-bold shadow-sm hover:text-red-500 hover:border-red-200 transition-all">
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-bold transition-all border"
+          style={{ background: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.5)' }}>
           <LogOut className="w-4 h-4" /> Sign Out
         </motion.button>
       </div>
@@ -285,128 +319,170 @@ export default function TrainerProfile() {
         {/* ═══ LEFT COLUMN ═══ */}
         <div className="col-span-2 flex flex-col gap-3 min-h-0">
 
-          {/* Trainer Hero Card */}
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-            className="rounded-2xl p-4 shadow-md border border-blue-100/80 flex flex-col items-center text-center relative overflow-hidden"
-            style={{ background: 'linear-gradient(150deg, #eff6ff 0%, #e0f2fe 50%, #f0f9ff 100%)' }}>
-            {/* Soft type glow behind avatar */}
-            <div className="absolute inset-0 opacity-20 pointer-events-none"
-              style={{ background: `radial-gradient(ellipse at 50% 0%, ${typeColor}, transparent 70%)` }} />
+          {/* ── Trainer Hero Card ── */}
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+            className="rounded-2xl p-4 shadow-xl flex flex-col items-center text-center relative overflow-hidden shrink-0"
+            style={{ background: 'linear-gradient(160deg, #1a1040 0%, #0d1a3e 60%, #1a0a2e 100%)', border: `1px solid ${typeColor}33` }}>
+            <Particles color={typeColor} />
+            {/* Type glow */}
+            <div className="absolute inset-0 pointer-events-none"
+              style={{ background: `radial-gradient(ellipse at 50% 0%, ${typeColor}22 0%, transparent 65%)` }} />
 
-            {/* Avatar — big and prominent */}
+            {/* Avatar */}
             <div className="relative mb-3 z-10">
-              <motion.div
-                className="absolute inset-0 rounded-full"
-                style={{ boxShadow: `0 0 20px 6px ${typeColor}55` }}
-                animate={{ opacity: [0.5, 1, 0.5] }}
+              {/* Outer ring glow */}
+              <motion.div className="absolute -inset-2 rounded-full blur-xl"
+                style={{ background: typeColor, opacity: 0.25 }}
+                animate={{ opacity: [0.15, 0.4, 0.15] }}
                 transition={{ duration: 2.5, repeat: Infinity }}
               />
+              {/* Hexagon-inspired border frame */}
+              <div className="absolute -inset-1 rounded-full" style={{ background: `conic-gradient(${typeColor}, #7c3aed, ${typeColor})`, padding: 2, borderRadius: '50%' }}>
+                <div className="w-full h-full rounded-full" style={{ background: '#0d1a3e' }} />
+              </div>
               <motion.div whileHover={{ scale: 1.05 }} onClick={() => setShowAvatarPicker(true)}
-                className="w-28 h-28 rounded-full overflow-hidden cursor-pointer relative group border-4 shadow-xl"
-                style={{ borderColor: typeColor }}>
+                className="w-24 h-24 rounded-full overflow-hidden cursor-pointer relative group z-10"
+                style={{ boxShadow: `0 0 24px ${typeColor}66` }}>
                 {currentTrainer.avatar?.startsWith('data:') || currentTrainer.avatar?.startsWith('/') ? (
                   <img src={currentTrainer.avatar} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center text-5xl">
+                  <div className="w-full h-full flex items-center justify-center text-4xl"
+                    style={{ background: `linear-gradient(135deg, ${typeColor}33, #7c3aed33)` }}>
                     {currentTrainer.avatar || '🧑'}
                   </div>
                 )}
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-full">
-                  <Camera className="w-6 h-6 text-white" />
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-full">
+                  <Camera className="w-5 h-5 text-white" />
                 </div>
               </motion.div>
             </div>
 
-            {/* Name + level */}
+            {/* Trainer ID card feel */}
             <div className="z-10 w-full">
-              <div className="flex items-center justify-center gap-2 flex-wrap mb-0.5">
-                <h1 className="text-xl font-black text-slate-800">{currentTrainer.displayName}</h1>
+              <div className="text-xs font-black uppercase tracking-widest mb-0.5" style={{ color: `${typeColor}99` }}>
+                Trainer ID
               </div>
-              <p className="text-sm font-bold mb-0.5" style={{ color: titleColor }}>{trainerTitle}</p>
-              <p className="text-xs text-slate-400 mb-3">@{currentTrainer.username}</p>
+              <h1 className="text-xl font-black text-white mb-0.5 tracking-wide">{currentTrainer.displayName}</h1>
+              <p className="text-sm font-black mb-0.5" style={{ color: titleColor }}>{trainerTitle}</p>
+              <p className="text-xs mb-3" style={{ color: 'rgba(255,255,255,0.35)' }}>@{currentTrainer.username}</p>
 
-              {/* Partner + Win Rate inline */}
-              <div className="flex items-center justify-center gap-3">
-                <div className="flex items-center gap-1.5 bg-white/70 rounded-xl px-3 py-1.5 border border-white shadow-sm">
+              <PokeBallDivider color={typeColor} />
+
+              {/* Partner + Win Rate */}
+              <div className="flex items-center justify-center gap-2 mt-2">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border"
+                  style={{ background: `${typeColor}11`, borderColor: `${typeColor}33` }}>
                   <motion.img
                     src={getPokemonSpriteUrl(currentTrainer.favoritePokemon.id)}
                     alt={currentTrainer.favoritePokemon.name}
-                    className="w-8 h-8 object-contain"
+                    className="w-7 h-7 object-contain"
                     style={{ imageRendering: 'pixelated', filter: `drop-shadow(0 0 4px ${typeColor})` }}
-                    animate={{ y: [0, -3, 0] }} transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                    animate={{ y: [0, -3, 0] }} transition={{ duration: 2, repeat: Infinity }}
                   />
-                  <span className="text-xs font-bold text-slate-600">{currentTrainer.favoritePokemon.name}</span>
+                  <span className="text-xs font-bold text-white/70">{currentTrainer.favoritePokemon.name}</span>
                 </div>
-                <div className="flex items-center gap-1.5 bg-white/70 rounded-xl px-3 py-1.5 border border-white shadow-sm">
-                  <Star className="w-3.5 h-3.5 text-amber-400" />
-                  <span className="text-xs font-black text-slate-700">{winRate}% WR</span>
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border"
+                  style={{ background: 'rgba(251,191,36,0.08)', borderColor: 'rgba(251,191,36,0.25)' }}>
+                  <span className="text-xs font-black text-amber-400">{winRate}% WR</span>
                 </div>
               </div>
             </div>
           </motion.div>
 
-          {/* Stats */}
+          {/* ── Stat Cards ── */}
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
             className="grid grid-cols-3 gap-2 shrink-0">
-            <div className="rounded-xl p-3 text-center shadow-sm border border-green-100"
-              style={{ background: 'linear-gradient(150deg, #f0fdf4, #dcfce7)' }}>
-              <div className="flex items-center justify-center gap-1 mb-1">
-                <Trophy className="w-3 h-3 text-green-500" />
-                <span className="text-xs font-bold text-green-600 uppercase">Wins</span>
+            {/* Wins */}
+            <div className="rounded-xl p-3 text-center relative overflow-hidden"
+              style={{ background: 'linear-gradient(160deg, #052e16 0%, #0a1a10 100%)', border: '1px solid rgba(74,222,128,0.2)' }}>
+              <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 50% 0%, rgba(74,222,128,0.15), transparent 70%)' }} />
+              <div className="flex items-center justify-center gap-1 mb-1 relative z-10">
+                <Trophy className="w-3 h-3 text-green-400" />
+                <span className="text-xs font-black text-green-400 uppercase tracking-wider">Wins</span>
               </div>
-              <p className="text-3xl font-black text-green-600">{wins}</p>
+              <p className="text-4xl font-black text-green-400 relative z-10" style={{ textShadow: '0 0 20px rgba(74,222,128,0.5)' }}>{wins}</p>
             </div>
-            <div className="rounded-xl p-3 text-center shadow-sm border border-red-100"
-              style={{ background: 'linear-gradient(150deg, #fff1f2, #ffe4e6)' }}>
-              <div className="flex items-center justify-center gap-1 mb-1">
+            {/* Losses */}
+            <div className="rounded-xl p-3 text-center relative overflow-hidden"
+              style={{ background: 'linear-gradient(160deg, #2d0a0a 0%, #1a0a0a 100%)', border: '1px solid rgba(248,113,113,0.2)' }}>
+              <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 50% 0%, rgba(248,113,113,0.15), transparent 70%)' }} />
+              <div className="flex items-center justify-center gap-1 mb-1 relative z-10">
                 <Target className="w-3 h-3 text-red-400" />
-                <span className="text-xs font-bold text-red-500 uppercase">Losses</span>
+                <span className="text-xs font-black text-red-400 uppercase tracking-wider">Losses</span>
               </div>
-              <p className="text-3xl font-black text-red-500">{losses}</p>
+              <p className="text-4xl font-black text-red-400 relative z-10" style={{ textShadow: '0 0 20px rgba(248,113,113,0.5)' }}>{losses}</p>
             </div>
-            <div className={`rounded-xl p-3 text-center shadow-sm border ${isProfit ? 'border-green-100' : 'border-red-100'}`}
-              style={{ background: isProfit ? 'linear-gradient(150deg,#f0fdf4,#dcfce7)' : 'linear-gradient(150deg,#fff1f2,#ffe4e6)' }}>
-              <div className={`flex items-center justify-center gap-1 mb-1 ${isProfit ? 'text-green-500' : 'text-red-400'}`}>
-                {isProfit ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                <span className="text-xs font-bold uppercase">P&L</span>
+            {/* P&L */}
+            <div className="rounded-xl p-3 text-center relative overflow-hidden"
+              style={{
+                background: isProfit ? 'linear-gradient(160deg, #052e16 0%, #0a1a10 100%)' : 'linear-gradient(160deg, #2d0a0a 0%, #1a0a0a 100%)',
+                border: `1px solid ${isProfit ? 'rgba(74,222,128,0.2)' : 'rgba(248,113,113,0.2)'}`,
+              }}>
+              <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at 50% 0%, ${isProfit ? 'rgba(74,222,128,0.12)' : 'rgba(248,113,113,0.12)'}, transparent 70%)` }} />
+              {/* shimmer */}
+              <motion.div className="absolute inset-0 opacity-0"
+                style={{ background: 'linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.06) 50%, transparent 60%)' }}
+                animate={{ opacity: [0, 1, 0], x: ['-100%', '200%'] }}
+                transition={{ duration: 2.5, repeat: Infinity, repeatDelay: 3 }}
+              />
+              <div className="flex items-center justify-center gap-1 mb-1 relative z-10">
+                {isProfit ? <TrendingUp className="w-3 h-3 text-green-400" /> : <TrendingDown className="w-3 h-3 text-red-400" />}
+                <span className={`text-xs font-black uppercase tracking-wider ${isProfit ? 'text-green-400' : 'text-red-400'}`}>P&L</span>
               </div>
-              <p className={`text-xl font-black ${isProfit ? 'text-green-600' : 'text-red-500'}`}>
+              <p className={`text-2xl font-black relative z-10 ${isProfit ? 'text-green-400' : 'text-red-400'}`}
+                style={{ textShadow: `0 0 16px ${isProfit ? 'rgba(74,222,128,0.5)' : 'rgba(248,113,113,0.5)'}` }}>
                 {isProfit ? '+' : ''}{earnings.toFixed(2)}
               </p>
-              <p className="text-xs text-slate-400">SOL</p>
+              <p className="text-xs relative z-10" style={{ color: 'rgba(255,255,255,0.3)' }}>SOL</p>
             </div>
           </motion.div>
 
-          {/* Gym Badges */}
+          {/* ── Gym Badges ── */}
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-            className="rounded-2xl p-4 shadow-md border border-purple-100/80 flex-1 flex flex-col"
-            style={{ background: 'linear-gradient(150deg, #faf5ff 0%, #ede9fe 50%, #f5f3ff 100%)' }}>
-            <div className="flex items-center justify-between mb-3 shrink-0">
-              <span className="font-black text-slate-700 text-sm">🏅 Gym Badges</span>
-              <span className="text-xs font-bold text-purple-400">{earnedBadges}/8 earned</span>
+            className="rounded-2xl p-3 shadow-xl flex-1 flex flex-col relative overflow-hidden min-h-0"
+            style={{ background: 'linear-gradient(160deg, #1a1040 0%, #0d0a2e 100%)', border: '1px solid rgba(168,85,247,0.2)' }}>
+            <Particles color="#a855f7" />
+
+            <div className="flex items-center justify-between mb-2 shrink-0 relative z-10">
+              <span className="font-black text-white uppercase tracking-wider text-xs">🏅 Kanto Journey</span>
+              <span className="text-xs font-black px-2 py-0.5 rounded-full" style={{ background: 'rgba(168,85,247,0.15)', color: '#c084fc', border: '1px solid rgba(168,85,247,0.3)' }}>
+                {earnedBadges}/8
+              </span>
             </div>
-            {/* Badge grid — 4 per row, centered, large */}
-            <div className="grid grid-cols-4 gap-2 flex-1 content-center">
-              {GYM_BADGES.map((badge) => {
+
+            {/* Journey path — 4 per row */}
+            <div className="grid grid-cols-4 gap-1 flex-1 content-center relative z-10">
+              {GYM_BADGES.map((badge, i) => {
                 const earned = wins >= badge.wins;
-                return (
-                  <BadgeTile key={badge.name} badge={badge} earned={earned} typeColor={typeColor} />
-                );
+                const isNext = !earned && (i === 0 || wins >= GYM_BADGES[i - 1].wins);
+                return <BadgeTile key={badge.name} badge={badge} earned={earned} isNext={isNext} />;
               })}
             </div>
-            {/* Next badge progress bar */}
+
+            {/* Next badge progress */}
             {nextBadge && (
-              <div className="mt-auto shrink-0">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-slate-500 font-bold">Next: {nextBadge.name}</span>
-                  <span className="text-xs font-black" style={{ color: typeColor }}>{wins}/{nextBadge.wins}</span>
+              <div className="mt-2 shrink-0 relative z-10">
+                <PokeBallDivider color="#a855f7" />
+                <div className="flex items-center justify-between mt-1.5 mb-1">
+                  <div className="flex items-center gap-1.5">
+                    <img src={nextBadge.file} alt="" className="w-4 h-4 object-contain opacity-60" />
+                    <span className="text-xs text-white/50 font-bold">Next: {nextBadge.name}</span>
+                  </div>
+                  <span className="text-xs font-black" style={{ color: nextBadge.color }}>{wins}/{nextBadge.wins}</span>
                 </div>
-                <div className="w-full h-2.5 rounded-full bg-white/60 border border-white overflow-hidden">
-                  <motion.div className="h-full rounded-full"
-                    style={{ background: `linear-gradient(90deg, ${typeColor}, #a855f7)` }}
+                <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                  <motion.div className="h-full rounded-full relative overflow-hidden"
+                    style={{ background: `linear-gradient(90deg, ${nextBadge.color}, #a855f7)` }}
                     initial={{ width: 0 }}
                     animate={{ width: `${nextBadgeProgress}%` }}
-                    transition={{ duration: 0.8, delay: 0.3, ease: 'easeOut' }} />
+                    transition={{ duration: 1, delay: 0.4, ease: 'easeOut' }}>
+                    {/* Shimmer on bar */}
+                    <motion.div className="absolute inset-0"
+                      style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.3) 50%, transparent 100%)' }}
+                      animate={{ x: ['-100%', '200%'] }}
+                      transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5 }}
+                    />
+                  </motion.div>
                 </div>
               </div>
             )}
@@ -416,25 +492,37 @@ export default function TrainerProfile() {
         {/* ═══ RIGHT COLUMN ═══ */}
         <div className="col-span-3 flex flex-col gap-3 min-h-0">
 
-          {/* Battle Funds */}
+          {/* ── Battle Funds ── */}
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-            className="rounded-2xl shadow-md border border-pink-100/80 overflow-hidden shrink-0"
-            style={{ background: 'linear-gradient(150deg, #fff1f2 0%, #fce7f3 50%, #fdf2f8 100%)' }}>
-            <div className="px-4 py-3 flex items-center justify-between border-b border-pink-100">
+            className="rounded-2xl shadow-xl shrink-0 relative overflow-hidden"
+            style={{ background: 'linear-gradient(160deg, #1a0a2e 0%, #2d0a1e 100%)', border: '1px solid rgba(236,72,153,0.25)' }}>
+            {/* Shimmer on funds */}
+            <motion.div className="absolute inset-0 pointer-events-none"
+              style={{ background: 'linear-gradient(105deg, transparent 30%, rgba(236,72,153,0.06) 50%, transparent 70%)' }}
+              animate={{ x: ['-100%', '200%'] }}
+              transition={{ duration: 3, repeat: Infinity, repeatDelay: 4 }}
+            />
+            <div className="px-4 py-3 flex items-center justify-between border-b relative z-10" style={{ borderColor: 'rgba(236,72,153,0.15)' }}>
               <div className="flex items-center gap-2">
                 <Wallet className="w-4 h-4 text-pink-400" />
-                <span className="font-black text-slate-700 text-sm">Battle Funds</span>
-                <span className="font-bold text-slate-600 text-sm">{currentTrainer.balance.toFixed(4)} SOL</span>
+                <span className="font-black text-white text-sm uppercase tracking-wider">Battle Funds</span>
+                <span className="font-black text-pink-300 text-sm" style={{ textShadow: '0 0 12px rgba(236,72,153,0.5)' }}>
+                  {currentTrainer.balance.toFixed(4)} SOL
+                </span>
               </div>
               <div className="flex gap-2">
                 <button onClick={() => openWalletView('deposit')}
-                  className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all flex items-center gap-1 ${walletView === 'deposit' ? 'text-white shadow' : 'bg-white/70 text-slate-600 border border-pink-100 hover:border-purple-300 hover:text-purple-600'}`}
-                  style={walletView === 'deposit' ? { background: 'linear-gradient(135deg,#7c3aed,#6d28d9)' } : {}}>
+                  className="px-3 py-1.5 rounded-lg font-black text-xs transition-all flex items-center gap-1 border"
+                  style={walletView === 'deposit'
+                    ? { background: 'linear-gradient(135deg,#7c3aed,#6d28d9)', color: '#fff', borderColor: 'transparent' }
+                    : { background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.6)', borderColor: 'rgba(255,255,255,0.1)' }}>
                   <ArrowDown className="w-3 h-3" /> Deposit
                 </button>
                 <button onClick={() => openWalletView('withdraw')} disabled={testingMode}
-                  className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all flex items-center gap-1 disabled:opacity-40 ${walletView === 'withdraw' ? 'text-white shadow' : 'bg-white/70 text-slate-600 border border-pink-100 hover:border-orange-300 hover:text-orange-600'}`}
-                  style={walletView === 'withdraw' ? { background: 'linear-gradient(135deg,#ea580c,#c2410c)' } : {}}>
+                  className="px-3 py-1.5 rounded-lg font-black text-xs transition-all flex items-center gap-1 disabled:opacity-40 border"
+                  style={walletView === 'withdraw'
+                    ? { background: 'linear-gradient(135deg,#ea580c,#c2410c)', color: '#fff', borderColor: 'transparent' }
+                    : { background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.6)', borderColor: 'rgba(255,255,255,0.1)' }}>
                   <ArrowDown className="w-3 h-3 rotate-180" /> Withdraw
                 </button>
               </div>
@@ -442,25 +530,26 @@ export default function TrainerProfile() {
 
             <AnimatePresence>
               {walletView === 'deposit' && (
-                <motion.div key="deposit" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                <motion.div key="deposit" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden relative z-10">
                   <div className="p-4">
                     {testingMode ? (
-                      <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-center">
-                        <p className="text-green-600 font-black">🎮 Testing Mode — {currentTrainer.balance.toLocaleString()} SOL</p>
+                      <div className="rounded-xl p-3 text-center border" style={{ background: 'rgba(74,222,128,0.08)', borderColor: 'rgba(74,222,128,0.2)' }}>
+                        <p className="text-green-400 font-black">🎮 Testing Mode — {currentTrainer.balance.toLocaleString()} SOL</p>
                       </div>
                     ) : (
-                      <div className="bg-white/60 border border-purple-100 rounded-xl p-3">
-                        <p className="text-slate-500 text-xs mb-2">Send <span className="font-bold text-purple-600">SOL</span> to your Arena 151 wallet:</p>
-                        <div className="bg-white rounded-lg p-2.5 border border-slate-100 flex items-center gap-2 mb-2">
-                          <code className="flex-1 font-mono text-xs text-slate-600 break-all">{currentTrainer.internalWalletId}</code>
-                          <button onClick={copyAddress} className="shrink-0 px-3 py-1.5 bg-purple-500 hover:bg-purple-400 rounded-lg text-white text-xs font-bold flex items-center gap-1">
+                      <div className="rounded-xl p-3 border" style={{ background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(168,85,247,0.2)' }}>
+                        <p className="text-white/50 text-xs mb-2">Send <span className="font-black text-purple-400">SOL</span> to your Arena 151 wallet:</p>
+                        <div className="rounded-lg p-2.5 flex items-center gap-2 mb-2 border" style={{ background: 'rgba(0,0,0,0.3)', borderColor: 'rgba(255,255,255,0.08)' }}>
+                          <code className="flex-1 font-mono text-xs text-white/50 break-all">{currentTrainer.internalWalletId}</code>
+                          <button onClick={copyAddress} className="shrink-0 px-3 py-1.5 rounded-lg text-white text-xs font-black flex items-center gap-1"
+                            style={{ background: 'linear-gradient(135deg,#7c3aed,#6d28d9)' }}>
                             {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />} {copied ? 'Copied!' : 'Copy'}
                           </button>
                         </div>
                         <div className="flex gap-1.5 text-xs">
                           {['SOL only', 'Min 0.01 SOL', '~1 min'].map(t => (
-                            <div key={t} className="flex-1 bg-white/80 rounded-lg p-1.5 text-center border border-purple-50">
-                              <span className="text-purple-500 font-bold">{t}</span>
+                            <div key={t} className="flex-1 rounded-lg p-1.5 text-center border text-center" style={{ background: 'rgba(168,85,247,0.08)', borderColor: 'rgba(168,85,247,0.15)' }}>
+                              <span className="text-purple-400 font-bold">{t}</span>
                             </div>
                           ))}
                         </div>
@@ -473,49 +562,57 @@ export default function TrainerProfile() {
 
             <AnimatePresence>
               {walletView === 'withdraw' && (
-                <motion.div key="withdraw" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                <motion.div key="withdraw" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden relative z-10">
                   <div className="p-4">
                     {withdrawStep === 'success' && (
                       <div className="text-center py-2">
                         <div className="text-3xl mb-1">✅</div>
-                        <p className="font-black text-slate-700 text-sm mb-1">Withdrawal Submitted</p>
-                        <p className="text-xs text-slate-400 mb-2">{netAmount.toFixed(4)} SOL sent after fee</p>
-                        <button onClick={handleWithdrawClose} className="px-5 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold text-sm">Done</button>
+                        <p className="font-black text-white text-sm mb-1">Withdrawal Submitted</p>
+                        <p className="text-xs text-white/40 mb-2">{netAmount.toFixed(4)} SOL sent after fee</p>
+                        <button onClick={handleWithdrawClose} className="px-5 py-1.5 rounded-xl font-black text-sm border" style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.6)', borderColor: 'rgba(255,255,255,0.1)' }}>Done</button>
                       </div>
                     )}
                     {withdrawStep === 'confirm' && (
                       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                        <div className="bg-red-50 border border-red-200 rounded-xl p-2.5 mb-2 text-xs text-red-500">
+                        <div className="rounded-xl p-2.5 mb-2 text-xs border" style={{ background: 'rgba(239,68,68,0.08)', borderColor: 'rgba(239,68,68,0.2)', color: '#f87171' }}>
                           <p className="font-black mb-0.5">⚠️ Irreversible — verify address first</p>
                           <p className="font-mono break-all">{withdrawAddr}</p>
                         </div>
                         <div className="grid grid-cols-3 gap-1.5 mb-2 text-center text-xs">
-                          <div className="bg-white/60 rounded-lg p-2"><p className="text-slate-400">Send</p><p className="font-black text-slate-700">{parsedAmount.toFixed(4)}</p></div>
-                          <div className="bg-white/60 rounded-lg p-2"><p className="text-slate-400">Fee</p><p className="font-black text-orange-500">−{WITHDRAWAL_FEE_SOL}</p></div>
-                          <div className="bg-green-50 rounded-lg p-2 border border-green-200"><p className="text-slate-400">Get</p><p className="font-black text-green-600">{netAmount.toFixed(4)}</p></div>
+                          {[['Send', parsedAmount.toFixed(4), 'text-white/60'], ['Fee', `−${WITHDRAWAL_FEE_SOL}`, 'text-orange-400'], ['Get', netAmount.toFixed(4), 'text-green-400']].map(([l, v, c]) => (
+                            <div key={l} className="rounded-lg p-2 border" style={{ background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.08)' }}>
+                              <p className="text-white/40">{l}</p><p className={`font-black ${c}`}>{v}</p>
+                            </div>
+                          ))}
                         </div>
                         <div className="flex gap-2">
-                          <button onClick={() => setWithdrawStep('form')} className="flex-1 py-1.5 rounded-xl border border-slate-200 text-slate-500 font-bold text-xs">← Back</button>
+                          <button onClick={() => setWithdrawStep('form')} className="flex-1 py-1.5 rounded-xl font-bold text-xs border" style={{ background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.5)', borderColor: 'rgba(255,255,255,0.1)' }}>← Back</button>
                           <button onClick={handleWithdrawConfirm} className="flex-1 py-1.5 rounded-xl font-black text-white text-xs" style={{ background: 'linear-gradient(135deg,#ea580c,#c2410c)' }}>Confirm</button>
                         </div>
                       </motion.div>
                     )}
                     {withdrawStep === 'form' && (
                       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                        <div className="bg-orange-50 border border-orange-200 rounded-xl p-2.5 mb-2 flex gap-1.5 text-xs text-orange-600">
+                        <div className="rounded-xl p-2.5 mb-2 flex gap-1.5 text-xs border" style={{ background: 'rgba(234,88,12,0.08)', borderColor: 'rgba(234,88,12,0.2)', color: '#fb923c' }}>
                           <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                          <p><span className="font-bold">SOL only.</span> Wrong address = permanent loss.</p>
+                          <p><span className="font-black">SOL only.</span> Wrong address = permanent loss.</p>
                         </div>
                         <input type="text" value={withdrawAddr} onChange={e => setWithdrawAddr(e.target.value)} placeholder="Solana wallet address"
-                          className="w-full bg-white border border-slate-200 focus:border-orange-300 rounded-lg px-3 py-2 font-mono text-xs text-slate-700 placeholder:text-slate-300 outline-none mb-1.5 transition-colors" />
+                          className="w-full rounded-lg px-3 py-2 font-mono text-xs placeholder:text-white/20 outline-none mb-1.5 transition-colors"
+                          style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)' }} />
                         <div className="relative mb-1.5">
                           <input type="number" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)}
                             placeholder={`Min ${minAmountRequired.toFixed(4)} SOL`}
-                            className="w-full bg-white border border-slate-200 focus:border-orange-300 rounded-lg px-3 py-2 text-sm text-slate-700 placeholder:text-slate-300 outline-none transition-colors pr-12" />
+                            className="w-full rounded-lg px-3 py-2 text-sm placeholder:text-white/20 outline-none transition-colors pr-12"
+                            style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)' }} />
                           <button onClick={() => setWithdrawAmount((currentTrainer.balance - WITHDRAWAL_FEE_SOL).toFixed(4))}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-orange-500 font-black">MAX</button>
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-black" style={{ color: '#fb923c' }}>MAX</button>
                         </div>
-                        {withdrawError && <div className="bg-red-50 border border-red-200 rounded-lg p-2 mb-1.5 text-xs text-red-500 flex gap-1"><X className="w-3 h-3 shrink-0 mt-0.5" />{withdrawError}</div>}
+                        {withdrawError && (
+                          <div className="rounded-lg p-2 mb-1.5 text-xs flex gap-1 border" style={{ background: 'rgba(239,68,68,0.08)', borderColor: 'rgba(239,68,68,0.2)', color: '#f87171' }}>
+                            <X className="w-3 h-3 shrink-0 mt-0.5" />{withdrawError}
+                          </div>
+                        )}
                         <button onClick={handleWithdrawNext} className="w-full py-2 rounded-xl font-black text-white text-sm" style={{ background: 'linear-gradient(135deg,#ea580c,#c2410c)' }}>Review →</button>
                       </motion.div>
                     )}
@@ -525,37 +622,75 @@ export default function TrainerProfile() {
             </AnimatePresence>
           </motion.div>
 
-          {/* Recent Battles — takes all remaining space */}
+          {/* ── Recent Battles ── */}
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-            className="rounded-2xl shadow-md border border-rose-100/80 flex-1 flex flex-col overflow-hidden min-h-0"
-            style={{ background: 'linear-gradient(150deg, #fff1f2 0%, #fce7f3 50%, #fdf2f8 100%)' }}>
-            <div className="px-4 py-3 border-b border-pink-100 shrink-0 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Swords className="w-4 h-4 text-rose-400" />
-                <span className="font-black text-slate-700 text-sm">Recent Battles</span>
-              </div>
-              <div className="flex items-center gap-3 text-xs text-slate-500">
-                <span><span className="font-black text-green-500">{wins}W</span> · <span className="font-black text-red-400">{losses}L</span></span>
-                <span className="font-black text-slate-600">{winRate}% win rate</span>
+            className="rounded-2xl shadow-xl flex-1 flex flex-col overflow-hidden min-h-0 relative"
+            style={{ background: 'linear-gradient(160deg, #0d1a2e 0%, #1a0a1e 100%)', border: '1px solid rgba(239,68,68,0.2)' }}>
+
+            {/* Header */}
+            <div className="px-4 py-3 shrink-0 relative" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Swords className="w-4 h-4 text-rose-400" />
+                  <span className="font-black text-white uppercase tracking-wider text-sm">Recent Battles</span>
+                </div>
+                <div className="flex items-center gap-3 text-xs">
+                  <span>
+                    <span className="font-black text-green-400">{wins}W</span>
+                    <span className="text-white/30 mx-1">·</span>
+                    <span className="font-black text-red-400">{losses}L</span>
+                  </span>
+                  <span className="font-black px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)' }}>
+                    {winRate}% WR
+                  </span>
+                </div>
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto divide-y divide-pink-50">
+
+            {/* Battle rows */}
+            <div className="flex-1 overflow-y-auto">
               {MOCK_BATTLES.map((battle, idx) => {
                 const isWin = battle.result === 'win';
                 return (
-                  <motion.div key={idx} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15 + idx * 0.06 }}
-                    className="flex items-center justify-between px-4 py-4"
-                    style={{ borderLeft: `4px solid ${isWin ? 'rgba(74,222,128,0.6)' : 'rgba(248,113,113,0.6)'}` }}>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xl">{isWin ? '🏆' : '💀'}</span>
+                  <motion.div key={idx}
+                    initial={{ opacity: 0, x: -12 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.2 + idx * 0.07 }}
+                    whileHover={{ backgroundColor: 'rgba(255,255,255,0.04)', x: 2 }}
+                    className="flex items-center justify-between px-4 py-3 cursor-default transition-colors relative"
+                    style={{
+                      borderBottom: '1px solid rgba(255,255,255,0.04)',
+                      borderLeft: `3px solid ${isWin ? '#4ade80' : '#f87171'}`,
+                    }}>
+                    {/* Result glow on left */}
+                    <div className="absolute left-0 top-0 bottom-0 w-16 pointer-events-none"
+                      style={{ background: `linear-gradient(to right, ${isWin ? 'rgba(74,222,128,0.06)' : 'rgba(248,113,113,0.06)'}, transparent)` }} />
+
+                    <div className="flex items-center gap-3 relative z-10">
+                      {/* Arena icon */}
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-lg"
+                        style={{ background: isWin ? 'rgba(74,222,128,0.1)' : 'rgba(248,113,113,0.1)', border: `1px solid ${isWin ? 'rgba(74,222,128,0.2)' : 'rgba(248,113,113,0.2)'}` }}>
+                        {battle.arena}
+                      </div>
                       <div>
-                        <p className="font-black text-slate-700">vs {battle.opponent}</p>
-                        <p className="text-xs text-slate-400">{battle.room}</p>
+                        <p className="font-black text-white text-sm">vs <span style={{ color: isWin ? '#86efac' : '#fca5a5' }}>{battle.opponent}</span></p>
+                        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>{battle.room}</p>
                       </div>
                     </div>
-                    <span className={`text-xs font-black px-3 py-1.5 rounded-full ${isWin ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-500'}`}>
-                      {isWin ? 'WIN' : 'LOSS'}
-                    </span>
+
+                    <div className="flex items-center gap-3 relative z-10">
+                      <span className="text-xs" style={{ color: 'rgba(255,255,255,0.25)' }}>{timeAgo(battle.hoursAgo)}</span>
+                      <motion.span
+                        className="text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider"
+                        style={isWin
+                          ? { background: 'rgba(74,222,128,0.15)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.3)', textShadow: '0 0 8px rgba(74,222,128,0.5)' }
+                          : { background: 'rgba(248,113,113,0.12)', color: '#f87171', border: '1px solid rgba(248,113,113,0.25)' }
+                        }
+                        whileHover={{ scale: 1.05 }}
+                      >
+                        {isWin ? '✓ WIN' : '✗ LOSS'}
+                      </motion.span>
+                    </div>
                   </motion.div>
                 );
               })}
