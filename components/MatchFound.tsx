@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Zap, Trophy } from 'lucide-react';
 import { useArenaStore } from '@/lib/store';
@@ -54,30 +54,32 @@ export default function MatchFound() {
     '/trainer-avatars/Snorlax.png',
   ];
 
-  const botName = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
-  const botAvatar = BOT_AVATARS[Math.floor(Math.random() * BOT_AVATARS.length)];
-  const botHandle = botName.toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/__+/g, '_');
+  const sfxPlayed = useRef(false);
 
-  const opponent: Trainer = {
-    id: 'bot_' + Date.now(),
-    username: botHandle,
-    displayName: botName,
-    email: 'bot@arena151.gg',
-    avatar: botAvatar,
-    favoritePokemon: (() => {
-      const p = POKEMON_DATABASE[Math.floor(Math.random() * POKEMON_DATABASE.length)];
-      return { id: p.id, name: p.name, sprite: '', types: p.types as any, stats: { hp: 100, attack: 100, defense: 100, spAttack: 100, spDefense: 100, speed: 100 } };
-    })(),
-    joinedDate: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000),
-    record: {
-      wins: Math.floor(Math.random() * 50),
-      losses: Math.floor(Math.random() * 30),
-    },
-    internalWalletId: 'wallet_opp',
-    balance: 1,
-    earnings: 0,
-    badges: [],
-  };
+  const opponent: Trainer = useMemo(() => {
+    const botName = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
+    const botAvatar = BOT_AVATARS[Math.floor(Math.random() * BOT_AVATARS.length)];
+    const botHandle = botName.toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/__+/g, '_');
+    const p = POKEMON_DATABASE[Math.floor(Math.random() * POKEMON_DATABASE.length)];
+    return {
+      id: 'bot_' + Date.now(),
+      username: botHandle,
+      displayName: botName,
+      email: 'bot@arena151.gg',
+      avatar: botAvatar,
+      favoritePokemon: { id: p.id, name: p.name, sprite: '', types: p.types as any, stats: { hp: 100, attack: 100, defense: 100, spAttack: 100, spDefense: 100, speed: 100 } },
+      joinedDate: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000),
+      record: {
+        wins: Math.floor(Math.random() * 50),
+        losses: Math.floor(Math.random() * 30),
+      },
+      internalWalletId: 'wallet_opp',
+      balance: 1,
+      earnings: 0,
+      badges: [],
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const room = queueState.roomId ? ROOM_TIERS[queueState.roomId] : ROOM_TIERS['pallet-pot'];
 
@@ -85,13 +87,16 @@ export default function MatchFound() {
     // Initial flash
     const flashTimeout = setTimeout(() => {
       setRevealed(true);
-      // Play SFX when RIVAL FOUND! reveals
-      try {
-        const sfx = new Audio('/music/The Greatest Pokemon Sound Effects.mp3');
-        sfx.currentTime = 0; sfx.volume = 0.8;
-        sfx.play().catch(() => {});
-        setTimeout(() => { sfx.pause(); sfx.currentTime = 0; }, 2800);
-      } catch (e) {}
+      // Play SFX when RIVAL FOUND! reveals (once only)
+      if (!sfxPlayed.current) {
+        sfxPlayed.current = true;
+        try {
+          const sfx = new Audio('/music/The Greatest Pokemon Sound Effects.mp3');
+          sfx.currentTime = 0; sfx.volume = 0.8;
+          sfx.play().catch(() => {});
+          setTimeout(() => { sfx.pause(); sfx.currentTime = 0; }, 2800);
+        } catch (e) {}
+      }
     }, 500);
 
     // Auto-advance to versus screen
