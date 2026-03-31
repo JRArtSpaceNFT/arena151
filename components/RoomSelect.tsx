@@ -217,10 +217,12 @@ export default function RoomSelect() {
                           src={badge.file}
                           alt={badge.name}
                           className="w-9 h-9 object-contain relative z-10"
-                          style={hasBadge
-                            ? { filter: `drop-shadow(0 0 5px ${badge.color})`, imageRendering: 'pixelated' }
-                            : { filter: 'grayscale(100%) brightness(0.4)', opacity: 0.5, imageRendering: 'pixelated' }
-                          }
+                          style={{
+                            imageRendering: 'pixelated',
+                            filter: hasBadge
+                              ? `drop-shadow(0 0 6px ${badge.color}) drop-shadow(0 0 12px ${badge.color}88)`
+                              : `drop-shadow(0 0 3px ${badge.color}66)`,
+                          }}
                         />
                         {hasBadge && (
                           <div className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-yellow-400 border-2 border-white flex items-center justify-center z-20"
