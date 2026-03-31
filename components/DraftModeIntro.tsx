@@ -69,6 +69,28 @@ export default function DraftModeIntro() {
     return () => clearInterval(iv);
   }, []);
 
+  // Crowd cheer — first 10s on loop, very low volume
+  useEffect(() => {
+    const audio = new Audio('/music/Crowd Cheer Sound Effect.mp3');
+    audio.volume = 0.07;
+    audio.currentTime = 0;
+
+    const handleTimeUpdate = () => {
+      if (audio.currentTime >= 10) {
+        audio.currentTime = 0;
+      }
+    };
+
+    audio.addEventListener('timeupdate', handleTimeUpdate);
+    audio.play().catch(() => {});
+
+    return () => {
+      audio.removeEventListener('timeupdate', handleTimeUpdate);
+      audio.pause();
+      audio.src = '';
+    };
+  }, []);
+
   const ev = LIVE_EVENTS[liveIdx];
 
   return (
