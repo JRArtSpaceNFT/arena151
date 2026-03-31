@@ -36,7 +36,7 @@ export default function DefeatScreen() {
 
   const handleContinue = () => {
     if (gameMode === 'story') navigateTo('story_journey')
-    else navigateTo('home')
+    else navigateTo('results')
   }
 
   const loserTrainer = battleState?.winner === 'A' ? p2Trainer : p1Trainer
@@ -222,7 +222,7 @@ export default function DefeatScreen() {
             cursor: 'pointer', letterSpacing: '0.1em',
             boxShadow: '0 0 30px rgba(239,68,68,0.4), 0 6px 18px rgba(0,0,0,0.5)',
           }}>
-          {gameMode === 'story' ? 'RETURN TO JOURNEY' : 'BACK TO HOME'}
+          {gameMode === 'story' ? 'RETURN TO JOURNEY' : 'BATTLE RESULTS'}
         </motion.button>
 
         {gameMode === 'story' && (
