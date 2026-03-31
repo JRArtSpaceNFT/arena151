@@ -1,7 +1,6 @@
 'use client';
 
-import { motion, AnimatePresence } from 'framer-motion';
-import { useState } from 'react';
+import { motion } from 'framer-motion';
 import { useArenaStore } from '@/lib/store';
 import { ARENA_BADGES } from '@/lib/constants';
 
@@ -50,7 +49,6 @@ const BADGES = Object.entries(ARENA_BADGES);
 
 export default function BattleGuide() {
   const { setScreen } = useArenaStore();
-  const [hoveredStep, setHoveredStep] = useState<number | null>(null);
 
   return (
     <div
@@ -126,15 +124,11 @@ export default function BattleGuide() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.03 + i * 0.05 }}
-              className="rounded-xl flex flex-col overflow-hidden min-h-0 cursor-pointer"
+              className="rounded-xl flex flex-col overflow-hidden min-h-0"
               style={{
                 background: 'rgba(255,255,255,0.04)',
-                border: hoveredStep === i ? '1px solid rgba(251,191,36,0.5)' : '1px solid rgba(255,255,255,0.08)',
-                boxShadow: hoveredStep === i ? '0 0 20px rgba(251,191,36,0.15)' : 'none',
-                transition: 'border-color 0.2s, box-shadow 0.2s',
+                border: '1px solid rgba(255,255,255,0.08)',
               }}
-              onMouseEnter={() => setHoveredStep(i)}
-              onMouseLeave={() => setHoveredStep(null)}
             >
               {/* Screenshot — takes most of the card */}
               <div className="relative flex-1 min-h-0" style={{ background: 'rgba(0,0,0,0.4)' }}>
@@ -142,7 +136,7 @@ export default function BattleGuide() {
                   src={step.img}
                   alt={step.title}
                   className="w-full h-full object-cover"
-                  style={{ opacity: 0.92, transition: 'opacity 0.2s' }}
+                  style={{ opacity: 0.92 }}
                   onError={e => { (e.target as HTMLImageElement).style.opacity = '0'; }}
                 />
                 {/* Step number pill */}
@@ -154,11 +148,6 @@ export default function BattleGuide() {
                   }}>
                   {step.num}
                 </div>
-                {/* Hover hint */}
-                <div className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded text-xs font-bold"
-                  style={{ background: 'rgba(0,0,0,0.6)', color: 'rgba(255,255,255,0.4)', fontSize: 9 }}>
-                  hover to zoom
-                </div>
               </div>
 
               {/* Text — compact strip at bottom */}
@@ -169,60 +158,6 @@ export default function BattleGuide() {
             </motion.div>
           ))}
         </div>
-
-        {/* ── Zoom lightbox ── */}
-        <AnimatePresence>
-          {hoveredStep !== null && (
-            <div
-              className="fixed z-50 pointer-events-none"
-              style={{ inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            >
-            <motion.div
-              key={hoveredStep}
-              initial={{ opacity: 0, scale: 0.88 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.92 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-              style={{ width: '62vw', maxWidth: 900 }}
-            >
-
-
-              <div style={{
-                borderRadius: 16,
-                overflow: 'hidden',
-                border: '2px solid rgba(251,191,36,0.4)',
-                boxShadow: '0 0 60px rgba(0,0,0,0.8), 0 0 30px rgba(251,191,36,0.15)',
-                background: '#0a0812',
-              }}>
-                {/* Title bar */}
-                <div style={{
-                  padding: '8px 16px',
-                  background: 'rgba(0,0,0,0.7)',
-                  borderBottom: '1px solid rgba(251,191,36,0.2)',
-                  display: 'flex', alignItems: 'center', gap: 10,
-                }}>
-                  <span style={{
-                    fontFamily: '"Impact", "Arial Black", sans-serif',
-                    fontSize: 13, color: '#fbbf24', letterSpacing: '0.08em',
-                  }}>
-                    STEP {STEPS[hoveredStep].num}
-                  </span>
-                  <span style={{ color: 'white', fontWeight: 900, fontSize: 13 }}>
-                    {STEPS[hoveredStep].title}
-                  </span>
-                </div>
-
-                {/* Full screenshot */}
-                <img
-                  src={STEPS[hoveredStep].img}
-                  alt={STEPS[hoveredStep].title}
-                  style={{ width: '100%', display: 'block', maxHeight: '55vh', objectFit: 'cover' }}
-                />
-              </div>
-            </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
 
 
 
