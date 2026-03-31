@@ -10,21 +10,20 @@ import type { BattleRoom } from '@/types';
 // Per-arena identity config — background images are drop-in from /public/arenas/gyms/
 // To replace a background: drop a new image into /public/arenas/gyms/<arena-id>.png
 const ARENA_IDENTITY: Record<string, {
-  flavor: string;
   bgImage: string;       // drop-in path: /public/arenas/gyms/<id>.png
   accent: string;
   accentDark: string;
   stakeTier: 'low' | 'mid' | 'high';
   btnLabel: string;
 }> = {
-  'pewter-city':    { flavor: 'Built on grit, stone, and resolve',     bgImage: '/arenas/gyms/pewter-city.png',    accent: '#a8a29e', accentDark: '#292524', stakeTier: 'low',  btnLabel: 'Break the Rock →' },
-  'cerulean-city':  { flavor: 'Calm waters hide fierce rivals',        bgImage: '/arenas/gyms/cerulean-city.png',  accent: '#38bdf8', accentDark: '#075985', stakeTier: 'low',  btnLabel: 'Dive In →' },
-  'vermilion-city': { flavor: 'Fast hands and electric nerves',        bgImage: '/arenas/gyms/vermilion-city.png', accent: '#facc15', accentDark: '#713f12', stakeTier: 'mid',  btnLabel: 'Charge Up →' },
-  'celadon-city':   { flavor: 'Fortunes bloom where skill survives',   bgImage: '/arenas/gyms/celadon-city.png',   accent: '#86efac', accentDark: '#14532d', stakeTier: 'mid',  btnLabel: 'Claim Fortune →' },
-  'fuchsia-city':   { flavor: 'Where poison and precision meet',       bgImage: '/arenas/gyms/fuchsia-city.png',   accent: '#c084fc', accentDark: '#3b0764', stakeTier: 'mid',  btnLabel: 'Enter the Dojo →' },
-  'saffron-city':   { flavor: 'Only the mind can pierce this veil',    bgImage: '/arenas/gyms/saffron-city.png',   accent: '#f0abfc', accentDark: '#4a044e', stakeTier: 'high', btnLabel: 'Test Your Mind →' },
-  'cinnabar-island':{ flavor: 'Forged in fire, tempered by fury',      bgImage: '/arenas/gyms/cinnabar-island.png',accent: '#fb923c', accentDark: '#7c2d12', stakeTier: 'high', btnLabel: 'Brave the Flames →' },
-  'viridian-city':  { flavor: 'The final test. Legends are born here.',bgImage: '/arenas/gyms/viridian-city.png',  accent: '#fbbf24', accentDark: '#451a03', stakeTier: 'high', btnLabel: 'Claim the Throne →' },
+  'pewter-city':    { bgImage: '/arenas/gyms/pewter-city.png',    accent: '#a8a29e', accentDark: '#292524', stakeTier: 'low',  btnLabel: 'Break the Rock →' },
+  'cerulean-city':  { bgImage: '/arenas/gyms/cerulean-city.png',  accent: '#38bdf8', accentDark: '#075985', stakeTier: 'low',  btnLabel: 'Dive In →' },
+  'vermilion-city': { bgImage: '/arenas/gyms/vermilion-city.png', accent: '#facc15', accentDark: '#713f12', stakeTier: 'low',  btnLabel: 'Charge Up →' },
+  'celadon-city':   { bgImage: '/arenas/gyms/celadon-city.png',   accent: '#86efac', accentDark: '#14532d', stakeTier: 'mid',  btnLabel: 'Enter the Garden →' },
+  'fuchsia-city':   { bgImage: '/arenas/gyms/fuchsia-city.png',   accent: '#c084fc', accentDark: '#3b0764', stakeTier: 'mid',  btnLabel: 'Enter the Dojo →' },
+  'saffron-city':   { bgImage: '/arenas/gyms/saffron-city.png',   accent: '#f0abfc', accentDark: '#4a044e', stakeTier: 'high', btnLabel: 'Test Your Mind →' },
+  'cinnabar-island':{ bgImage: '/arenas/gyms/cinnabar-island.png',accent: '#fb923c', accentDark: '#7c2d12', stakeTier: 'high', btnLabel: 'Brave the Flames →' },
+  'viridian-city':  { bgImage: '/arenas/gyms/viridian-city.png',  accent: '#fbbf24', accentDark: '#451a03', stakeTier: 'high', btnLabel: 'Claim the Throne →' },
 };
 
 const STAKE_BAND = {
@@ -246,9 +245,7 @@ export default function RoomSelect() {
                           {badge.leader} · {badge.name}
                         </p>
                       )}
-                      <p className="text-xs leading-tight mt-0.5" style={{ color: 'rgba(255,255,255,0.35)', fontStyle: 'italic', fontSize: 10 }}>
-                        {identity.flavor}
-                      </p>
+
                     </div>
                   </div>
 
