@@ -16,12 +16,12 @@ const ARENA_IDENTITY: Record<string, {
   stakeTier: 'low' | 'mid' | 'high';
   btnLabel: string;
 }> = {
-  'pallet-town':    { flavor: 'Where every journey begins',          bgImage: '/arenas/Ash Pallet Town.png',    accent: '#4ade80', accentDark: '#166534', stakeTier: 'low',  btnLabel: 'Begin Journey →' },
-  'viridian-city':  { flavor: 'Step beyond the safety of home',      bgImage: '/arenas/Ash Pallet Town.png',    accent: '#34d399', accentDark: '#065f46', stakeTier: 'low',  btnLabel: 'Enter Forest →' },
-  'pewter-city':    { flavor: 'Built on grit, stone, and resolve',   bgImage: '/arenas/Brocks Gym.png',         accent: '#a8a29e', accentDark: '#292524', stakeTier: 'low',  btnLabel: 'Face the Rock →' },
+  'pallet-town':    { flavor: 'Where every journey begins',          bgImage: '/arenas/Ash Pallet Town.png',    accent: '#4ade80', accentDark: '#166534', stakeTier: 'low',  btnLabel: 'Begin Your Journey →' },
+  'viridian-city':  { flavor: 'Step beyond the safety of home',      bgImage: '/arenas/Ash Pallet Town.png',    accent: '#34d399', accentDark: '#065f46', stakeTier: 'low',  btnLabel: 'Enter the Forest →' },
+  'pewter-city':    { flavor: 'Built on grit, stone, and resolve',   bgImage: '/arenas/Brocks Gym.png',         accent: '#a8a29e', accentDark: '#292524', stakeTier: 'low',  btnLabel: 'Break the Rock →' },
   'cerulean-city':  { flavor: 'Calm waters hide fierce rivals',      bgImage: '/arenas/MistysGym.png',          accent: '#38bdf8', accentDark: '#075985', stakeTier: 'mid',  btnLabel: 'Dive In →' },
   'vermilion-city': { flavor: 'Fast hands and electric nerves',      bgImage: '/arenas/LtSurgeGym.png',         accent: '#facc15', accentDark: '#713f12', stakeTier: 'mid',  btnLabel: 'Charge Up →' },
-  'celadon-city':   { flavor: 'Fortunes bloom where skill survives', bgImage: '/arenas/Erikas Gym.png',         accent: '#c084fc', accentDark: '#4c1d95', stakeTier: 'mid',  btnLabel: 'Claim Fortune →' },
+  'celadon-city':   { flavor: 'Fortunes bloom where skill survives', bgImage: '/arenas/Erikas Gym.png',         accent: '#c084fc', accentDark: '#4c1d95', stakeTier: 'mid',  btnLabel: 'Claim Your Fortune →' },
   'victory-road':   { flavor: 'Only the strongest endure the climb', bgImage: '/arenas/Brunos Stone Arenea.png',accent: '#fb923c', accentDark: '#7c2d12', stakeTier: 'high', btnLabel: 'Brave the Road →' },
   'indigo-plateau': { flavor: 'Where champions are remembered',      bgImage: '/arenas/MewTwos Lab.png',        accent: '#fbbf24', accentDark: '#451a03', stakeTier: 'high', btnLabel: 'Claim the Throne →' },
 }
