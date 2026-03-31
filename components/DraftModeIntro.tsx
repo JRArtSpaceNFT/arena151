@@ -80,7 +80,7 @@ export default function DraftModeIntro() {
       <div
         className="absolute inset-0"
         style={{
-          backgroundImage: 'url(/Backdrop123.png)',
+          backgroundImage: 'url(/RTVFINAL123.png)',
           backgroundSize: 'cover',
           backgroundPosition: 'left top',
           backgroundRepeat: 'no-repeat',
