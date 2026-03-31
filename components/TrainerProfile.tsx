@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Trophy, Target, Wallet, ArrowLeft, Copy, Check, LogOut, Camera, Upload,
@@ -118,18 +118,19 @@ export default function TrainerProfile() {
   const [badgeAnnouncement, setBadgeAnnouncement] = useState<number | null>(null);
   const prevWinsRef = useRef<number | null>(null);
 
-  if (currentTrainer && prevWinsRef.current === null) {
+  useEffect(() => {
+    if (!currentTrainer || prevWinsRef.current !== null) return;
     const wins = currentTrainer.record.wins;
+    prevWinsRef.current = wins;
     const badgeIdx = GYM_BADGES.findIndex(b => wins === b.wins);
     if (badgeIdx !== -1) {
       const key = `badge_announced_${badgeIdx}`;
-      if (typeof window !== 'undefined' && !sessionStorage.getItem(key)) {
+      if (!sessionStorage.getItem(key)) {
         sessionStorage.setItem(key, '1');
         setTimeout(() => setBadgeAnnouncement(badgeIdx), 800);
       }
     }
-    prevWinsRef.current = wins;
-  }
+  }, [currentTrainer]);
 
   const [walletView, setWalletView] = useState<WalletView>(null);
   const [copied, setCopied] = useState(false);
