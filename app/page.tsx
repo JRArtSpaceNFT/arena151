@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import { useArenaStore } from '@/lib/store';
 import HomePage from '@/components/HomePage';
 import SignupFlow from '@/components/SignupFlow';
@@ -14,8 +15,46 @@ import ProfessorOak from '@/components/ProfessorOak';
 import GameWrapper from '@/components/battle/GameWrapper';
 import Leaderboard from '@/components/Leaderboard';
 
+const CROWD_SCREENS = new Set(['draft-mode-intro', 'profile', 'leaderboard']);
+
 export default function ArenaApp() {
   const currentScreen = useArenaStore((state) => state.currentScreen);
+  const crowdRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    // Create the audio element once
+    if (!crowdRef.current) {
+      const audio = new Audio('/music/Crowd Cheer Sound Effect.mp3');
+      audio.volume = 0.26;
+      audio.loop = false;
+      audio.addEventListener('timeupdate', () => {
+        if (audio.currentTime >= 10) audio.currentTime = 0;
+      });
+      crowdRef.current = audio;
+    }
+
+    const audio = crowdRef.current;
+
+    if (CROWD_SCREENS.has(currentScreen)) {
+      if (audio.paused) {
+        audio.play().catch(() => {});
+      }
+    } else {
+      if (!audio.paused) {
+        audio.pause();
+      }
+    }
+  }, [currentScreen]);
+
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      if (crowdRef.current) {
+        crowdRef.current.pause();
+        crowdRef.current.src = '';
+      }
+    };
+  }, []);
 
   return (
     <main className="min-h-screen">
