@@ -37,9 +37,6 @@ export const ARENAS: Arena[] = [
   // Water
   { id: 'mistys_gym', name: "Cerulean City Water Arena", type: 'water', bonusTypes: ['water'], bonusAmount: 0.05, bgGradient: 'linear-gradient(135deg, #0369a1 0%, #0c4a6e 100%)', image: "/arenas/MistysGym.png", event: { name: 'Tidal Splash', description: 'A tidal wave temporarily boosts Water move damage.', chance: 0.1, effect: 'boost_water', telegraphText: 'The water in the arena begins to swirl...' } },
 
-  // Psychic
-  { id: 'sabrinas_gym', name: "Saffron City Psychic Chamber", type: 'psychic', bonusTypes: ['psychic'], bonusAmount: 0.05, bgGradient: 'linear-gradient(135deg, #6d28d9 0%, #2e1065 100%)', image: "/arenas/Sabrinas Gym.png", event: { name: 'Mind Bend', description: 'Sabrina\'s psychic influence confuses both active creatures.', chance: 0.08, effect: 'boost_psychic', telegraphText: 'Reality warps as Sabrina\'s presence looms...' } },
-
   // Poison / Normal
   { id: 'team_rocket_casino', name: 'Team Rocket Hideout', type: 'poison', bonusTypes: ['poison', 'normal'], bonusAmount: 0.05, bgGradient: 'linear-gradient(135deg, #dc2626 0%, #0f0f0f 100%)', image: '/arenas/Team Rocket Casino.png', event: { name: 'Rocket Ambush', description: 'Team Rocket throws a smoke bomb, damaging both active creatures.', chance: 0.12, effect: 'damage_both', telegraphText: 'The lights flicker... something sinister stirs in the shadows...' } },
 

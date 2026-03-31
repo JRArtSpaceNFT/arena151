@@ -132,8 +132,9 @@ export default function ArenaReveal() {
             animation: isLocked ? 'fadeIn 0.3s ease forwards' : 'none',
           }}
         >
-          {/* Arena image background — div swap is instant since images are preloaded */}
+          {/* Arena image background — keyed so React fully replaces it on every index change */}
           <div
+            key={`arena-bg-${currentIndex}`}
             style={{
               position: 'absolute', inset: 0,
               backgroundImage: displayArena.image ? `url(${displayArena.image})` : 'none',
@@ -141,7 +142,6 @@ export default function ArenaReveal() {
               backgroundPosition: 'center',
               opacity: 0.55,
               pointerEvents: 'none',
-              transition: isLocked ? 'opacity 0.4s ease' : 'none',
             }}
           />
 
