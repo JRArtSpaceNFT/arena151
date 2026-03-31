@@ -15,14 +15,55 @@ export default function MatchFound() {
   const currentTrainer = liveTrainer ?? queueState.currentTrainer;
   const [revealed, setRevealed] = useState(false);
 
-  // Create AI bot opponent
-  const botNames = ['Elite Four Bruno', 'Gym Leader Brock', 'Rival Blue', 'Champion Lance', 'Ace Trainer Red'];
+  // 20 clever Pokémon-inspired bot names — no "AI" in sight
+  const BOT_NAMES = [
+    'PokéMaster Reds Ghost',
+    'Youngster Joey',
+    'Lass Copycat',
+    'Bug Catcher Winston',
+    'Channeler Celeste',
+    'Rocket Grunt Hex',
+    'Psychic Kazuki',
+    'Hiker Granite',
+    'Sailor Dewdrop',
+    'Juggler Phantom',
+    'Gambler Lucky',
+    'Super Nerd Cipher',
+    'Tamer Volt',
+    'Bird Keeper Skylar',
+    'Cooltrainer Frost',
+    'Gentleman Onix',
+    'Blackbelt Cobalt',
+    'Picnicker Blaze',
+    'Fisherman Surge Jr.',
+    'Rival Copycat',
+  ];
+
+  const BOT_AVATARS = [
+    '/trainer-avatars/ProfessorOak.png',
+    '/trainer-avatars/Ash.png',
+    '/trainer-avatars/Gary.png',
+    '/trainer-avatars/Brock.png',
+    '/trainer-avatars/Misty.png',
+    '/trainer-avatars/Giovanni.png',
+    '/trainer-avatars/Bulbasaur.png',
+    '/trainer-avatars/Charmander.png',
+    '/trainer-avatars/Squirtle.png',
+    '/trainer-avatars/Pikachu.png',
+    '/trainer-avatars/Eevee.png',
+    '/trainer-avatars/Snorlax.png',
+  ];
+
+  const botName = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
+  const botAvatar = BOT_AVATARS[Math.floor(Math.random() * BOT_AVATARS.length)];
+  const botHandle = botName.toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/__+/g, '_');
+
   const opponent: Trainer = {
     id: 'bot_' + Date.now(),
-    username: 'ai_bot_' + Math.floor(Math.random() * 1000),
-    displayName: botNames[Math.floor(Math.random() * botNames.length)],
+    username: botHandle,
+    displayName: botName,
     email: 'bot@arena151.gg',
-    avatar: '/avatars/trainer-2.png',
+    avatar: botAvatar,
     favoritePokemon: (() => {
       const p = POKEMON_DATABASE[Math.floor(Math.random() * POKEMON_DATABASE.length)];
       return { id: p.id, name: p.name, sprite: '', types: p.types as any, stats: { hp: 100, attack: 100, defense: 100, spAttack: 100, spDefense: 100, speed: 100 } };
@@ -89,7 +130,19 @@ export default function MatchFound() {
           transition={{ type: 'spring', stiffness: 200, damping: 20 }}
           className="text-center mb-6"
         >
-          <h1 className="text-5xl font-black mb-2 arena-glow bg-gradient-to-r from-yellow-400 via-orange-400 to-yellow-400 bg-clip-text text-transparent">
+          <h1 className="mb-2" style={{
+            fontFamily: '"Impact", "Arial Black", sans-serif',
+            fontSize: 56,
+            fontWeight: 900,
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            lineHeight: 1,
+            background: 'linear-gradient(135deg, #ef4444 0%, #fbbf24 40%, #ef4444 70%, #fff 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+            filter: 'drop-shadow(0 0 24px rgba(239,68,68,0.6)) drop-shadow(0 2px 0 rgba(0,0,0,0.8))',
+          }}>
             RIVAL FOUND!
           </h1>
           <p className="text-lg text-cyan-300 font-bold">
@@ -201,8 +254,8 @@ export default function MatchFound() {
               }}
             />
             <div className="relative z-10">
-              <div className="w-20 h-20 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-4xl border-4 border-red-500 shadow-xl shadow-red-500/50">
-                😎
+              <div className="w-20 h-20 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-800 border-4 border-red-500 shadow-xl shadow-red-500/50 overflow-hidden flex items-center justify-center">
+                <img src={opponent.avatar} alt={opponent.displayName} className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).src = '/trainer-avatars/Pikachu.png'; }} />
               </div>
               <h3 className="text-xl font-black text-center mb-1">{opponent.displayName}</h3>
               <p className="text-red-400 text-center font-bold text-sm">@{opponent.username}</p>
