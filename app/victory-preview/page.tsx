@@ -165,7 +165,7 @@ function VictoryView({ trainer, loserName }: { trainer: typeof TRAINERS[0], lose
             onClick={() => {}}
             style={{ position: 'absolute', bottom: '3%', left: 0, right: 0, marginLeft: '6%', marginRight: 'auto', width: 'fit-content', zIndex: 20, padding: '14px 48px', background: wColor, border: '3px solid white', borderRadius: 4, color: '#fff', fontSize: 18, fontWeight: 900, fontFamily: '"Impact","Arial Black",sans-serif', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', boxShadow: `0 5px 0 rgba(0,0,0,0.5), 0 0 22px ${wColor}77`, whiteSpace: 'nowrap' }}
           >
-            📊 VIEW RESULTS →
+            VIEW RESULTS →
           </motion.button>
         )}
       </AnimatePresence>

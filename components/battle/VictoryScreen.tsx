@@ -298,7 +298,7 @@ export default function VictoryScreen() {
               whiteSpace: 'nowrap',
             }}
           >
-            {isStoryMode ? '⚔️ CONTINUE JOURNEY →' : '📊 VIEW RESULTS →'}
+            {isStoryMode ? '⚔️ CONTINUE JOURNEY →' : 'VIEW RESULTS →'}
           </motion.button>
         )}
       </AnimatePresence>
