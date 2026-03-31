@@ -134,7 +134,11 @@ export default function ResultScreen() {
           <div className="grid grid-cols-3 gap-4 mb-3">
             {/* Player */}
             <div className={`text-center p-3 rounded-xl ${isVictory ? 'bg-green-950/30 border-2 border-green-500' : 'bg-slate-900/50'}`}>
-              <div className="w-14 h-14 mx-auto mb-2 rounded-xl bg-slate-800 flex items-center justify-center text-3xl border-2 border-blue-500">🧑‍🦱</div>
+              <div className="w-14 h-14 mx-auto mb-2 rounded-xl bg-slate-800 overflow-hidden border-2 border-blue-500 flex items-center justify-center text-3xl">
+                {currentTrainer?.avatar?.startsWith('data:') || currentTrainer?.avatar?.startsWith('/')
+                  ? <img src={currentTrainer.avatar} alt="avatar" className="w-full h-full object-cover" />
+                  : <span>{currentTrainer?.avatar || '🧑'}</span>}
+              </div>
               <p className="font-bold text-sm mb-0.5">{currentMatch.player1.displayName}</p>
               <p className="text-xs text-slate-400">@{currentMatch.player1.username}</p>
               {isVictory && <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 bg-green-500/20 rounded-full border border-green-500"><Trophy className="w-3 h-3 text-green-400" /><span className="text-xs font-bold text-green-400">WINNER</span></div>}
