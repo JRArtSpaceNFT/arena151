@@ -444,33 +444,7 @@ export default function TrainerProfile() {
               })}
             </div>
 
-            {/* Next badge progress */}
-            {nextBadge && (
-              <div className="mt-2 shrink-0 relative z-10">
-                <PokeBallDivider color="#a855f7" />
-                <div className="flex items-center justify-between mt-1.5 mb-1">
-                  <div className="flex items-center gap-1.5">
-                    <img src={nextBadge.file} alt="" className="w-4 h-4 object-contain opacity-60" />
-                    <span className="text-xs text-white/50 font-bold">Next: {nextBadge.name}</span>
-                  </div>
-                  <span className="text-xs font-black" style={{ color: nextBadge.color }}>{earnedBadges}/8</span>
-                </div>
-                <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
-                  <motion.div className="h-full rounded-full relative overflow-hidden"
-                    style={{ background: `linear-gradient(90deg, ${nextBadge.color}, #a855f7)` }}
-                    initial={{ width: 0 }}
-                    animate={{ width: `${nextBadgeProgress}%` }}
-                    transition={{ duration: 1, delay: 0.4, ease: 'easeOut' }}>
-                    {/* Shimmer on bar */}
-                    <motion.div className="absolute inset-0"
-                      style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.3) 50%, transparent 100%)' }}
-                      animate={{ x: ['-100%', '200%'] }}
-                      transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5 }}
-                    />
-                  </motion.div>
-                </div>
-              </div>
-            )}
+
           </motion.div>
         </div>
 

@@ -278,9 +278,37 @@ export default function ResultScreen() {
         >
           {isVictory ? (
             <>
-              <motion.div animate={{ rotate: [0, 10, -10, 10, 0], scale: [1, 1.1, 1] }} transition={{ duration: 0.8, repeat: Infinity, repeatDelay: 2 }}>
-                <Trophy className="w-16 h-16 mx-auto mb-2 text-amber-400 drop-shadow-[0_0_40px_rgba(251,191,36,0.8)]" />
-              </motion.div>
+              {(() => {
+                const badge = ARENA_BADGES[currentMatch.room.id as string];
+                return badge ? (
+                  <motion.div
+                    animate={{ rotate: [0, 10, -10, 10, 0], scale: [1, 1.1, 1] }}
+                    transition={{ duration: 0.8, repeat: Infinity, repeatDelay: 2 }}
+                    className="relative mx-auto mb-2 w-16 h-16 flex items-center justify-center"
+                  >
+                    <motion.div
+                      className="absolute inset-0 rounded-full blur-xl"
+                      style={{ background: badge.color }}
+                      animate={{ opacity: [0.4, 0.9, 0.4] }}
+                      transition={{ duration: 1.8, repeat: Infinity }}
+                    />
+                    <img
+                      src={badge.file}
+                      alt={badge.name}
+                      style={{
+                        width: 64, height: 64, objectFit: 'contain',
+                        imageRendering: 'pixelated',
+                        filter: `drop-shadow(0 0 12px ${badge.color}) drop-shadow(0 0 24px ${badge.color}88)`,
+                        position: 'relative', zIndex: 1,
+                      }}
+                    />
+                  </motion.div>
+                ) : (
+                  <motion.div animate={{ rotate: [0, 10, -10, 10, 0], scale: [1, 1.1, 1] }} transition={{ duration: 0.8, repeat: Infinity, repeatDelay: 2 }}>
+                    <Trophy className="w-16 h-16 mx-auto mb-2 text-amber-400 drop-shadow-[0_0_40px_rgba(251,191,36,0.8)]" />
+                  </motion.div>
+                );
+              })()}
               <h1 className="text-6xl font-black mb-1 arena-glow bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-400 bg-clip-text text-transparent">VICTORY!</h1>
               <p className="text-lg text-amber-300 font-bold">Triumphant in the {currentMatch.room.name}</p>
             </>
