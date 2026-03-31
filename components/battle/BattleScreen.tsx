@@ -1046,7 +1046,7 @@ export default function BattleScreen() {
                 boxShadow: '0 0 20px rgba(124,58,237,0.5)',
               }}
             >
-              📊 View Results →
+              View Results →
             </button>
           </div>
         </div>
