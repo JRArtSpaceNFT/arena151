@@ -273,10 +273,6 @@ export default function RoomSelect() {
             <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
             <span>247 Trainers Online</span>
           </div>
-          <span>·</span>
-          <span>95% of pot paid to winner</span>
-          <span>·</span>
-          <span>Results are final</span>
         </motion.div>
       </div>
     </div>

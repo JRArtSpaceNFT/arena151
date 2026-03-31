@@ -87,6 +87,7 @@ interface BattleCreatureState {
   sleepTurns: number
   flinched: boolean
   confuseTurns: number
+  sleepUsedAgainst: string | null  // creature name that was already put to sleep — can't re-use sleep on same target
   consecutiveCrits: number
   // Stat stages (-3 to +3)
   atkStage: number
@@ -118,7 +119,7 @@ function stageMult(stage: number): number {
 function initBCS(ac: ActiveCreature): BattleCreatureState {
   return {
     ac, status: 'none', statusTurns: 0, ultimateUsed: false, healUsed: false,
-    tempAtkBoost: 0, sleepTurns: 0,
+    tempAtkBoost: 0, sleepTurns: 0, sleepUsedAgainst: null,
     flinched: false, confuseTurns: 0, consecutiveCrits: 0,
     atkStage: 0, defStage: 0, speStage: 0,
     ppMap: buildPpMap(ac.assignedMoves),
@@ -249,10 +250,11 @@ function pickMove(
   const SLEEP_MOVES = new Set(['sleep_powder', 'sing', 'hypnosis', 'spore', 'lovely_kiss'])
 
   // Filter to moves with PP remaining
-  // Also filter out sleep moves if the target is already asleep — don't waste the turn
+  // Block sleep moves if: target is already asleep OR this attacker already used sleep on this specific target
   const allMoves = attackerBCS.ac.assignedMoves.filter(m => {
     if ((attackerBCS.ppMap[m.id] ?? 0) <= 0) return false
     if (SLEEP_MOVES.has(m.id) && defenderBCS.status === 'sleep') return false
+    if (SLEEP_MOVES.has(m.id) && attackerBCS.sleepUsedAgainst === defenderBCS.ac.creature.name) return false
     return true
   })
   if (allMoves.length === 0) return STRUGGLE
@@ -459,6 +461,7 @@ function simulateAttack(
         } else if (defenderBCS.status === 'none') {
           defenderBCS.status = 'sleep'
           defenderBCS.sleepTurns = 0
+          attackerBCS.sleepUsedAgainst = defenderBCS.ac.creature.name  // lock: can't sleep this target again
           ;(defenderBCS.ac.creature as any).sleepDuration = Math.random() < 0.5 ? 2 : 3 // 2 or 3 missed moves
           log.push({
             id: nextId(), type: 'move', side,
@@ -1484,6 +1487,8 @@ export function resolveBattle(
 
       activeA++
       if (activeA < statesA.length) {
+        // New opponent for B — reset B's sleep lock so it can use sleep again
+        statesB[activeB].sleepUsedAgainst = null
         applyEntryEffects(statesA[activeA], trainerA, arena, log, 'A')
         log.push({
           id: nextId(), type: 'swap', side: 'A',
@@ -1543,6 +1548,8 @@ export function resolveBattle(
 
       activeB++
       if (activeB < statesB.length) {
+        // New opponent for A — reset A's sleep lock so it can use sleep again
+        if (activeA < statesA.length) statesA[activeA].sleepUsedAgainst = null
         applyEntryEffects(statesB[activeB], trainerB, arena, log, 'B')
         log.push({
           id: nextId(), type: 'swap', side: 'B',

@@ -18,24 +18,35 @@ const SEARCH_LINES = [
   'Analyzing team strength...',
 ]
 
-// 20 popular Pokémon IDs (using their PokeAPI sprite IDs)
-// 40 Gen 1 Pokémon (IDs 1–151) — fill the whole background
-const FLOAT_POKEMON = [
-  25,6,9,3,150,149,131,143,130,39,
-  94,54,52,133,7,4,1,90,59,37,
-  63,66,74,92,102,113,115,116,120,122,
-  123,124,125,126,127,128,129,132,135,137,
-]
+// All 151 Gen 1 Pokémon
+const FLOAT_POKEMON = Array.from({ length: 151 }, (_, i) => i + 1)
 
-// Deterministic positions spread across full screen
-const FLOAT_CONFIG = FLOAT_POKEMON.map((id, i) => ({
-  id,
-  left: `${2 + (i * 7 + i * 2) % 95}%`,
-  top:  `${2 + (i * 11 + i * 5) % 92}%`,
-  duration: 5 + (i % 6) * 1.1,
-  delay: i * 0.28,
-  drift: 10 + (i % 5) * 5,
-}))
+// Deterministic positions spread across full screen using a low-discrepancy grid
+// Split screen into a 13×12 grid (156 cells), pick 151, jitter within each cell
+const GRID_COLS = 13
+const GRID_ROWS = 12
+const CELL_W = 100 / GRID_COLS
+const CELL_H = 100 / GRID_ROWS
+
+// Simple pseudo-random jitter per cell (deterministic)
+function cellJitter(seed: number, range: number) {
+  return ((seed * 2654435761) >>> 0) % 1000 / 1000 * range
+}
+
+const FLOAT_CONFIG = FLOAT_POKEMON.map((id, i) => {
+  const col = i % GRID_COLS
+  const row = Math.floor(i / GRID_COLS)
+  const leftPct = col * CELL_W + 1 + cellJitter(i * 7 + 3, CELL_W - 4)
+  const topPct  = row * CELL_H + 1 + cellJitter(i * 13 + 7, CELL_H - 4)
+  return {
+    id,
+    left: `${leftPct.toFixed(1)}%`,
+    top:  `${topPct.toFixed(1)}%`,
+    duration: 5 + (i % 7) * 0.9,
+    delay: (i * 0.18) % 6,
+    drift: 8 + (i % 6) * 4,
+  }
+})
 
 function FloatingElements() {
   return (
@@ -55,7 +66,7 @@ function FloatingElements() {
           }}
           animate={{
             y: [0, -drift, 0],
-            opacity: [0.05, 0.1, 0.05],
+            opacity: [0.07, 0.15, 0.07],
           }}
           transition={{ duration, repeat: Infinity, delay, ease: 'easeInOut' }}
         />

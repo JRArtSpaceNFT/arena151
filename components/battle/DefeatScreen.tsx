@@ -12,13 +12,6 @@ const DEFEAT_LINES = [
   "Defeat is only the beginning of your comeback.",
 ]
 
-const AWARD_CONFIG = [
-  { key: 'mvp',            label: '👑 MVP',             sub: 'Most Valuable Fighter', statFn: (c: any) => `${c.kos} KOs · ${c.damageDealt} dmg`,   color: '#fbbf24' },
-  { key: 'mostDamage',     label: '⚔️ Most Damage',     sub: 'Highest damage output', statFn: (c: any) => `${c.damageDealt} total dmg`,              color: '#ef4444' },
-  { key: 'mostKOs',        label: '💀 Most KOs',         sub: 'Best knockdown artist', statFn: (c: any) => `${c.kos} knockouts`,                      color: '#f97316' },
-  { key: 'longestSurvival',label: '⏱️ Longest Survival', sub: 'Last one standing',     statFn: (c: any) => `${c.turnsAlive} turns`,                   color: '#22c55e' },
-  { key: 'bestValue',      label: '💎 Best Value',       sub: 'Most efficient pick',   statFn: (c: any) => `${c.creature?.pointCost ?? '?'} pts cost`, color: '#a855f7' },
-]
 
 // Deterministic ember positions — no Math.random() during render
 const EMBERS = Array.from({ length: 18 }, (_, i) => ({
@@ -32,7 +25,7 @@ export default function DefeatScreen() {
   const { navigateTo, gameMode, storyProgress, battleState, p1Trainer, p2Trainer, arena, matchResults } = useGameStore()
   const [defeatLine] = useState(() => DEFEAT_LINES[Math.floor(Math.random() * DEFEAT_LINES.length)])
 
-  useEffect(() => { playMusic('victory') }, [])
+  useEffect(() => { playMusic('battle') }, [])
 
   const handleContinue = () => {
     if (gameMode === 'story') navigateTo('story_journey')
@@ -154,43 +147,7 @@ export default function DefeatScreen() {
           {gameMode === 'story' ? "Don't give up! Every Champion has lost before. Return to your journey and try again!" : defeatLine}
         </motion.p>
 
-        {/* ── Match Awards ── */}
-        {matchResults && (
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
-            style={{ width: '100%', marginBottom: 24 }}>
-            <p style={{ textAlign: 'center', fontSize: 10, fontWeight: 900, letterSpacing: '0.25em', color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', marginBottom: 10 }}>
-              Battle Awards
-            </p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
-              {AWARD_CONFIG.map((award, i) => {
-                const creature = (matchResults as any)[award.key]
-                if (!creature) return null
-                return (
-                  <motion.div key={award.key}
-                    initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.65 + i * 0.07 }}
-                    style={{
-                      background: 'rgba(0,0,0,0.6)',
-                      border: `1px solid ${award.color}33`,
-                      borderRadius: 10, padding: '10px 8px',
-                      textAlign: 'center', position: 'relative', overflow: 'hidden',
-                    }}>
-                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: award.color }} />
-                    <div style={{ fontSize: 12, fontWeight: 800, color: award.color, marginBottom: 2 }}>{award.label}</div>
-                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginBottom: 8 }}>{award.sub}</div>
-                    <motion.img
-                      src={creature.creature?.spriteUrl}
-                      alt={creature.creature?.name}
-                      animate={{ y: [0, -3, 0] }} transition={{ duration: 2, repeat: Infinity, delay: i * 0.2 }}
-                      style={{ width: 48, height: 48, imageRendering: 'pixelated', display: 'block', margin: '0 auto' }}
-                    />
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', marginTop: 6 }}>{creature.creature?.name}</div>
-                    <div style={{ fontSize: 11, color: award.color, marginTop: 3, fontWeight: 600 }}>{award.statFn(creature)}</div>
-                  </motion.div>
-                )
-              })}
-            </div>
-          </motion.div>
-        )}
+
 
         {/* Battle summary */}
         {battleState && (
