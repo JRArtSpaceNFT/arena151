@@ -30,7 +30,7 @@ export default function RoomSelect() {
       sfx.currentTime = 0;
       sfx.volume = 0.8;
       sfx.play().catch(() => {});
-      setTimeout(() => { sfx.pause(); sfx.currentTime = 0; }, 2500);
+      setTimeout(() => { sfx.pause(); sfx.currentTime = 0; }, 2800);
     } catch (e) {}
 
     startQueue(roomId, currentTrainer);
