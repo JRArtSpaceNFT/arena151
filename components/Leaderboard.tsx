@@ -239,7 +239,7 @@ export default function Leaderboard() {
   }, [allUsers, sortMode, currentTrainer]);
 
   return (
-    <div className="h-screen overflow-hidden flex flex-col relative"
+    <div className="h-full overflow-hidden flex flex-col relative"
       style={{ backgroundImage: 'url(/leaderboard-bg.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
 
       {/* Darker arena overlay */}

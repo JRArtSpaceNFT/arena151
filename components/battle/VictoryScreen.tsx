@@ -211,9 +211,8 @@ export default function VictoryScreen() {
             transition={{ type: 'spring', stiffness: 280, damping: 26 }}
             style={{
               position: 'absolute',
-              // Vertically: ~head/mouth level (trainer top is ~4%, head ~10-20% from top)
-              top: '14%',
-              left: '58%',
+              top: '26%',
+              left: '63%',
               maxWidth: '30%',
               zIndex: 10,
             }}

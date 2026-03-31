@@ -53,7 +53,7 @@ export default function ResultScreen() {
   if (!currentMatch || !currentTrainer) return null;
 
   return (
-    <div className={`h-screen flex items-center justify-center relative overflow-hidden ${
+    <div className={`h-full flex items-center justify-center relative overflow-hidden ${
       isVictory ? 'bg-gradient-to-br from-amber-950 via-slate-950 to-slate-950' : 'bg-gradient-to-br from-slate-950 via-blue-950 to-slate-950'
     }`}>
       {/* Ambient effects */}
