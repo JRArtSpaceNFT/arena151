@@ -63,7 +63,43 @@ export default function BattleGuide() {
           style={{ background: 'radial-gradient(ellipse, #fbbf24, transparent 70%)' }} />
       </div>
 
-      <div className="relative z-10 flex flex-col h-full max-w-6xl mx-auto w-full px-6 pt-4 pb-4">
+      {/* ── Left badge column — 4 badges evenly spaced ── */}
+      <div className="absolute left-3 top-0 bottom-0 flex flex-col items-center justify-evenly z-20 pointer-events-none" style={{ width: 52 }}>
+        {BADGES.slice(0, 4).map(([arenaId, badge]) => (
+          <div key={arenaId} className="flex flex-col items-center gap-1">
+            <div className="relative flex items-center justify-center">
+              <motion.div className="absolute inset-0 rounded-full blur-md" style={{ background: badge.color }}
+                animate={{ opacity: [0.25, 0.6, 0.25] }}
+                transition={{ duration: 2.2, repeat: Infinity, delay: Math.random() * 1.5 }} />
+              <img src={badge.file} alt={badge.name} style={{
+                width: 34, height: 34, objectFit: 'contain', imageRendering: 'pixelated',
+                filter: `drop-shadow(0 0 6px ${badge.color})`, position: 'relative', zIndex: 1,
+              }} />
+            </div>
+            <p style={{ fontSize: 7.5, color: badge.color, fontWeight: 900, textAlign: 'center', letterSpacing: '0.03em' }}>{badge.city}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Right badge column — 4 badges evenly spaced ── */}
+      <div className="absolute right-3 top-0 bottom-0 flex flex-col items-center justify-evenly z-20 pointer-events-none" style={{ width: 52 }}>
+        {BADGES.slice(4, 8).map(([arenaId, badge]) => (
+          <div key={arenaId} className="flex flex-col items-center gap-1">
+            <div className="relative flex items-center justify-center">
+              <motion.div className="absolute inset-0 rounded-full blur-md" style={{ background: badge.color }}
+                animate={{ opacity: [0.25, 0.6, 0.25] }}
+                transition={{ duration: 2.2, repeat: Infinity, delay: Math.random() * 1.5 }} />
+              <img src={badge.file} alt={badge.name} style={{
+                width: 34, height: 34, objectFit: 'contain', imageRendering: 'pixelated',
+                filter: `drop-shadow(0 0 6px ${badge.color})`, position: 'relative', zIndex: 1,
+              }} />
+            </div>
+            <p style={{ fontSize: 7.5, color: badge.color, fontWeight: 900, textAlign: 'center', letterSpacing: '0.03em' }}>{badge.city}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="relative z-10 flex flex-col h-full max-w-6xl mx-auto w-full px-16 pt-4 pb-4">
 
         {/* Header */}
         <div className="flex items-center justify-between mb-3 shrink-0">
@@ -213,39 +249,7 @@ export default function BattleGuide() {
           )}
         </AnimatePresence>
 
-        {/* Badges row */}
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="flex items-center justify-center gap-5 mb-3 shrink-0"
-        >
-          {BADGES.map(([arenaId, badge]) => (
-            <div key={arenaId} className="flex flex-col items-center gap-1">
-              <div className="relative flex items-center justify-center">
-                <motion.div
-                  className="absolute inset-0 rounded-full blur-md"
-                  style={{ background: badge.color }}
-                  animate={{ opacity: [0.3, 0.7, 0.3] }}
-                  transition={{ duration: 2 + Math.random(), repeat: Infinity }}
-                />
-                <img
-                  src={badge.file}
-                  alt={badge.name}
-                  style={{
-                    width: 38, height: 38, objectFit: 'contain',
-                    imageRendering: 'pixelated',
-                    filter: `drop-shadow(0 0 7px ${badge.color}) drop-shadow(0 0 14px ${badge.color}66)`,
-                    position: 'relative', zIndex: 1,
-                  }}
-                />
-              </div>
-              <p style={{ fontSize: 8.5, color: badge.color, fontWeight: 900, textAlign: 'center', letterSpacing: '0.03em' }}>
-                {badge.city}
-              </p>
-            </div>
-          ))}
-        </motion.div>
+
 
         {/* CTA */}
         <motion.div
