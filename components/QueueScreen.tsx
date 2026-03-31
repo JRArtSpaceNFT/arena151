@@ -18,30 +18,41 @@ const SEARCH_LINES = [
   'Analyzing team strength...',
 ]
 
-// Faint elemental icons floating around
-const ELEMENTS = ['🔥','💧','⚡','🌿','🧊','🌀','🌑','🐉']
+// 20 popular Pokémon IDs (using their PokeAPI sprite IDs)
+const FLOAT_POKEMON = [25,6,9,3,150,149,131,143,130,196,197,39,94,248,289,448,445,249,250,384]
+
+// Deterministic positions so SSR and client match
+const FLOAT_CONFIG = FLOAT_POKEMON.map((id, i) => ({
+  id,
+  left: `${4 + (i * 17 + i * 3) % 90}%`,
+  top:  `${5 + (i * 23 + i * 7) % 85}%`,
+  duration: 6 + (i % 5) * 1.2,
+  delay: i * 0.6,
+  drift: 12 + (i % 4) * 6,
+}))
 
 function FloatingElements() {
   return (
     <>
-      {ELEMENTS.map((el, i) => (
-        <motion.div key={i}
-          className="absolute text-lg select-none pointer-events-none"
+      {FLOAT_CONFIG.map(({ id, left, top, duration, delay, drift }, i) => (
+        <motion.img
+          key={id}
+          src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`}
+          alt=""
+          aria-hidden="true"
+          className="absolute pointer-events-none select-none"
           style={{
-            left: `${8 + i * 11}%`,
-            top: `${15 + (i % 4) * 20}%`,
-            opacity: 0.08,
-            fontSize: 22,
+            left, top,
+            width: 48, height: 48,
+            imageRendering: 'pixelated',
+            opacity: 0,
           }}
           animate={{
-            y: [0, -18, 0],
-            opacity: [0.05, 0.14, 0.05],
-            rotate: [0, 15, 0],
+            y: [0, -drift, 0],
+            opacity: [0.05, 0.1, 0.05],
           }}
-          transition={{ duration: 4 + i * 0.7, repeat: Infinity, delay: i * 0.5, ease: 'easeInOut' }}
-        >
-          {el}
-        </motion.div>
+          transition={{ duration, repeat: Infinity, delay, ease: 'easeInOut' }}
+        />
       ))}
     </>
   )
