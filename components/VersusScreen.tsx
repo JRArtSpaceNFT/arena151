@@ -122,17 +122,7 @@ export default function VersusScreen() {
         </div>
       </motion.div>
 
-      {/* Battle ready text — sits above the white divider line */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 1.5, duration: 0.6, type: 'spring', stiffness: 200 }}
-        className="absolute top-8 left-1/2 -translate-x-1/2 text-center z-20 pointer-events-none"
-      >
-        <p className="text-6xl font-black text-white drop-shadow-[0_0_30px_rgba(255,255,255,0.9)] tracking-widest uppercase">
-          BATTLE READY
-        </p>
-      </motion.div>
+
     </div>
   );
 }
