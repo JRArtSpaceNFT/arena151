@@ -13,7 +13,7 @@ export default function ResultsScreen() {
     playAgain,
   } = useGameStore()
 
-  // Victory music is already playing from VictoryScreen — no need to restart it here
+  // Music continues from VictoryScreen/DefeatScreen — do not restart it here
 
   if (!matchResults || !battleState) {
     return (
