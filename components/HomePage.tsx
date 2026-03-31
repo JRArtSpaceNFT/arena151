@@ -66,8 +66,8 @@ export default function HomePage() {
       audio.currentTime = 0;
       audio.play().catch(() => {});
       // Cut audio after 2s, then navigate after another 0.5s
-      setTimeout(() => { audio.pause(); }, 2000);
-      setTimeout(navigate, 2500);
+      setTimeout(() => { audio.pause(); }, 2500);
+      setTimeout(navigate, 3000);
     } catch (e) {
       navigate();
     }
