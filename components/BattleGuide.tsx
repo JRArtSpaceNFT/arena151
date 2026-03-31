@@ -63,37 +63,25 @@ export default function BattleGuide() {
           style={{ background: 'radial-gradient(ellipse, #fbbf24, transparent 70%)' }} />
       </div>
 
-      {/* ── Left badge column — 4 badges evenly spaced ── */}
-      <div className="absolute top-0 bottom-0 flex flex-col items-center justify-evenly z-20 pointer-events-none" style={{ left: 18, width: 52 }}>
-        {BADGES.slice(0, 4).map(([arenaId, badge]) => (
-          <div key={arenaId} className="relative flex items-center justify-center">
-            <motion.div className="absolute inset-0 rounded-full blur-lg" style={{ background: badge.color }}
-              animate={{ opacity: [0.3, 0.7, 0.3] }}
-              transition={{ duration: 2.2, repeat: Infinity, delay: Math.random() * 1.5 }} />
-            <img src={badge.file} alt={badge.name} style={{
-              width: 48, height: 48, objectFit: 'contain', imageRendering: 'pixelated',
-              filter: `drop-shadow(0 0 8px ${badge.color})`, position: 'relative', zIndex: 1,
-            }} />
-          </div>
-        ))}
-      </div>
+      <div className="relative z-10 flex flex-row h-full w-full pt-4 pb-4 gap-3 px-3">
 
-      {/* ── Right badge column — 4 badges evenly spaced ── */}
-      <div className="absolute top-0 bottom-0 flex flex-col items-center justify-evenly z-20 pointer-events-none" style={{ right: 18, width: 52 }}>
-        {BADGES.slice(4, 8).map(([arenaId, badge]) => (
-          <div key={arenaId} className="relative flex items-center justify-center">
-            <motion.div className="absolute inset-0 rounded-full blur-lg" style={{ background: badge.color }}
-              animate={{ opacity: [0.3, 0.7, 0.3] }}
-              transition={{ duration: 2.2, repeat: Infinity, delay: Math.random() * 1.5 }} />
-            <img src={badge.file} alt={badge.name} style={{
-              width: 48, height: 48, objectFit: 'contain', imageRendering: 'pixelated',
-              filter: `drop-shadow(0 0 8px ${badge.color})`, position: 'relative', zIndex: 1,
-            }} />
-          </div>
-        ))}
-      </div>
+        {/* ── Left badges ── */}
+        <div className="flex flex-col items-center justify-evenly shrink-0" style={{ width: 52 }}>
+          {BADGES.slice(0, 4).map(([arenaId, badge]) => (
+            <div key={arenaId} className="relative flex items-center justify-center">
+              <motion.div className="absolute inset-0 rounded-full blur-lg" style={{ background: badge.color }}
+                animate={{ opacity: [0.3, 0.7, 0.3] }}
+                transition={{ duration: 2.2, repeat: Infinity, delay: Math.random() * 1.5 }} />
+              <img src={badge.file} alt={badge.name} style={{
+                width: 48, height: 48, objectFit: 'contain', imageRendering: 'pixelated',
+                filter: `drop-shadow(0 0 8px ${badge.color})`, position: 'relative', zIndex: 1,
+              }} />
+            </div>
+          ))}
+        </div>
 
-      <div className="relative z-10 flex flex-col h-full max-w-6xl mx-auto w-full px-20 pt-4 pb-4">
+        {/* ── Center content ── */}
+        <div className="flex flex-col flex-1 min-w-0">
 
         {/* Header */}
         <div className="flex items-center justify-between mb-3 shrink-0">
@@ -261,6 +249,23 @@ export default function BattleGuide() {
             Enter the Arena →
           </motion.button>
         </motion.div>
+
+        </div>{/* end center content */}
+
+        {/* ── Right badges ── */}
+        <div className="flex flex-col items-center justify-evenly shrink-0" style={{ width: 52 }}>
+          {BADGES.slice(4, 8).map(([arenaId, badge]) => (
+            <div key={arenaId} className="relative flex items-center justify-center">
+              <motion.div className="absolute inset-0 rounded-full blur-lg" style={{ background: badge.color }}
+                animate={{ opacity: [0.3, 0.7, 0.3] }}
+                transition={{ duration: 2.2, repeat: Infinity, delay: Math.random() * 1.5 }} />
+              <img src={badge.file} alt={badge.name} style={{
+                width: 48, height: 48, objectFit: 'contain', imageRendering: 'pixelated',
+                filter: `drop-shadow(0 0 8px ${badge.color})`, position: 'relative', zIndex: 1,
+              }} />
+            </div>
+          ))}
+        </div>
 
       </div>
     </div>
