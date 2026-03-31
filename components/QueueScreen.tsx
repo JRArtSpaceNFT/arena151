@@ -126,8 +126,7 @@ function SpinningPokeball() {
             <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
           </filter>
         </defs>
-        {/* Shadow */}
-        <ellipse cx="62" cy="115" rx="40" ry="5" fill="rgba(0,0,0,0.25)" />
+
         {/* Top half */}
         <path d="M 10,60 A 50,50 0 0,1 110,60 Z" fill="url(#topHalf)" filter="url(#pb-glow)" />
         {/* Bottom half */}
