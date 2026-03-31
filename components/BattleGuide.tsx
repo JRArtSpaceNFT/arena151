@@ -64,36 +64,36 @@ export default function BattleGuide() {
       </div>
 
       {/* ── Left badge column — 4 badges evenly spaced ── */}
-      <div className="absolute top-0 bottom-0 flex flex-col items-center justify-evenly z-20 pointer-events-none" style={{ left: 60, width: 40 }}>
+      <div className="absolute top-0 bottom-0 flex flex-col items-center justify-evenly z-20 pointer-events-none" style={{ left: 18, width: 52 }}>
         {BADGES.slice(0, 4).map(([arenaId, badge]) => (
           <div key={arenaId} className="relative flex items-center justify-center">
-            <motion.div className="absolute inset-0 rounded-full blur-md" style={{ background: badge.color }}
-              animate={{ opacity: [0.25, 0.6, 0.25] }}
+            <motion.div className="absolute inset-0 rounded-full blur-lg" style={{ background: badge.color }}
+              animate={{ opacity: [0.3, 0.7, 0.3] }}
               transition={{ duration: 2.2, repeat: Infinity, delay: Math.random() * 1.5 }} />
             <img src={badge.file} alt={badge.name} style={{
-              width: 34, height: 34, objectFit: 'contain', imageRendering: 'pixelated',
-              filter: `drop-shadow(0 0 6px ${badge.color})`, position: 'relative', zIndex: 1,
+              width: 48, height: 48, objectFit: 'contain', imageRendering: 'pixelated',
+              filter: `drop-shadow(0 0 8px ${badge.color})`, position: 'relative', zIndex: 1,
             }} />
           </div>
         ))}
       </div>
 
       {/* ── Right badge column — 4 badges evenly spaced ── */}
-      <div className="absolute top-0 bottom-0 flex flex-col items-center justify-evenly z-20 pointer-events-none" style={{ right: 60, width: 40 }}>
+      <div className="absolute top-0 bottom-0 flex flex-col items-center justify-evenly z-20 pointer-events-none" style={{ right: 18, width: 52 }}>
         {BADGES.slice(4, 8).map(([arenaId, badge]) => (
           <div key={arenaId} className="relative flex items-center justify-center">
-            <motion.div className="absolute inset-0 rounded-full blur-md" style={{ background: badge.color }}
-              animate={{ opacity: [0.25, 0.6, 0.25] }}
+            <motion.div className="absolute inset-0 rounded-full blur-lg" style={{ background: badge.color }}
+              animate={{ opacity: [0.3, 0.7, 0.3] }}
               transition={{ duration: 2.2, repeat: Infinity, delay: Math.random() * 1.5 }} />
             <img src={badge.file} alt={badge.name} style={{
-              width: 34, height: 34, objectFit: 'contain', imageRendering: 'pixelated',
-              filter: `drop-shadow(0 0 6px ${badge.color})`, position: 'relative', zIndex: 1,
+              width: 48, height: 48, objectFit: 'contain', imageRendering: 'pixelated',
+              filter: `drop-shadow(0 0 8px ${badge.color})`, position: 'relative', zIndex: 1,
             }} />
           </div>
         ))}
       </div>
 
-      <div className="relative z-10 flex flex-col h-full max-w-6xl mx-auto w-full px-16 pt-4 pb-4">
+      <div className="relative z-10 flex flex-col h-full max-w-6xl mx-auto w-full px-20 pt-4 pb-4">
 
         {/* Header */}
         <div className="flex items-center justify-between mb-3 shrink-0">
