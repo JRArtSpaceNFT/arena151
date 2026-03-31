@@ -292,22 +292,27 @@ function pickMove(
       // Status moves get base score of 30 so tricksters can actually pick them
       let score = (isStatus ? 30 : m.power) * (isStatus ? 1 : tm) * (acc / 100)
       score *= getPersonalityMultiplier(personality, m.power, acc, isUlt, isStatus, hpRatio)
+      // Hard block: can never use the same move twice in a row
       if (m.id === lastMoveId) {
-        score *= repeatCount >= 2 ? 0.15 : 0.5
+        score = 0
       }
       return { move: m, score: Math.max(score, 0.1) }
     })
 
-  if (scored.length === 0) return moves[0]
+  // Filter out hard-blocked moves (score === 0), fall back to full list if all blocked
+  const eligible = scored.filter(s => s.score > 0)
+  const pool = eligible.length > 0 ? eligible : scored
 
-  // Weighted random: higher score = more likely, but any move can be picked
-  const total = scored.reduce((sum, s) => sum + Math.max(s.score, 1), 0)
+  if (pool.length === 0) return moves[0]
+
+  // Weighted random: higher score = more likely
+  const total = pool.reduce((sum, s) => sum + s.score, 0)
   let rand = Math.random() * total
-  for (const s of scored) {
-    rand -= Math.max(s.score, 1)
+  for (const s of pool) {
+    rand -= s.score
     if (rand <= 0) return s.move
   }
-  return scored[scored.length - 1].move
+  return pool[pool.length - 1].move
 }
 
 // ── LOG ID COUNTER ────────────────────────────────────────────
