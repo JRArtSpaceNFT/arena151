@@ -96,11 +96,23 @@ export default function RoomSelect() {
             </motion.button>
             <div>
               <motion.h1 initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
-                className="text-2xl font-black leading-none"
-                style={{ background: 'linear-gradient(135deg,#fbbf24,#f97316,#fbbf24)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+                style={{
+                  fontFamily: '"Impact", "Arial Black", sans-serif',
+                  fontSize: 36,
+                  fontWeight: 900,
+                  letterSpacing: '0.08em',
+                  lineHeight: 1,
+                  textTransform: 'uppercase',
+                  background: 'linear-gradient(135deg, #fbbf24 0%, #f97316 40%, #fbbf24 70%, #fff7ed 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                  textShadow: 'none',
+                  filter: 'drop-shadow(0 0 18px rgba(251,191,36,0.5))',
+                }}>
                 CHOOSE YOUR BATTLEFIELD
               </motion.h1>
-              <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.3)' }}>Conquer all 8 Kanto Gyms — earn every badge</p>
+              <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.3)', letterSpacing: '0.18em', textTransform: 'uppercase', fontSize: 10 }}>Conquer all 8 Kanto Gyms — earn every badge</p>
             </div>
           </div>
 
