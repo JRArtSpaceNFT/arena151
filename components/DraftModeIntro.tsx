@@ -122,7 +122,7 @@ export default function DraftModeIntro() {
         onClick={() => currentTrainer ? setScreen('room-select') : setScreen('signup')}
         aria-label="Enter the Arena"
         className="absolute cursor-pointer focus:outline-none"
-        style={{ left: '34.7%', top: '62%', width: '18.5%', height: '8%' }}
+        style={{ left: '34.7%', top: '72%', width: '18.5%', height: '8%' }}
       />
 
       {/* PROFILE — top left */}
@@ -138,7 +138,7 @@ export default function DraftModeIntro() {
         onClick={() => setScreen('leaderboard')}
         aria-label="Leaderboard"
         className="absolute cursor-pointer focus:outline-none"
-        style={{ left: '0.6%', top: '42%', width: '11.6%', height: '8%' }}
+        style={{ left: '0.6%', top: '55%', width: '11.6%', height: '8%' }}
       />
 
       {/* BATTLE GUIDE — right side (placeholder, navigates to home for now) */}
