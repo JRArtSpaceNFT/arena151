@@ -112,7 +112,7 @@ export default function RoomSelect() {
                 }}>
                 CHOOSE YOUR BATTLEFIELD
               </motion.h1>
-              <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.3)', letterSpacing: '0.18em', textTransform: 'uppercase', fontSize: 10 }}>Conquer all 8 Kanto Gyms to earn every badge</p>
+              <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.85)', letterSpacing: '0.18em', textTransform: 'uppercase', fontSize: 10 }}>Conquer all 8 Kanto Gyms to earn every badge</p>
             </div>
           </div>
 
