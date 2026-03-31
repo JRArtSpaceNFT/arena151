@@ -1257,6 +1257,9 @@ export function resolveBattle(
     hpAfter: { A: statesA[activeA].ac.currentHp, B: statesB[activeB].ac.currentHp },
   })
 
+  // Track which side just sent in a fresh Pokémon after a KO — they go first that turn
+  let freshEntrySide: 'A' | 'B' | null = null
+
   // Battle loop
   while (activeA < statesA.length && activeB < statesB.length) {
     turn++
@@ -1266,10 +1269,14 @@ export function resolveBattle(
     const bcsB = statesB[activeB]
 
     // Speed determines who goes first (with stat stages + paralysis)
+    // Exception: if a Pokémon just entered after a KO, it goes first that turn
     const spdA = bcsA.ac.creature.baseSpe * stageMult(bcsA.speStage) * (bcsA.status === 'paralyzed' ? 0.5 : 1)
     const spdB = bcsB.ac.creature.baseSpe * stageMult(bcsB.speStage) * (bcsB.status === 'paralyzed' ? 0.5 : 1)
 
-    const firstSide: 'A' | 'B' = spdA >= spdB ? 'A' : 'B'
+    const firstSide: 'A' | 'B' = freshEntrySide === 'A' ? 'A'
+      : freshEntrySide === 'B' ? 'B'
+      : spdA >= spdB ? 'A' : 'B'
+    freshEntrySide = null  // consume — only applies for one turn
 
     const pairs: [BattleCreatureState, BattleCreatureState, 'A' | 'B'][] =
       firstSide === 'A'
@@ -1514,6 +1521,7 @@ export function resolveBattle(
 
       activeA++
       if (activeA < statesA.length) {
+        freshEntrySide = 'A'  // new Pokémon goes first next turn
         // New opponent for B — reset B's sleep lock so it can use sleep again
         statesB[activeB].sleepUsedAgainst = null
         applyEntryEffects(statesA[activeA], trainerA, arena, log, 'A')
@@ -1575,6 +1583,7 @@ export function resolveBattle(
 
       activeB++
       if (activeB < statesB.length) {
+        freshEntrySide = 'B'  // new Pokémon goes first next turn
         // New opponent for A — reset A's sleep lock so it can use sleep again
         if (activeA < statesA.length) statesA[activeA].sleepUsedAgainst = null
         applyEntryEffects(statesB[activeB], trainerB, arena, log, 'B')
