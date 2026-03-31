@@ -125,12 +125,7 @@ function BadgeTile({ badge, earned }: { badge: typeof GYM_BADGES[0]; earned: boo
               : { filter: 'grayscale(100%) brightness(0.3)', opacity: 0.35, imageRendering: 'pixelated' }
           }
         />
-        {earned && (
-          <motion.div className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-yellow-400 border-2 border-white flex items-center justify-center z-20"
-            initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 400 }}>
-            <span style={{ fontSize: 7 }}>✓</span>
-          </motion.div>
-        )}
+
       </div>
       <p className="text-center font-black leading-none" style={{ fontSize: '8px', color: earned ? badge.color : '#475569', letterSpacing: '0.03em' }}>
         {badge.city}

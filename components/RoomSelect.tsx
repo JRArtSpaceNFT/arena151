@@ -223,10 +223,7 @@ export default function RoomSelect() {
                               : `drop-shadow(0 0 3px ${badge.color}66)`,
                           }}
                         />
-                        {hasBadge && (
-                          <div className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-yellow-400 border-2 border-white flex items-center justify-center z-20"
-                            style={{ fontSize: 7 }}>✓</div>
-                        )}
+
                       </div>
                     )}
 
