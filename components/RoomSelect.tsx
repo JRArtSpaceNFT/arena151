@@ -24,6 +24,15 @@ export default function RoomSelect() {
       return;
     }
 
+    // Play first 2s of Pokemon SFX on room/arena select
+    try {
+      const sfx = new Audio('/music/The Greatest Pokemon Sound Effects.mp3');
+      sfx.currentTime = 0;
+      sfx.volume = 0.8;
+      sfx.play().catch(() => {});
+      setTimeout(() => { sfx.pause(); sfx.currentTime = 0; }, 2000);
+    } catch (e) {}
+
     startQueue(roomId, currentTrainer);
     setScreen('queue');
   };

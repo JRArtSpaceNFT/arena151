@@ -331,15 +331,14 @@ export default function TrainerSelect() {
 
   const handleSelect = () => {
     if (!isTaken && !lockedIn) {
-      playCrowdCheer()
       setLockedIn(trainer.id)
-      // Play 2s–3.2s of the Pokemon SFX clip on trainer select
+      // Play 2s–3.8s of the Pokemon SFX clip on trainer select
       try {
         const sfx = new Audio('/music/The Greatest Pokemon Sound Effects.mp3')
         sfx.currentTime = 2
         sfx.volume = 0.8
         sfx.play().catch(() => {})
-        setTimeout(() => { sfx.pause(); sfx.currentTime = 0 }, 1200)
+        setTimeout(() => { sfx.pause(); sfx.currentTime = 0 }, 1800)
       } catch (e) {}
       setTimeout(() => selectTrainer(trainer), 900)
     }
