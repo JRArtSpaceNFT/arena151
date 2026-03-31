@@ -246,7 +246,7 @@ export default function BattleGuide() {
               letterSpacing: '0.12em',
             }}
           >
-            Enter the Arena →
+← Back
           </motion.button>
         </motion.div>
 
