@@ -41,55 +41,43 @@ export default function ArenaReveal() {
     const targetIndex = ARENAS.findIndex(a => a.id === arena.id)
     const finalTarget = targetIndex >= 0 ? targetIndex : 0
 
-    // Fill with random arenas for the spin, then end on target
     const seq: number[] = []
     for (let i = 0; i < SCHEDULE.length - 1; i++) {
       let rand = Math.floor(Math.random() * ARENAS.length)
-      // Avoid showing the target too early (last 3 slots)
       if (i >= SCHEDULE.length - 4) {
-        while (rand === finalTarget) {
-          rand = Math.floor(Math.random() * ARENAS.length)
-        }
+        while (rand === finalTarget) rand = Math.floor(Math.random() * ARENAS.length)
       }
       seq.push(rand)
     }
-    seq.push(finalTarget) // last step is always the selected arena
+    seq.push(finalTarget)
 
+    // Reset everything cleanly before starting
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    stepRef.current = 0
+    setIsLocked(false)
     setSequenceBuilt(seq)
     setCurrentIndex(seq[0])
-    stepRef.current = 0
 
-    return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current)
-    }
-  }, [arena])
-
-  useEffect(() => {
-    if (sequenceBuilt.length === 0) return
-
+    // Advance through the sequence with the schedule timings
+    let step = 0
     function advance() {
-      const step = stepRef.current
-      if (step >= sequenceBuilt.length - 1) {
-        // Last step — lock in
-        setCurrentIndex(sequenceBuilt[sequenceBuilt.length - 1])
+      if (step >= seq.length - 1) {
+        setCurrentIndex(seq[seq.length - 1])
         setIsLocked(true)
         return
       }
-
-      const nextStep = step + 1
-      stepRef.current = nextStep
-      setCurrentIndex(sequenceBuilt[nextStep])
-
-      timeoutRef.current = setTimeout(advance, SCHEDULE[nextStep] ?? 1050)
+      step += 1
+      stepRef.current = step
+      setCurrentIndex(seq[step])
+      timeoutRef.current = setTimeout(advance, SCHEDULE[step] ?? 1050)
     }
 
-    // Start the carousel
     timeoutRef.current = setTimeout(advance, SCHEDULE[0])
 
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current)
     }
-  }, [sequenceBuilt])
+  }, [arena])
 
   // After locking, start battle music then proceed (4.5s so players can read the arena info)
   useEffect(() => {
