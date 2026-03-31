@@ -232,7 +232,7 @@ export default function RoomSelect() {
                     <div className="text-center rounded-lg py-1.5"
                       style={{ background: `${identity.accent}14`, border: `1px solid ${identity.accent}33` }}>
                       <p className="text-xs font-black uppercase tracking-wide mb-0.5" style={{ color: `${identity.accent}99`, fontSize: 9 }}>You Win</p>
-                      <p className="font-black text-xs" style={{ color: identity.accent, textShadow: `0 0 8px ${identity.accent}66` }}>+{profit} ◎</p>
+                      <p className="font-black text-xs" style={{ color: identity.accent, textShadow: `0 0 8px ${identity.accent}66` }}>{prizePool} ◎</p>
                     </div>
                   </div>
 
