@@ -1,44 +1,44 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Trophy, Wallet, ArrowLeft, RefreshCw, TrendingUp } from 'lucide-react';
+import { Wallet, ArrowLeft, RefreshCw, TrendingUp } from 'lucide-react';
 import { useArenaStore } from '@/lib/store';
-import { ROOM_TIERS, usdToSol } from '@/lib/constants';
+import { ROOM_TIERS, ARENA_BADGES, usdToSol } from '@/lib/constants';
 import { useSolPrice } from '@/lib/useSolPrice';
 import type { BattleRoom } from '@/types';
 
-// Per-arena identity config
+// Per-arena identity config — background images are drop-in from /public/arenas/gyms/
+// To replace a background: drop a new image into /public/arenas/gyms/<arena-id>.png
 const ARENA_IDENTITY: Record<string, {
   flavor: string;
-  bgImage: string;
+  bgImage: string;       // drop-in path: /public/arenas/gyms/<id>.png
   accent: string;
   accentDark: string;
   stakeTier: 'low' | 'mid' | 'high';
   btnLabel: string;
 }> = {
-  'pallet-town':    { flavor: 'Where every journey begins',          bgImage: '/arenas/Ash Pallet Town.png',    accent: '#4ade80', accentDark: '#166534', stakeTier: 'low',  btnLabel: 'Begin Your Journey →' },
-  'viridian-city':  { flavor: 'Step beyond the safety of home',      bgImage: '/arenas/Ash Pallet Town.png',    accent: '#34d399', accentDark: '#065f46', stakeTier: 'low',  btnLabel: 'Enter the Forest →' },
-  'pewter-city':    { flavor: 'Built on grit, stone, and resolve',   bgImage: '/arenas/Brocks Gym.png',         accent: '#a8a29e', accentDark: '#292524', stakeTier: 'low',  btnLabel: 'Break the Rock →' },
-  'cerulean-city':  { flavor: 'Calm waters hide fierce rivals',      bgImage: '/arenas/MistysGym.png',          accent: '#38bdf8', accentDark: '#075985', stakeTier: 'mid',  btnLabel: 'Dive In →' },
-  'vermilion-city': { flavor: 'Fast hands and electric nerves',      bgImage: '/arenas/LtSurgeGym.png',         accent: '#facc15', accentDark: '#713f12', stakeTier: 'mid',  btnLabel: 'Charge Up →' },
-  'celadon-city':   { flavor: 'Fortunes bloom where skill survives', bgImage: '/arenas/Erikas Gym.png',         accent: '#c084fc', accentDark: '#4c1d95', stakeTier: 'mid',  btnLabel: 'Claim Your Fortune →' },
-  'victory-road':   { flavor: 'Only the strongest endure the climb', bgImage: '/arenas/Brunos Stone Arenea.png',accent: '#fb923c', accentDark: '#7c2d12', stakeTier: 'high', btnLabel: 'Brave the Road →' },
-  'indigo-plateau': { flavor: 'Where champions are remembered',      bgImage: '/arenas/MewTwos Lab.png',        accent: '#fbbf24', accentDark: '#451a03', stakeTier: 'high', btnLabel: 'Claim the Throne →' },
-}
+  'pewter-city':    { flavor: 'Built on grit, stone, and resolve',     bgImage: '/arenas/gyms/pewter-city.png',    accent: '#a8a29e', accentDark: '#292524', stakeTier: 'low',  btnLabel: 'Break the Rock →' },
+  'cerulean-city':  { flavor: 'Calm waters hide fierce rivals',        bgImage: '/arenas/gyms/cerulean-city.png',  accent: '#38bdf8', accentDark: '#075985', stakeTier: 'low',  btnLabel: 'Dive In →' },
+  'vermilion-city': { flavor: 'Fast hands and electric nerves',        bgImage: '/arenas/gyms/vermilion-city.png', accent: '#facc15', accentDark: '#713f12', stakeTier: 'mid',  btnLabel: 'Charge Up →' },
+  'celadon-city':   { flavor: 'Fortunes bloom where skill survives',   bgImage: '/arenas/gyms/celadon-city.png',   accent: '#86efac', accentDark: '#14532d', stakeTier: 'mid',  btnLabel: 'Claim Fortune →' },
+  'fuchsia-city':   { flavor: 'Where poison and precision meet',       bgImage: '/arenas/gyms/fuchsia-city.png',   accent: '#c084fc', accentDark: '#3b0764', stakeTier: 'mid',  btnLabel: 'Enter the Dojo →' },
+  'saffron-city':   { flavor: 'Only the mind can pierce this veil',    bgImage: '/arenas/gyms/saffron-city.png',   accent: '#f0abfc', accentDark: '#4a044e', stakeTier: 'high', btnLabel: 'Test Your Mind →' },
+  'cinnabar-island':{ flavor: 'Forged in fire, tempered by fury',      bgImage: '/arenas/gyms/cinnabar-island.png',accent: '#fb923c', accentDark: '#7c2d12', stakeTier: 'high', btnLabel: 'Brave the Flames →' },
+  'viridian-city':  { flavor: 'The final test. Legends are born here.',bgImage: '/arenas/gyms/viridian-city.png',  accent: '#fbbf24', accentDark: '#451a03', stakeTier: 'high', btnLabel: 'Claim the Throne →' },
+};
 
 const STAKE_BAND = {
   low:  { label: 'LOW STAKES',  labelColor: '#4ade80', borderOpacity: 0.2, glowStrength: 12 },
   mid:  { label: 'MID STAKES',  labelColor: '#38bdf8', borderOpacity: 0.3, glowStrength: 20 },
   high: { label: 'HIGH STAKES', labelColor: '#fbbf24', borderOpacity: 0.45, glowStrength: 32 },
-}
+};
 
 export default function RoomSelect() {
   const { currentTrainer, setScreen, startQueue } = useArenaStore();
-  const { solPrice, loading: priceLoading, lastUpdated } = useSolPrice();
+  const { solPrice, loading: priceLoading } = useSolPrice();
 
   const getEntryFee = (tierUsd: number) => usdToSol(tierUsd, solPrice);
   const getPrizePool = (tierUsd: number) => usdToSol(tierUsd * 2 * 0.95, solPrice);
-  const getProfit = (tierUsd: number) => usdToSol(tierUsd * 2 * 0.95 - tierUsd, solPrice);
 
   const handleRoomSelect = (roomId: BattleRoom) => {
     if (!currentTrainer) return;
@@ -56,7 +56,6 @@ export default function RoomSelect() {
   };
 
   const rooms = Object.values(ROOM_TIERS);
-  // Find highest affordable arena
   const highestAffordable = currentTrainer
     ? [...rooms].reverse().find(r => currentTrainer.balance >= getEntryFee(r.tier))
     : null;
@@ -90,11 +89,10 @@ export default function RoomSelect() {
                 style={{ background: 'linear-gradient(135deg,#fbbf24,#f97316,#fbbf24)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
                 CHOOSE YOUR BATTLEFIELD
               </motion.h1>
-              <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.3)' }}>Select your stakes and face destiny</p>
+              <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.3)' }}>Conquer all 8 Kanto Gyms — earn every badge</p>
             </div>
           </div>
 
-          {/* Wallet + price */}
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs"
               style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.3)' }}>
@@ -119,13 +117,17 @@ export default function RoomSelect() {
           {rooms.map((room, i) => {
             const id = room.id as string;
             const identity = ARENA_IDENTITY[id] ?? { flavor: '', bgImage: '', accent: '#6366f1', accentDark: '#1e1b4b', stakeTier: 'mid' as const, btnLabel: 'Enter Arena →' };
+            const badge = ARENA_BADGES[id];
             const band = STAKE_BAND[identity.stakeTier];
             const entryFee = getEntryFee(room.tier);
             const prizePool = getPrizePool(room.tier);
-            const profit = getProfit(room.tier);
             const canAfford = currentTrainer ? currentTrainer.balance >= entryFee : false;
             const isRecommended = highestAffordable?.id === id;
             const isHigh = identity.stakeTier === 'high';
+
+            // Check if trainer has earned this badge
+            const earnedBadges: string[] = (currentTrainer as any)?.badges ?? [];
+            const hasBadge = earnedBadges.includes(id);
 
             return (
               <motion.div key={room.id}
@@ -144,23 +146,24 @@ export default function RoomSelect() {
                   opacity: canAfford ? 1 : 0.38,
                 }}
               >
-                {/* Arena background image — faint silhouette */}
+                {/* ── Arena background image ── */}
+                {/* To replace: drop new PNG into /public/arenas/gyms/<arena-id>.png */}
                 <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none">
-                  <div
-                    style={{
-                      position: 'absolute', inset: 0,
-                      backgroundImage: `url(${identity.bgImage})`,
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                      opacity: isHigh ? 0.12 : 0.07,
-                      filter: 'saturate(0.6)',
-                    }}
-                  />
-                  {/* Gradient over image so text stays readable */}
-                  <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(160deg, ${identity.accentDark}cc 0%, rgba(6,4,16,0.92) 60%)` }} />
+                  <div style={{
+                    position: 'absolute', inset: 0,
+                    backgroundImage: `url(${identity.bgImage})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    opacity: isHigh ? 0.35 : 0.28,
+                    filter: 'saturate(0.7)',
+                  }} />
+                  {/* Dark overlay — keeps text readable */}
+                  <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(160deg, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.82) 100%)` }} />
+                  {/* Subtle tint from arena accent */}
+                  <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(160deg, ${identity.accentDark}55 0%, transparent 60%)` }} />
                 </div>
 
-                {/* Badge-inspired corner accents */}
+                {/* Corner accents */}
                 <div className="absolute top-0 left-0 w-3 h-3 pointer-events-none"
                   style={{ borderTop: `2px solid ${identity.accent}77`, borderLeft: `2px solid ${identity.accent}77`, borderTopLeftRadius: 10 }} />
                 <div className="absolute top-0 right-0 w-3 h-3 pointer-events-none"
@@ -170,11 +173,11 @@ export default function RoomSelect() {
                 <div className="absolute bottom-0 right-0 w-3 h-3 pointer-events-none"
                   style={{ borderBottom: `2px solid ${identity.accent}77`, borderRight: `2px solid ${identity.accent}77`, borderBottomRightRadius: 10 }} />
 
-                {/* Escalating glow intensity — bottom edge */}
+                {/* Bottom edge glow */}
                 <div className="absolute bottom-0 left-0 right-0 h-1 pointer-events-none rounded-b-xl"
                   style={{ background: `linear-gradient(90deg, transparent, ${identity.accent}${identity.stakeTier === 'high' ? '88' : identity.stakeTier === 'mid' ? '55' : '33'}, transparent)` }} />
 
-                {/* Animated shimmer for high stakes */}
+                {/* High stakes shimmer */}
                 {isHigh && canAfford && (
                   <motion.div className="absolute inset-0 pointer-events-none rounded-xl"
                     style={{ background: `linear-gradient(105deg,transparent 30%,${identity.accent}12 50%,transparent 70%)` }}
@@ -191,48 +194,85 @@ export default function RoomSelect() {
                   </div>
                 )}
 
-                {/* Stake band label */}
+                {/* Top edge line */}
                 <div className="absolute top-0 left-0 right-0 h-0.5 pointer-events-none"
                   style={{ background: `linear-gradient(90deg, transparent, ${identity.accent}, transparent)` }} />
 
                 <div className="relative z-10 flex flex-col h-full p-3">
-                  {/* Arena header */}
-                  <div className="flex items-start justify-between mb-1.5">
-                    <div>
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        <h2 className="font-black text-sm leading-none" style={{ color: identity.accent }}>
+
+                  {/* ── Badge + arena header row ── */}
+                  <div className="flex items-start gap-2 mb-1.5">
+                    {/* Gym badge icon */}
+                    {badge && (
+                      <div className="relative shrink-0 flex items-center justify-center w-10 h-10">
+                        {hasBadge && (
+                          <motion.div className="absolute inset-0 rounded-full blur-md"
+                            style={{ background: badge.color }}
+                            animate={{ opacity: [0.4, 0.8, 0.4] }}
+                            transition={{ duration: 2, repeat: Infinity }}
+                          />
+                        )}
+                        <img
+                          src={badge.file}
+                          alt={badge.name}
+                          className="w-9 h-9 object-contain relative z-10"
+                          style={hasBadge
+                            ? { filter: `drop-shadow(0 0 5px ${badge.color})`, imageRendering: 'pixelated' }
+                            : { filter: 'grayscale(100%) brightness(0.4)', opacity: 0.5, imageRendering: 'pixelated' }
+                          }
+                        />
+                        {hasBadge && (
+                          <div className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-yellow-400 border-2 border-white flex items-center justify-center z-20"
+                            style={{ fontSize: 7 }}>✓</div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-1 mb-0.5">
+                        <h2 className="font-black text-sm leading-none truncate" style={{ color: identity.accent }}>
                           {room.name}
                         </h2>
+                        <span className="text-xs font-black px-1.5 py-0.5 rounded-md shrink-0"
+                          style={{ background: `${identity.accent}18`, color: identity.accent, border: `1px solid ${identity.accent}33`, fontSize: 9 }}>
+                          {band.label}
+                        </span>
                       </div>
-                      <p className="text-xs leading-tight" style={{ color: 'rgba(255,255,255,0.35)', fontStyle: 'italic' }}>
+                      {badge && (
+                        <p className="text-xs leading-none font-semibold" style={{ color: `${badge.color}cc`, fontSize: 10 }}>
+                          {badge.leader} · {badge.name}
+                        </p>
+                      )}
+                      <p className="text-xs leading-tight mt-0.5" style={{ color: 'rgba(255,255,255,0.35)', fontStyle: 'italic', fontSize: 10 }}>
                         {identity.flavor}
                       </p>
                     </div>
-                    <span className="text-xs font-black px-1.5 py-0.5 rounded-md shrink-0 ml-1"
-                      style={{ background: `${identity.accent}18`, color: identity.accent, border: `1px solid ${identity.accent}33`, fontSize: 10 }}>
-                      {band.label}
-                    </span>
                   </div>
 
                   {/* Divider */}
                   <div className="h-px mb-2" style={{ background: `linear-gradient(90deg,transparent,${identity.accent}33,transparent)` }} />
 
-                  {/* Stakes */}
+                  {/* ── Stakes (SOL + USD) ── */}
                   <div className="grid grid-cols-3 gap-1.5 mb-2">
                     <div className="text-center rounded-lg py-1.5"
-                      style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      <p className="text-xs font-bold uppercase tracking-wide mb-0.5" style={{ color: 'rgba(255,255,255,0.3)', fontSize: 9 }}>Entry</p>
+                      style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <p className="font-bold uppercase tracking-wide mb-0.5" style={{ color: 'rgba(255,255,255,0.3)', fontSize: 9 }}>Entry</p>
                       <p className="font-black text-xs text-white">{entryFee} ◎</p>
+                      <p className="font-bold" style={{ color: 'rgba(255,255,255,0.35)', fontSize: 9 }}>${room.tier}</p>
                     </div>
                     <div className="text-center rounded-lg py-1.5"
-                      style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      <p className="text-xs font-bold uppercase tracking-wide mb-0.5" style={{ color: 'rgba(255,255,255,0.3)', fontSize: 9 }}>Pot</p>
-                      <p className="font-black text-xs text-white">{prizePool} ◎</p>
+                      style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <p className="font-bold uppercase tracking-wide mb-0.5" style={{ color: 'rgba(255,255,255,0.3)', fontSize: 9 }}>Pot</p>
+                      <p className="font-black text-xs text-white">{getPrizePool(room.tier)} ◎</p>
+                      <p className="font-bold" style={{ color: 'rgba(255,255,255,0.35)', fontSize: 9 }}>${(room.tier * 2 * 0.95).toFixed(0)}</p>
                     </div>
                     <div className="text-center rounded-lg py-1.5"
                       style={{ background: `${identity.accent}14`, border: `1px solid ${identity.accent}33` }}>
-                      <p className="text-xs font-black uppercase tracking-wide mb-0.5" style={{ color: `${identity.accent}99`, fontSize: 9 }}>You Win</p>
-                      <p className="font-black text-xs" style={{ color: identity.accent, textShadow: `0 0 8px ${identity.accent}66` }}>{prizePool} ◎</p>
+                      <p className="font-black uppercase tracking-wide mb-0.5" style={{ color: `${identity.accent}99`, fontSize: 9 }}>You Win</p>
+                      <p className="font-black text-xs" style={{ color: identity.accent, textShadow: `0 0 8px ${identity.accent}66` }}>
+                        {getPrizePool(room.tier)} ◎
+                      </p>
+                      <p className="font-bold" style={{ color: `${identity.accent}88`, fontSize: 9 }}>${(room.tier * 2 * 0.95).toFixed(0)}</p>
                     </div>
                   </div>
 

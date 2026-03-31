@@ -1,22 +1,173 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Trophy, TrendingUp, Home, RotateCcw } from 'lucide-react';
 import { useArenaStore } from '@/lib/store';
 import { updateUser } from '@/lib/auth';
+import { ARENA_BADGES } from '@/lib/constants';
+
+// ── Badge Ceremony Overlay ──────────────────────────────────────────────────
+function BadgeCeremony({ arenaId, onDismiss }: { arenaId: string; onDismiss: () => void }) {
+  const badge = ARENA_BADGES[arenaId];
+  if (!badge) return null;
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(6px)' }}
+      onClick={onDismiss}
+    >
+      {/* Radial burst */}
+      <motion.div
+        initial={{ scale: 0, opacity: 0 }}
+        animate={{ scale: 2.5, opacity: 0 }}
+        transition={{ duration: 1.2, delay: 0.3 }}
+        className="absolute rounded-full"
+        style={{ width: 300, height: 300, background: `radial-gradient(ellipse, ${badge.color}88 0%, transparent 70%)` }}
+      />
+
+      {/* Confetti particles */}
+      {Array.from({ length: 24 }).map((_, i) => {
+        const angle = (i / 24) * 360;
+        const dist = 160 + (i % 3) * 40;
+        const x = Math.cos((angle * Math.PI) / 180) * dist;
+        const y = Math.sin((angle * Math.PI) / 180) * dist;
+        const colors = [badge.color, '#fbbf24', '#ffffff', '#f0abfc', '#38bdf8'];
+        return (
+          <motion.div key={i}
+            initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
+            animate={{ x, y, opacity: 0, scale: 0.3 }}
+            transition={{ duration: 1.0, delay: 0.2 + i * 0.02, ease: 'easeOut' }}
+            className="absolute rounded-full"
+            style={{ width: 8, height: 8, background: colors[i % colors.length] }}
+          />
+        );
+      })}
+
+      <motion.div
+        initial={{ scale: 0.4, opacity: 0, y: 40 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        transition={{ type: 'spring', stiffness: 220, damping: 18, delay: 0.1 }}
+        className="relative z-10 flex flex-col items-center text-center px-8 py-10 rounded-2xl"
+        style={{
+          background: 'linear-gradient(160deg, rgba(10,8,24,0.98) 0%, rgba(6,4,16,0.98) 100%)',
+          border: `2px solid ${badge.color}55`,
+          boxShadow: `0 0 60px ${badge.color}33, 0 0 120px ${badge.color}18`,
+          maxWidth: 400,
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Top label */}
+        <motion.p
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="text-xs font-black uppercase tracking-widest mb-4"
+          style={{ color: badge.color, letterSpacing: '0.2em' }}
+        >
+          🏅 Badge Earned!
+        </motion.p>
+
+        {/* Badge image — big and glowing */}
+        <motion.div
+          className="relative mb-5"
+          animate={{ y: [0, -6, 0] }}
+          transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
+        >
+          <motion.div
+            className="absolute inset-0 rounded-full blur-2xl"
+            style={{ background: badge.color }}
+            animate={{ opacity: [0.4, 0.9, 0.4] }}
+            transition={{ duration: 1.8, repeat: Infinity }}
+          />
+          <img
+            src={badge.file}
+            alt={badge.name}
+            style={{
+              width: 96, height: 96,
+              objectFit: 'contain',
+              imageRendering: 'pixelated',
+              filter: `drop-shadow(0 0 16px ${badge.color}) drop-shadow(0 0 32px ${badge.color}88)`,
+              position: 'relative', zIndex: 1,
+            }}
+          />
+        </motion.div>
+
+        {/* Badge name */}
+        <motion.h2
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.5, type: 'spring' }}
+          className="text-3xl font-black mb-1"
+          style={{ color: badge.color, textShadow: `0 0 24px ${badge.color}` }}
+        >
+          {badge.name}
+        </motion.h2>
+
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.6 }}
+          className="text-sm font-semibold mb-1"
+          style={{ color: 'rgba(255,255,255,0.7)' }}
+        >
+          {badge.city} City Gym · {badge.leader}
+        </motion.p>
+
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.7 }}
+          className="text-xs mb-6"
+          style={{ color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' }}
+        >
+          This badge now appears on your trainer profile.
+        </motion.p>
+
+        <motion.button
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.85 }}
+          whileHover={{ scale: 1.04 }}
+          whileTap={{ scale: 0.97 }}
+          onClick={onDismiss}
+          className="px-8 py-3 rounded-xl font-black text-sm uppercase tracking-wide"
+          style={{
+            background: `linear-gradient(135deg, ${badge.color}44, ${badge.color}22)`,
+            border: `2px solid ${badge.color}77`,
+            color: badge.color,
+            letterSpacing: '0.08em',
+          }}
+        >
+          Claim Badge ✓
+        </motion.button>
+      </motion.div>
+    </motion.div>
+  );
+}
 
 export default function ResultScreen() {
   const { currentMatch, currentTrainer, setTrainer, setScreen, clearMatch, lastMatchWinner } = useArenaStore();
   // lastMatchWinner is set by GameWrapper before playAgain() clears the game store.
   // winner === 1 means P1 (the human player) won.
   const [isVictory] = useState(() => lastMatchWinner !== null ? lastMatchWinner === 1 : false);
+  const [newBadgeArena, setNewBadgeArena] = useState<string | null>(null);
 
   useEffect(() => {
     if (!currentMatch || !currentTrainer) return;
 
     // Update trainer record — run only once on mount
     const delta = isVictory ? currentMatch.room.prizePool : -currentMatch.room.entryFee;
+
+    // Badge awarding — first win in this arena earns the gym badge
+    const arenaId = currentMatch.room.id as string;
+    const existingBadges: string[] = currentTrainer.badges ?? [];
+    const isFirstBadgeEarn = isVictory && ARENA_BADGES[arenaId] && !existingBadges.includes(arenaId);
+    const updatedBadges = isFirstBadgeEarn ? [...existingBadges, arenaId] : existingBadges;
+
     const updatedTrainer = {
       ...currentTrainer,
       record: {
@@ -27,16 +178,23 @@ export default function ResultScreen() {
         ? currentTrainer.balance + currentMatch.room.prizePool
         : currentTrainer.balance - currentMatch.room.entryFee,
       earnings: (currentTrainer.earnings ?? 0) + delta,
+      badges: updatedBadges,
     };
 
     setTrainer(updatedTrainer);
-    // Persist win/loss + balance + earnings to localStorage
+    // Persist win/loss + balance + earnings + badges to localStorage
     updateUser(currentTrainer.id, {
       wins: updatedTrainer.record.wins,
       losses: updatedTrainer.record.losses,
       balance: updatedTrainer.balance,
       earnings: updatedTrainer.earnings,
+      badges: updatedBadges,
     });
+
+    // Trigger badge ceremony on first earn (with slight delay for drama)
+    if (isFirstBadgeEarn) {
+      setTimeout(() => setNewBadgeArena(arenaId), 1400);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty deps — intentional, run once on mount only
 
@@ -53,6 +211,14 @@ export default function ResultScreen() {
   if (!currentMatch || !currentTrainer) return null;
 
   return (
+    <>
+    {/* ── Badge ceremony overlay (first-time badge earn) ── */}
+    <AnimatePresence>
+      {newBadgeArena && (
+        <BadgeCeremony arenaId={newBadgeArena} onDismiss={() => setNewBadgeArena(null)} />
+      )}
+    </AnimatePresence>
+
     <div className={`h-screen flex items-center justify-center relative overflow-hidden ${
       isVictory ? 'bg-gradient-to-br from-amber-950 via-slate-950 to-slate-950' : 'bg-gradient-to-br from-slate-950 via-blue-950 to-slate-950'
     }`}>
@@ -210,5 +376,6 @@ export default function ResultScreen() {
         </motion.div>
       </div>
     </div>
+    </>
   );
 }

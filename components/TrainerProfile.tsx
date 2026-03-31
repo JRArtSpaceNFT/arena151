@@ -35,15 +35,16 @@ function getTitleColor(wins: number) {
   return '#94a3b8';
 }
 
+// Gym badges — earned by winning in the corresponding arena (not by win count)
 const GYM_BADGES = [
-  { name: 'Boulder Badge', file: '/BoulderBadge.png', wins: 5,   type: 'rock',     color: '#a8a878', city: 'Pewter'    },
-  { name: 'Cascade Badge', file: '/CascadeBadge.png', wins: 19,  type: 'water',    color: '#6890f0', city: 'Cerulean'  },
-  { name: 'Thunder Badge', file: '/ThunderBadge.png', wins: 33,  type: 'electric', color: '#f8d030', city: 'Vermilion' },
-  { name: 'Rainbow Badge', file: '/RainbowBadge.png', wins: 47,  type: 'grass',    color: '#78c850', city: 'Celadon'   },
-  { name: 'Soul Badge',    file: '/SoulBadge.png',    wins: 61,  type: 'poison',   color: '#a040a0', city: 'Fuchsia'   },
-  { name: 'Marsh Badge',   file: '/MarshBadge.png',   wins: 75,  type: 'psychic',  color: '#f85888', city: 'Saffron'   },
-  { name: 'Volcano Badge', file: '/VolcanoBadge.png', wins: 89,  type: 'fire',     color: '#f08030', city: 'Cinnabar'  },
-  { name: 'Earth Badge',   file: '/EarthBadge.png',   wins: 100, type: 'ground',   color: '#705898', city: 'Viridian'  },
+  { arenaId: 'pewter-city',    name: 'Boulder Badge', file: '/BoulderBadge.png', type: 'rock',     color: '#a8a29e', city: 'Pewter'    },
+  { arenaId: 'cerulean-city',  name: 'Cascade Badge', file: '/CascadeBadge.png', type: 'water',    color: '#38bdf8', city: 'Cerulean'  },
+  { arenaId: 'vermilion-city', name: 'Thunder Badge', file: '/ThunderBadge.png', type: 'electric', color: '#facc15', city: 'Vermilion' },
+  { arenaId: 'celadon-city',   name: 'Rainbow Badge', file: '/RainbowBadge.png', type: 'grass',    color: '#86efac', city: 'Celadon'   },
+  { arenaId: 'fuchsia-city',   name: 'Soul Badge',    file: '/SoulBadge.png',    type: 'poison',   color: '#c084fc', city: 'Fuchsia'   },
+  { arenaId: 'saffron-city',   name: 'Marsh Badge',   file: '/MarshBadge.png',   type: 'psychic',  color: '#f0abfc', city: 'Saffron'   },
+  { arenaId: 'cinnabar-island',name: 'Volcano Badge', file: '/VolcanoBadge.png', type: 'fire',     color: '#fb923c', city: 'Cinnabar'  },
+  { arenaId: 'viridian-city',  name: 'Earth Badge',   file: '/EarthBadge.png',   type: 'ground',   color: '#fbbf24', city: 'Viridian'  },
 ];
 
 const MOCK_BATTLES = [
@@ -97,7 +98,7 @@ function PokeBallDivider({ color }: { color: string }) {
 }
 
 // ── Badge tile ──
-function BadgeTile({ badge, earned, isNext }: { badge: typeof GYM_BADGES[0]; earned: boolean; isNext: boolean }) {
+function BadgeTile({ badge, earned }: { badge: typeof GYM_BADGES[0]; earned: boolean }) {
   const [hovered, setHovered] = useState(false);
   return (
     <motion.div
@@ -105,7 +106,7 @@ function BadgeTile({ badge, earned, isNext }: { badge: typeof GYM_BADGES[0]; ear
       whileHover={{ scale: 1.12 }}
       onHoverStart={() => setHovered(true)}
       onHoverEnd={() => setHovered(false)}
-      title={earned ? badge.name : `${badge.name} — ${badge.wins} wins`}
+      title={earned ? badge.name : `${badge.name} — Win in ${badge.city} City to earn`}
     >
       <div className="relative flex items-center justify-center">
         {earned && (
@@ -115,20 +116,13 @@ function BadgeTile({ badge, earned, isNext }: { badge: typeof GYM_BADGES[0]; ear
             transition={{ duration: 2, repeat: Infinity }}
           />
         )}
-        {isNext && !earned && (
-          <motion.div className="absolute inset-0 rounded-full blur-sm"
-            style={{ background: badge.color }}
-            animate={{ opacity: [0.1, 0.4, 0.1] }}
-            transition={{ duration: 1.5, repeat: Infinity }}
-          />
-        )}
         <img src={badge.file} alt={badge.name}
           className="w-12 h-12 object-contain relative z-10 transition-all duration-300"
           style={earned
-            ? { filter: `drop-shadow(0 0 6px ${badge.color})` }
-            : hovered || isNext
-              ? { filter: `grayscale(60%) brightness(0.65) drop-shadow(0 0 4px ${badge.color})`, opacity: 0.75 }
-              : { filter: 'grayscale(100%) brightness(0.3)', opacity: 0.35 }
+            ? { filter: `drop-shadow(0 0 6px ${badge.color})`, imageRendering: 'pixelated' }
+            : hovered
+              ? { filter: `grayscale(60%) brightness(0.65) drop-shadow(0 0 4px ${badge.color})`, opacity: 0.75, imageRendering: 'pixelated' }
+              : { filter: 'grayscale(100%) brightness(0.3)', opacity: 0.35, imageRendering: 'pixelated' }
           }
         />
         {earned && (
@@ -138,7 +132,7 @@ function BadgeTile({ badge, earned, isNext }: { badge: typeof GYM_BADGES[0]; ear
           </motion.div>
         )}
       </div>
-      <p className="text-center font-black leading-none" style={{ fontSize: '8px', color: earned ? badge.color : isNext ? `${badge.color}99` : '#475569', letterSpacing: '0.03em' }}>
+      <p className="text-center font-black leading-none" style={{ fontSize: '8px', color: earned ? badge.color : '#475569', letterSpacing: '0.03em' }}>
         {badge.city}
       </p>
     </motion.div>
@@ -152,18 +146,10 @@ export default function TrainerProfile() {
   const [badgeAnnouncement, setBadgeAnnouncement] = useState<number | null>(null);
   const prevWinsRef = useRef<number | null>(null);
 
+  // Badge announcement on profile load (legacy, kept for safety — main ceremony fires in ResultScreen)
   useEffect(() => {
     if (!currentTrainer || prevWinsRef.current !== null) return;
-    const wins = currentTrainer.record.wins;
-    prevWinsRef.current = wins;
-    const badgeIdx = GYM_BADGES.findIndex(b => wins === b.wins);
-    if (badgeIdx !== -1) {
-      const key = `badge_announced_${badgeIdx}`;
-      if (!sessionStorage.getItem(key)) {
-        sessionStorage.setItem(key, '1');
-        setTimeout(() => setBadgeAnnouncement(badgeIdx), 800);
-      }
-    }
+    prevWinsRef.current = currentTrainer.record.wins;
   }, [currentTrainer]);
 
   const [walletView, setWalletView] = useState<WalletView>(null);
@@ -227,9 +213,10 @@ export default function TrainerProfile() {
   const typeColor = TYPE_COLORS[partnerType] ?? '#6366f1';
   const earnings = currentTrainer.earnings ?? 0;
   const isProfit = earnings >= 0;
-  const earnedBadges = GYM_BADGES.filter(b => wins >= b.wins).length;
-  const nextBadge = GYM_BADGES.find(b => wins < b.wins);
-  const nextBadgeProgress = nextBadge ? Math.min(100, Math.round((wins / nextBadge.wins) * 100)) : 100;
+  const trainerBadges: string[] = currentTrainer.badges ?? [];
+  const earnedBadges = GYM_BADGES.filter(b => trainerBadges.includes(b.arenaId)).length;
+  const nextBadge = GYM_BADGES.find(b => !trainerBadges.includes(b.arenaId));
+  const nextBadgeProgress = nextBadge ? Math.min(100, Math.round((earnedBadges / GYM_BADGES.length) * 100)) : 100;
 
   return (
     <div className="h-screen overflow-hidden flex flex-col" style={{ background: 'linear-gradient(160deg, #0f0c24 0%, #151030 40%, #0d1a2e 80%, #0a0a1a 100%)' }}>
@@ -451,10 +438,9 @@ export default function TrainerProfile() {
 
             {/* Journey path — 4 per row */}
             <div className="grid grid-cols-4 gap-1 flex-1 content-center relative z-10">
-              {GYM_BADGES.map((badge, i) => {
-                const earned = wins >= badge.wins;
-                const isNext = !earned && (i === 0 || wins >= GYM_BADGES[i - 1].wins);
-                return <BadgeTile key={badge.name} badge={badge} earned={earned} isNext={isNext} />;
+              {GYM_BADGES.map((badge) => {
+                const earned = trainerBadges.includes(badge.arenaId);
+                return <BadgeTile key={badge.name} badge={badge} earned={earned} />;
               })}
             </div>
 
@@ -467,7 +453,7 @@ export default function TrainerProfile() {
                     <img src={nextBadge.file} alt="" className="w-4 h-4 object-contain opacity-60" />
                     <span className="text-xs text-white/50 font-bold">Next: {nextBadge.name}</span>
                   </div>
-                  <span className="text-xs font-black" style={{ color: nextBadge.color }}>{wins}/{nextBadge.wins}</span>
+                  <span className="text-xs font-black" style={{ color: nextBadge.color }}>{earnedBadges}/8</span>
                 </div>
                 <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
                   <motion.div className="h-full rounded-full relative overflow-hidden"

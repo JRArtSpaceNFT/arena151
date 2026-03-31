@@ -35,6 +35,7 @@ export default function MatchFound() {
     internalWalletId: 'wallet_opp',
     balance: 1,
     earnings: 0,
+    badges: [],
   };
 
   const room = queueState.roomId ? ROOM_TIERS[queueState.roomId] : ROOM_TIERS['pallet-pot'];

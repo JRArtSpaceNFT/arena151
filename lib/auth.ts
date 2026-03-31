@@ -19,6 +19,7 @@ export interface StoredUser {
   earnings: number; // net SOL from battles
   wins: number;
   losses: number;
+  badges: string[]; // arena IDs for earned gym badges
   joinedDate: string;
   resetToken?: string;
   resetTokenExpiry?: number;
@@ -89,6 +90,7 @@ export function registerUser(data: {
     earnings: 0,
     wins: 0,
     losses: 0,
+    badges: [],
     joinedDate: new Date().toISOString(),
   };
 

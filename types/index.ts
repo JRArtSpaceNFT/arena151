@@ -36,17 +36,18 @@ export interface Trainer {
   internalWalletId: string;
   balance: number;
   earnings: number; // net SOL won/lost from battles (positive = profit, negative = loss)
+  badges: string[]; // arena IDs for which the trainer has earned the gym badge
 }
 
 export type BattleRoom =
-  | 'pallet-town'
-  | 'viridian-city'
   | 'pewter-city'
   | 'cerulean-city'
   | 'vermilion-city'
   | 'celadon-city'
-  | 'victory-road'
-  | 'indigo-plateau';
+  | 'fuchsia-city'
+  | 'saffron-city'
+  | 'cinnabar-island'
+  | 'viridian-city';
 
 export interface RoomTier {
   id: BattleRoom;

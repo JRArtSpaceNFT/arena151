@@ -77,6 +77,7 @@ export default function SignupFlow() {
       internalWalletId: session.internalWalletId,
       balance: session.balance,
       earnings: session.earnings ?? 0,
+      badges: session.badges ?? [],
     });
     setScreen('profile');
   }
