@@ -423,7 +423,27 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   showVictoryScreen: () => set({ screen: 'victory' }),
-  showDefeatScreen: () => set({ screen: 'defeat' }),
+  showDefeatScreen: () => {
+    // Compute matchResults so the defeat screen can show the stat cards
+    const { battleState, p1Bet, p2Bet, p1Coins, p2Coins } = get()
+    if (!battleState) { set({ screen: 'defeat' }); return }
+
+    const allCreatures = [...battleState.teamA, ...battleState.teamB]
+    const mvp = allCreatures.reduce((b, c) => (c.kos*100+c.damageDealt) > (b.kos*100+b.damageDealt) ? c : b)
+    const mostDamage = allCreatures.reduce((b, c) => c.damageDealt > b.damageDealt ? c : b)
+    const mostKOs = allCreatures.reduce((b, c) => c.kos > b.kos ? c : b)
+    const longestSurvival = allCreatures.reduce((b, c) => c.turnsAlive > b.turnsAlive ? c : b)
+    const bestValue = allCreatures.reduce((b, c) => {
+      const s = (c.kos*100+c.damageDealt)/(c.creature.pointCost||1)
+      const bs = (b.kos*100+b.damageDealt)/(b.creature.pointCost||1)
+      return s > bs ? c : b
+    })
+    const winner = battleState.winner === 'A' ? 1 : 2 as 1 | 2
+    let p1BetResult = 0, p2BetResult = 0, newP1Coins = p1Coins, newP2Coins = p2Coins
+    if (p1Bet) { const w = (p1Bet.side==='p1'&&winner===1)||(p1Bet.side==='p2'&&winner===2); p1BetResult = w?p1Bet.amount:-p1Bet.amount; newP1Coins = Math.max(0,p1Coins+p1BetResult) }
+    if (p2Bet) { const w = (p2Bet.side==='p1'&&winner===1)||(p2Bet.side==='p2'&&winner===2); p2BetResult = w?p2Bet.amount:-p2Bet.amount; newP2Coins = Math.max(0,p2Coins+p2BetResult) }
+    set({ matchResults: { winner, mvp, mostDamage, mostKOs, longestSurvival, bestValue, p1BetResult, p2BetResult }, p1Coins: newP1Coins, p2Coins: newP2Coins, screen: 'defeat' })
+  },
 
   proceedToResults: () => {
     const { battleState, p1Bet, p2Bet, p1Coins, p2Coins } = get()
