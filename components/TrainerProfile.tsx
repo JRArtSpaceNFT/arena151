@@ -425,7 +425,7 @@ export default function TrainerProfile() {
             <Particles color="#a855f7" />
 
             <div className="flex items-center justify-between mb-2 shrink-0 relative z-10">
-              <span className="font-black text-white uppercase tracking-wider text-xs">🏅 Kanto Journey</span>
+              <span className="font-black text-white uppercase tracking-wider text-xs">Kanto Journey</span>
               <span className="text-xs font-black px-2 py-0.5 rounded-full" style={{ background: 'rgba(168,85,247,0.15)', color: '#c084fc', border: '1px solid rgba(168,85,247,0.3)' }}>
                 {earnedBadges}/8
               </span>
