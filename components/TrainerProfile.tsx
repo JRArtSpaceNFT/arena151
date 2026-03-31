@@ -363,7 +363,6 @@ export default function TrainerProfile() {
                 Trainer ID
               </div>
               <h1 className="text-xl font-black text-white mb-0.5 tracking-wide">{currentTrainer.displayName}</h1>
-              <p className="text-sm font-black mb-0.5" style={{ color: titleColor }}>{trainerTitle}</p>
               <p className="text-xs mb-3" style={{ color: 'rgba(255,255,255,0.35)' }}>@{currentTrainer.username}</p>
 
               <PokeBallDivider color={typeColor} />
