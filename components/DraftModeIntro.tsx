@@ -152,7 +152,7 @@ export default function DraftModeIntro() {
         onClick={() => setScreen(currentTrainer ? 'profile' : 'signup')}
         aria-label="View Profile"
         className="absolute cursor-pointer focus:outline-none"
-        style={{ left: '1.3%', top: '0.5%', width: '9%', height: '5%' }}
+        style={{ left: '4.5%', top: '0.5%', width: '9%', height: '5%' }}
       />
 
       {/* LEADERBOARD — left side */}
