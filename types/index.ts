@@ -96,7 +96,8 @@ export type AppScreen =
   | 'game'
   | 'battle'
   | 'result'
-  | 'leaderboard';
+  | 'leaderboard'
+  | 'battle-guide';
 
 export interface ChatMessage {
   id: string;

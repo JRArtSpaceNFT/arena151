@@ -14,6 +14,7 @@ import ResultScreen from '@/components/ResultScreen';
 import ProfessorOak from '@/components/ProfessorOak';
 import GameWrapper from '@/components/battle/GameWrapper';
 import Leaderboard from '@/components/Leaderboard';
+import BattleGuide from '@/components/BattleGuide';
 
 const CROWD_SCREENS = new Set(['draft-mode-intro', 'profile', 'leaderboard']);
 
@@ -69,6 +70,7 @@ export default function ArenaApp() {
       {currentScreen === 'game' && <GameWrapper />}
       {currentScreen === 'result' && <ResultScreen />}
       {currentScreen === 'leaderboard' && <Leaderboard />}
+      {currentScreen === 'battle-guide' && <BattleGuide />}
       
       {/* Professor Oak AI Assistant - Always available except during game */}
       {currentScreen !== 'game' && <ProfessorOak />}

@@ -143,9 +143,9 @@ export default function DraftModeIntro() {
         style={{ left: '3%', top: '55%', width: '11.6%', height: '8%' }}
       />
 
-      {/* BATTLE GUIDE — right side (placeholder, navigates to home for now) */}
+      {/* BATTLE GUIDE — right side */}
       <button
-        onClick={() => setScreen('home')}
+        onClick={() => setScreen('battle-guide')}
         aria-label="Battle Guide"
         className="absolute cursor-pointer focus:outline-none"
         style={{ left: '77%', top: '31.9%', width: '11.6%', height: '9.3%' }}
