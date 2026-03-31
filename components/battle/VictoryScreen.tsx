@@ -74,6 +74,7 @@ export default function VictoryScreen() {
     'giovanni':    { height: '50vh', left: '41%' },
     'lorelei':     { height: '52vh', left: '40%' },
     'bruno':       { height: '50vh', left: '41%' },
+    'lance':       { height: '52vh' },
     'jessie-james':{ height: '72vh', bottom: '20%', left: '38%' },
   }
   const ov = OVERRIDES[winnerTrainer.id] ?? {}
@@ -212,9 +213,8 @@ export default function VictoryScreen() {
               position: 'absolute',
               // Vertically: ~head/mouth level (trainer top is ~4%, head ~10-20% from top)
               top: '14%',
-              // Horizontally: right of trainer center (trainer at 50%, so right side ~58%+)
-              left: '54%',
-              maxWidth: '32%',
+              left: '58%',
+              maxWidth: '30%',
               zIndex: 10,
             }}
           >
@@ -282,8 +282,10 @@ export default function VictoryScreen() {
             style={{
               position: 'absolute',
               bottom: '3%',
-              left: '50%',
-              transform: 'translateX(-50%)',
+              left: 0,
+              right: 0,
+              margin: '0 auto',
+              width: 'fit-content',
               zIndex: 20,
               padding: '14px 48px',
               background: wColor,

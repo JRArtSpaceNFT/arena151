@@ -139,7 +139,7 @@ function VictoryView({ trainer, loserName }: { trainer: typeof TRAINERS[0], lose
           <motion.div key={trainer.id + '-quote'}
             initial={{ opacity: 0, x: 20, scale: 0.9 }} animate={{ opacity: 1, x: 0, scale: 1 }} exit={{ opacity: 0 }}
             transition={{ type: 'spring', stiffness: 280, damping: 26 }}
-            style={{ position: 'absolute', top: '27%', left: '60%', maxWidth: '26%', zIndex: 10 }}
+            style={{ position: 'absolute', top: '14%', left: '58%', maxWidth: '30%', zIndex: 10 }}
           >
             <div style={{ position: 'relative' }}>
               <div style={{ position: 'absolute', top: 22, left: -20, width: 0, height: 0, borderTop: '12px solid transparent', borderBottom: '12px solid transparent', borderRight: '20px solid #181818' }} />
@@ -163,7 +163,7 @@ function VictoryView({ trainer, loserName }: { trainer: typeof TRAINERS[0], lose
             initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
             whileHover={{ scale: 1.06, boxShadow: `0 0 32px ${wColor}aa` }} whileTap={{ scale: 0.96 }}
             onClick={() => {}}
-            style={{ position: 'absolute', bottom: '3%', left: 0, right: 0, marginLeft: '6%', marginRight: 'auto', width: 'fit-content', zIndex: 20, padding: '14px 48px', background: wColor, border: '3px solid white', borderRadius: 4, color: '#fff', fontSize: 18, fontWeight: 900, fontFamily: '"Impact","Arial Black",sans-serif', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', boxShadow: `0 5px 0 rgba(0,0,0,0.5), 0 0 22px ${wColor}77`, whiteSpace: 'nowrap' }}
+            style={{ position: 'absolute', bottom: '3%', left: 0, right: 0, margin: '0 auto', width: 'fit-content', zIndex: 20, padding: '14px 48px', background: wColor, border: '3px solid white', borderRadius: 4, color: '#fff', fontSize: 18, fontWeight: 900, fontFamily: '"Impact","Arial Black",sans-serif', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', boxShadow: `0 5px 0 rgba(0,0,0,0.5), 0 0 22px ${wColor}77`, whiteSpace: 'nowrap' }}
           >
             VIEW RESULTS →
           </motion.button>
