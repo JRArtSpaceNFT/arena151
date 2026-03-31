@@ -74,13 +74,13 @@ export default function DraftModeIntro() {
   return (
     <div className="h-screen flex flex-col relative overflow-hidden bg-black">
 
-      {/* Background image — fills screen, centered/cropped */}
+      {/* Background image — left-anchored so Profile/Leaderboard signs stay visible */}
       <div
         className="absolute inset-0"
         style={{
-          backgroundImage: 'url(/road-to-victory-bg.png)',
+          backgroundImage: 'url(/SICKKKKKKK.png)',
           backgroundSize: 'cover',
-          backgroundPosition: 'center top',
+          backgroundPosition: 'left top',
           backgroundRepeat: 'no-repeat',
         }}
       />
@@ -109,32 +109,44 @@ export default function DraftModeIntro() {
         </motion.div>
       ))}
 
-      {/* Invisible hit zones — positioned directly on the full-screen div.
-          Image is 1584×656, cover+top anchored, so image% == viewport% vertically.
-          Buttons in image: y≈430–476 out of 656 = 65.5%–72.6% top. */}
+      {/* ── Hit zones — image 2605×1080, backgroundPosition: left top, cover ──
+          scale = screenH/1080, no left crop
+          ENTER:        x600-920, y468-523 → left≈34.7% top≈43.3%
+          PROFILE:      x22-177,  y5-40   → left≈1.3%  top≈0.5%
+          LEADERBOARD:  x10-210,  y338-403 → left≈0.6%  top≈31.3%
+          GUIDE:        x1330-1530,y345-445→ left≈77%   top≈31.9%
+      */}
 
-      {/* ENTER THE ARENA — green */}
+      {/* ENTER THE ARENA — center */}
       <button
         onClick={() => currentTrainer ? setScreen('room-select') : setScreen('signup')}
         aria-label="Enter the Arena"
         className="absolute cursor-pointer focus:outline-none"
-        style={{ left: '28%', top: '78.7%', width: '15%', height: '6.5%' }}
+        style={{ left: '34.7%', top: '43.3%', width: '18.5%', height: '8%' }}
       />
 
-      {/* VIEW PROFILE — blue */}
+      {/* PROFILE — top left */}
       <button
         onClick={() => setScreen(currentTrainer ? 'profile' : 'signup')}
         aria-label="View Profile"
         className="absolute cursor-pointer focus:outline-none"
-        style={{ left: '44%', top: '78.7%', width: '14%', height: '6.5%' }}
+        style={{ left: '1.3%', top: '0.5%', width: '9%', height: '5%' }}
       />
 
-      {/* LEADERBOARD — orange */}
+      {/* LEADERBOARD — left side */}
       <button
         onClick={() => setScreen('leaderboard')}
         aria-label="Leaderboard"
         className="absolute cursor-pointer focus:outline-none"
-        style={{ left: '57%', top: '78.7%', width: '14%', height: '6.5%' }}
+        style={{ left: '0.6%', top: '31.3%', width: '11.6%', height: '8%' }}
+      />
+
+      {/* BATTLE GUIDE — right side (placeholder, navigates to home for now) */}
+      <button
+        onClick={() => setScreen('home')}
+        aria-label="Battle Guide"
+        className="absolute cursor-pointer focus:outline-none"
+        style={{ left: '77%', top: '31.9%', width: '11.6%', height: '9.3%' }}
       />
 
       {/* Live Activity Feed — floats at very bottom */}
