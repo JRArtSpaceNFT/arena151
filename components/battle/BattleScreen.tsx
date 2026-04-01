@@ -279,7 +279,8 @@ export default function BattleScreen() {
     // ── ATTACK SEQUENCE: dialogue first, then animation after 1s ──
 
     // GB dialogue fires IMMEDIATELY (trainer calls the move before it happens)
-    if ((entry.type === 'damage' || entry.type === 'critical' || entry.type === 'ultimate') && entry.moveName && entry.creatureName && entry.side) {
+    // Skip dialogue for ultimates — the special flash handles the drama
+    if ((entry.type === 'damage' || entry.type === 'critical') && entry.moveName && entry.creatureName && entry.side) {
       queueDialogue(`${entry.creatureName.toUpperCase()}, USE ${entry.moveName.toUpperCase()}!`, entry.side as 'A' | 'B')
     }
     // Status moves + misses show move call
@@ -382,7 +383,7 @@ export default function BattleScreen() {
       if (attackingTrainer?.id) {
         setTimeout(() => {
           setSpecialFlash({ trainerId: attackingTrainer.id, moveName: entry.moveName ?? 'SPECIAL MOVE' })
-          setTimeout(() => setSpecialFlash(null), 1800)
+          setTimeout(() => setSpecialFlash(null), 2800)
         }, ATTACK_DELAY)
       }
     }

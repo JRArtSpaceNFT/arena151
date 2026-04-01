@@ -19,7 +19,7 @@ export default function SpecialPreview() {
   const trigger = (idx: number) => {
     setActiveIdx(idx);
     setFlashKey(k => k + 1);
-    setTimeout(() => setActiveIdx(null), 1800);
+    setTimeout(() => setActiveIdx(null), 2800);
   };
 
   const trainer = activeIdx !== null ? TRAINERS[activeIdx] : null;
