@@ -282,33 +282,33 @@ export default function RoomSelect() {
                     {/* Entry */}
                     <div className="flex items-center justify-between rounded-lg px-3 py-2 flex-1"
                       style={{
-                        background: 'rgba(255,255,255,0.06)',
-                        border: '1px solid rgba(255,255,255,0.10)',
+                        background: `linear-gradient(160deg, ${identity.accent}22 0%, ${identity.accent}10 100%)`,
+                        border: `1px solid ${identity.accent}44`,
                       }}>
-                      <p className="font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.38)', fontSize: 9 }}>ENTRY</p>
+                      <p className="font-black uppercase tracking-widest" style={{ color: `${identity.accent}99`, fontSize: 9 }}>ENTRY</p>
                       <div className="text-right">
                         <p className="font-black text-white leading-none" style={{ fontSize: 15 }}>{entryFee} <span style={{ fontSize: 10, opacity: 0.6 }}>◎</span></p>
-                        <p className="font-bold mt-0.5" style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10 }}>${room.tier}</p>
+                        <p className="font-bold mt-0.5" style={{ color: `${identity.accent}88`, fontSize: 10 }}>${room.tier}</p>
                       </div>
                     </div>
                     {/* Pot */}
                     <div className="flex items-center justify-between rounded-lg px-3 py-2 flex-1"
                       style={{
-                        background: 'rgba(255,255,255,0.06)',
-                        border: '1px solid rgba(255,255,255,0.10)',
+                        background: `linear-gradient(160deg, ${identity.accent}22 0%, ${identity.accent}10 100%)`,
+                        border: `1px solid ${identity.accent}44`,
                       }}>
-                      <p className="font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.38)', fontSize: 9 }}>POT</p>
+                      <p className="font-black uppercase tracking-widest" style={{ color: `${identity.accent}99`, fontSize: 9 }}>POT</p>
                       <div className="text-right">
                         <p className="font-black text-white leading-none" style={{ fontSize: 15 }}>{getPrizePool(room.tier)} <span style={{ fontSize: 10, opacity: 0.6 }}>◎</span></p>
-                        <p className="font-bold mt-0.5" style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10 }}>${(room.tier * 2 * 0.95).toFixed(0)}</p>
+                        <p className="font-bold mt-0.5" style={{ color: `${identity.accent}88`, fontSize: 10 }}>${(room.tier * 2 * 0.95).toFixed(0)}</p>
                       </div>
                     </div>
-                    {/* You Win — accented */}
+                    {/* You Win — extra glow */}
                     <div className="flex items-center justify-between rounded-lg px-3 py-2 flex-1 relative overflow-hidden"
                       style={{
                         background: `linear-gradient(160deg, ${identity.accent}22 0%, ${identity.accent}10 100%)`,
-                        border: `1px solid ${identity.accent}55`,
-                        boxShadow: `0 0 10px ${identity.accent}22 inset`,
+                        border: `1px solid ${identity.accent}44`,
+                        boxShadow: `0 0 18px ${identity.accent}55, 0 0 6px ${identity.accent}33 inset`,
                       }}>
                       <p className="font-black uppercase tracking-widest" style={{ color: `${identity.accent}bb`, fontSize: 9 }}>YOU WIN</p>
                       <div className="text-right">
