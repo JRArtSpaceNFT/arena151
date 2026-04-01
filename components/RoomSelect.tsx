@@ -104,7 +104,7 @@ export default function RoomSelect() {
                   textShadow: 'none',
                   filter: 'drop-shadow(0 0 18px rgba(251,191,36,0.5))',
                 }}>
-                CHOOSE YOUR BATTLEFIELD
+                CHOOSE YOUR STAKES
               </motion.h1>
               <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.85)', letterSpacing: '0.18em', textTransform: 'uppercase', fontSize: 10 }}>Conquer all 8 Kanto Gyms to earn every badge</p>
             </div>
@@ -289,7 +289,7 @@ export default function RoomSelect() {
                       }}>
                       <p className="font-black uppercase tracking-widest" style={{ color: `${identity.accent}99`, fontSize: 9 }}>ENTRY</p>
                       <div className="text-right">
-                        <p className="font-black text-white leading-none" style={{ fontSize: 15 }}>{entryFee} <span style={{ fontSize: 10, opacity: 0.6 }}>◎</span></p>
+                        <p className="font-black text-white leading-none" style={{ fontSize: 15 }}>{entryFee} <span style={{ fontSize: 10, opacity: 0.6 }}>SOL</span></p>
                         <p className="font-bold mt-0.5" style={{ color: `${identity.accent}88`, fontSize: 10 }}>${room.tier}</p>
                       </div>
                     </motion.div>
@@ -309,7 +309,7 @@ export default function RoomSelect() {
                           color: identity.accent,
                           textShadow: `0 0 10px ${identity.accent}88`,
                         }}>
-                          {getPrizePool(room.tier)} <span style={{ fontSize: 10, opacity: 0.7 }}>◎</span>
+                          {getPrizePool(room.tier)} <span style={{ fontSize: 10, opacity: 0.7 }}>SOL</span>
                         </p>
                         <p className="font-bold mt-0.5" style={{ color: `${identity.accent}99`, fontSize: 10 }}>${(room.tier * 2 * 0.95).toFixed(0)}</p>
                       </div>

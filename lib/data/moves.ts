@@ -143,7 +143,7 @@ export const MOVES: Move[] = [
   { id: 'mega_horn', name: 'Megahorn', type: 'bug', power: 120, accuracy: 85, pp: 10, effectType: 'damage', animationKey: 'bug' },
   { id: 'super_fang', name: 'Super Fang', type: 'normal', power: 80, accuracy: 90, pp: 10, effectType: 'damage', animationKey: 'normal' },
   { id: 'pay_day', name: 'Pay Day', type: 'normal', power: 40, accuracy: 100, pp: 20, effectType: 'damage', animationKey: 'normal' },
-  { id: 'bone_club', name: 'Bone Club', type: 'ground', power: 65, accuracy: 85, pp: 20, effectType: 'damage', animationKey: 'ground' },
+  { id: 'bone_club', name: 'Bone Club', type: 'ground', power: 65, accuracy: 95, pp: 20, effectType: 'damage', animationKey: 'ground' },
   { id: 'twister', name: 'Twister', type: 'dragon', power: 40, accuracy: 100, pp: 20, effectType: 'damage', animationKey: 'dragon' },
   { id: 'aqua_tail', name: 'Aqua Tail', type: 'water', power: 90, accuracy: 90, pp: 10, effectType: 'damage', animationKey: 'water' },
   { id: 'egg_bomb', name: 'Egg Bomb', type: 'normal', power: 100, accuracy: 75, pp: 10, effectType: 'damage', animationKey: 'normal' },

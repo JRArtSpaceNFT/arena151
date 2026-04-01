@@ -10,21 +10,21 @@ import { ARENA_BADGES } from '@/lib/constants';
 const STEPS = [
   {
     num: '01',
+    title: 'Choose Your Stakes',
+    desc: 'Pick one of 8 Kanto Gym arenas. Entry fees range from $5 at Pewter City to $1,000 at Viridian City. Higher stakes means bigger prizes!',
+    img: '/guide/room-select.png',
+  },
+  {
+    num: '02',
     title: 'Pick Your Trainer',
     desc: 'Choose from 18 legendary trainers, each with a unique ability that fires in battle. Ash, Giovanni, Misty and more are waiting. Who are you?',
     img: '/guide/trainer-select.png',
   },
   {
-    num: '02',
+    num: '03',
     title: 'Draft Your Team',
     desc: 'Build a squad of 5 Pokémon from all 151 Gen 1 originals. Real stats, real types, real moves. Type matchups can change everything.',
     img: '/guide/draft.png',
-  },
-  {
-    num: '03',
-    title: 'Choose Your Battlefield',
-    desc: 'Pick one of 8 Kanto Gym arenas. Entry fees range from $5 at Pewter City to $1,000 at Viridian City. Higher stakes means bigger prizes!',
-    img: '/guide/room-select.png',
   },
   {
     num: '04',

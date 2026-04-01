@@ -23,6 +23,7 @@ type LeaderboardEntry = {
   balance: number;
   earnings: number;
   joinedDate: string;
+  badges: string[];
 };
 
 const GYM_BADGES = [
@@ -218,6 +219,7 @@ export default function Leaderboard() {
       wins: u.wins, losses: u.losses, joinedDate: u.joinedDate,
       favoritePokemonId: u.favoritePokemonId, favoritePokemonName: u.favoritePokemonName,
       favoritePokemonTypes: u.favoritePokemonTypes, balance: u.balance, earnings: u.earnings ?? 0,
+      badges: u.badges ?? [],
       winRate: u.wins + u.losses > 0 ? (u.wins / (u.wins + u.losses)) * 100 : 0,
     }));
     setAllUsers(mapped.map((u, i) => ({ ...u, rank: i + 1 })));
@@ -307,6 +309,57 @@ export default function Leaderboard() {
             )}
           </div>
         </motion.div>
+
+        {/* ── Hall of Fame ── */}
+        {allUsers.filter(u => u.badges?.length >= 8).length > 0 && (
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
+            className="mb-4 shrink-0 rounded-2xl overflow-hidden"
+            style={{ background: 'linear-gradient(135deg, rgba(120,80,0,0.55) 0%, rgba(60,30,0,0.7) 100%)', border: '1px solid rgba(251,191,36,0.5)', boxShadow: '0 0 40px rgba(251,191,36,0.2)' }}>
+            {/* Header */}
+            <div className="flex items-center gap-3 px-4 py-3 border-b" style={{ borderColor: 'rgba(251,191,36,0.25)' }}>
+              <motion.div animate={{ rotate: [0, 10, -10, 0] }} transition={{ duration: 3, repeat: Infinity }}>
+                <span style={{ fontSize: 24 }}>🏆</span>
+              </motion.div>
+              <div>
+                <h2 className="font-black text-sm uppercase tracking-widest" style={{ background: 'linear-gradient(90deg,#fbbf24,#fff,#fbbf24)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', filter: 'drop-shadow(0 0 8px rgba(251,191,36,0.6))' }}>
+                  Hall of Fame
+                </h2>
+                <p className="text-xs" style={{ color: 'rgba(251,191,36,0.6)' }}>Trainers who conquered all 8 Kanto Gyms</p>
+              </div>
+            </div>
+            {/* Champions */}
+            <div className="flex flex-wrap gap-3 px-4 py-3">
+              {allUsers.filter(u => u.badges?.length >= 8).map((u, i) => (
+                <motion.div key={u.username}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: i * 0.08 }}
+                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl"
+                  style={{ background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.4)', boxShadow: '0 0 16px rgba(251,191,36,0.15)' }}>
+                  {/* Avatar */}
+                  <div className="w-9 h-9 rounded-full overflow-hidden border-2 shrink-0" style={{ borderColor: '#fbbf24' }}>
+                    {u.avatar?.startsWith('/') || u.avatar?.startsWith('data:') ? (
+                      <img src={u.avatar} alt={u.displayName} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-lg" style={{ background: 'rgba(251,191,36,0.2)' }}>{u.avatar || '🧑'}</div>
+                    )}
+                  </div>
+                  <div>
+                    <p className="font-black text-sm text-white leading-none">{u.displayName}</p>
+                    <p className="text-xs mt-0.5" style={{ color: 'rgba(251,191,36,0.7)' }}>@{u.username} · {u.wins}W</p>
+                  </div>
+                  {/* All 8 badges tiny */}
+                  <div className="flex gap-0.5 ml-1">
+                    {['/BoulderBadge.png','/CascadeBadge.png','/ThunderBadge.png','/RainbowBadge.png','/SoulBadge.png','/MarshBadge.png','/VolcanoBadge.png','/EarthBadge.png'].map((b, bi) => (
+                      <img key={bi} src={b} alt="" className="w-4 h-4 object-contain" style={{ imageRendering: 'pixelated', filter: 'drop-shadow(0 0 3px rgba(251,191,36,0.8))' }} />
+                    ))}
+                  </div>
+                  <motion.span style={{ fontSize: 18 }} animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.3 }}>👑</motion.span>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        )}
 
         {/* ── Table ── */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}

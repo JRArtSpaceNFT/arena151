@@ -455,14 +455,15 @@ export default function BattleScreen() {
     if ((entry.type === 'damage' || entry.type === 'critical' || entry.type === 'ultimate' || entry.type === 'status_damage') && entry.hpAfter) {
       const hpAfter = entry.hpAfter
       const statusAfterSnap = entry.statusAfter
-      // Ultimate: flash starts at ATTACK_DELAY (1400ms), lasts 4600ms, then +500ms pause = 6500ms total
-      const hpDelay = entry.type === 'ultimate' ? ATTACK_DELAY + 4600 + 500 : ATTACK_DELAY + 400
+      // Ultimate: if flash fires (not sameAsLast), drop HP after flash ends + 500ms pause + red flash
+      // If sameAsLast blocked the flash, still drop HP at normal delay so damage always registers
+      const hpDelay = (entry.type === 'ultimate' && !sameAsLast) ? ATTACK_DELAY + 4600 + 500 : ATTACK_DELAY + 400
       setTimeout(() => {
-        // For ultimates: flash the defender red first, then drop HP 400ms later
-        if (entry.type === 'ultimate' && entry.side) {
+        // For ultimates that showed the flash: defender red flash first, then HP drops
+        if (entry.type === 'ultimate' && !sameAsLast && entry.side) {
           const defenderSide = entry.side === 'A' ? 'B' : 'A'
           setFlashingSide(defenderSide)
-          setFlashMoveType('fire') // red-ish flash
+          setFlashMoveType('fire')
           setTimeout(() => { setFlashingSide(null); setFlashMoveType(null) }, 400)
           setTimeout(() => {
             setCurrentHpA(hpAfter.A)
@@ -1313,7 +1314,7 @@ function CreatureDisplay({
     >
 
       {/* ── Name + HP bar ABOVE the sprite ── */}
-      <div style={{ marginBottom: 8, padding: '0 4px' }}>
+      <div style={{ marginBottom: 8, padding: '0 4px', position: 'relative' }}>
 
         {/* Name row */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 5 }}>
@@ -1352,9 +1353,9 @@ function CreatureDisplay({
             }}
           />
         </div>
-        {/* Status badge */}
+        {/* Status badge — absolutely positioned so it never shifts the sprite */}
         {status && status !== 'none' && (
-          <div style={{ marginTop: 4, marginBottom: 2 }}>
+          <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', bottom: -18, whiteSpace: 'nowrap', zIndex: 10 }}>
             {{
               poisoned:   <span style={{ fontSize: 10, fontWeight: 800, background: '#7c3aed', color: '#fff', padding: '1px 6px', borderRadius: 4, letterSpacing: '0.05em' }}>☠️ PSN</span>,
               burned:     <span style={{ fontSize: 10, fontWeight: 800, background: '#dc2626', color: '#fff', padding: '1px 6px', borderRadius: 4, letterSpacing: '0.05em' }}>🔥 BRN</span>,
