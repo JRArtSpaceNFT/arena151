@@ -469,7 +469,7 @@ export default function TrainerProfile() {
                     animate={{ y: [0, -3, 0] }} transition={{ duration: 2, repeat: Infinity }}
                   />
                   <span className="text-xs font-bold text-white/70">{currentTrainer.favoritePokemon.name}</span>
-                  <span className="text-white/30 group-hover:text-white/60 transition-colors" style={{ fontSize: 9 }}>✏️</span>
+
                 </motion.div>
                 <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border"
                   style={{ background: 'rgba(251,191,36,0.08)', borderColor: 'rgba(251,191,36,0.25)' }}>
