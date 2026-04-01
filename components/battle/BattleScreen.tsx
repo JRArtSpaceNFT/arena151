@@ -229,6 +229,15 @@ export default function BattleScreen() {
     }
     if (logIndex === 0 && visibleLog.length > 0) return // stale state guard
 
+    // ── Block log advancement while special flash is playing ──
+    // This prevents the opponent's attack from animating during the cinematic
+    if (specialFlash) {
+      const retryTimer = setTimeout(() => {
+        // re-trigger by doing nothing — the effect re-runs when specialFlash clears
+      }, 200)
+      return () => clearTimeout(retryTimer)
+    }
+
     const timer = setTimeout(() => {
       const entry = battleState.log[logIndex]
       setVisibleLog(prev => [...prev, entry])
@@ -269,7 +278,7 @@ export default function BattleScreen() {
     }, getDelay(battleState.log[logIndex]))
 
     return () => clearTimeout(timer)
-  }, [battleState, logIndex, isDone])
+  }, [battleState, logIndex, isDone, specialFlash])
 
   // ── Animation triggers ──────────────────────────────────────
   useEffect(() => {
@@ -383,7 +392,7 @@ export default function BattleScreen() {
       if (attackingTrainer?.id) {
         setTimeout(() => {
           setSpecialFlash({ trainerId: attackingTrainer.id, moveName: entry.moveName ?? 'SPECIAL MOVE' })
-          setTimeout(() => setSpecialFlash(null), 3200)
+          setTimeout(() => setSpecialFlash(null), 3800)
         }, ATTACK_DELAY)
       }
     }
@@ -822,7 +831,7 @@ export default function BattleScreen() {
           position: 'absolute', inset: 0, zIndex: 50,
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
           pointerEvents: 'none',
-          animation: 'specialFlashFadeOut 3.2s ease-in-out forwards',
+          animation: 'specialFlashFadeOut 3.8s ease-in-out forwards',
         }}>
           {/* Hard white flash */}
           <div style={{ position: 'absolute', inset: 0, background: 'white', animation: 'specialFlashWhite 0.25s ease-out forwards' }} />
@@ -832,7 +841,7 @@ export default function BattleScreen() {
           <div style={{
             position: 'absolute', inset: '-20%',
             background: 'repeating-conic-gradient(rgba(251,191,36,0.09) 0deg 2deg, transparent 2deg 8deg)',
-            animation: 'specialSpeedLines 0.6s 1.1s ease-out forwards',
+            animation: 'specialSpeedLines 0.6s 1.15s ease-out forwards',
             opacity: 0,
           }} />
           {/* Radial gold glow */}
@@ -855,11 +864,11 @@ export default function BattleScreen() {
           <div style={{
             position: 'relative', zIndex: 2, textAlign: 'center',
             display: 'flex', flexDirection: 'column', alignItems: 'center',
-            animation: 'specialScreenShake 0.45s 1.3s ease-out',
+            animation: 'specialScreenShake 0.45s 1.25s ease-out',
           }}>
             {/* Torn / jagged image */}
             <div style={{
-              animation: 'specialImgPop 0.32s 1.15s cubic-bezier(0.34,1.56,0.64,1) both',
+              animation: 'specialImgPop 0.32s 1.2s cubic-bezier(0.34,1.56,0.64,1) both',
               filter: 'drop-shadow(0 0 40px rgba(251,191,36,1)) drop-shadow(0 0 80px rgba(251,191,36,0.6)) drop-shadow(0 0 120px rgba(251,100,36,0.4)) drop-shadow(4px 4px 0px #000)',
               clipPath: `polygon(
                 0% 6%, 3% 0%, 7% 4%, 12% 0%, 16% 5%, 22% 0%, 27% 3%, 33% 0%, 38% 4%, 44% 0%,
@@ -890,7 +899,7 @@ export default function BattleScreen() {
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
               filter: 'drop-shadow(0 0 24px rgba(251,191,36,1)) drop-shadow(0 0 48px rgba(251,191,36,0.6)) drop-shadow(3px 3px 0px #000)',
-              animation: 'specialMoveNameIn 0.4s 1.32s cubic-bezier(0.34,1.56,0.64,1) both',
+              animation: 'specialMoveNameIn 0.4s 1.38s cubic-bezier(0.34,1.56,0.64,1) both',
               WebkitTextStroke: '1px rgba(0,0,0,0.5)',
             }}>
               {specialFlash.moveName}!
@@ -1608,7 +1617,7 @@ function getDelay(entry: BattleLogEntry): number {
     case 'move':            return 2400   // show dialogue, pause, then attack
     case 'damage':          return 2600
     case 'critical':        return 2800
-    case 'ultimate':        return 3200
+    case 'ultimate':        return 4200  // must exceed special flash duration (3.8s)
     case 'ko':              return 2400
     case 'swap':            return 1400
     case 'win':             return 1000

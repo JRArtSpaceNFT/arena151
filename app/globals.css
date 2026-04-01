@@ -50,13 +50,13 @@
 }
 @keyframes specialFlashFadeOut {
   0%   { opacity: 0; }
-  /* ~0.5s to fully opaque black */
-  12%  { opacity: 1; }
-  /* Hold pure black until 38% (~2s into 3.2s total = image pops at ~1.2s of black time) */
-  /* At 3.2s total: 38% = 1.22s elapsed = image appears after ~1.2s of darkness */
-  38%  { opacity: 1; }
-  80%  { opacity: 1; }
-  97%  { opacity: 0.06; }
+  /* Fade to black over ~0.3s */
+  8%   { opacity: 1; }
+  /* Hold black until 1.2s (at 3.8s total: 1.2/3.8 = 32%) */
+  32%  { opacity: 1; }
+  /* Image visible from 32%–88% (~1.2s–3.35s) = ~2.1s on screen */
+  88%  { opacity: 1; }
+  98%  { opacity: 0.05; }
   100% { opacity: 0; }
 }
 @keyframes specialScreenShake {
