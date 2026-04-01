@@ -383,7 +383,7 @@ export default function BattleScreen() {
       if (attackingTrainer?.id) {
         setTimeout(() => {
           setSpecialFlash({ trainerId: attackingTrainer.id, moveName: entry.moveName ?? 'SPECIAL MOVE' })
-          setTimeout(() => setSpecialFlash(null), 2800)
+          setTimeout(() => setSpecialFlash(null), 3200)
         }, ATTACK_DELAY)
       }
     }
@@ -815,30 +815,45 @@ export default function BattleScreen() {
           position: 'absolute', inset: 0, zIndex: 50,
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
           pointerEvents: 'none',
-          animation: 'specialFlashFadeOut 1.8s ease-in-out forwards',
+          animation: 'specialFlashFadeOut 3.2s ease-in-out forwards',
         }}>
           {/* Hard white flash */}
           <div style={{ position: 'absolute', inset: 0, background: 'white', animation: 'specialFlashWhite 0.25s ease-out forwards' }} />
-          {/* Dark overlay */}
-          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.88)' }} />
-          {/* Speed lines radial burst */}
+          {/* Pure black for the dramatic pause */}
+          <div style={{ position: 'absolute', inset: 0, background: '#000' }} />
+          {/* Speed lines — expand outward */}
           <div style={{
-            position: 'absolute', inset: 0,
-            background: 'repeating-conic-gradient(rgba(251,191,36,0.07) 0deg 3deg, transparent 3deg 9deg)',
-            animation: 'specialImgPop 0.3s ease-out forwards',
+            position: 'absolute', inset: '-20%',
+            background: 'repeating-conic-gradient(rgba(251,191,36,0.09) 0deg 2deg, transparent 2deg 8deg)',
+            animation: 'specialSpeedLines 0.6s 0.55s ease-out forwards',
+            opacity: 0,
           }} />
-          {/* Halftone centre glow */}
+          {/* Radial gold glow */}
           <div style={{
             position: 'absolute', inset: 0,
-            background: 'radial-gradient(ellipse at center, rgba(251,191,36,0.22) 0%, transparent 60%)',
+            background: 'radial-gradient(ellipse at center, rgba(251,191,36,0.28) 0%, rgba(251,100,36,0.08) 45%, transparent 70%)',
+            animation: 'specialImgPop 0.4s 0.55s ease-out both',
+            opacity: 0,
+          }} />
+          {/* Halftone dot pattern */}
+          <div style={{
+            position: 'absolute', inset: 0,
+            backgroundImage: 'radial-gradient(circle, rgba(251,191,36,0.12) 1px, transparent 1px)',
+            backgroundSize: '24px 24px',
+            animation: 'specialImgPop 0.5s 0.6s ease-out both',
+            opacity: 0,
           }} />
 
-          {/* Content */}
-          <div style={{ position: 'relative', zIndex: 2, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          {/* Content — delayed so it appears AFTER the black pause */}
+          <div style={{
+            position: 'relative', zIndex: 2, textAlign: 'center',
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            animation: 'specialScreenShake 0.45s 0.7s ease-out',
+          }}>
             {/* Torn / jagged image */}
             <div style={{
-              animation: 'specialImgPop 0.28s cubic-bezier(0.34,1.56,0.64,1) forwards',
-              filter: 'drop-shadow(0 0 32px rgba(251,191,36,1)) drop-shadow(0 0 64px rgba(251,191,36,0.5)) drop-shadow(4px 4px 0px #000)',
+              animation: 'specialImgPop 0.32s 0.58s cubic-bezier(0.34,1.56,0.64,1) both',
+              filter: 'drop-shadow(0 0 40px rgba(251,191,36,1)) drop-shadow(0 0 80px rgba(251,191,36,0.6)) drop-shadow(0 0 120px rgba(251,100,36,0.4)) drop-shadow(4px 4px 0px #000)',
               clipPath: `polygon(
                 0% 6%, 3% 0%, 7% 4%, 12% 0%, 16% 5%, 22% 0%, 27% 3%, 33% 0%, 38% 4%, 44% 0%,
                 50% 3%, 56% 0%, 61% 4%, 67% 0%, 72% 3%, 78% 0%, 83% 5%, 88% 0%, 93% 4%, 97% 0%, 100% 5%,
@@ -856,20 +871,20 @@ export default function BattleScreen() {
               />
             </div>
 
-            {/* Move name — big, dramatic, no "Use" */}
+            {/* Move name — slides up from below */}
             <div style={{
-              marginTop: 14,
+              marginTop: 16,
               fontFamily: '"Impact","Arial Black",sans-serif',
-              fontSize: 38, fontWeight: 900,
+              fontSize: 42, fontWeight: 900,
               letterSpacing: '0.12em',
               textTransform: 'uppercase',
-              background: 'linear-gradient(90deg, #fbbf24 0%, #fff 40%, #f97316 70%, #fbbf24 100%)',
+              background: 'linear-gradient(90deg, #fbbf24 0%, #fff 35%, #f97316 65%, #fbbf24 100%)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
-              filter: 'drop-shadow(0 0 20px rgba(251,191,36,1)) drop-shadow(2px 2px 0px #000)',
-              animation: 'specialImgPop 0.3s 0.12s cubic-bezier(0.34,1.56,0.64,1) both',
-              WebkitTextStroke: '1px rgba(0,0,0,0.4)',
+              filter: 'drop-shadow(0 0 24px rgba(251,191,36,1)) drop-shadow(0 0 48px rgba(251,191,36,0.6)) drop-shadow(3px 3px 0px #000)',
+              animation: 'specialMoveNameIn 0.4s 0.72s cubic-bezier(0.34,1.56,0.64,1) both',
+              WebkitTextStroke: '1px rgba(0,0,0,0.5)',
             }}>
               {specialFlash.moveName}!
             </div>

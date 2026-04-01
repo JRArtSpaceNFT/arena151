@@ -19,7 +19,7 @@ export default function SpecialPreview() {
   const trigger = (idx: number) => {
     setActiveIdx(idx);
     setFlashKey(k => k + 1);
-    setTimeout(() => setActiveIdx(null), 2800);
+    setTimeout(() => setActiveIdx(null), 3200);
   };
 
   const trainer = activeIdx !== null ? TRAINERS[activeIdx] : null;
@@ -81,7 +81,7 @@ export default function SpecialPreview() {
               position: 'fixed', inset: 0, zIndex: 50,
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
               pointerEvents: 'none',
-              animation: 'specialFlashFadeOut 1.8s ease-in-out forwards',
+              animation: 'specialFlashFadeOut 3.2s ease-in-out forwards',
             }}
           >
             {/* White hit flash */}
