@@ -97,12 +97,12 @@ export default function RoomSelect() {
                   letterSpacing: '0.08em',
                   lineHeight: 1,
                   textTransform: 'uppercase',
-                  background: 'linear-gradient(135deg, #fbbf24 0%, #f97316 40%, #fbbf24 70%, #fff7ed 100%)',
+                  background: 'linear-gradient(135deg, #4ade80 0%, #16a34a 40%, #86efac 70%, #fff 100%)',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
                   backgroundClip: 'text',
                   textShadow: 'none',
-                  filter: 'drop-shadow(0 0 18px rgba(251,191,36,0.5))',
+                  filter: 'drop-shadow(0 0 18px rgba(74,222,128,0.6))',
                 }}>
                 CHOOSE YOUR STAKES
               </motion.h1>
