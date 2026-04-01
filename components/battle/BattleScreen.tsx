@@ -770,13 +770,14 @@ export default function BattleScreen() {
         style={{
           position: 'absolute', inset: 0, zIndex: 20,
           background: 'black',
-          opacity: ultimateActive ? 0.75 : 0,
+          opacity: ultimateActive && !specialFlash ? 0.75 : 0,
           transition: 'opacity 0.3s ease',
           pointerEvents: 'none',
         }}
       />
       {/* Ultimate text: CSS keyframe pop-in, fades out when ultimateActive clears */}
-      {ultimateActive && (
+      {/* Suppressed when a special flash image is showing for this trainer */}
+      {ultimateActive && !specialFlash && (
         <div
           style={{
             position: 'absolute', zIndex: 30,
