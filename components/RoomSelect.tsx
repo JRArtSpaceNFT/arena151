@@ -293,20 +293,6 @@ export default function RoomSelect() {
                         <p className="font-bold mt-0.5" style={{ color: `${identity.accent}88`, fontSize: 10 }}>${room.tier}</p>
                       </div>
                     </motion.div>
-                    {/* Pot */}
-                    <motion.div className="flex items-center justify-between rounded-lg px-3 py-2 flex-1"
-                      whileHover={{ scale: 1.03, boxShadow: `0 0 16px ${identity.accent}55` }}
-                      transition={{ duration: 0.15 }}
-                      style={{
-                        background: `linear-gradient(160deg, ${identity.accent}22 0%, ${identity.accent}10 100%)`,
-                        border: `1px solid ${identity.accent}44`,
-                      }}>
-                      <p className="font-black uppercase tracking-widest" style={{ color: `${identity.accent}99`, fontSize: 9 }}>POT</p>
-                      <div className="text-right">
-                        <p className="font-black text-white leading-none" style={{ fontSize: 15 }}>{getPrizePool(room.tier)} <span style={{ fontSize: 10, opacity: 0.6 }}>◎</span></p>
-                        <p className="font-bold mt-0.5" style={{ color: `${identity.accent}88`, fontSize: 10 }}>${(room.tier * 2 * 0.95).toFixed(0)}</p>
-                      </div>
-                    </motion.div>
                     {/* You Win — extra glow */}
                     <motion.div className="flex items-center justify-between rounded-lg px-3 py-2 flex-1 relative overflow-hidden"
                       whileHover={{ scale: 1.03, boxShadow: `0 0 24px ${identity.accent}77, 0 0 8px ${identity.accent}44 inset` }}
