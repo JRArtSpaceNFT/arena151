@@ -131,8 +131,8 @@ export default function MatchFound() {
       />
 
       {/* Ambient light effects */}
-      <div className="absolute top-0 left-0 w-[600px] h-[600px] bg-blue-500/30 rounded-full blur-3xl animate-pulse" />
-      <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-red-500/30 rounded-full blur-3xl animate-pulse" />
+      <div className="absolute w-[480px] h-[480px] bg-blue-500/35 rounded-full blur-3xl animate-pulse" style={{ top: '50%', left: '16%', transform: 'translate(-50%, -50%)' }} />
+      <div className="absolute w-[480px] h-[480px] bg-red-500/35 rounded-full blur-3xl animate-pulse" style={{ top: '50%', left: '84%', transform: 'translate(-50%, -50%)' }} />
 
       <div className="relative z-10 max-w-6xl w-full px-8">
         {/* Match Found Alert */}
