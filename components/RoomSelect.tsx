@@ -165,20 +165,20 @@ export default function RoomSelect() {
               >
                 {/* ── Arena background image ── */}
                 {/* To replace: drop new PNG into /public/arenas/gyms/<arena-id>.png */}
-                {/* Images are B&W Game Boy style — no saturation filter applied */}
                 <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none">
                   <div style={{
                     position: 'absolute', inset: 0,
                     backgroundImage: `url(${identity.bgImage})`,
                     backgroundSize: 'cover',
                     backgroundPosition: 'center',
-                    opacity: isHigh ? 0.45 : 0.38,
+                    opacity: isHigh ? 0.38 : 0.30,
                     imageRendering: 'pixelated',
+                    filter: 'blur(1.5px)',
                   }} />
-                  {/* Dark overlay — keeps text readable over B&W art */}
-                  <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(160deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.78) 100%)` }} />
-                  {/* Accent color tint — gives each card its identity even on B&W */}
-                  <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(160deg, ${identity.accentDark}66 0%, transparent 55%)` }} />
+                  {/* Even dark overlay for clean readability */}
+                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.82) 100%)' }} />
+                  {/* Subtle accent bottom glow */}
+                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '40%', background: `linear-gradient(to top, ${identity.accentDark}55, transparent)` }} />
                 </div>
 
                 {/* Corner accents */}
@@ -216,98 +216,139 @@ export default function RoomSelect() {
                 <div className="absolute top-0 left-0 right-0 h-0.5 pointer-events-none"
                   style={{ background: `linear-gradient(90deg, transparent, ${identity.accent}, transparent)` }} />
 
-                <div className="relative z-10 flex flex-col h-full p-3">
+                <div className="relative z-10 flex flex-col h-full px-3.5 pt-3 pb-3">
 
-                  {/* ── Badge + arena header row ── */}
-                  <div className="flex items-start gap-2 mb-1.5">
-                    {/* Gym badge icon */}
-                    {badge && (
-                      <div className="relative shrink-0 flex items-center justify-center w-10 h-10">
-                        {hasBadge && (
-                          <motion.div className="absolute inset-0 rounded-full blur-md"
-                            style={{ background: badge.color }}
-                            animate={{ opacity: [0.4, 0.8, 0.4] }}
-                            transition={{ duration: 2, repeat: Infinity }}
-                          />
-                        )}
-                        <img
-                          src={badge.file}
-                          alt={badge.name}
-                          className="w-9 h-9 object-contain relative z-10"
-                          style={{
-                            imageRendering: 'pixelated',
-                            filter: hasBadge
-                              ? `drop-shadow(0 0 6px ${badge.color}) drop-shadow(0 0 12px ${badge.color}88)`
-                              : `drop-shadow(0 0 3px ${badge.color}66)`,
-                          }}
-                        />
-
-                      </div>
-                    )}
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-1 mb-0.5">
-                        <h2 className="font-black text-sm leading-none truncate" style={{ color: identity.accent }}>
-                          {room.name}
-                        </h2>
-                        <span className="text-xs font-black px-1.5 py-0.5 rounded-md shrink-0"
-                          style={{ background: `${identity.accent}18`, color: identity.accent, border: `1px solid ${identity.accent}33`, fontSize: 9 }}>
-                          {band.label}
-                        </span>
-                      </div>
+                  {/* ── TOP ROW: badge icon + city name + stake pill ── */}
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {/* Gym badge */}
                       {badge && (
-                        <p className="text-xs leading-none font-semibold" style={{ color: `${badge.color}cc`, fontSize: 10 }}>
-                          {badge.leader} · {badge.name}
-                        </p>
+                        <div className="relative shrink-0 flex items-center justify-center w-9 h-9">
+                          {hasBadge && (
+                            <motion.div className="absolute inset-0 rounded-full blur-md"
+                              style={{ background: badge.color }}
+                              animate={{ opacity: [0.4, 0.8, 0.4] }}
+                              transition={{ duration: 2, repeat: Infinity }}
+                            />
+                          )}
+                          <img
+                            src={badge.file}
+                            alt={badge.name}
+                            className="w-8 h-8 object-contain relative z-10"
+                            style={{
+                              imageRendering: 'pixelated',
+                              filter: hasBadge
+                                ? `drop-shadow(0 0 6px ${badge.color}) drop-shadow(0 0 12px ${badge.color}88)`
+                                : `drop-shadow(0 0 3px ${badge.color}66)`,
+                            }}
+                          />
+                        </div>
                       )}
-
+                      <div className="min-w-0">
+                        <h2 className="font-black leading-none truncate" style={{
+                          fontFamily: '"Impact", "Arial Black", sans-serif',
+                          fontSize: 17,
+                          letterSpacing: '0.04em',
+                          color: '#fff',
+                          textShadow: `0 0 12px ${identity.accent}66`,
+                        }}>
+                          {room.name.toUpperCase()}
+                        </h2>
+                        {badge && (
+                          <p className="leading-none mt-0.5 font-semibold truncate" style={{ color: `${identity.accent}cc`, fontSize: 10 }}>
+                            {badge.leader} · {badge.name}
+                          </p>
+                        )}
+                      </div>
                     </div>
+                    {/* Stake pill */}
+                    <span className="shrink-0 px-2 py-0.5 rounded-full font-black"
+                      style={{
+                        fontSize: 8,
+                        letterSpacing: '0.08em',
+                        background: `${identity.accent}20`,
+                        color: band.labelColor,
+                        border: `1px solid ${band.labelColor}44`,
+                      }}>
+                      {band.label}
+                    </span>
                   </div>
 
                   {/* Divider */}
-                  <div className="h-px mb-2" style={{ background: `linear-gradient(90deg,transparent,${identity.accent}33,transparent)` }} />
+                  <div className="h-px mb-2.5" style={{ background: `linear-gradient(90deg, transparent, ${identity.accent}44, transparent)` }} />
 
-                  {/* ── Stakes (SOL + USD) ── */}
-                  <div className="grid grid-cols-3 gap-1.5 mb-2">
-                    <div className="text-center rounded-lg py-1.5"
-                      style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                      <p className="font-bold uppercase tracking-wide mb-0.5" style={{ color: 'rgba(255,255,255,0.3)', fontSize: 9 }}>Entry</p>
-                      <p className="font-black text-xs text-white">{entryFee} ◎</p>
-                      <p className="font-bold" style={{ color: 'rgba(255,255,255,0.35)', fontSize: 9 }}>${room.tier}</p>
+                  {/* ── STAT PANELS: Entry · Pot · You Win ── */}
+                  <div className="grid grid-cols-3 gap-1.5 mb-3">
+                    {/* Entry */}
+                    <div className="rounded-lg px-2 py-2 flex flex-col items-center"
+                      style={{
+                        background: 'rgba(255,255,255,0.06)',
+                        border: '1px solid rgba(255,255,255,0.10)',
+                      }}>
+                      <p className="font-black uppercase tracking-widest mb-1" style={{ color: 'rgba(255,255,255,0.38)', fontSize: 8 }}>ENTRY</p>
+                      <p className="font-black text-white leading-none" style={{ fontSize: 13 }}>{entryFee}<span style={{ fontSize: 9, opacity: 0.6 }}> ◎</span></p>
+                      <p className="font-bold mt-0.5" style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9 }}>${room.tier}</p>
                     </div>
-                    <div className="text-center rounded-lg py-1.5"
-                      style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                      <p className="font-bold uppercase tracking-wide mb-0.5" style={{ color: 'rgba(255,255,255,0.3)', fontSize: 9 }}>Pot</p>
-                      <p className="font-black text-xs text-white">{getPrizePool(room.tier)} ◎</p>
-                      <p className="font-bold" style={{ color: 'rgba(255,255,255,0.35)', fontSize: 9 }}>${(room.tier * 2 * 0.95).toFixed(0)}</p>
+                    {/* Pot */}
+                    <div className="rounded-lg px-2 py-2 flex flex-col items-center"
+                      style={{
+                        background: 'rgba(255,255,255,0.06)',
+                        border: '1px solid rgba(255,255,255,0.10)',
+                      }}>
+                      <p className="font-black uppercase tracking-widest mb-1" style={{ color: 'rgba(255,255,255,0.38)', fontSize: 8 }}>POT</p>
+                      <p className="font-black text-white leading-none" style={{ fontSize: 13 }}>{getPrizePool(room.tier)}<span style={{ fontSize: 9, opacity: 0.6 }}> ◎</span></p>
+                      <p className="font-bold mt-0.5" style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9 }}>${(room.tier * 2 * 0.95).toFixed(0)}</p>
                     </div>
-                    <div className="text-center rounded-lg py-1.5"
-                      style={{ background: `${identity.accent}14`, border: `1px solid ${identity.accent}33` }}>
-                      <p className="font-black uppercase tracking-wide mb-0.5" style={{ color: `${identity.accent}99`, fontSize: 9 }}>You Win</p>
-                      <p className="font-black text-xs" style={{ color: identity.accent, textShadow: `0 0 8px ${identity.accent}66` }}>
-                        {getPrizePool(room.tier)} ◎
+                    {/* You Win — accented */}
+                    <div className="rounded-lg px-2 py-2 flex flex-col items-center relative overflow-hidden"
+                      style={{
+                        background: `linear-gradient(160deg, ${identity.accent}22 0%, ${identity.accent}10 100%)`,
+                        border: `1px solid ${identity.accent}55`,
+                        boxShadow: `0 0 10px ${identity.accent}22 inset`,
+                      }}>
+                      <p className="font-black uppercase tracking-widest mb-1" style={{ color: `${identity.accent}bb`, fontSize: 8 }}>YOU WIN</p>
+                      <p className="font-black leading-none" style={{
+                        fontSize: 13,
+                        color: identity.accent,
+                        textShadow: `0 0 10px ${identity.accent}88`,
+                      }}>
+                        {getPrizePool(room.tier)}<span style={{ fontSize: 9, opacity: 0.7 }}> ◎</span>
                       </p>
-                      <p className="font-bold" style={{ color: `${identity.accent}88`, fontSize: 9 }}>${(room.tier * 2 * 0.95).toFixed(0)}</p>
+                      <p className="font-bold mt-0.5" style={{ color: `${identity.accent}99`, fontSize: 9 }}>${(room.tier * 2 * 0.95).toFixed(0)}</p>
                     </div>
                   </div>
 
-                  {/* CTA button */}
+                  {/* CTA button — pinned to bottom */}
                   <div className="mt-auto">
                     {canAfford ? (
                       <motion.div
-                        className="flex items-center justify-center gap-1.5 py-2 rounded-lg font-black text-xs relative overflow-hidden"
+                        className="relative flex items-center justify-center py-2.5 rounded-xl font-black overflow-hidden"
                         style={{
-                          background: `linear-gradient(135deg, ${identity.accent}33, ${identity.accent}22)`,
-                          border: `1px solid ${identity.accent}55`,
-                          color: identity.accent,
-                          letterSpacing: '0.04em',
+                          background: `linear-gradient(135deg, ${identity.accent}44 0%, ${identity.accent}28 100%)`,
+                          border: `1px solid ${identity.accent}66`,
+                          color: '#fff',
+                          fontSize: 11,
+                          letterSpacing: '0.06em',
+                          boxShadow: `0 2px 16px ${identity.accent}22`,
+                          textShadow: `0 0 10px ${identity.accent}88`,
                         }}
-                        whileHover={{ background: `linear-gradient(135deg, ${identity.accent}55, ${identity.accent}33)` } as any}
+                        whileHover={{
+                          background: `linear-gradient(135deg, ${identity.accent}66 0%, ${identity.accent}44 100%)`,
+                          boxShadow: `0 4px 24px ${identity.accent}44`,
+                        } as any}
+                        whileTap={{ scale: 0.97 }}
                       >
-                        {identity.btnLabel}
+                        {/* Shimmer sweep on hover */}
+                        <motion.div
+                          className="absolute inset-0"
+                          style={{ background: `linear-gradient(105deg, transparent 30%, ${identity.accent}22 50%, transparent 70%)` }}
+                          animate={{ x: ['-100%', '200%'] }}
+                          transition={{ duration: 2.5, repeat: Infinity, repeatDelay: 2 }}
+                        />
+                        <span className="relative z-10">{identity.btnLabel}</span>
                       </motion.div>
                     ) : (
-                      <div className="flex items-center justify-center py-2 rounded-lg text-xs font-bold"
+                      <div className="flex items-center justify-center py-2.5 rounded-xl text-xs font-bold"
                         style={{ background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.06)' }}>
                         Insufficient Funds
                       </div>
