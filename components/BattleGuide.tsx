@@ -132,13 +132,9 @@ export default function BattleGuide() {
                 background: 'rgba(255,255,255,0.04)',
                 border: hoveredStep?.num === step.num ? '1px solid rgba(251,191,36,0.5)' : '1px solid rgba(255,255,255,0.08)',
               }}
-              onMouseEnter={() => {
-                hoverTimer.current = setTimeout(() => setHoveredStep(step), 2000);
-              }}
-              onMouseLeave={() => {
-                if (hoverTimer.current) { clearTimeout(hoverTimer.current); hoverTimer.current = null; }
-                setHoveredStep(null);
-              }}
+              onClick={() => { if (hoverTimer.current) { clearTimeout(hoverTimer.current); hoverTimer.current = null; } setHoveredStep(step); }}
+              onMouseEnter={() => { hoverTimer.current = setTimeout(() => setHoveredStep(step), 1500); }}
+              onMouseLeave={() => { if (hoverTimer.current) { clearTimeout(hoverTimer.current); hoverTimer.current = null; } setHoveredStep(null); }}
             >
               {/* Screenshot — takes most of the card */}
               <div className="relative flex-1 min-h-0" style={{ background: 'rgba(0,0,0,0.4)' }}>
@@ -201,11 +197,11 @@ export default function BattleGuide() {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.88 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
-            className="fixed inset-0 flex items-center justify-center pointer-events-none"
+            className="fixed inset-0 flex items-center justify-center"
             style={{ zIndex: 100 }}
           >
-            {/* Backdrop blur */}
-            <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)' }} />
+            {/* Backdrop blur — click to dismiss */}
+            <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)' }} onClick={() => setHoveredStep(null)} />
 
             {/* Card */}
             <motion.div
