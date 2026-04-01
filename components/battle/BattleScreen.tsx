@@ -453,10 +453,23 @@ export default function BattleScreen() {
     if ((entry.type === 'damage' || entry.type === 'critical' || entry.type === 'ultimate' || entry.type === 'status_damage') && entry.hpAfter) {
       const hpAfter = entry.hpAfter
       const statusAfterSnap = entry.statusAfter
-      const hpDelay = entry.type === 'ultimate' ? 5100 : ATTACK_DELAY + 400  // ultimate: 0.5s after flash fully gone
+      // Ultimate: flash starts at ATTACK_DELAY (1400ms), lasts 4600ms, then +500ms pause = 6500ms total
+      const hpDelay = entry.type === 'ultimate' ? ATTACK_DELAY + 4600 + 500 : ATTACK_DELAY + 400
       setTimeout(() => {
-        setCurrentHpA(hpAfter.A)
-        setCurrentHpB(hpAfter.B)
+        // For ultimates: flash the defender red first, then drop HP 400ms later
+        if (entry.type === 'ultimate' && entry.side) {
+          const defenderSide = entry.side === 'A' ? 'B' : 'A'
+          setFlashingSide(defenderSide)
+          setFlashMoveType('fire') // red-ish flash
+          setTimeout(() => { setFlashingSide(null); setFlashMoveType(null) }, 400)
+          setTimeout(() => {
+            setCurrentHpA(hpAfter.A)
+            setCurrentHpB(hpAfter.B)
+          }, 400)
+        } else {
+          setCurrentHpA(hpAfter.A)
+          setCurrentHpB(hpAfter.B)
+        }
         if (statusAfterSnap) {
           setStatusA(statusAfterSnap.A)
           setStatusB(statusAfterSnap.B)
