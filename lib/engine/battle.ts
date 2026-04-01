@@ -1022,7 +1022,7 @@ function applyStatusDamage(bcs: BattleCreatureState, side: 'A' | 'B', log: Battl
     const dmg = Math.max(1, Math.floor(bcs.ac.maxHp * 0.03))
     bcs.ac.currentHp = Math.max(0, bcs.ac.currentHp - dmg)
     log.push({
-      id: nextId(), type: 'damage', side,
+      id: nextId(), type: 'status_damage', side,
       text: `☠️ ${bcs.ac.creature.name} is hurt by poison! (-${dmg} HP)`,
       damage: dmg, creatureName: bcs.ac.creature.name,
     })
@@ -1032,7 +1032,7 @@ function applyStatusDamage(bcs: BattleCreatureState, side: 'A' | 'B', log: Battl
     const dmg = Math.max(1, Math.floor(bcs.ac.maxHp * 0.03))
     bcs.ac.currentHp = Math.max(0, bcs.ac.currentHp - dmg)
     log.push({
-      id: nextId(), type: 'damage', side,
+      id: nextId(), type: 'status_damage', side,
       text: `🔥 ${bcs.ac.creature.name} is scorched by its burn! (-${dmg} HP)`,
       damage: dmg, creatureName: bcs.ac.creature.name,
     })
@@ -1426,7 +1426,7 @@ export function resolveBattle(
             const dmg = Math.max(1, Math.floor(bcs.ac.maxHp * 0.03))
             bcs.ac.currentHp = Math.max(0, bcs.ac.currentHp - dmg)
             const icon = w === 'sand' ? '🌪️' : '❄️'
-            log.push({ id: nextId(), type: 'damage', side, text: `${icon} ${bcs.ac.creature.name} is buffeted by the ${w}! (-${dmg} HP)`, damage: dmg, creatureName: bcs.ac.creature.name })
+            log.push({ id: nextId(), type: 'status_damage', side, text: `${icon} ${bcs.ac.creature.name} is buffeted by the ${w}! (-${dmg} HP)`, damage: dmg, creatureName: bcs.ac.creature.name })
           }
         }
       }

@@ -140,6 +140,7 @@ export type BattleEventType =
   | 'ultimate' | 'shiny' | 'arena_event' | 'crowd_roar' | 'clutch'
   | 'trainer_passive' | 'win'
   | 'arena_telegraph' | 'trainer_react' | 'announcer'
+  | 'status_damage'
 
 export interface BattleLogEntry {
   id: number

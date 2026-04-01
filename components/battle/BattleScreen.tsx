@@ -432,7 +432,7 @@ export default function BattleScreen() {
     }
 
     // HP drop — shortly after attack animation fires
-    if ((entry.type === 'damage' || entry.type === 'critical' || entry.type === 'ultimate') && entry.hpAfter) {
+    if ((entry.type === 'damage' || entry.type === 'critical' || entry.type === 'ultimate' || entry.type === 'status_damage') && entry.hpAfter) {
       const hpAfter = entry.hpAfter
       const statusAfterSnap = entry.statusAfter
       setTimeout(() => {
@@ -1451,6 +1451,7 @@ const LOG_TYPE_COLORS: Record<string, string> = {
   intro: '#7c3aed',
   move: '#94a3b8',
   damage: '#f97316',
+  status_damage: '#ef4444',
   ko: '#ef4444',
   swap: '#22c55e',
   critical: '#fbbf24',
@@ -1617,6 +1618,7 @@ function getDelay(entry: BattleLogEntry): number {
     case 'trainer_passive': return 900
     case 'clutch':          return 1200
     case 'arena_telegraph': return 2000
+    case 'status_damage':   return 1400  // quick — no attack animation
     case 'trainer_react':   return 0     // removed from display — instant skip
     case 'announcer':       return 0     // removed from display — instant skip
     default:                return 1000
