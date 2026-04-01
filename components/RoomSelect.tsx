@@ -279,13 +279,13 @@ export default function RoomSelect() {
 
                   {/* ── STAT PANELS: stacked vertically ── */}
                   <div className="flex flex-col gap-1.5 mb-3 flex-1">
-                    {/* Entry */}
+                    {/* Entry — slightly muted */}
                     <motion.div className="flex items-center justify-between rounded-lg px-3 py-2 flex-1"
                       whileHover={{ scale: 1.03, boxShadow: `0 0 16px ${identity.accent}55` }}
                       transition={{ duration: 0.15 }}
                       style={{
-                        background: `linear-gradient(160deg, ${identity.accent}22 0%, ${identity.accent}10 100%)`,
-                        border: `1px solid ${identity.accent}44`,
+                        background: `linear-gradient(160deg, ${identity.accent}18 0%, ${identity.accent}0a 100%)`,
+                        border: `1px solid ${identity.accent}33`,
                       }}>
                       <p className="font-black uppercase tracking-widest" style={{ color: `${identity.accent}99`, fontSize: 9 }}>ENTRY</p>
                       <div className="text-right">
@@ -293,13 +293,13 @@ export default function RoomSelect() {
                         <p className="font-bold mt-0.5" style={{ color: `${identity.accent}88`, fontSize: 10 }}>${room.tier}</p>
                       </div>
                     </motion.div>
-                    {/* You Win — extra glow */}
+                    {/* You Win — more saturated + outer glow */}
                     <motion.div className="flex items-center justify-between rounded-lg px-3 py-2 flex-1 relative overflow-hidden"
-                      whileHover={{ scale: 1.03, boxShadow: `0 0 24px ${identity.accent}77, 0 0 8px ${identity.accent}44 inset` }}
+                      whileHover={{ scale: 1.03, boxShadow: `0 0 24px ${identity.accent}88, 0 0 8px ${identity.accent}55 inset` }}
                       transition={{ duration: 0.15 }}
                       style={{
-                        background: `linear-gradient(160deg, ${identity.accent}22 0%, ${identity.accent}10 100%)`,
-                        border: `1px solid ${identity.accent}44`,
+                        background: `linear-gradient(160deg, ${identity.accent}38 0%, ${identity.accent}20 100%)`,
+                        border: `1px solid ${identity.accent}66`,
                         boxShadow: `0 0 18px ${identity.accent}55, 0 0 6px ${identity.accent}33 inset`,
                       }}>
                       <p className="font-black uppercase tracking-widest" style={{ color: `${identity.accent}bb`, fontSize: 9 }}>YOU WIN</p>
