@@ -50,8 +50,10 @@ const BADGES = Object.entries(ARENA_BADGES);
 
 export default function BattleGuide() {
   const { setScreen } = useArenaStore();
-  const [hoveredStep, setHoveredStep] = useState<typeof STEPS[number] | null>(null);
+  const [activeStep, setActiveStep] = useState<typeof STEPS[number] | null>(null);
+  const [pinnedStep, setPinnedStep] = useState<typeof STEPS[number] | null>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const visibleStep = pinnedStep ?? activeStep;
 
   return (
     <div
@@ -130,11 +132,11 @@ export default function BattleGuide() {
               className="rounded-xl flex flex-col overflow-hidden min-h-0 cursor-pointer"
               style={{
                 background: 'rgba(255,255,255,0.04)',
-                border: hoveredStep?.num === step.num ? '1px solid rgba(251,191,36,0.5)' : '1px solid rgba(255,255,255,0.08)',
+                border: visibleStep?.num === step.num ? '1px solid rgba(251,191,36,0.5)' : '1px solid rgba(255,255,255,0.08)',
               }}
-              onClick={() => { if (hoverTimer.current) { clearTimeout(hoverTimer.current); hoverTimer.current = null; } setHoveredStep(step); }}
-              onMouseEnter={() => { hoverTimer.current = setTimeout(() => setHoveredStep(step), 1500); }}
-              onMouseLeave={() => { if (hoverTimer.current) { clearTimeout(hoverTimer.current); hoverTimer.current = null; } setHoveredStep(null); }}
+              onClick={() => { if (hoverTimer.current) { clearTimeout(hoverTimer.current); hoverTimer.current = null; } setPinnedStep(step); setActiveStep(null); }}
+              onMouseEnter={() => { if (!pinnedStep) hoverTimer.current = setTimeout(() => setActiveStep(step), 1500); }}
+              onMouseLeave={() => { if (hoverTimer.current) { clearTimeout(hoverTimer.current); hoverTimer.current = null; } if (!pinnedStep) setActiveStep(null); }}
             >
               {/* Screenshot — takes most of the card */}
               <div className="relative flex-1 min-h-0" style={{ background: 'rgba(0,0,0,0.4)' }}>
@@ -190,9 +192,9 @@ export default function BattleGuide() {
 
       {/* ── Zoom overlay ── */}
       <AnimatePresence>
-        {hoveredStep && (
+        {visibleStep && (
           <motion.div
-            key={hoveredStep.num}
+            key={visibleStep.num}
             initial={{ opacity: 0, scale: 0.88 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.88 }}
@@ -201,7 +203,7 @@ export default function BattleGuide() {
             style={{ zIndex: 100 }}
           >
             {/* Backdrop blur — click to dismiss */}
-            <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)' }} onClick={() => setHoveredStep(null)} />
+            <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)' }} onClick={() => { setPinnedStep(null); setActiveStep(null); }} />
 
             {/* Card */}
             <motion.div
@@ -224,14 +226,14 @@ export default function BattleGuide() {
                   letterSpacing: '0.05em',
                   border: '1px solid rgba(251,191,36,0.3)',
                 }}>
-                {hoveredStep.num}
+                {visibleStep.num}
               </div>
 
               {/* Screenshot */}
               <div className="relative w-full" style={{ height: 320, background: 'rgba(0,0,0,0.5)' }}>
                 <img
-                  src={hoveredStep.img}
-                  alt={hoveredStep.title}
+                  src={visibleStep.img}
+                  alt={visibleStep.title}
                   className="w-full h-full object-cover"
                   style={{ opacity: 0.95 }}
                   onError={e => { (e.target as HTMLImageElement).style.opacity = '0'; }}
@@ -252,10 +254,10 @@ export default function BattleGuide() {
                   WebkitTextFillColor: 'transparent',
                   backgroundClip: 'text',
                 }}>
-                  {hoveredStep.title}
+                  {visibleStep.title}
                 </h2>
                 <p style={{ color: 'rgba(255,255,255,0.72)', fontSize: 13, lineHeight: 1.6 }}>
-                  {hoveredStep.desc}
+                  {visibleStep.desc}
                 </p>
               </div>
             </motion.div>
