@@ -171,12 +171,12 @@ export default function RoomSelect() {
                     backgroundImage: `url(${identity.bgImage})`,
                     backgroundSize: 'cover',
                     backgroundPosition: 'center',
-                    opacity: isHigh ? 0.38 : 0.30,
+                    opacity: isHigh ? 0.65 : 0.55,
                     imageRendering: 'pixelated',
                     filter: 'blur(1.5px)',
                   }} />
                   {/* Even dark overlay for clean readability */}
-                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.82) 100%)' }} />
+                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.68) 100%)' }} />
                   {/* Subtle accent bottom glow */}
                   <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '40%', background: `linear-gradient(to top, ${identity.accentDark}55, transparent)` }} />
                 </div>
@@ -256,7 +256,7 @@ export default function RoomSelect() {
                         </h2>
                         {badge && (
                           <p className="leading-none mt-0.5 font-semibold truncate" style={{ color: `${identity.accent}cc`, fontSize: 10 }}>
-                            {badge.leader} · {badge.name}
+                            {badge.name}
                           </p>
                         )}
                       </div>
@@ -277,44 +277,50 @@ export default function RoomSelect() {
                   {/* Divider */}
                   <div className="h-px mb-2.5" style={{ background: `linear-gradient(90deg, transparent, ${identity.accent}44, transparent)` }} />
 
-                  {/* ── STAT PANELS: Entry · Pot · You Win ── */}
-                  <div className="grid grid-cols-3 gap-1.5 mb-3">
+                  {/* ── STAT PANELS: stacked vertically ── */}
+                  <div className="flex flex-col gap-1.5 mb-3 flex-1">
                     {/* Entry */}
-                    <div className="rounded-lg px-2 py-2 flex flex-col items-center"
+                    <div className="flex items-center justify-between rounded-lg px-3 py-2 flex-1"
                       style={{
                         background: 'rgba(255,255,255,0.06)',
                         border: '1px solid rgba(255,255,255,0.10)',
                       }}>
-                      <p className="font-black uppercase tracking-widest mb-1" style={{ color: 'rgba(255,255,255,0.38)', fontSize: 8 }}>ENTRY</p>
-                      <p className="font-black text-white leading-none" style={{ fontSize: 13 }}>{entryFee}<span style={{ fontSize: 9, opacity: 0.6 }}> ◎</span></p>
-                      <p className="font-bold mt-0.5" style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9 }}>${room.tier}</p>
+                      <p className="font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.38)', fontSize: 9 }}>ENTRY</p>
+                      <div className="text-right">
+                        <p className="font-black text-white leading-none" style={{ fontSize: 15 }}>{entryFee} <span style={{ fontSize: 10, opacity: 0.6 }}>◎</span></p>
+                        <p className="font-bold mt-0.5" style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10 }}>${room.tier}</p>
+                      </div>
                     </div>
                     {/* Pot */}
-                    <div className="rounded-lg px-2 py-2 flex flex-col items-center"
+                    <div className="flex items-center justify-between rounded-lg px-3 py-2 flex-1"
                       style={{
                         background: 'rgba(255,255,255,0.06)',
                         border: '1px solid rgba(255,255,255,0.10)',
                       }}>
-                      <p className="font-black uppercase tracking-widest mb-1" style={{ color: 'rgba(255,255,255,0.38)', fontSize: 8 }}>POT</p>
-                      <p className="font-black text-white leading-none" style={{ fontSize: 13 }}>{getPrizePool(room.tier)}<span style={{ fontSize: 9, opacity: 0.6 }}> ◎</span></p>
-                      <p className="font-bold mt-0.5" style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9 }}>${(room.tier * 2 * 0.95).toFixed(0)}</p>
+                      <p className="font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.38)', fontSize: 9 }}>POT</p>
+                      <div className="text-right">
+                        <p className="font-black text-white leading-none" style={{ fontSize: 15 }}>{getPrizePool(room.tier)} <span style={{ fontSize: 10, opacity: 0.6 }}>◎</span></p>
+                        <p className="font-bold mt-0.5" style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10 }}>${(room.tier * 2 * 0.95).toFixed(0)}</p>
+                      </div>
                     </div>
                     {/* You Win — accented */}
-                    <div className="rounded-lg px-2 py-2 flex flex-col items-center relative overflow-hidden"
+                    <div className="flex items-center justify-between rounded-lg px-3 py-2 flex-1 relative overflow-hidden"
                       style={{
                         background: `linear-gradient(160deg, ${identity.accent}22 0%, ${identity.accent}10 100%)`,
                         border: `1px solid ${identity.accent}55`,
                         boxShadow: `0 0 10px ${identity.accent}22 inset`,
                       }}>
-                      <p className="font-black uppercase tracking-widest mb-1" style={{ color: `${identity.accent}bb`, fontSize: 8 }}>YOU WIN</p>
-                      <p className="font-black leading-none" style={{
-                        fontSize: 13,
-                        color: identity.accent,
-                        textShadow: `0 0 10px ${identity.accent}88`,
-                      }}>
-                        {getPrizePool(room.tier)}<span style={{ fontSize: 9, opacity: 0.7 }}> ◎</span>
-                      </p>
-                      <p className="font-bold mt-0.5" style={{ color: `${identity.accent}99`, fontSize: 9 }}>${(room.tier * 2 * 0.95).toFixed(0)}</p>
+                      <p className="font-black uppercase tracking-widest" style={{ color: `${identity.accent}bb`, fontSize: 9 }}>YOU WIN</p>
+                      <div className="text-right">
+                        <p className="font-black leading-none" style={{
+                          fontSize: 15,
+                          color: identity.accent,
+                          textShadow: `0 0 10px ${identity.accent}88`,
+                        }}>
+                          {getPrizePool(room.tier)} <span style={{ fontSize: 10, opacity: 0.7 }}>◎</span>
+                        </p>
+                        <p className="font-bold mt-0.5" style={{ color: `${identity.accent}99`, fontSize: 10 }}>${(room.tier * 2 * 0.95).toFixed(0)}</p>
+                      </div>
                     </div>
                   </div>
 
