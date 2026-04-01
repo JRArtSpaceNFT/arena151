@@ -50,11 +50,13 @@
 }
 @keyframes specialFlashFadeOut {
   0%   { opacity: 0; }
-  /* Slower fade to black — 1 full second of pure darkness before anything shows */
-  18%  { opacity: 1; background: black; }
-  22%  { opacity: 1; }
-  78%  { opacity: 1; }
-  96%  { opacity: 0.08; }
+  /* ~0.5s to fully opaque black */
+  12%  { opacity: 1; }
+  /* Hold pure black until 38% (~2s into 3.2s total = image pops at ~1.2s of black time) */
+  /* At 3.2s total: 38% = 1.22s elapsed = image appears after ~1.2s of darkness */
+  38%  { opacity: 1; }
+  80%  { opacity: 1; }
+  97%  { opacity: 0.06; }
   100% { opacity: 0; }
 }
 @keyframes specialScreenShake {

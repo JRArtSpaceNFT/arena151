@@ -542,8 +542,12 @@ export default function BattleScreen() {
 
     // Arena event flash
     if (entry.type === 'arena_event') {
-      setArenaEventActive(entry.text)
-      setTimeout(() => setArenaEventActive(null), 4000)
+      // Don't interrupt a special flash — delay arena event until flash is done
+      const delay = specialFlash ? 3400 : 0
+      setTimeout(() => {
+        setArenaEventActive(entry.text)
+        setTimeout(() => setArenaEventActive(null), 4000)
+      }, delay)
     }
 
     // Announcer lines — removed from display (instant-skipped in log)
@@ -553,8 +557,11 @@ export default function BattleScreen() {
 
     // Arena telegraph — reuse arenaEventActive state with different style
     if (entry.type === 'arena_telegraph') {
-      setArenaEventActive(entry.text)
-      setTimeout(() => setArenaEventActive(null), 2800)
+      const delay = specialFlash ? 3400 : 0
+      setTimeout(() => {
+        setArenaEventActive(entry.text)
+        setTimeout(() => setArenaEventActive(null), 2800)
+      }, delay)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibleLog.length])
@@ -825,14 +832,14 @@ export default function BattleScreen() {
           <div style={{
             position: 'absolute', inset: '-20%',
             background: 'repeating-conic-gradient(rgba(251,191,36,0.09) 0deg 2deg, transparent 2deg 8deg)',
-            animation: 'specialSpeedLines 0.6s 0.55s ease-out forwards',
+            animation: 'specialSpeedLines 0.6s 1.1s ease-out forwards',
             opacity: 0,
           }} />
           {/* Radial gold glow */}
           <div style={{
             position: 'absolute', inset: 0,
             background: 'radial-gradient(ellipse at center, rgba(251,191,36,0.28) 0%, rgba(251,100,36,0.08) 45%, transparent 70%)',
-            animation: 'specialImgPop 0.4s 0.55s ease-out both',
+            animation: 'specialImgPop 0.4s 1.1s ease-out both',
             opacity: 0,
           }} />
           {/* Halftone dot pattern */}
@@ -840,7 +847,7 @@ export default function BattleScreen() {
             position: 'absolute', inset: 0,
             backgroundImage: 'radial-gradient(circle, rgba(251,191,36,0.12) 1px, transparent 1px)',
             backgroundSize: '24px 24px',
-            animation: 'specialImgPop 0.5s 0.6s ease-out both',
+            animation: 'specialImgPop 0.5s 1.15s ease-out both',
             opacity: 0,
           }} />
 
@@ -848,11 +855,11 @@ export default function BattleScreen() {
           <div style={{
             position: 'relative', zIndex: 2, textAlign: 'center',
             display: 'flex', flexDirection: 'column', alignItems: 'center',
-            animation: 'specialScreenShake 0.45s 0.7s ease-out',
+            animation: 'specialScreenShake 0.45s 1.3s ease-out',
           }}>
             {/* Torn / jagged image */}
             <div style={{
-              animation: 'specialImgPop 0.32s 0.58s cubic-bezier(0.34,1.56,0.64,1) both',
+              animation: 'specialImgPop 0.32s 1.15s cubic-bezier(0.34,1.56,0.64,1) both',
               filter: 'drop-shadow(0 0 40px rgba(251,191,36,1)) drop-shadow(0 0 80px rgba(251,191,36,0.6)) drop-shadow(0 0 120px rgba(251,100,36,0.4)) drop-shadow(4px 4px 0px #000)',
               clipPath: `polygon(
                 0% 6%, 3% 0%, 7% 4%, 12% 0%, 16% 5%, 22% 0%, 27% 3%, 33% 0%, 38% 4%, 44% 0%,
@@ -883,7 +890,7 @@ export default function BattleScreen() {
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
               filter: 'drop-shadow(0 0 24px rgba(251,191,36,1)) drop-shadow(0 0 48px rgba(251,191,36,0.6)) drop-shadow(3px 3px 0px #000)',
-              animation: 'specialMoveNameIn 0.4s 0.72s cubic-bezier(0.34,1.56,0.64,1) both',
+              animation: 'specialMoveNameIn 0.4s 1.32s cubic-bezier(0.34,1.56,0.64,1) both',
               WebkitTextStroke: '1px rgba(0,0,0,0.5)',
             }}>
               {specialFlash.moveName}!
