@@ -1,6 +1,7 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useState } from 'react';
 import { useArenaStore } from '@/lib/store';
 import { ARENA_BADGES } from '@/lib/constants';
 
@@ -49,6 +50,7 @@ const BADGES = Object.entries(ARENA_BADGES);
 
 export default function BattleGuide() {
   const { setScreen } = useArenaStore();
+  const [hoveredStep, setHoveredStep] = useState<typeof STEPS[number] | null>(null);
 
   return (
     <div
@@ -124,11 +126,13 @@ export default function BattleGuide() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.03 + i * 0.05 }}
-              className="rounded-xl flex flex-col overflow-hidden min-h-0"
+              className="rounded-xl flex flex-col overflow-hidden min-h-0 cursor-pointer"
               style={{
                 background: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(255,255,255,0.08)',
+                border: hoveredStep?.num === step.num ? '1px solid rgba(251,191,36,0.5)' : '1px solid rgba(255,255,255,0.08)',
               }}
+              onMouseEnter={() => setHoveredStep(step)}
+              onMouseLeave={() => setHoveredStep(null)}
             >
               {/* Screenshot — takes most of the card */}
               <div className="relative flex-1 min-h-0" style={{ background: 'rgba(0,0,0,0.4)' }}>
@@ -181,6 +185,81 @@ export default function BattleGuide() {
         </div>
 
       </div>
+
+      {/* ── Zoom overlay ── */}
+      <AnimatePresence>
+        {hoveredStep && (
+          <motion.div
+            key={hoveredStep.num}
+            initial={{ opacity: 0, scale: 0.88 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.88 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            className="fixed inset-0 flex items-center justify-center pointer-events-none"
+            style={{ zIndex: 100 }}
+          >
+            {/* Backdrop blur */}
+            <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)' }} />
+
+            {/* Card */}
+            <motion.div
+              className="relative rounded-2xl overflow-hidden flex flex-col"
+              style={{
+                width: 640,
+                maxWidth: '80vw',
+                background: 'rgba(12,10,28,0.97)',
+                border: '1px solid rgba(251,191,36,0.35)',
+                boxShadow: '0 0 60px rgba(251,191,36,0.2), 0 24px 64px rgba(0,0,0,0.7)',
+              }}
+            >
+              {/* Step number pill */}
+              <div className="absolute top-3 left-3 z-10 px-2.5 py-1 rounded-lg font-black"
+                style={{
+                  fontFamily: '"Impact", "Arial Black", sans-serif',
+                  fontSize: 15,
+                  background: 'rgba(0,0,0,0.85)',
+                  color: '#fbbf24',
+                  letterSpacing: '0.05em',
+                  border: '1px solid rgba(251,191,36,0.3)',
+                }}>
+                {hoveredStep.num}
+              </div>
+
+              {/* Screenshot */}
+              <div className="relative w-full" style={{ height: 320, background: 'rgba(0,0,0,0.5)' }}>
+                <img
+                  src={hoveredStep.img}
+                  alt={hoveredStep.title}
+                  className="w-full h-full object-cover"
+                  style={{ opacity: 0.95 }}
+                  onError={e => { (e.target as HTMLImageElement).style.opacity = '0'; }}
+                />
+                {/* Gradient fade into text section */}
+                <div className="absolute bottom-0 left-0 right-0 h-16"
+                  style={{ background: 'linear-gradient(to bottom, transparent, rgba(12,10,28,0.97))' }} />
+              </div>
+
+              {/* Text */}
+              <div className="px-6 py-4">
+                <h2 className="font-black text-white mb-1.5" style={{
+                  fontFamily: '"Impact", "Arial Black", sans-serif',
+                  fontSize: 22,
+                  letterSpacing: '0.06em',
+                  background: 'linear-gradient(135deg, #fbbf24 0%, #f97316 60%, #fbbf24 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                }}>
+                  {hoveredStep.title}
+                </h2>
+                <p style={{ color: 'rgba(255,255,255,0.72)', fontSize: 13, lineHeight: 1.6 }}>
+                  {hoveredStep.desc}
+                </p>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
