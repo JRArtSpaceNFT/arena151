@@ -80,6 +80,7 @@ export default function BattleScreen() {
 
   // ── Animation state ─────────────────────────────────────────
   const [attackingSide, setAttackingSide] = useState<'A' | 'B' | null>(null)
+  const lastAttackSideRef = useRef<'A' | 'B' | null>(null) // display-layer double-attack guard
   const [flashingSide, setFlashingSide] = useState<'A' | 'B' | null>(null)
   const [flashMoveType, setFlashMoveType] = useState<string | null>(null)
   const [shakeActive, setShakeActive] = useState(false)
@@ -325,20 +326,30 @@ export default function BattleScreen() {
     // For ultimates: all attack visuals fire AFTER the special flash ends (~3.9s)
     const ULTIMATE_ATTACK_DELAY = 3900
 
-    // Attack lunge — delayed past flash for ultimates
+    // Attack lunge — blocked if same side attacked last (display-layer guard)
     if ((entry.type === 'damage' || entry.type === 'critical') && entry.side) {
       const side = entry.side
-      setTimeout(() => {
-        setAttackingSide(side)
-        setTimeout(() => setAttackingSide(null), 350)
-      }, ATTACK_DELAY)
+      if (lastAttackSideRef.current !== side) {
+        lastAttackSideRef.current = side
+        setTimeout(() => {
+          setAttackingSide(side)
+          setTimeout(() => setAttackingSide(null), 350)
+        }, ATTACK_DELAY)
+      }
     }
     if (entry.type === 'ultimate' && entry.side) {
       const side = entry.side
-      setTimeout(() => {
-        setAttackingSide(side)
-        setTimeout(() => setAttackingSide(null), 350)
-      }, ULTIMATE_ATTACK_DELAY)
+      if (lastAttackSideRef.current !== side) {
+        lastAttackSideRef.current = side
+        setTimeout(() => {
+          setAttackingSide(side)
+          setTimeout(() => setAttackingSide(null), 350)
+        }, ULTIMATE_ATTACK_DELAY)
+      }
+    }
+    // Reset on swap/ko so the next Pokémon can always attack
+    if (entry.type === 'swap' || entry.type === 'ko') {
+      lastAttackSideRef.current = null
     }
 
     // Hit flash + type glow on damage (after delay)
@@ -398,13 +409,13 @@ export default function BattleScreen() {
       }
     }
 
-    // Move animation particles — after flash for ultimates, normal delay otherwise
-    if ((entry.type === 'damage' || entry.type === 'critical' || entry.type === 'ultimate') && entry.moveName && entry.side) {
+    // Move animation particles — ultimates skip particles (the special flash IS the visual)
+    if ((entry.type === 'damage' || entry.type === 'critical') && entry.moveName && entry.side) {
       const move = MOVES.find(m => m.name === entry.moveName)
       if (move) {
         const isExplosion = move.animationKey === 'explosion'
-        const isUltimateAnim = entry.type === 'ultimate'
-        const particleDelay = isUltimateAnim ? ULTIMATE_ATTACK_DELAY : ATTACK_DELAY
+        const isUltimateAnim = false
+        const particleDelay = ATTACK_DELAY
         setTimeout(() => {
           const animId = String(Date.now()) + String(Math.floor(Math.random() * 10000))
           currentAnimId.current = animId
