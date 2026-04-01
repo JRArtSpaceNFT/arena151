@@ -453,7 +453,7 @@ export default function BattleScreen() {
     if ((entry.type === 'damage' || entry.type === 'critical' || entry.type === 'ultimate' || entry.type === 'status_damage') && entry.hpAfter) {
       const hpAfter = entry.hpAfter
       const statusAfterSnap = entry.statusAfter
-      const hpDelay = entry.type === 'ultimate' ? ULTIMATE_ATTACK_DELAY + 600 : ATTACK_DELAY + 400
+      const hpDelay = entry.type === 'ultimate' ? 5100 : ATTACK_DELAY + 400  // ultimate: 0.5s after flash fully gone
       setTimeout(() => {
         setCurrentHpA(hpAfter.A)
         setCurrentHpB(hpAfter.B)
