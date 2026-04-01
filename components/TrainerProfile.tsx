@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { useArenaStore } from '@/lib/store';
 import { TYPE_COLORS } from '@/lib/constants';
-import { getPokemonSpriteUrl } from '@/lib/pokemon-data';
+import { getPokemonSpriteUrl, POKEMON_DATABASE } from '@/lib/pokemon-data';
 import { clearSession, updateUser } from '@/lib/auth';
 import { getAvatarOptions } from '@/lib/trainer-avatars';
 
@@ -137,6 +137,8 @@ function BadgeTile({ badge, earned }: { badge: typeof GYM_BADGES[0]; earned: boo
 export default function TrainerProfile() {
   const { currentTrainer, setScreen, setTrainer, clearTrainer, testingMode } = useArenaStore();
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+  const [showPokemonPicker, setShowPokemonPicker] = useState(false);
+  const [pokemonSearch, setPokemonSearch] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [badgeAnnouncement, setBadgeAnnouncement] = useState<number | null>(null);
   const prevWinsRef = useRef<number | null>(null);
@@ -172,6 +174,24 @@ export default function TrainerProfile() {
     reader.onload = (ev) => handleAvatarChange(ev.target?.result as string);
     reader.readAsDataURL(file);
   };
+  const handlePokemonChange = (pokemon: typeof POKEMON_DATABASE[0]) => {
+    if (!currentTrainer) return;
+    const updated = {
+      ...currentTrainer,
+      favoritePokemon: {
+        id: pokemon.id,
+        name: pokemon.name,
+        sprite: getPokemonSpriteUrl(pokemon.id),
+        types: pokemon.types as any,
+        stats: { hp: 100, attack: 100, defense: 100, spAttack: 100, spDefense: 100, speed: 100 },
+      },
+    };
+    setTrainer(updated);
+    updateUser(currentTrainer.id, { favoritePokemonId: pokemon.id, favoritePokemonName: pokemon.name, favoritePokemonTypes: pokemon.types });
+    setShowPokemonPicker(false);
+    setPokemonSearch('');
+  };
+
   const openWalletView = (view: WalletView) => {
     setWalletView(walletView === view ? null : view);
     if (view === 'withdraw') { setWithdrawAddr(''); setWithdrawAmount(''); setWithdrawStep('form'); setWithdrawError(''); }
@@ -280,6 +300,89 @@ export default function TrainerProfile() {
         )}
       </AnimatePresence>
 
+      {/* ── Pokémon Picker Modal ── */}
+      <AnimatePresence>
+        {showPokemonPicker && (
+          <>
+            <div className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm" onClick={() => { setShowPokemonPicker(false); setPokemonSearch(''); }} />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: 16 }}
+              transition={{ duration: 0.18, ease: 'easeOut' }}
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 rounded-2xl shadow-2xl border flex flex-col"
+              style={{
+                width: 480,
+                maxWidth: '92vw',
+                maxHeight: '72vh',
+                background: 'linear-gradient(160deg, #1a1040 0%, #0d0a2e 100%)',
+                borderColor: `${typeColor}44`,
+              }}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between px-4 py-3 shrink-0 border-b" style={{ borderColor: `${typeColor}22` }}>
+                <p className="font-black text-white text-sm uppercase tracking-wider">Choose Your Partner Pokémon</p>
+                <button onClick={() => { setShowPokemonPicker(false); setPokemonSearch(''); }}
+                  className="text-white/40 hover:text-white/80 transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              {/* Search */}
+              <div className="px-4 py-2.5 shrink-0 border-b" style={{ borderColor: `${typeColor}22` }}>
+                <input
+                  type="text"
+                  value={pokemonSearch}
+                  onChange={e => setPokemonSearch(e.target.value)}
+                  placeholder="Search Pokémon..."
+                  autoFocus
+                  className="w-full rounded-xl px-3 py-2 text-sm outline-none placeholder:text-white/25"
+                  style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${typeColor}33`, color: 'rgba(255,255,255,0.85)' }}
+                />
+              </div>
+              {/* Grid */}
+              <div className="flex-1 overflow-y-auto p-3">
+                <div className="grid grid-cols-6 gap-2">
+                  {POKEMON_DATABASE
+                    .filter(p => p.name.toLowerCase().includes(pokemonSearch.toLowerCase()))
+                    .map(p => {
+                      const isSelected = currentTrainer?.favoritePokemon.id === p.id;
+                      const pTypeColor = TYPE_COLORS[p.types[0]] ?? '#6366f1';
+                      return (
+                        <motion.button
+                          key={p.id}
+                          whileHover={{ scale: 1.08 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => handlePokemonChange(p)}
+                          className="flex flex-col items-center gap-1 p-1.5 rounded-xl transition-all"
+                          style={{
+                            background: isSelected ? `${pTypeColor}22` : 'rgba(255,255,255,0.04)',
+                            border: `1px solid ${isSelected ? pTypeColor : 'rgba(255,255,255,0.08)'}`,
+                            boxShadow: isSelected ? `0 0 10px ${pTypeColor}44` : 'none',
+                          }}
+                          title={p.name}
+                        >
+                          <img
+                            src={getPokemonSpriteUrl(p.id)}
+                            alt={p.name}
+                            className="w-10 h-10 object-contain"
+                            style={{
+                              imageRendering: 'pixelated',
+                              filter: isSelected ? `drop-shadow(0 0 4px ${pTypeColor})` : 'none',
+                            }}
+                          />
+                          <span className="text-white/60 font-bold leading-none text-center" style={{ fontSize: 8 }}>
+                            {p.name}
+                          </span>
+                        </motion.button>
+                      );
+                    })}
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
       {/* ── Top nav ── */}
       <div className="flex items-center justify-between px-4 pt-3 pb-2 shrink-0">
         <motion.button whileTap={{ scale: 0.97 }} onClick={() => setScreen('draft-mode-intro')}
@@ -351,8 +454,13 @@ export default function TrainerProfile() {
 
               {/* Partner + Win Rate */}
               <div className="flex items-center justify-center gap-2 mt-2">
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border"
-                  style={{ background: `${typeColor}11`, borderColor: `${typeColor}33` }}>
+                <motion.div
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border cursor-pointer group relative"
+                  style={{ background: `${typeColor}11`, borderColor: `${typeColor}33` }}
+                  whileHover={{ scale: 1.04, boxShadow: `0 0 12px ${typeColor}44`, borderColor: typeColor }}
+                  onClick={() => setShowPokemonPicker(true)}
+                  title="Click to change your partner Pokémon"
+                >
                   <motion.img
                     src={getPokemonSpriteUrl(currentTrainer.favoritePokemon.id)}
                     alt={currentTrainer.favoritePokemon.name}
@@ -361,7 +469,8 @@ export default function TrainerProfile() {
                     animate={{ y: [0, -3, 0] }} transition={{ duration: 2, repeat: Infinity }}
                   />
                   <span className="text-xs font-bold text-white/70">{currentTrainer.favoritePokemon.name}</span>
-                </div>
+                  <span className="text-white/30 group-hover:text-white/60 transition-colors" style={{ fontSize: 9 }}>✏️</span>
+                </motion.div>
                 <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border"
                   style={{ background: 'rgba(251,191,36,0.08)', borderColor: 'rgba(251,191,36,0.25)' }}>
                   <span className="text-xs font-black text-amber-400">{winRate}% WR</span>
