@@ -815,44 +815,61 @@ export default function BattleScreen() {
           pointerEvents: 'none',
           animation: 'specialFlashFadeOut 1.8s ease-in-out forwards',
         }}>
-          {/* Hard white flash behind */}
+          {/* Hard white flash */}
+          <div style={{ position: 'absolute', inset: 0, background: 'white', animation: 'specialFlashWhite 0.18s ease-out forwards' }} />
+          {/* Dark overlay */}
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.88)' }} />
+          {/* Speed lines radial burst */}
           <div style={{
             position: 'absolute', inset: 0,
-            background: 'white',
-            animation: 'specialFlashWhite 0.18s ease-out forwards',
+            background: 'repeating-conic-gradient(rgba(251,191,36,0.07) 0deg 3deg, transparent 3deg 9deg)',
+            animation: 'specialImgPop 0.3s ease-out forwards',
           }} />
-          {/* Darkening overlay */}
+          {/* Halftone centre glow */}
           <div style={{
             position: 'absolute', inset: 0,
-            background: 'rgba(0,0,0,0.82)',
+            background: 'radial-gradient(ellipse at center, rgba(251,191,36,0.22) 0%, transparent 60%)',
           }} />
-          {/* Anime image */}
-          <div style={{ position: 'relative', zIndex: 2, textAlign: 'center' }}>
-            <img
-              src={`/trainer-specials/${specialFlash.trainerId.charAt(0).toUpperCase() + specialFlash.trainerId.slice(1)}.png`}
-              alt="Special attack"
-              style={{
-                maxHeight: '68vh',
-                maxWidth: '80vw',
-                objectFit: 'contain',
-                filter: 'drop-shadow(0 0 40px rgba(251,191,36,0.9)) drop-shadow(0 0 80px rgba(251,191,36,0.5))',
-                animation: 'specialImgPop 0.25s cubic-bezier(0.34,1.56,0.64,1) forwards',
-              }}
-              onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
-            />
+
+          {/* Content */}
+          <div style={{ position: 'relative', zIndex: 2, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            {/* Torn / jagged image */}
             <div style={{
-              marginTop: 16,
-              fontSize: 26, fontWeight: 900,
+              animation: 'specialImgPop 0.28s cubic-bezier(0.34,1.56,0.64,1) forwards',
+              filter: 'drop-shadow(0 0 32px rgba(251,191,36,1)) drop-shadow(0 0 64px rgba(251,191,36,0.5)) drop-shadow(4px 4px 0px #000)',
+              clipPath: `polygon(
+                0% 6%, 3% 0%, 7% 4%, 12% 0%, 16% 5%, 22% 0%, 27% 3%, 33% 0%, 38% 4%, 44% 0%,
+                50% 3%, 56% 0%, 61% 4%, 67% 0%, 72% 3%, 78% 0%, 83% 5%, 88% 0%, 93% 4%, 97% 0%, 100% 5%,
+                98% 18%, 100% 30%, 97% 42%, 100% 55%, 98% 68%, 100% 80%, 97% 92%, 100% 100%,
+                95% 96%, 90% 100%, 85% 95%, 80% 100%, 75% 96%, 70% 100%, 64% 95%, 58% 100%,
+                52% 96%, 46% 100%, 40% 95%, 34% 100%, 28% 96%, 22% 100%, 16% 95%, 10% 100%, 4% 96%, 0% 100%,
+                2% 88%, 0% 75%, 3% 62%, 0% 48%, 2% 35%, 0% 22%, 2% 10%
+              )`,
+            }}>
+              <img
+                src={`/trainer-specials/${specialFlash.trainerId.charAt(0).toUpperCase() + specialFlash.trainerId.slice(1)}.png`}
+                alt="Special attack"
+                style={{ maxHeight: '60vh', maxWidth: '75vw', objectFit: 'contain', display: 'block' }}
+                onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
+            </div>
+
+            {/* Move name — big, dramatic, no "Use" */}
+            <div style={{
+              marginTop: 14,
+              fontFamily: '"Impact","Arial Black",sans-serif',
+              fontSize: 38, fontWeight: 900,
               letterSpacing: '0.12em',
               textTransform: 'uppercase',
-              background: 'linear-gradient(90deg, #fbbf24, #f97316, #fbbf24)',
+              background: 'linear-gradient(90deg, #fbbf24 0%, #fff 40%, #f97316 70%, #fbbf24 100%)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
-              filter: 'drop-shadow(0 0 16px rgba(251,191,36,0.8))',
-              animation: 'specialImgPop 0.3s 0.1s cubic-bezier(0.34,1.56,0.64,1) both',
+              filter: 'drop-shadow(0 0 20px rgba(251,191,36,1)) drop-shadow(2px 2px 0px #000)',
+              animation: 'specialImgPop 0.3s 0.12s cubic-bezier(0.34,1.56,0.64,1) both',
+              WebkitTextStroke: '1px rgba(0,0,0,0.4)',
             }}>
-              Use {specialFlash.moveName}!
+              {specialFlash.moveName}!
             </div>
           </div>
         </div>
