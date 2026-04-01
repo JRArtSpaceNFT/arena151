@@ -326,34 +326,36 @@ export default function BattleScreen() {
     // For ultimates: all attack visuals fire AFTER the special flash ends (~3.9s)
     const ULTIMATE_ATTACK_DELAY = 3900
 
-    // Attack lunge — blocked if same side attacked last (display-layer guard)
-    if ((entry.type === 'damage' || entry.type === 'critical') && entry.side) {
-      const side = entry.side
-      if (lastAttackSideRef.current !== side) {
-        lastAttackSideRef.current = side
-        setTimeout(() => {
-          setAttackingSide(side)
-          setTimeout(() => setAttackingSide(null), 350)
-        }, ATTACK_DELAY)
-      }
-    }
-    if (entry.type === 'ultimate' && entry.side) {
-      const side = entry.side
-      if (lastAttackSideRef.current !== side) {
-        lastAttackSideRef.current = side
-        setTimeout(() => {
-          setAttackingSide(side)
-          setTimeout(() => setAttackingSide(null), 350)
-        }, ULTIMATE_ATTACK_DELAY)
-      }
-    }
-    // Reset on swap/ko so the next Pokémon can always attack
+    // ── ATTACK VISUAL GATE ──────────────────────────────────────────────────────
+    // Hard rule: same side NEVER animates twice in a row.
+    // Reset on swap/ko so the new Pokémon always gets their first attack.
     if (entry.type === 'swap' || entry.type === 'ko') {
       lastAttackSideRef.current = null
     }
+    const isAttackVisual = (entry.type === 'damage' || entry.type === 'critical' || entry.type === 'ultimate') && !!entry.side
+    const sameAsLast = isAttackVisual && lastAttackSideRef.current === entry.side
+    if (isAttackVisual && !sameAsLast) {
+      lastAttackSideRef.current = entry.side as 'A' | 'B'
+    }
 
-    // Hit flash + type glow on damage (after delay)
-    if (entry.type === 'damage' && entry.side) {
+    // Attack lunge — skip if same side attacked last
+    if ((entry.type === 'damage' || entry.type === 'critical') && entry.side && !sameAsLast) {
+      const side = entry.side
+      setTimeout(() => {
+        setAttackingSide(side)
+        setTimeout(() => setAttackingSide(null), 350)
+      }, ATTACK_DELAY)
+    }
+    if (entry.type === 'ultimate' && entry.side && !sameAsLast) {
+      const side = entry.side
+      setTimeout(() => {
+        setAttackingSide(side)
+        setTimeout(() => setAttackingSide(null), 350)
+      }, ULTIMATE_ATTACK_DELAY)
+    }
+
+    // Hit flash + type glow on damage — skip if same side attacked last
+    if (entry.type === 'damage' && entry.side && !sameAsLast) {
       const defenderSide = entry.side === 'A' ? 'B' : 'A'
       const mType = getMoveType(entry.moveName)
       setTimeout(() => {
@@ -366,16 +368,16 @@ export default function BattleScreen() {
       }, ATTACK_DELAY)
     }
 
-    // Hit stop on strong attacks
-    if ((entry.type === 'damage' || entry.type === 'critical') && entry.damage && entry.damage > 60) {
+    // Hit stop on strong attacks — skip if same side attacked last
+    if ((entry.type === 'damage' || entry.type === 'critical') && entry.damage && entry.damage > 60 && !sameAsLast) {
       setTimeout(() => {
         setHitStop(true)
         setTimeout(() => setHitStop(false), entry.type === 'critical' ? 180 : 80)
       }, ATTACK_DELAY + 200)
     }
 
-    // Type advantage burst
-    if (entry.type === 'damage' && entry.text?.toLowerCase().includes('super effective') && entry.side) {
+    // Type advantage burst — skip if same side attacked last
+    if (entry.type === 'damage' && entry.text?.toLowerCase().includes('super effective') && entry.side && !sameAsLast) {
       const defenderSide = entry.side === 'A' ? 'B' : 'A'
       const moveType = getMoveType(entry.moveName)
       const burstColors: Record<string, string> = {
@@ -390,27 +392,27 @@ export default function BattleScreen() {
       }, ATTACK_DELAY + 100)
     }
 
-    // Screen shake on crit
-    if (entry.type === 'critical') {
+    // Screen shake on crit — skip if same side attacked last
+    if (entry.type === 'critical' && !sameAsLast) {
       setTimeout(() => {
         setShakeActive(true)
         setTimeout(() => setShakeActive(false), 450)
       }, ATTACK_DELAY)
     }
 
-    // Special flash — fires immediately at ATTACK_DELAY, blocks everything else
-    if (entry.type === 'ultimate' && entry.side) {
+    // Special flash — skip if same side attacked last (ultimates only)
+    if (entry.type === 'ultimate' && entry.side && !sameAsLast) {
       const attackingTrainer = entry.side === 'A' ? p1Trainer : p2Trainer
       if (attackingTrainer?.id) {
         setTimeout(() => {
           setSpecialFlash({ trainerId: attackingTrainer.id, moveName: entry.moveName ?? 'SPECIAL MOVE' })
-          setTimeout(() => setSpecialFlash(null), 4600) // 1.2s black + 3s hold + ~0.4s fade
+          setTimeout(() => setSpecialFlash(null), 4600)
         }, ATTACK_DELAY)
       }
     }
 
-    // Move animation particles — ultimates skip particles (the special flash IS the visual)
-    if ((entry.type === 'damage' || entry.type === 'critical') && entry.moveName && entry.side) {
+    // Move animation particles — skip for ultimates (flash IS the visual) and same-side blocks
+    if ((entry.type === 'damage' || entry.type === 'critical') && entry.moveName && entry.side && !sameAsLast) {
       const move = MOVES.find(m => m.name === entry.moveName)
       if (move) {
         const isExplosion = move.animationKey === 'explosion'
