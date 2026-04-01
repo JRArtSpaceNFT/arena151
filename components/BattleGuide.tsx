@@ -1,7 +1,7 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useArenaStore } from '@/lib/store';
 import { ARENA_BADGES } from '@/lib/constants';
 
@@ -51,6 +51,7 @@ const BADGES = Object.entries(ARENA_BADGES);
 export default function BattleGuide() {
   const { setScreen } = useArenaStore();
   const [hoveredStep, setHoveredStep] = useState<typeof STEPS[number] | null>(null);
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   return (
     <div
@@ -131,8 +132,13 @@ export default function BattleGuide() {
                 background: 'rgba(255,255,255,0.04)',
                 border: hoveredStep?.num === step.num ? '1px solid rgba(251,191,36,0.5)' : '1px solid rgba(255,255,255,0.08)',
               }}
-              onMouseEnter={() => setHoveredStep(step)}
-              onMouseLeave={() => setHoveredStep(null)}
+              onMouseEnter={() => {
+                hoverTimer.current = setTimeout(() => setHoveredStep(step), 2000);
+              }}
+              onMouseLeave={() => {
+                if (hoverTimer.current) { clearTimeout(hoverTimer.current); hoverTimer.current = null; }
+                setHoveredStep(null);
+              }}
             >
               {/* Screenshot — takes most of the card */}
               <div className="relative flex-1 min-h-0" style={{ background: 'rgba(0,0,0,0.4)' }}>
