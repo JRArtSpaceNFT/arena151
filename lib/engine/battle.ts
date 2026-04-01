@@ -795,6 +795,8 @@ function simulateAttack(
         (attackerBCS.ac.creature.types.includes('fighting') || attackerBCS.ac.creature.types.includes('rock')) ? trainerAtk.ability.value : 0
       d = Math.floor(d * (critMult + ironFistBonus))
     }
+    // Ultimate move bonus: +5% damage (the epic factor)
+    if (isUltimate) d = Math.floor(d * 1.05)
     const maxHit = Math.floor(defenderBCS.ac.maxHp * 0.70)
     d = Math.min(d, maxHit)
     d = Math.max(1, d)
