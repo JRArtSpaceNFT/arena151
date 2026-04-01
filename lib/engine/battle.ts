@@ -1285,8 +1285,13 @@ export function resolveBattle(
         ? [[bcsA, bcsB, 'A'], [bcsB, bcsA, 'B']]
         : [[bcsB, bcsA, 'B'], [bcsA, bcsB, 'A']]
 
+    let turnDealtDamage: 'A' | 'B' | null = null  // track who already landed a hit this turn
+
     for (const [attBCS, defBCS, attkSide] of pairs) {
       if (attBCS.ac.currentHp <= 0 || defBCS.ac.currentHp <= 0) continue
+      // Never let the same side attack twice in a row within a turn
+      // Exception: sleep (handled inside simulateAttack, returns early)
+      if (turnDealtDamage === attkSide) continue
 
       // ── PRE-MOVE STATUS CHECKS ───────────────────────────────
       // Pick the intended move first so we can stamp lastMoveId even on skipped turns,
@@ -1303,6 +1308,7 @@ export function resolveBattle(
           text: `😨 ${attBCS.ac.creature.name} flinched and couldn't move!`,
           creatureName: attBCS.ac.creature.name,
         })
+        turnDealtDamage = attkSide
         continue
       }
 
@@ -1387,6 +1393,7 @@ export function resolveBattle(
       else if (move.id === 'sandstorm') { weather = 'sand'; weatherTurns = 5 }
 
       simulateAttack(attBCS, defBCS, move, arena, attkSide === 'A' ? trainerA : trainerB, attkSide === 'B' ? trainerA : trainerB, attkSide, log, crowdMeter, weather)
+      turnDealtDamage = attkSide
 
       // Stamp hpAfter + statusAfter on last attack OR status move entry
       for (let i = log.length - 1; i >= 0; i--) {
