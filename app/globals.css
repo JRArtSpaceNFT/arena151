@@ -49,14 +49,12 @@
   100% { opacity: 1; transform: translateY(0) scale(1); letter-spacing: 0.12em; }
 }
 @keyframes specialFlashFadeOut {
+  /* Total: 4.6s — 1.2s black + 3s image hold + 0.4s fade */
   0%   { opacity: 0; }
-  /* Fade to black over ~0.3s */
-  8%   { opacity: 1; }
-  /* Hold black until 1.2s (at 3.8s total: 1.2/3.8 = 32%) */
-  32%  { opacity: 1; }
-  /* Image visible from 32%–88% (~1.2s–3.35s) = ~2.1s on screen */
-  88%  { opacity: 1; }
-  98%  { opacity: 0.05; }
+  6%   { opacity: 1; }   /* fully black by ~0.28s */
+  26%  { opacity: 1; }   /* image pops at 26% = 1.2s */
+  89%  { opacity: 1; }   /* start fade at 89% = 4.1s, after 3s on screen */
+  99%  { opacity: 0.04; }
   100% { opacity: 0; }
 }
 @keyframes specialScreenShake {

@@ -321,16 +321,24 @@ export default function BattleScreen() {
     }
 
     // Attack animations fire AFTER dialogue has had time to show
-    // 1400ms gives the queue time to display the move call before the animation fires
     const ATTACK_DELAY = 1400
+    // For ultimates: all attack visuals fire AFTER the special flash ends (~3.9s)
+    const ULTIMATE_ATTACK_DELAY = 3900
 
-    // Attack lunge — only for actual damage entries (not status moves, misses, weather, etc.)
-    if ((entry.type === 'damage' || entry.type === 'critical' || entry.type === 'ultimate') && entry.side) {
+    // Attack lunge — delayed past flash for ultimates
+    if ((entry.type === 'damage' || entry.type === 'critical') && entry.side) {
       const side = entry.side
       setTimeout(() => {
         setAttackingSide(side)
         setTimeout(() => setAttackingSide(null), 350)
       }, ATTACK_DELAY)
+    }
+    if (entry.type === 'ultimate' && entry.side) {
+      const side = entry.side
+      setTimeout(() => {
+        setAttackingSide(side)
+        setTimeout(() => setAttackingSide(null), 350)
+      }, ULTIMATE_ATTACK_DELAY)
     }
 
     // Hit flash + type glow on damage (after delay)
@@ -344,11 +352,10 @@ export default function BattleScreen() {
           setFlashingSide(null)
           setFlashMoveType(null)
         }, 200)
-        // Electric screen flash — REMOVED (was causing persistent yellow overlay bug)
       }, ATTACK_DELAY)
     }
 
-    // Hit stop on strong attacks (power >= 80)
+    // Hit stop on strong attacks
     if ((entry.type === 'damage' || entry.type === 'critical') && entry.damage && entry.damage > 60) {
       setTimeout(() => {
         setHitStop(true)
@@ -372,7 +379,7 @@ export default function BattleScreen() {
       }, ATTACK_DELAY + 100)
     }
 
-    // Screen shake on crit (after delay)
+    // Screen shake on crit
     if (entry.type === 'critical') {
       setTimeout(() => {
         setShakeActive(true)
@@ -380,29 +387,24 @@ export default function BattleScreen() {
       }, ATTACK_DELAY)
     }
 
-    // Ultimate cinematic zoom (after delay)
+    // Special flash — fires immediately at ATTACK_DELAY, blocks everything else
     if (entry.type === 'ultimate' && entry.side) {
-      setTimeout(() => {
-        setUltimateActive({ side: entry.side as 'A' | 'B', name: entry.moveName ?? 'ULTIMATE' })
-        setTimeout(() => setUltimateActive(null), 1100)
-      }, ATTACK_DELAY)
-
-      // Special flash — show anime card for the attacking trainer
       const attackingTrainer = entry.side === 'A' ? p1Trainer : p2Trainer
       if (attackingTrainer?.id) {
         setTimeout(() => {
           setSpecialFlash({ trainerId: attackingTrainer.id, moveName: entry.moveName ?? 'SPECIAL MOVE' })
-          setTimeout(() => setSpecialFlash(null), 3800)
+          setTimeout(() => setSpecialFlash(null), 4600) // 1.2s black + 3s hold + ~0.4s fade
         }, ATTACK_DELAY)
       }
     }
 
-    // Move animation particles (after delay)
+    // Move animation particles — after flash for ultimates, normal delay otherwise
     if ((entry.type === 'damage' || entry.type === 'critical' || entry.type === 'ultimate') && entry.moveName && entry.side) {
       const move = MOVES.find(m => m.name === entry.moveName)
       if (move) {
         const isExplosion = move.animationKey === 'explosion'
         const isUltimateAnim = entry.type === 'ultimate'
+        const particleDelay = isUltimateAnim ? ULTIMATE_ATTACK_DELAY : ATTACK_DELAY
         setTimeout(() => {
           const animId = String(Date.now()) + String(Math.floor(Math.random() * 10000))
           currentAnimId.current = animId
@@ -412,8 +414,6 @@ export default function BattleScreen() {
             id: animId,
           })
           playAttackSound(move.animationKey)
-          // Clear delay must exceed the longest-running particle/overlay in each animation.
-          // All fire variants: smoke orbs run up to ~1.6s. Long psychic/electric: ~1.8s.
           const longAnims = new Set([
             'fire','fire_stream','fire_blast','fire_spin','fire_small','mega_fire',
             'thunder','lightning','electric','mega_thunder',
@@ -425,8 +425,6 @@ export default function BattleScreen() {
           ])
           const clearDelay = isExplosion ? 2200 : isUltimateAnim ? 2000 : longAnims.has(move.animationKey) ? 1800 : 1400
           setTimeout(() => {
-            // Only clear if this is still the active animation — prevents stale timeouts
-            // from wiping out a newer attack's animation mid-play
             if (currentAnimId.current === animId) {
               setMoveAnim(null)
               currentAnimId.current = null
@@ -436,14 +434,15 @@ export default function BattleScreen() {
             setBigShake(true)
             setTimeout(() => setBigShake(false), 850)
           }
-        }, ATTACK_DELAY)
+        }, particleDelay)
       }
     }
 
-    // HP drop — shortly after attack animation fires
+    // HP drop — after attack animation fires (ultimates drop HP after the flash + particles)
     if ((entry.type === 'damage' || entry.type === 'critical' || entry.type === 'ultimate' || entry.type === 'status_damage') && entry.hpAfter) {
       const hpAfter = entry.hpAfter
       const statusAfterSnap = entry.statusAfter
+      const hpDelay = entry.type === 'ultimate' ? ULTIMATE_ATTACK_DELAY + 600 : ATTACK_DELAY + 400
       setTimeout(() => {
         setCurrentHpA(hpAfter.A)
         setCurrentHpB(hpAfter.B)
@@ -457,7 +456,7 @@ export default function BattleScreen() {
             playStatusSound(statusAfterSnap.B); prevStatusB.current = statusAfterSnap.B
           }
         }
-      }, ATTACK_DELAY + 400)
+      }, hpDelay)
     }
 
     // KO faint — track which creature slot got KO'd for side panel display
@@ -831,7 +830,7 @@ export default function BattleScreen() {
           position: 'absolute', inset: 0, zIndex: 50,
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
           pointerEvents: 'none',
-          animation: 'specialFlashFadeOut 3.8s ease-in-out forwards',
+          animation: 'specialFlashFadeOut 4.6s ease-in-out forwards',
         }}>
           {/* Hard white flash */}
           <div style={{ position: 'absolute', inset: 0, background: 'white', animation: 'specialFlashWhite 0.25s ease-out forwards' }} />
@@ -864,11 +863,12 @@ export default function BattleScreen() {
           <div style={{
             position: 'relative', zIndex: 2, textAlign: 'center',
             display: 'flex', flexDirection: 'column', alignItems: 'center',
-            animation: 'specialScreenShake 0.45s 1.25s ease-out',
+            animation: 'specialScreenShake 0.45s 1.22s ease-out',
           }}>
             {/* Torn / jagged image */}
             <div style={{
               animation: 'specialImgPop 0.32s 1.2s cubic-bezier(0.34,1.56,0.64,1) both',
+
               filter: 'drop-shadow(0 0 40px rgba(251,191,36,1)) drop-shadow(0 0 80px rgba(251,191,36,0.6)) drop-shadow(0 0 120px rgba(251,100,36,0.4)) drop-shadow(4px 4px 0px #000)',
               clipPath: `polygon(
                 0% 6%, 3% 0%, 7% 4%, 12% 0%, 16% 5%, 22% 0%, 27% 3%, 33% 0%, 38% 4%, 44% 0%,
@@ -1617,7 +1617,7 @@ function getDelay(entry: BattleLogEntry): number {
     case 'move':            return 2400   // show dialogue, pause, then attack
     case 'damage':          return 2600
     case 'critical':        return 2800
-    case 'ultimate':        return 4200  // must exceed special flash duration (3.8s)
+    case 'ultimate':        return 5200  // must exceed special flash (4.6s) + attack anim
     case 'ko':              return 2400
     case 'swap':            return 1400
     case 'win':             return 1000
