@@ -247,7 +247,7 @@ export default function RoomSelect() {
                       <div className="min-w-0">
                         <h2 className="font-black leading-none truncate" style={{
                           fontFamily: '"Impact", "Arial Black", sans-serif',
-                          fontSize: 17,
+                          fontSize: ['cerulean-city','vermilion-city','cinnabar-island'].includes(id) ? 13 : 17,
                           letterSpacing: '0.04em',
                           color: '#fff',
                           textShadow: `0 0 12px ${identity.accent}66`,
