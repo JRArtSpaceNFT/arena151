@@ -34,6 +34,7 @@
 /* ── Trainer Special Flash animations ── */
 @keyframes specialFlashWhite {
   0%   { opacity: 1; }
+  60%  { opacity: 0; }
   100% { opacity: 0; }
 }
 @keyframes specialImgPop {
@@ -43,7 +44,8 @@
 }
 @keyframes specialFlashFadeOut {
   0%   { opacity: 1; }
-  70%  { opacity: 1; }
+  65%  { opacity: 1; }
+  90%  { opacity: 0.15; }
   100% { opacity: 0; }
 }
 

@@ -85,7 +85,7 @@ export default function SpecialPreview() {
             }}
           >
             {/* White hit flash */}
-            <div style={{ position: 'absolute', inset: 0, background: 'white', animation: 'specialFlashWhite 0.18s ease-out forwards' }} />
+            <div style={{ position: 'absolute', inset: 0, background: 'white', animation: 'specialFlashWhite 0.25s ease-out forwards' }} />
             {/* Dark overlay */}
             <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.88)' }} />
             {/* Speed lines */}
