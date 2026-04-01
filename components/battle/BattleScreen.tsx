@@ -86,6 +86,7 @@ export default function BattleScreen() {
   const [bigShake, setBigShake] = useState(false)
   const [koSide, setKoSide] = useState<'A' | 'B' | null>(null)
   const [ultimateActive, setUltimateActive] = useState<{ side: 'A' | 'B'; name: string } | null>(null)
+  const [specialFlash, setSpecialFlash] = useState<{ trainerId: string; moveName: string } | null>(null)
   const [crowdRoarActive, setCrowdRoarActive] = useState(false)
   const [sparkleA, setSparkleA] = useState(false)
   const [sparkleB, setSparkleB] = useState(false)
@@ -375,6 +376,15 @@ export default function BattleScreen() {
         setUltimateActive({ side: entry.side as 'A' | 'B', name: entry.moveName ?? 'ULTIMATE' })
         setTimeout(() => setUltimateActive(null), 1100)
       }, ATTACK_DELAY)
+
+      // Special flash — show anime card for the attacking trainer
+      const attackingTrainer = entry.side === 'A' ? p1Trainer : p2Trainer
+      if (attackingTrainer?.id) {
+        setTimeout(() => {
+          setSpecialFlash({ trainerId: attackingTrainer.id, moveName: entry.moveName ?? 'SPECIAL MOVE' })
+          setTimeout(() => setSpecialFlash(null), 1800)
+        }, ATTACK_DELAY)
+      }
     }
 
     // Move animation particles (after delay)
@@ -793,6 +803,57 @@ export default function BattleScreen() {
             textShadow: '0 0 12px rgba(251,191,36,0.6)',
           }}>
             {ultimateActive.name}
+          </div>
+        </div>
+      )}
+
+      {/* ── Trainer Special Flash — anime image fullscreen dramatic overlay ── */}
+      {specialFlash && (
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 50,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          pointerEvents: 'none',
+          animation: 'specialFlashFadeOut 1.8s ease-in-out forwards',
+        }}>
+          {/* Hard white flash behind */}
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: 'white',
+            animation: 'specialFlashWhite 0.18s ease-out forwards',
+          }} />
+          {/* Darkening overlay */}
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: 'rgba(0,0,0,0.82)',
+          }} />
+          {/* Anime image */}
+          <div style={{ position: 'relative', zIndex: 2, textAlign: 'center' }}>
+            <img
+              src={`/trainer-specials/${specialFlash.trainerId.charAt(0).toUpperCase() + specialFlash.trainerId.slice(1)}.png`}
+              alt="Special attack"
+              style={{
+                maxHeight: '68vh',
+                maxWidth: '80vw',
+                objectFit: 'contain',
+                filter: 'drop-shadow(0 0 40px rgba(251,191,36,0.9)) drop-shadow(0 0 80px rgba(251,191,36,0.5))',
+                animation: 'specialImgPop 0.25s cubic-bezier(0.34,1.56,0.64,1) forwards',
+              }}
+              onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+            />
+            <div style={{
+              marginTop: 16,
+              fontSize: 26, fontWeight: 900,
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              background: 'linear-gradient(90deg, #fbbf24, #f97316, #fbbf24)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+              filter: 'drop-shadow(0 0 16px rgba(251,191,36,0.8))',
+              animation: 'specialImgPop 0.3s 0.1s cubic-bezier(0.34,1.56,0.64,1) both',
+            }}>
+              Use {specialFlash.moveName}!
+            </div>
           </div>
         </div>
       )}

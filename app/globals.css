@@ -31,6 +31,38 @@
   background: rgb(71 85 105);
 }
 
+/* ── Trainer Special Flash animations ── */
+@keyframes specialFlashWhite {
+  0%   { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes specialImgPop {
+  0%   { opacity: 0; transform: scale(0.82); }
+  60%  { opacity: 1; transform: scale(1.06); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes specialFlashFadeOut {
+  0%   { opacity: 1; }
+  70%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ── pokeballPop (shared battle animation) ── */
+@keyframes pokeballPop {
+  0%   { opacity: 0; transform: scale(0.5); }
+  60%  { opacity: 1; transform: scale(1.12); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* ── missPopIn ── */
+@keyframes missPopIn {
+  0%   { opacity: 0; transform: scale(0.4) rotate(-12deg); }
+  40%  { opacity: 1; transform: scale(1.15) rotate(4deg); }
+  60%  { transform: scale(0.95) rotate(-2deg); }
+  80%  { transform: scale(1.05) rotate(1deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
 /* Utility classes */
 .glass-panel {
   background: rgba(15, 23, 42, 0.5);
