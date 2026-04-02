@@ -271,8 +271,8 @@ export default function RoomSelect() {
               <div className="h-px mb-2.5" style={{ background: 'linear-gradient(90deg, transparent, #818cf844, transparent)' }} />
 
               <div className="flex-1 flex flex-col justify-center gap-1.5 mb-3">
-                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.55)', lineHeight: 1.5 }}>
-                  Share a password with a friend. Both enter it and you&apos;re matched. Full battle, real competition.
+                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.55)', lineHeight: 1.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  Share a password to battle a friend on the same device or network.
                 </p>
               </div>
 
