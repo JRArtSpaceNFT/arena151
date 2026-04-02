@@ -6,7 +6,7 @@ import { Wallet, ArrowLeft, RefreshCw, TrendingUp } from 'lucide-react';
 import { useArenaStore } from '@/lib/store';
 import { ROOM_TIERS, ARENA_BADGES, usdToSol } from '@/lib/constants';
 import { useSolPrice } from '@/lib/useSolPrice';
-import { getBattlesTotal, getSessionsToday, getBattleLog, timeAgo } from '@/lib/battleStats';
+import { getBattlesTotal, getSessionsToday } from '@/lib/battleStats';
 import type { BattleRoom } from '@/types';
 
 // Per-arena identity config — background images are drop-in from /public/arenas/gyms/
@@ -39,12 +39,9 @@ export default function RoomSelect() {
   const { solPrice, loading: priceLoading } = useSolPrice();
   const [battlesTotal, setBattlesTotal] = useState(0);
   const [sessionsToday, setSessionsToday] = useState(0);
-  const [battleLog, setBattleLog] = useState<ReturnType<typeof getBattleLog>>([]);
-
   useEffect(() => {
     setBattlesTotal(getBattlesTotal());
     setSessionsToday(getSessionsToday());
-    setBattleLog(getBattleLog());
   }, []);
 
   const getEntryFee = (tierUsd: number) => usdToSol(tierUsd, solPrice);
@@ -526,35 +523,6 @@ export default function RoomSelect() {
             );
           })}
         </div>
-
-        {/* ── Recent Battles Feed ── */}
-        {battleLog.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
-            className="mt-2 shrink-0 rounded-xl overflow-hidden"
-            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}
-          >
-            <div className="px-3 py-1.5 flex items-center gap-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-              <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
-              <span className="text-xs font-black text-green-400 uppercase tracking-widest">Recent Battles</span>
-            </div>
-            <div className="flex gap-3 px-3 py-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-              {battleLog.slice(0, 5).map((entry, i) => (
-                <div key={i} className="shrink-0 flex items-center gap-2 rounded-lg px-3 py-1.5"
-                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', fontSize: 11 }}>
-                  <span className="font-black text-white">{entry.winner}</span>
-                  <span style={{ color: 'rgba(255,255,255,0.3)' }}>beat</span>
-                  <span style={{ color: 'rgba(255,255,255,0.5)' }}>{entry.loser}</span>
-                  <span style={{ color: 'rgba(255,255,255,0.2)' }}>@</span>
-                  <span style={{ color: '#38bdf8', fontSize: 10 }}>{entry.arena}</span>
-                  <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: 10 }}>{timeAgo(entry.timestamp)}</span>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        )}
 
         {/* Footer */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
