@@ -151,10 +151,10 @@ export default function RoomSelect() {
             <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: 'linear-gradient(90deg, transparent, #4ade80, transparent)' }} />
             <div className="absolute top-1.5 right-1.5 z-20 px-1.5 py-0.5 rounded-md font-black" style={{ background: '#4ade80', color: '#000', fontSize: 9, letterSpacing: '0.05em' }}>FREE</div>
             <div className="relative z-10 flex items-center h-full px-4 gap-4">
-              <div className="text-3xl shrink-0">🥊</div>
+              <div className="text-3xl shrink-0">🔴</div>
               <div className="flex-1 min-w-0">
                 <h2 className="font-black leading-none" style={{ fontFamily: '"Impact","Arial Black",sans-serif', fontSize: 18, letterSpacing: '0.05em', color: '#fff', textShadow: '0 0 14px #4ade8066' }}>PRACTICE ARENA</h2>
-                <p className="mt-1 text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>Full game vs AI · no SOL · test your lineup</p>
+                <p className="mt-1 text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>Trainer Battle vs AI • No SOL needed • Put your team to the test</p>
               </div>
               <motion.div
                 className="shrink-0 px-4 py-2 rounded-xl font-black text-xs relative overflow-hidden"
@@ -183,7 +183,7 @@ export default function RoomSelect() {
               <div className="text-3xl shrink-0">⚔️</div>
               <div className="flex-1 min-w-0">
                 <h2 className="font-black leading-none" style={{ fontFamily: '"Impact","Arial Black",sans-serif', fontSize: 18, letterSpacing: '0.05em', color: '#fff', textShadow: '0 0 14px #818cf866' }}>PLAY A FRIEND</h2>
-                <p className="mt-1 text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>Share a password · 60s lobby · same device or network</p>
+                <p className="mt-1 text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>Challenge a friend • Share a battle code • Settle the score</p>
               </div>
               <motion.div
                 className="shrink-0 px-4 py-2 rounded-xl font-black text-xs relative overflow-hidden"
