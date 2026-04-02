@@ -66,50 +66,117 @@ function playCrowdCheer() {
   } catch (_) {}
 }
 
-// ── Side card (non-center, minimal) ──────────────────────────────────────────
+// ── Side card (non-center, minimal) with ability tooltip ─────────────────────
 function SideCard({ trainer }: { trainer: Trainer }) {
   const [imgError, setImgError] = useState(false)
+  const [showTooltip, setShowTooltip] = useState(false)
+  const abilityPct = Math.min(100, Math.round(trainer.ability.value * 100))
   return (
-    <div style={{
-      background: '#111120',
-      border: `1px solid ${trainer.color}33`,
-      borderRadius: 12,
-      padding: '12px 10px',
-      textAlign: 'center',
-      width: 130,
-      overflow: 'hidden',
-    }}>
+    <div
+      style={{ position: 'relative' }}
+      onMouseEnter={() => setShowTooltip(true)}
+      onMouseLeave={() => setShowTooltip(false)}
+    >
       <div style={{
-        width: 80, height: 90,
-        margin: '0 auto 6px',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: '#111120',
+        border: `1px solid ${showTooltip ? trainer.color + '88' : trainer.color + '33'}`,
+        borderRadius: 12,
+        padding: '12px 10px',
+        textAlign: 'center',
+        width: 130,
+        overflow: 'hidden',
+        transition: 'border-color 0.2s',
+        cursor: 'default',
       }}>
-        {!imgError && trainer.spriteUrl ? (
-          <img
-            src={trainer.spriteUrl}
-            alt={trainer.name}
-            onError={() => setImgError(true)}
-            style={{
-              width: '100%', height: '100%',
-              objectFit: 'contain',
-              imageRendering: trainer.id === 'jessie-james' ? 'auto' : 'pixelated',
-              opacity: 0.7,
-            }}
-          />
-        ) : (
+        <div style={{
+          width: 80, height: 90,
+          margin: '0 auto 6px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          {!imgError && trainer.spriteUrl ? (
+            <img
+              src={trainer.spriteUrl}
+              alt={trainer.name}
+              onError={() => setImgError(true)}
+              style={{
+                width: '100%', height: '100%',
+                objectFit: 'contain',
+                imageRendering: trainer.id === 'jessie-james' ? 'auto' : 'pixelated',
+                opacity: 0.7,
+              }}
+            />
+          ) : (
+            <div style={{
+              width: 56, height: 56, borderRadius: '50%',
+              background: `${trainer.color}22`, border: `2px solid ${trainer.color}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 26, fontWeight: 900, color: trainer.color,
+            }}>
+              {trainer.name[0]}
+            </div>
+          )}
+        </div>
+        <div style={{ fontSize: 12, fontWeight: 700, color: `${trainer.color}cc` }}>
+          {trainer.name}
+        </div>
+        <div style={{ fontSize: 9, color: `${trainer.color}88`, marginTop: 3, fontStyle: 'italic' }}>
+          ⚡ {trainer.ability.name}
+        </div>
+      </div>
+
+      {/* Ability tooltip popup */}
+      {showTooltip && (
+        <div style={{
+          position: 'absolute',
+          bottom: '105%',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 999,
+          width: 210,
+          background: '#0d0d20',
+          border: `2px solid ${trainer.color}88`,
+          borderRadius: 10,
+          padding: '12px 14px',
+          boxShadow: `0 -4px 24px ${trainer.color}44, 0 8px 24px rgba(0,0,0,0.8)`,
+          pointerEvents: 'none',
+          fontFamily: '"Courier New", Courier, monospace',
+        }}>
+          {/* Arrow */}
           <div style={{
-            width: 56, height: 56, borderRadius: '50%',
-            background: `${trainer.color}22`, border: `2px solid ${trainer.color}`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 26, fontWeight: 900, color: trainer.color,
-          }}>
-            {trainer.name[0]}
+            position: 'absolute', bottom: -9, left: '50%', transform: 'translateX(-50%)',
+            width: 0, height: 0,
+            borderLeft: '8px solid transparent', borderRight: '8px solid transparent',
+            borderTop: `9px solid ${trainer.color}88`,
+          }} />
+          <div style={{
+            fontSize: 9, letterSpacing: '0.2em', color: `${trainer.color}88`,
+            textTransform: 'uppercase', marginBottom: 6, textAlign: 'center',
+          }}>⚡ ABILITY</div>
+          <div style={{ fontSize: 13, fontWeight: 900, color: trainer.color, marginBottom: 4, textAlign: 'center' }}>
+            {trainer.ability.name}
           </div>
-        )}
-      </div>
-      <div style={{ fontSize: 12, fontWeight: 700, color: `${trainer.color}cc` }}>
-        {trainer.name}
-      </div>
+          <div style={{ fontSize: 11, color: '#94a3b8', lineHeight: 1.4, marginBottom: 8, textAlign: 'center' }}>
+            {trainer.ability.description}
+          </div>
+          {/* Value bar */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ fontSize: 9, color: '#64748b', whiteSpace: 'nowrap' }}>BONUS</div>
+            <div style={{ flex: 1, height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}>
+              <div style={{
+                height: '100%',
+                width: `${abilityPct * 5}%`,
+                background: trainer.color,
+                borderRadius: 3,
+                boxShadow: `0 0 6px ${trainer.color}`,
+                maxWidth: '100%',
+              }} />
+            </div>
+            <div style={{ fontSize: 10, color: trainer.color, fontWeight: 800, whiteSpace: 'nowrap' }}>
+              +{abilityPct}%
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -222,15 +289,32 @@ function DossierCard({ trainer, isTaken }: { trainer: Trainer; isTaken: boolean 
       <div style={{ height: 1, background: `linear-gradient(90deg, transparent, ${trainer.color}66, transparent)` }} />
 
       {/* Ability */}
-      <div style={{ padding: '6px 14px', borderBottom: `1px solid ${trainer.color}22`, textAlign: 'center' }}>
-        <div style={{ fontSize: 9, letterSpacing: '0.2em', color: `${trainer.color}88`, textTransform: 'uppercase', marginBottom: 3 }}>
+      <div style={{ padding: '8px 14px', borderBottom: `1px solid ${trainer.color}22`, textAlign: 'center', background: `${trainer.color}08` }}>
+        <div style={{ fontSize: 9, letterSpacing: '0.2em', color: `${trainer.color}88`, textTransform: 'uppercase', marginBottom: 4 }}>
           ── ABILITY ──
         </div>
-        <div style={{ fontSize: 12, fontWeight: 700, color: trainer.color, marginBottom: 2 }}>
+        <div style={{ fontSize: 14, fontWeight: 900, color: trainer.color, marginBottom: 4, letterSpacing: '0.04em' }}>
           ⚡ {trainer.ability.name}
         </div>
-        <div style={{ fontSize: 11, color: '#64748b', lineHeight: 1.3 }}>
+        <div style={{ fontSize: 11, color: '#94a3b8', lineHeight: 1.4, marginBottom: 8 }}>
           {trainer.ability.description}
+        </div>
+        {/* Value bar */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
+          <div style={{ fontSize: 9, color: '#64748b' }}>BONUS</div>
+          <div style={{ width: 80, height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}>
+            <div style={{
+              height: '100%',
+              width: `${Math.min(100, Math.round(trainer.ability.value * 100) * 5)}%`,
+              background: trainer.color,
+              borderRadius: 3,
+              boxShadow: `0 0 6px ${trainer.color}`,
+              maxWidth: '100%',
+            }} />
+          </div>
+          <div style={{ fontSize: 11, color: trainer.color, fontWeight: 900 }}>
+            +{Math.round(trainer.ability.value * 100)}%
+          </div>
         </div>
       </div>
 

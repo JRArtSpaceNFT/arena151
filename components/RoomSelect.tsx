@@ -1,10 +1,12 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import { useState, useEffect } from 'react';
 import { Wallet, ArrowLeft, RefreshCw, TrendingUp } from 'lucide-react';
 import { useArenaStore } from '@/lib/store';
 import { ROOM_TIERS, ARENA_BADGES, usdToSol } from '@/lib/constants';
 import { useSolPrice } from '@/lib/useSolPrice';
+import { getBattlesTotal, getSessionsToday, getBattleLog, timeAgo } from '@/lib/battleStats';
 import type { BattleRoom } from '@/types';
 
 // Per-arena identity config — background images are drop-in from /public/arenas/gyms/
@@ -35,6 +37,15 @@ const STAKE_BAND = {
 export default function RoomSelect() {
   const { currentTrainer, setScreen, startQueue } = useArenaStore();
   const { solPrice, loading: priceLoading } = useSolPrice();
+  const [battlesTotal, setBattlesTotal] = useState(0);
+  const [sessionsToday, setSessionsToday] = useState(0);
+  const [battleLog, setBattleLog] = useState<ReturnType<typeof getBattleLog>>([]);
+
+  useEffect(() => {
+    setBattlesTotal(getBattlesTotal());
+    setSessionsToday(getSessionsToday());
+    setBattleLog(getBattleLog());
+  }, []);
 
   const getEntryFee = (tierUsd: number) => usdToSol(tierUsd, solPrice);
   const getPrizePool = (tierUsd: number) => usdToSol(tierUsd * 2 * 0.95, solPrice);
@@ -80,7 +91,7 @@ export default function RoomSelect() {
       <div className="relative z-10 flex flex-col h-full max-w-6xl mx-auto w-full px-4 pt-3 pb-3">
 
         {/* ── Header ── */}
-        <div className="flex items-center justify-between mb-3 shrink-0">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 shrink-0 gap-2">
           <div className="flex items-center gap-3">
             <motion.button initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }}
               onClick={() => setScreen('draft-mode-intro')}
@@ -92,7 +103,7 @@ export default function RoomSelect() {
               <motion.h1 initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
                 style={{
                   fontFamily: '"Impact", "Arial Black", sans-serif',
-                  fontSize: 36,
+                  fontSize: 'clamp(20px, 4vw, 36px)',
                   fontWeight: 900,
                   letterSpacing: '0.08em',
                   lineHeight: 1,
@@ -106,7 +117,7 @@ export default function RoomSelect() {
                 }}>
                 CHOOSE YOUR STAKES
               </motion.h1>
-              <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.85)', letterSpacing: '0.18em', textTransform: 'uppercase', fontSize: 10 }}>Conquer all 8 Kanto Gyms to earn every badge</p>
+              <p className="text-xs mt-1 hidden sm:block" style={{ color: 'rgba(255,255,255,0.85)', letterSpacing: '0.18em', textTransform: 'uppercase', fontSize: 10 }}>Conquer all 8 Kanto Gyms to earn every badge</p>
             </div>
           </div>
 
@@ -130,7 +141,7 @@ export default function RoomSelect() {
         </div>
 
         {/* ── Arena Grid ── */}
-        <div className="grid grid-cols-4 gap-2.5 flex-1 min-h-0">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 flex-1 min-h-0">
           {rooms.map((room, i) => {
             const id = room.id as string;
             const identity = ARENA_IDENTITY[id] ?? { flavor: '', bgImage: '', accent: '#6366f1', accentDark: '#1e1b4b', stakeTier: 'mid' as const, btnLabel: 'Enter Arena →' };
@@ -358,13 +369,46 @@ export default function RoomSelect() {
           })}
         </div>
 
+        {/* ── Recent Battles Feed ── */}
+        {battleLog.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6 }}
+            className="mt-2 shrink-0 rounded-xl overflow-hidden"
+            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}
+          >
+            <div className="px-3 py-1.5 flex items-center gap-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+              <span className="text-xs font-black text-green-400 uppercase tracking-widest">Recent Battles</span>
+            </div>
+            <div className="flex gap-3 px-3 py-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+              {battleLog.slice(0, 5).map((entry, i) => (
+                <div key={i} className="shrink-0 flex items-center gap-2 rounded-lg px-3 py-1.5"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', fontSize: 11 }}>
+                  <span className="font-black text-white">{entry.winner}</span>
+                  <span style={{ color: 'rgba(255,255,255,0.3)' }}>beat</span>
+                  <span style={{ color: 'rgba(255,255,255,0.5)' }}>{entry.loser}</span>
+                  <span style={{ color: 'rgba(255,255,255,0.2)' }}>@</span>
+                  <span style={{ color: '#38bdf8', fontSize: 10 }}>{entry.arena}</span>
+                  <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: 10 }}>{timeAgo(entry.timestamp)}</span>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
         {/* Footer */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
-          className="mt-2 shrink-0 flex items-center justify-center gap-6 text-xs"
+          className="mt-2 shrink-0 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-6 text-xs"
           style={{ color: 'rgba(255,255,255,0.2)' }}>
           <div className="flex items-center gap-1.5">
             <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
-            <span>247 Trainers Online</span>
+            {battlesTotal > 0 || sessionsToday > 0 ? (
+              <span>🎮 {battlesTotal} battles played • {sessionsToday} trainers today</span>
+            ) : (
+              <span>Be the first to battle today!</span>
+            )}
           </div>
         </motion.div>
       </div>

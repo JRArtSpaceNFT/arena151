@@ -14,8 +14,9 @@ export type Screen =
   | 'lineup' | 'arena_reveal' | 'pretalk' | 'bet' | 'battle' | 'victory' | 'defeat' | 'results' | 'rules'
   | 'story_intro' | 'story_team_select' | 'story_journey' | 'story_trainer_intro' 
   | 'story_badge_reward' | 'story_hall_of_fame'
+  | 'friend_battle_lobby'
 
-export type GameMode = 'local_2p' | 'vs_ai' | 'story'
+export type GameMode = 'local_2p' | 'vs_ai' | 'story' | 'practice' | 'friend_battle'
 export type AIDifficulty = 'easy' | 'normal' | 'hard'
 export type CoinSide = 'red' | 'white'
 

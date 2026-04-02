@@ -13,6 +13,8 @@ import VersusScreen from '@/components/VersusScreen';
 import ResultScreen from '@/components/ResultScreen';
 import ProfessorOak from '@/components/ProfessorOak';
 import GameWrapper from '@/components/battle/GameWrapper';
+import PracticeGameWrapper from '@/components/battle/PracticeGameWrapper';
+import FriendBattle from '@/components/FriendBattle';
 import Leaderboard from '@/components/Leaderboard';
 import BattleGuide from '@/components/BattleGuide';
 
@@ -68,12 +70,14 @@ export default function ArenaApp() {
       {currentScreen === 'match-found' && <MatchFound />}
       {currentScreen === 'versus' && <VersusScreen />}
       {currentScreen === 'game' && <GameWrapper />}
+      {currentScreen === 'practice-game' && <PracticeGameWrapper />}
+      {currentScreen === 'friend-battle' && <FriendBattle />}
       {currentScreen === 'result' && <ResultScreen />}
       {currentScreen === 'leaderboard' && <Leaderboard />}
       {currentScreen === 'battle-guide' && <BattleGuide />}
       
       {/* Professor Oak AI Assistant - Always available except during game */}
-      {currentScreen !== 'game' && <ProfessorOak />}
+      {currentScreen !== 'game' && currentScreen !== 'practice-game' && <ProfessorOak />}
     </main>
   );
 }

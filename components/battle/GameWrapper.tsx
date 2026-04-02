@@ -181,6 +181,7 @@ export default function GameWrapper() {
   const setGameMode = useGameStore(s => s.setGameMode)
   const playAgain = useGameStore(s => s.playAgain)
   const matchResults = useGameStore(s => s.matchResults)
+  const gameMode = useGameStore(s => s.gameMode)
   const { setScreen, setLastMatchWinner } = useArenaStore()
 
   // Track whether we've initialized this session

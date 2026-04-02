@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useGameStore } from '@/lib/game-store'
 import { playMusic, resumeAudioContext } from '@/lib/audio/musicEngine'
@@ -30,6 +30,19 @@ const TOTAL_DRAFT_TIME = 120
 // ─── CSS keyframes injected once ─────────────────────────────────────────────
 
 const GLOBAL_CSS = `
+@media (max-width: 640px) {
+  .draft-root { flex-direction: column !important; }
+  .draft-header { flex-wrap: wrap !important; height: auto !important; min-height: 56px !important; padding: 8px 10px !important; gap: 6px !important; }
+  .draft-header-title { font-size: 16px !important; }
+  .draft-budgets { gap: 4px !important; }
+  .draft-budget-card { min-width: 80px !important; padding: 4px 8px !important; }
+  .draft-budget-pts { font-size: 16px !important; }
+  .draft-zone2 { flex: 0 0 60% !important; }
+  .draft-zone3 { flex: 0 0 40% !important; }
+  .draft-grid { grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)) !important; }
+  .draft-timer { font-size: 18px !important; }
+  .draft-lock-btn { font-size: 12px !important; padding: 8px 12px !important; }
+}
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -99,6 +112,31 @@ const GLOBAL_CSS = `
 }
 `
 
+// ─── Draft tick audio cue ─────────────────────────────────────────────────────
+function playDraftTick(secondsLeft: number) {
+  try {
+    const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
+    // Pitch and volume rise as urgency increases: 15s→1.0vol/600Hz, 1s→1.5vol/1200Hz
+    const urgency = (16 - secondsLeft) / 15  // 0 at 15s, 1 at 1s
+    const freq = 600 + urgency * 600
+    const gainVal = 0.15 + urgency * 0.25
+
+    const osc = ctx.createOscillator()
+    osc.type = 'square'
+    osc.frequency.setValueAtTime(freq, ctx.currentTime)
+    osc.frequency.exponentialRampToValueAtTime(freq * 1.5, ctx.currentTime + 0.04)
+
+    const gainNode = ctx.createGain()
+    gainNode.gain.setValueAtTime(gainVal, ctx.currentTime)
+    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12)
+
+    osc.connect(gainNode)
+    gainNode.connect(ctx.destination)
+    osc.start()
+    osc.stop(ctx.currentTime + 0.12)
+  } catch (_) {}
+}
+
 function injectCSS() {
   if (typeof document === 'undefined') return
   if (document.getElementById('draft-styles')) return
@@ -129,7 +167,7 @@ export default function Draft() {
 
   // vs_ai: AI picks its full team instantly at draft mount
   useEffect(() => {
-    if (gameMode === 'vs_ai' && draftTeamB.length === 0) {
+    if ((gameMode === 'vs_ai' || gameMode === 'practice') && draftTeamB.length === 0) {
       pickAITeamInstantly()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -140,6 +178,7 @@ export default function Draft() {
   const [sortByCost, setSortByCost] = useState(false)
   const [timeLeft, setTimeLeft] = useState(TOTAL_DRAFT_TIME)
   const [autoPickFlash, setAutoPickFlash] = useState(false)
+  const lastTickSecRef = useRef<number>(-1)
   const [infoCreature, setInfoCreature] = useState<Creature | null>(null)
   const [draftReveal, setDraftReveal] = useState<{ creatureId: number; creatureName: string; trainerName: string } | null>(null)
   const [hoveredId, setHoveredId] = useState<number | null>(null)
@@ -149,8 +188,9 @@ export default function Draft() {
   const [isOrdering, setIsOrdering] = useState(false)
   const [selectedOrderIdx, setSelectedOrderIdx] = useState<number | null>(null)
   const [orderTimeLeft, setOrderTimeLeft] = useState(30)
+  const [showBudgetTooltip, setShowBudgetTooltip] = useState(false)
 
-  const isP1Turn = gameMode === 'vs_ai' ? true : draftCurrentPicker === 'p1'
+  const isP1Turn = (gameMode === 'vs_ai' || gameMode === 'practice') ? true : draftCurrentPicker === 'p1'
   const myDrafted = new Set(draftTeamA.map(c => c.id))
   const currentBudget = draftBudgetA
 
@@ -178,7 +218,7 @@ export default function Draft() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftCurrentPicker])
 
-  // Countdown + auto-fill
+  // Countdown + auto-fill + urgency ticks
   useEffect(() => {
     if (bothDone) return
     if (timeLeft <= 0) {
@@ -188,6 +228,11 @@ export default function Draft() {
         setAutoPickFlash(false)
       }, 600)
       return
+    }
+    // Play tick sound in last 15 seconds (once per second, no duplicates)
+    if (timeLeft <= 15 && timeLeft !== lastTickSecRef.current) {
+      lastTickSecRef.current = timeLeft
+      playDraftTick(timeLeft)
     }
     const t = setTimeout(() => setTimeLeft(prev => prev - 1), 1000)
     return () => clearTimeout(t)
@@ -249,12 +294,13 @@ export default function Draft() {
     }
   }
 
+  const isAiMode = gameMode === 'vs_ai' || gameMode === 'practice'
   const canLockIn = isOrdering
     ? true // can always lock in once ordering phase starts
-    : gameMode === 'vs_ai'
+    : isAiMode
     ? draftTeamA.length >= TEAM_SIZE && !isRedrafting
     : bothDone && !isRedrafting
-  const lockInAction = gameMode === 'vs_ai' ? confirmVsAiDraft : proceedFromDraft
+  const lockInAction = isAiMode ? confirmVsAiDraft : proceedFromDraft
 
   return (
     <>
@@ -308,20 +354,84 @@ export default function Draft() {
             gap: 8,
           }}>
             {/* P1 */}
-            <div style={{
-              background: isP1Turn ? 'rgba(124,58,237,0.18)' : 'rgba(255,255,255,0.03)',
-              border: `1px solid ${isP1Turn ? '#7c3aed' : '#1e1e3a'}`,
-              borderRadius: 10,
-              padding: '6px 16px',
-              textAlign: 'center',
-              minWidth: 120,
-              transition: 'all 0.3s',
-            }}>
-              <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 1 }}>{p1Trainer?.name ?? 'Player 1'}</div>
-              <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 20, color: '#7c3aed', lineHeight: 1 }}>
-                {draftBudgetA} <span style={{ fontSize: 11, fontFamily: 'system-ui', fontWeight: 400 }}>pts</span>
+            <div style={{ position: 'relative' }}>
+              <div style={{
+                background: isP1Turn ? 'rgba(124,58,237,0.18)' : 'rgba(255,255,255,0.03)',
+                border: `1px solid ${isP1Turn ? '#7c3aed' : '#1e1e3a'}`,
+                borderRadius: 10,
+                padding: '6px 16px',
+                textAlign: 'center',
+                minWidth: 120,
+                transition: 'all 0.3s',
+              }}>
+                <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                  {p1Trainer?.name ?? 'Player 1'}
+                  {/* Budget info button */}
+                  <button
+                    onClick={() => setShowBudgetTooltip(v => !v)}
+                    style={{
+                      width: 14, height: 14, borderRadius: '50%',
+                      background: 'rgba(100,116,139,0.35)',
+                      border: '1px solid rgba(148,163,184,0.25)',
+                      color: '#94a3b8', fontSize: 8, fontWeight: 900,
+                      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      lineHeight: 1, padding: 0,
+                    }}
+                  >ℹ</button>
+                </div>
+                <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 20, color: '#7c3aed', lineHeight: 1 }}>
+                  {draftBudgetA} <span style={{ fontSize: 11, fontFamily: 'system-ui', fontWeight: 400 }}>pts</span>
+                </div>
+                <div style={{ fontSize: 10, color: '#64748b', marginTop: 1 }}>{draftTeamA.length}/{TEAM_SIZE} picked</div>
               </div>
-              <div style={{ fontSize: 10, color: '#64748b', marginTop: 1 }}>{draftTeamA.length}/{TEAM_SIZE} picked</div>
+
+              {/* Budget tooltip popup */}
+              {showBudgetTooltip && (
+                <div style={{
+                  position: 'absolute',
+                  top: '110%',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  zIndex: 9999,
+                  width: 240,
+                  background: '#0d0d20',
+                  border: '1px solid #7c3aed88',
+                  borderRadius: 10,
+                  padding: '14px 16px',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.8), 0 0 24px rgba(124,58,237,0.3)',
+                }}>
+                  {/* Close */}
+                  <button
+                    onClick={() => setShowBudgetTooltip(false)}
+                    style={{
+                      position: 'absolute', top: 8, right: 10,
+                      background: 'none', border: 'none', color: '#64748b',
+                      fontSize: 14, cursor: 'pointer', lineHeight: 1, padding: 0,
+                    }}
+                  >✕</button>
+                  {/* Arrow up */}
+                  <div style={{
+                    position: 'absolute', top: -8, left: '50%', transform: 'translateX(-50%)',
+                    width: 0, height: 0,
+                    borderLeft: '7px solid transparent', borderRight: '7px solid transparent',
+                    borderBottom: '8px solid #7c3aed88',
+                  }} />
+                  <div style={{ fontSize: 11, fontWeight: 900, color: '#7c3aed', marginBottom: 10, textAlign: 'center', letterSpacing: '0.06em' }}>
+                    💰 DRAFT BUDGET
+                  </div>
+                  {[
+                    { icon: '💎', text: `You have ${BUDGET} draft points to spend` },
+                    { icon: '⚖️', text: 'Each Pokémon costs 5–20 points based on strength' },
+                    { icon: '🎯', text: `Build a team of ${TEAM_SIZE} within your budget` },
+                    { icon: '⚡', text: 'Stronger Pokémon cost more — balance power vs. variety' },
+                  ].map((item, i) => (
+                    <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 7, alignItems: 'flex-start' }}>
+                      <span style={{ fontSize: 13, flexShrink: 0 }}>{item.icon}</span>
+                      <span style={{ fontSize: 11, color: '#94a3b8', lineHeight: 1.4 }}>{item.text}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* VS divider */}
@@ -339,10 +449,10 @@ export default function Draft() {
             }}>
               <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 1 }}>{p2Trainer?.name ?? 'Player 2'}</div>
               <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 20, color: '#ef4444', lineHeight: 1 }}>
-                {gameMode === 'vs_ai' ? '?' : draftBudgetB} <span style={{ fontSize: 11, fontFamily: 'system-ui', fontWeight: 400 }}>pts</span>
+                {isAiMode ? '?' : draftBudgetB} <span style={{ fontSize: 11, fontFamily: 'system-ui', fontWeight: 400 }}>pts</span>
               </div>
               <div style={{ fontSize: 10, color: '#64748b', marginTop: 1 }}>
-                {gameMode === 'vs_ai' ? 'AI' : `${draftTeamB.length}/${TEAM_SIZE} picked`}
+                {isAiMode ? 'AI' : `${draftTeamB.length}/${TEAM_SIZE} picked`}
               </div>
             </div>
           </div>
@@ -388,7 +498,7 @@ export default function Draft() {
             )}
 
             {/* Redo buttons */}
-            {bothDone && !isRedrafting && gameMode !== 'vs_ai' && (
+            {bothDone && !isRedrafting && !isAiMode && (
               <div style={{ display: 'flex', gap: 6 }}>
                 <button onClick={() => redraftTeam('p1')} style={{
                   padding: '6px 10px', background: 'rgba(124,58,237,0.15)',
@@ -402,7 +512,7 @@ export default function Draft() {
                 }}>🔄 {p2Trainer?.name ?? 'P2'}</button>
               </div>
             )}
-            {gameMode === 'vs_ai' && draftTeamA.length >= TEAM_SIZE && !isRedrafting && (
+            {isAiMode && draftTeamA.length >= TEAM_SIZE && !isRedrafting && (
               <button onClick={() => redraftTeam('p1')} style={{
                 padding: '6px 10px', background: 'rgba(124,58,237,0.15)',
                 border: '1px solid #7c3aed55', borderRadius: 7,

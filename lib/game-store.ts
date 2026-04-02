@@ -161,7 +161,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   selectTrainer: (trainer) => {
     const { trainerSelectPhase, gameMode } = get()
     if (trainerSelectPhase === 'p1') {
-      if (gameMode === 'vs_ai') {
+      if (gameMode === 'vs_ai' || gameMode === 'practice') {
         // AI picks randomly for P2
         const available = TRAINERS.filter(t => t.id !== trainer.id)
         const aiTrainer = available[Math.floor(Math.random() * available.length)]
@@ -194,8 +194,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   draftCreature: (creature) => {
     const { draftTeamA, draftBudgetA, gameMode } = get()
 
-    // vs_ai: P1 always picks freely, no turn blocking
-    if (gameMode === 'vs_ai') {
+    // vs_ai/practice: P1 always picks freely, no turn blocking
+    if (gameMode === 'vs_ai' || gameMode === 'practice') {
       if (draftTeamA.length >= TEAM_SIZE) return
       if (creature.pointCost > draftBudgetA) return
       if (draftTeamA.find(c => c.id === creature.id)) return
@@ -260,7 +260,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   triggerAIDraftPick: () => {
     const state = get()
-    if (state.gameMode !== 'vs_ai') return
+    if (state.gameMode !== 'vs_ai' && state.gameMode !== 'practice') return
     if (state.draftCurrentPicker !== 'p2') return
     if (state.draftTeamB.length >= TEAM_SIZE) return
     aiDraftPick(state, set, get)
@@ -377,7 +377,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   confirmLineup: (player) => {
     const { lineupPhase, gameMode } = get()
     if (player === 'p1') {
-      if (gameMode === 'vs_ai') {
+      if (gameMode === 'vs_ai' || gameMode === 'practice') {
         // AI randomizes its lineup
         const { lineupB } = get()
         const shuffled = [...lineupB].sort(() => Math.random() - 0.5)

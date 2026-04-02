@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useGameStore } from '@/lib/game-store'
 import { playMusic } from '@/lib/audio/musicEngine'
+import { incrementBattlesTotal, addBattleToLog } from '@/lib/battleStats'
 
 function SpeedLines({ color }: { color: string }) {
   return (
@@ -31,7 +32,7 @@ function SpeedLines({ color }: { color: string }) {
 }
 
 export default function VictoryScreen() {
-  const { battleState, p1Trainer, p2Trainer, proceedToResults, gameMode, completeStoryBattle } = useGameStore()
+  const { battleState, p1Trainer, p2Trainer, proceedToResults, gameMode, completeStoryBattle, arena } = useGameStore()
   const [showQuote, setShowQuote] = useState(false)
   const [displayed, setDisplayed] = useState('')
   const [showButton, setShowButton] = useState(false)
@@ -42,7 +43,20 @@ export default function VictoryScreen() {
   const loserTrainer  = winner === 'A' ? p2Trainer : p1Trainer
   const quote = winnerTrainer?.winQuote ?? '...'
 
-  useEffect(() => { playMusic('victory') }, [])
+  useEffect(() => {
+    playMusic('victory')
+    // Track stats
+    incrementBattlesTotal()
+    if (winnerTrainer && loserTrainer) {
+      addBattleToLog({
+        winner: winnerTrainer.name,
+        loser: loserTrainer.name,
+        arena: arena?.name ?? 'Unknown Arena',
+        timestamp: Date.now(),
+      })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   useEffect(() => {
     const t1 = setTimeout(() => setShowQuote(true), 800)
     return () => clearTimeout(t1)
@@ -268,39 +282,82 @@ export default function VictoryScreen() {
         )}
       </AnimatePresence>
 
-      {/* ── VIEW RESULTS button — pinned to bottom ── */}
+      {/* ── Bottom buttons ── */}
       <AnimatePresence>
         {showButton && (
-          <motion.button
+          <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            whileHover={{ scale: 1.06, boxShadow: `0 0 32px ${wColor}aa` }}
-            whileTap={{ scale: 0.96 }}
-            onClick={isStoryMode ? completeStoryBattle : proceedToResults}
             style={{
               position: 'absolute',
               bottom: '3%',
-              left: 0,
-              right: 0,
-              margin: '0 auto',
-              width: 'fit-content',
+              left: 0, right: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 10,
               zIndex: 20,
-              padding: '14px 48px',
-              background: wColor,
-              border: '3px solid white',
-              borderRadius: 4,
-              color: '#fff',
-              fontSize: 18, fontWeight: 900,
-              fontFamily: '"Impact", "Arial Black", sans-serif',
-              letterSpacing: '0.1em', textTransform: 'uppercase',
-              cursor: 'pointer',
-              boxShadow: `0 5px 0 rgba(0,0,0,0.5), 0 0 22px ${wColor}77`,
-              whiteSpace: 'nowrap',
             }}
           >
-            {isStoryMode ? '⚔️ CONTINUE JOURNEY →' : 'VIEW RESULTS →'}
-          </motion.button>
+            {/* VIEW RESULTS */}
+            <motion.button
+              whileHover={{ scale: 1.06, boxShadow: `0 0 32px ${wColor}aa` }}
+              whileTap={{ scale: 0.96 }}
+              onClick={isStoryMode ? completeStoryBattle : proceedToResults}
+              style={{
+                padding: '14px 48px',
+                background: wColor,
+                border: '3px solid white',
+                borderRadius: 4,
+                color: '#fff',
+                fontSize: 18, fontWeight: 900,
+                fontFamily: '"Impact", "Arial Black", sans-serif',
+                letterSpacing: '0.1em', textTransform: 'uppercase',
+                cursor: 'pointer',
+                boxShadow: `0 5px 0 rgba(0,0,0,0.5), 0 0 22px ${wColor}77`,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {isStoryMode ? '⚔️ CONTINUE JOURNEY →' : 'VIEW RESULTS →'}
+            </motion.button>
+
+            {/* Share on X button */}
+            {!isStoryMode && (
+              <motion.button
+                whileHover={{ scale: 1.04, background: '#1a1a1a' }}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => {
+                  const text = encodeURIComponent(
+                    `Just won a battle on Arena 151! 🏆 My trainer ${winnerTrainer.name} crushed it! Play at https://jonathan-foley-og6b.vercel.app/ #Arena151 #Pokemon`
+                  )
+                  window.open(`https://twitter.com/intent/tweet?text=${text}`, '_blank', 'noopener,noreferrer')
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '10px 24px',
+                  background: '#000',
+                  border: '2px solid rgba(255,255,255,0.2)',
+                  borderRadius: 6,
+                  color: '#fff',
+                  fontSize: 14, fontWeight: 700,
+                  fontFamily: 'system-ui, -apple-system, sans-serif',
+                  letterSpacing: '0.03em',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.6)',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {/* X logo SVG */}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.74l7.73-8.835L1.254 2.25H8.08l4.713 6.231 5.45-6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                </svg>
+                Share on X
+              </motion.button>
+            )}
+          </motion.div>
         )}
       </AnimatePresence>
 

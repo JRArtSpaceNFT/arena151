@@ -5,6 +5,7 @@ import { useArenaStore } from '@/lib/store';
 import { playMusic, resumeAudioContext } from '@/lib/audio/musicEngine';
 import { getSession } from '@/lib/auth';
 import type { PokemonType } from '@/types';
+import { trackSession } from '@/lib/battleStats';
 
 export default function HomePage() {
   const { setScreen, setTrainer, currentTrainer } = useArenaStore();
@@ -36,6 +37,11 @@ export default function HomePage() {
       });
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Track session for stats
+  useEffect(() => {
+    trackSession();
+  }, []);
 
   // Start intro music on first interaction
   useEffect(() => {
@@ -85,11 +91,11 @@ export default function HomePage() {
         draggable={false}
       />
 
-      {/* Enter Arena — invisible click zone over the button in the image */}
+      {/* Enter Arena — invisible click zone over the button in the image (desktop) */}
       <button
         onClick={handleEnterArena}
         aria-label="Enter the Arena"
-        className="absolute"
+        className="absolute hidden sm:block"
         style={{
           top: '42%',
           left: '39%',
@@ -100,6 +106,36 @@ export default function HomePage() {
           cursor: 'pointer',
         }}
       />
+
+      {/* Mobile "ENTER ARENA" button — always visible on small screens */}
+      <button
+        onClick={handleEnterArena}
+        aria-label="Enter the Arena"
+        className="sm:hidden absolute"
+        style={{
+          bottom: '12%',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          minWidth: 200,
+          minHeight: 52,
+          padding: '14px 32px',
+          background: 'linear-gradient(135deg, #7c3aed, #5b21b6)',
+          border: '2px solid rgba(255,255,255,0.3)',
+          borderRadius: 12,
+          color: '#fff',
+          fontSize: 18,
+          fontWeight: 900,
+          fontFamily: '"Impact", "Arial Black", sans-serif',
+          letterSpacing: '0.1em',
+          textTransform: 'uppercase',
+          cursor: 'pointer',
+          boxShadow: '0 0 32px rgba(124,58,237,0.6), 0 4px 16px rgba(0,0,0,0.6)',
+          whiteSpace: 'nowrap',
+          zIndex: 10,
+        }}
+      >
+        ENTER ARENA
+      </button>
     </div>
   );
 }

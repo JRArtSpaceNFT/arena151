@@ -97,3 +97,61 @@
   backdrop-filter: blur(24px);
   border: 1px solid rgba(148, 163, 184, 0.1);
 }
+
+/* ── Mobile responsive: BattleScreen ── */
+@media (max-width: 640px) {
+  /* Main battle area: stack team lists above/below center */
+  [data-battle-container] {
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 12px !important;
+  }
+
+  /* HP bars / creature names: larger text */
+  [data-creature-name] {
+    font-size: 13px !important;
+  }
+  [data-hp-bar] {
+    height: 8px !important;
+  }
+
+  /* Battle log: always scrollable at bottom */
+  [data-battle-log] {
+    max-height: 120px !important;
+    overflow-y: auto !important;
+    font-size: 11px !important;
+  }
+
+  /* Side panels: hide on mobile to save space */
+  [data-side-panel] {
+    display: none !important;
+  }
+}
+
+/* ── Mobile responsive: Draft ── */
+@media (max-width: 640px) {
+  /* Budget cards smaller */
+  .draft-budget-card {
+    min-width: 80px !important;
+    padding: 4px 8px !important;
+  }
+
+  /* Timer always visible */
+  .draft-timer-wrap {
+    display: flex !important;
+  }
+
+  /* Pokemon grid: smaller cells */
+  .draft-pokemon-grid {
+    grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)) !important;
+  }
+}
+
+/* ── Mobile responsive: TrainerSelect ── */
+@media (max-width: 640px) {
+  /* Carousel narrows */
+  .trainer-select-carousel {
+    gap: 6px !important;
+  }
+}
+
