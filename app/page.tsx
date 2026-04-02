@@ -17,6 +17,7 @@ import PracticeGameWrapper from '@/components/battle/PracticeGameWrapper';
 import FriendBattle from '@/components/FriendBattle';
 import Leaderboard from '@/components/Leaderboard';
 import BattleGuide from '@/components/BattleGuide';
+import FairGaming from '@/components/FairGaming';
 
 const CROWD_SCREENS = new Set(['draft-mode-intro', 'profile', 'leaderboard']);
 
@@ -75,6 +76,7 @@ export default function ArenaApp() {
       {currentScreen === 'result' && <ResultScreen />}
       {currentScreen === 'leaderboard' && <Leaderboard />}
       {currentScreen === 'battle-guide' && <BattleGuide />}
+      {currentScreen === 'fair-gaming' && <FairGaming />}
       
       {/* Professor Oak AI Assistant - Always available except during game */}
       {currentScreen !== 'game' && currentScreen !== 'practice-game' && <ProfessorOak />}

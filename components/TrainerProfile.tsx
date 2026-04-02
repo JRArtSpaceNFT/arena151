@@ -15,8 +15,8 @@ import { getBattleLog, timeAgo } from '@/lib/battleStats';
 import type { BattleLogEntry } from '@/lib/battleStats';
 
 const SOL_PRICE_USD = 150;
-const WITHDRAWAL_FEE_SOL = 0.001;
-const MIN_WITHDRAWAL_USD = 5;
+const WITHDRAWAL_FEE_PCT = 0.005; // 0.5% processing fee
+const MIN_WITHDRAWAL_USD = 10;
 const MIN_WITHDRAWAL_SOL = MIN_WITHDRAWAL_USD / SOL_PRICE_USD;
 const isValidSolAddress = (addr: string) => /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(addr.trim());
 
@@ -192,13 +192,14 @@ export default function TrainerProfile() {
   };
 
   const parsedAmount = parseFloat(withdrawAmount) || 0;
-  const netAmount = Math.max(0, parsedAmount - WITHDRAWAL_FEE_SOL);
-  const minAmountRequired = MIN_WITHDRAWAL_SOL + WITHDRAWAL_FEE_SOL;
+  const withdrawFee = parsedAmount * WITHDRAWAL_FEE_PCT;
+  const netAmount = Math.max(0, parsedAmount - withdrawFee);
+  const minAmountRequired = MIN_WITHDRAWAL_SOL;
 
   const validateWithdraw = () => {
     if (!isValidSolAddress(withdrawAddr)) { setWithdrawError('Please enter a valid Solana wallet address.'); return false; }
     if (parsedAmount <= 0) { setWithdrawError('Please enter an amount.'); return false; }
-    if (netAmount < MIN_WITHDRAWAL_SOL) { setWithdrawError(`Minimum withdrawal is $${MIN_WITHDRAWAL_USD} worth of SOL.`); return false; }
+    if (parsedAmount < MIN_WITHDRAWAL_SOL) { setWithdrawError(`Minimum withdrawal is $${MIN_WITHDRAWAL_USD} USD (~${MIN_WITHDRAWAL_SOL.toFixed(4)} SOL).`); return false; }
     if (!currentTrainer || parsedAmount > currentTrainer.balance) { setWithdrawError('Insufficient balance.'); return false; }
     setWithdrawError(''); return true;
   };
@@ -625,7 +626,7 @@ export default function TrainerProfile() {
                       <div className="text-center py-2">
                         <div className="text-3xl mb-1">✅</div>
                         <p className="font-black text-white text-sm mb-1">Withdrawal Submitted</p>
-                        <p className="text-xs text-white/40 mb-2">{netAmount.toFixed(4)} SOL sent after fee</p>
+                        <p className="text-xs text-white/40 mb-2">{netAmount.toFixed(4)} SOL received (0.5% fee applied)</p>
                         <button onClick={handleWithdrawClose} className="px-5 py-1.5 rounded-xl font-black text-sm border" style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.6)', borderColor: 'rgba(255,255,255,0.1)' }}>Done</button>
                       </div>
                     )}
@@ -636,7 +637,7 @@ export default function TrainerProfile() {
                           <p className="font-mono break-all">{withdrawAddr}</p>
                         </div>
                         <div className="grid grid-cols-3 gap-1.5 mb-2 text-center text-xs">
-                          {[['Send', parsedAmount.toFixed(4), 'text-white/60'], ['Fee', `−${WITHDRAWAL_FEE_SOL}`, 'text-orange-400'], ['Get', netAmount.toFixed(4), 'text-green-400']].map(([l, v, c]) => (
+                          {[['Send', parsedAmount.toFixed(4), 'text-white/60'], ['Fee (0.5%)', `−${withdrawFee.toFixed(4)}`, 'text-orange-400'], ['Receive', netAmount.toFixed(4), 'text-green-400']].map(([l, v, c]) => (
                             <div key={l} className="rounded-lg p-2 border" style={{ background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.08)' }}>
                               <p className="text-white/40">{l}</p><p className={`font-black ${c}`}>{v}</p>
                             </div>
@@ -659,16 +660,21 @@ export default function TrainerProfile() {
                           style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)' }} />
                         <div className="relative mb-1.5">
                           <input type="number" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)}
-                            placeholder={`Min ${minAmountRequired.toFixed(4)} SOL`}
+                            placeholder={`Min ${minAmountRequired.toFixed(4)} SOL (~$${MIN_WITHDRAWAL_USD})`}
                             className="w-full rounded-lg px-3 py-2 text-sm placeholder:text-white/20 outline-none transition-colors pr-12"
                             style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)' }} />
-                          <button onClick={() => setWithdrawAmount((currentTrainer.balance - WITHDRAWAL_FEE_SOL).toFixed(4))}
+                          <button onClick={() => setWithdrawAmount(currentTrainer.balance.toFixed(4))}
                             className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-black" style={{ color: '#fb923c' }}>MAX</button>
                         </div>
                         {withdrawError && (
                           <div className="rounded-lg p-2 mb-1.5 text-xs flex gap-1 border" style={{ background: 'rgba(239,68,68,0.08)', borderColor: 'rgba(239,68,68,0.2)', color: '#f87171' }}>
                             <X className="w-3 h-3 shrink-0 mt-0.5" />{withdrawError}
                           </div>
+                        )}
+                        {parsedAmount > 0 && (
+                          <p className="text-xs text-center mb-1.5 text-orange-300/70">
+                            Send {parsedAmount.toFixed(4)} SOL → Receive {netAmount.toFixed(4)} SOL (0.5% fee)
+                          </p>
                         )}
                         <button onClick={handleWithdrawNext} className="w-full py-2 rounded-xl font-black text-white text-sm" style={{ background: 'linear-gradient(135deg,#ea580c,#c2410c)' }}>Review →</button>
                       </motion.div>

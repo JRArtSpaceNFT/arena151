@@ -86,7 +86,7 @@ export function registerUser(data: {
     favoritePokemonName: data.favoritePokemonName,
     favoritePokemonTypes: data.favoritePokemonTypes,
     internalWalletId: `arena151_${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`,
-    balance: data.testingMode ? 999999 : 0,
+    balance: 0,
     earnings: 0,
     wins: 0,
     losses: 0,

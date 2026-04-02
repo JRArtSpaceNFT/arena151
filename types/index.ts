@@ -99,7 +99,8 @@ export type AppScreen =
   | 'leaderboard'
   | 'battle-guide'
   | 'practice-game'
-  | 'friend-battle';
+  | 'friend-battle'
+  | 'fair-gaming';
 
 export interface ChatMessage {
   id: string;

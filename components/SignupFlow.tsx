@@ -26,7 +26,13 @@ export default function SignupFlow() {
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const totalSteps = 5;
+  const totalSteps = 6;
+
+  // Age verification gate — must pass before seeing signup form
+  const [ageVerified, setAgeVerified] = useState<boolean | null>(null);
+  const [ageDenied, setAgeDenied] = useState(false);
+  // ToS acceptance
+  const [tosAccepted, setTosAccepted] = useState(false);
 
   const [formData, setFormData] = useState({
     email: '',
@@ -108,7 +114,8 @@ export default function SignupFlow() {
       case 2: return formData.displayName.trim().length >= 2 && formData.username.trim().length >= 3 && !error;
       case 3: return !!formData.avatar;
       case 4: return !!formData.favoritePokemon;
-      case 5: return true;
+      case 5: return tosAccepted;
+      case 6: return true;
       default: return false;
     }
   };
@@ -294,6 +301,67 @@ export default function SignupFlow() {
     );
   }
 
+  // ── AGE VERIFICATION GATE ──────────────────────────────────
+  if (ageVerified === null || ageDenied) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-8 relative overflow-hidden">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/SICK.jpg" alt="" className="absolute inset-0 w-full h-full object-cover" aria-hidden="true" />
+        <div className="absolute inset-0 bg-black/70" />
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="relative z-10 max-w-md w-full">
+          <div className="text-center mb-8">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/Arena151Logo.png" alt="Arena 151" className="h-20 mx-auto mb-3 object-contain" />
+          </div>
+          <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800/50 rounded-2xl p-8 text-center">
+            {ageDenied ? (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <div className="text-5xl mb-4">🚫</div>
+                <h2 className="text-2xl font-black text-white mb-3">Access Restricted</h2>
+                <p className="text-slate-300 mb-6">You must be 18 or older to use Arena 151.</p>
+                <button
+                  onClick={() => { setAgeDenied(false); setMode('login'); }}
+                  className="w-full py-3 rounded-lg font-bold text-slate-400 border border-slate-700 hover:border-slate-500 transition-all text-sm"
+                >
+                  ← Back to Login
+                </button>
+              </motion.div>
+            ) : (
+              <>
+                <div className="text-5xl mb-4">🔞</div>
+                <h2 className="text-2xl font-black text-white mb-3">Age Verification Required</h2>
+                <p className="text-slate-300 mb-2">Are you 18 or older?</p>
+                <p className="text-slate-500 text-sm mb-8">
+                  This platform involves skill-based wagering. You must be 18 years or older and in a jurisdiction where
+                  skill-based wagering is permitted to create an account.
+                </p>
+                <div className="space-y-3">
+                  <button
+                    onClick={() => setAgeVerified(true)}
+                    className="w-full py-4 rounded-xl font-black tracking-wide uppercase text-white transition-all bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 shadow-lg shadow-blue-500/30 hover:scale-105 active:scale-95"
+                  >
+                    ✅ I am 18 or older — Continue
+                  </button>
+                  <button
+                    onClick={() => setAgeDenied(true)}
+                    className="w-full py-3 rounded-xl font-bold text-slate-400 border border-slate-700 hover:border-red-500/50 hover:text-red-300 transition-all text-sm"
+                  >
+                    I am under 18 — Exit
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+          <div className="text-center mt-4">
+            <button onClick={() => setMode('login')} className="text-sm text-slate-500 hover:text-slate-300 transition-colors">
+              Already have an account? Sign in
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
   // ── SIGNUP MODE ─────────────────────────────────────────────
   return (
     <div className="min-h-screen flex items-center justify-center p-8 relative overflow-hidden">
@@ -305,17 +373,17 @@ export default function SignupFlow() {
         {/* Progress */}
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
           <div className="flex items-center justify-between mb-3">
-            {[1, 2, 3, 4, 5].map(s => (
+            {[1, 2, 3, 4, 5, 6].map(s => (
               <div key={s} className="flex items-center flex-1">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all ${s <= step ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-500/50' : 'bg-slate-800 text-slate-500'}`}>
-                  {s < step ? <Check className="w-5 h-5" /> : s}
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-all ${s <= step ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-500/50' : 'bg-slate-800 text-slate-500'}`}>
+                  {s < step ? <Check className="w-4 h-4" /> : s}
                 </div>
-                {s < 5 && <div className={`h-1 flex-1 mx-2 transition-all ${s < step ? 'bg-gradient-to-r from-blue-500 to-cyan-500' : 'bg-slate-800'}`} />}
+                {s < 6 && <div className={`h-1 flex-1 mx-1 transition-all ${s < step ? 'bg-gradient-to-r from-blue-500 to-cyan-500' : 'bg-slate-800'}`} />}
               </div>
             ))}
           </div>
           <div className="flex justify-between text-xs text-slate-500 mt-1">
-            <span>Account</span><span>Identity</span><span>Avatar</span><span>Pokémon</span><span>Wallet</span>
+            <span>Account</span><span>Identity</span><span>Avatar</span><span>Pokémon</span><span>Terms</span><span>Wallet</span>
           </div>
         </motion.div>
 
@@ -454,33 +522,126 @@ export default function SignupFlow() {
               </motion.div>
             )}
 
-            {/* STEP 5 — Wallet */}
+            {/* STEP 5 — Terms of Service */}
             {step === 5 && (
               <motion.div key="s5" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="text-3xl">📋</span>
+                  <h2 className="text-2xl font-bold">Terms of Service</h2>
+                </div>
+                <p className="text-slate-400 text-sm mb-4">Please read and agree to our Terms of Service before creating your account.</p>
+
+                {/* Scrollable ToS content */}
+                <div className="bg-slate-900/80 border border-slate-700 rounded-xl p-4 mb-4 overflow-y-auto text-xs text-slate-300 space-y-3 leading-relaxed"
+                  style={{ maxHeight: '320px' }}>
+                  <p className="font-black text-white text-sm text-center">ARENA 151 — TERMS OF SERVICE &amp; LEGAL AGREEMENT</p>
+
+                  <div>
+                    <p className="font-bold text-white mb-1">1. ELIGIBILITY</p>
+                    <p>You must be 18 years of age or older. By creating an account you confirm you are of legal age and that skill-based wagering is permitted in your jurisdiction.</p>
+                  </div>
+
+                  <div>
+                    <p className="font-bold text-white mb-1">2. SKILL-BASED WAGERING</p>
+                    <p>Arena 151 is a skill-based game. Battle outcomes are determined by team composition, strategic drafting, and move selection — not pure chance. However, as with any competition, outcomes are not guaranteed.</p>
+                  </div>
+
+                  <div>
+                    <p className="font-bold text-white mb-1">3. FAIR GAMING &amp; RANDOM MECHANICS</p>
+                    <ul className="space-y-1 ml-2">
+                      {[
+                        'All AI opponents are generated using a deterministic algorithm with no preferential treatment',
+                        'Move selection uses a weighted random system based on type matchups, stats, and momentum — the same rules apply to every player equally',
+                        'No player, moderator, or Arena 151 staff member can influence battle outcomes',
+                        'All randomness uses client-side seeded RNG — results can be independently verified',
+                      ].map((item, i) => <li key={i} className="flex gap-1.5"><span className="shrink-0 mt-0.5">•</span><span>{item}</span></li>)}
+                    </ul>
+                  </div>
+
+                  <div>
+                    <p className="font-bold text-white mb-1">4. HOUSE FEES</p>
+                    <ul className="space-y-1 ml-2">
+                      <li className="flex gap-1.5"><span className="shrink-0 mt-0.5">•</span><span>Arena 151 charges a 5% house fee on all wagered battles. Example: two players wager 1 SOL each (2 SOL pot) → winner receives 1.9 SOL, 0.1 SOL goes to Arena 151.</span></li>
+                      <li className="flex gap-1.5"><span className="shrink-0 mt-0.5">•</span><span>A 0.5% processing fee applies to all withdrawals. Example: withdraw 10 SOL → receive 9.95 SOL.</span></li>
+                      <li className="flex gap-1.5"><span className="shrink-0 mt-0.5">•</span><span>Free (no-wager) battles have no fees.</span></li>
+                    </ul>
+                  </div>
+
+                  <div>
+                    <p className="font-bold text-white mb-1">5. DEPOSITS &amp; WITHDRAWALS</p>
+                    <ul className="space-y-1 ml-2">
+                      <li className="flex gap-1.5"><span className="shrink-0 mt-0.5">•</span><span>Minimum withdrawal: $10 USD equivalent in SOL</span></li>
+                      <li className="flex gap-1.5"><span className="shrink-0 mt-0.5">•</span><span>Withdrawals are processed manually and may take 1-3 business days</span></li>
+                      <li className="flex gap-1.5"><span className="shrink-0 mt-0.5">•</span><span>Arena 151 is not responsible for funds sent to incorrect wallet addresses</span></li>
+                    </ul>
+                  </div>
+
+                  <div>
+                    <p className="font-bold text-white mb-1">6. RESPONSIBLE GAMING</p>
+                    <p>Only wager what you can afford to lose. If you believe you have a gambling problem, please seek help at ncpgambling.org or 1-800-522-4700.</p>
+                  </div>
+
+                  <div>
+                    <p className="font-bold text-white mb-1">7. PROHIBITED CONDUCT</p>
+                    <ul className="space-y-1 ml-2">
+                      {[
+                        'Collusion, match-fixing, or multi-accounting is prohibited and will result in permanent ban',
+                        'Exploiting bugs or glitches to gain unfair advantage is prohibited',
+                        'Any attempt to manipulate game outcomes will result in account suspension and potential legal action',
+                      ].map((item, i) => <li key={i} className="flex gap-1.5"><span className="shrink-0 mt-0.5">•</span><span>{item}</span></li>)}
+                    </ul>
+                  </div>
+
+                  <div>
+                    <p className="font-bold text-white mb-1">8. LIMITATION OF LIABILITY</p>
+                    <p>Arena 151 is provided &quot;as is.&quot; We are not liable for losses incurred through gameplay, technical issues, or market fluctuations in SOL value.</p>
+                  </div>
+
+                  <div>
+                    <p className="font-bold text-white mb-1">9. CHANGES TO TERMS</p>
+                    <p>Arena 151 reserves the right to modify these terms at any time. Continued use constitutes acceptance.</p>
+                  </div>
+
+                  <p className="text-slate-400 text-center pt-2 border-t border-slate-700">
+                    By checking the box below, you confirm you have read, understood, and agree to these Terms of Service.
+                  </p>
+                </div>
+
+                {/* Checkbox */}
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <div
+                    onClick={() => setTosAccepted(v => !v)}
+                    className={`mt-0.5 w-5 h-5 rounded border-2 shrink-0 flex items-center justify-center transition-all ${tosAccepted ? 'bg-blue-600 border-blue-500' : 'border-slate-600 group-hover:border-blue-500'}`}
+                  >
+                    {tosAccepted && <Check className="w-3 h-3 text-white" />}
+                  </div>
+                  <span className="text-sm text-slate-300 leading-relaxed">
+                    I have read and agree to the Terms of Service and confirm I am <span className="font-bold text-white">18 years of age or older</span>.
+                  </span>
+                </label>
+              </motion.div>
+            )}
+
+            {/* STEP 6 — Wallet */}
+            {step === 6 && (
+              <motion.div key="s6" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
                 <div className="flex items-center gap-3 mb-6"><Wallet className="w-8 h-8 text-purple-400" /><h2 className="text-3xl font-bold">Fund Your Account</h2></div>
-                {testingMode ? (
-                  <div className="bg-green-950/30 border-2 border-green-500/50 rounded-xl p-6 mb-6">
-                    <p className="text-green-400 font-bold text-lg mb-2">🎮 Testing Mode Active</p>
-                    <p className="text-slate-300">Your account will be credited with <span className="font-bold text-green-400">999,999 SOL</span> for testing purposes.</p>
-                  </div>
-                ) : (
-                  <div className="bg-purple-950/30 border-2 border-purple-500/50 rounded-xl p-6 mb-6">
-                    <p className="text-slate-300 mb-4">Send <span className="font-bold text-purple-400">SOL</span> to your Arena 151 wallet to start battling:</p>
-                    <div className="bg-slate-900/80 rounded-lg p-4 border border-slate-700 mb-4">
-                      <p className="text-xs text-slate-500 mb-2">Your Wallet Address</p>
-                      <div className="flex items-center gap-3">
-                        <code className="flex-1 font-mono text-sm text-slate-200 break-all">arena151_{formData.email.replace(/[^a-z0-9]/gi, '')}</code>
-                        <button onClick={copyAddress} className="flex-shrink-0 px-4 py-2 bg-purple-600 hover:bg-purple-500 rounded-lg transition-colors flex items-center gap-2 text-sm font-bold">
-                          {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}{copied ? 'Copied!' : 'Copy'}
-                        </button>
-                      </div>
-                    </div>
-                    <div className="space-y-1 text-sm text-slate-400">
-                      <p>⚠️ <span className="font-bold text-purple-300">SOL ONLY</span></p>
-                      <p>💰 Minimum: 0.01 SOL • ⚡ Confirms in ~1 min</p>
+                <div className="bg-purple-950/30 border-2 border-purple-500/50 rounded-xl p-6 mb-6">
+                  <p className="text-slate-300 mb-4">Send <span className="font-bold text-purple-400">SOL</span> to your Arena 151 wallet to start battling. You can also skip this for now.</p>
+                  <div className="bg-slate-900/80 rounded-lg p-4 border border-slate-700 mb-4">
+                    <p className="text-xs text-slate-500 mb-2">Your Wallet Address</p>
+                    <div className="flex items-center gap-3">
+                      <code className="flex-1 font-mono text-sm text-slate-200 break-all">{`arena151_${formData.email.replace(/[^a-z0-9]/gi, '')}`}</code>
+                      <button onClick={copyAddress} className="flex-shrink-0 px-4 py-2 bg-purple-600 hover:bg-purple-500 rounded-lg transition-colors flex items-center gap-2 text-sm font-bold">
+                        {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}{copied ? 'Copied!' : 'Copy'}
+                      </button>
                     </div>
                   </div>
-                )}
+                  <div className="space-y-1 text-sm text-slate-400">
+                    <p>⚠️ <span className="font-bold text-purple-300">SOL ONLY</span></p>
+                    <p>💰 Minimum: 0.01 SOL • ⚡ Confirms in ~1 min</p>
+                  </div>
+                </div>
                 <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700 text-sm text-slate-400">
                   You can deposit more SOL anytime from your trainer profile.
                 </div>
@@ -489,19 +650,34 @@ export default function SignupFlow() {
           </AnimatePresence>
         </motion.div>
 
-        <div className="flex justify-between items-center">
-          {step > 1 ? (
-            <button onClick={() => { setStep(s => s - 1); setError(''); }}
-              className="px-6 py-3 bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-lg font-semibold hover:border-blue-500/50 transition-all">Back</button>
-          ) : (
-            <button onClick={() => { setMode('login'); setError(''); }}
-              className="px-6 py-3 bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-lg font-semibold hover:border-blue-500/50 transition-all">Sign In Instead</button>
+        <div className="flex flex-col gap-3">
+          <div className="flex justify-between items-center">
+            {step > 1 ? (
+              <button onClick={() => { setStep(s => s - 1); setError(''); }}
+                className="px-6 py-3 bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-lg font-semibold hover:border-blue-500/50 transition-all">Back</button>
+            ) : (
+              <button onClick={() => { setMode('login'); setError(''); }}
+                className="px-6 py-3 bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-lg font-semibold hover:border-blue-500/50 transition-all">Sign In Instead</button>
+            )}
+            <button onClick={handleNext} disabled={!canProceed() || isLoading}
+              className={`px-8 py-3 rounded-lg font-bold tracking-wide uppercase text-sm transition-all bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 shadow-lg shadow-blue-500/50 flex items-center gap-2 ${(!canProceed() || isLoading) ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}>
+              {isLoading ? 'Creating...' : step === totalSteps ? '⚔️ Enter the Arena' : 'Continue'}
+              {!isLoading && <ChevronRight className="w-5 h-5" />}
+            </button>
+          </div>
+          {/* Skip for now — only on wallet step */}
+          {step === totalSteps && (
+            <div className="text-center">
+              <button
+                onClick={handleCreateAccount}
+                disabled={isLoading}
+                className="text-sm text-slate-500 hover:text-slate-300 transition-colors"
+              >
+                Skip for now → &nbsp;
+                <span className="text-slate-600 text-xs">You can deposit SOL anytime from your profile</span>
+              </button>
+            </div>
           )}
-          <button onClick={handleNext} disabled={!canProceed() || isLoading}
-            className={`px-8 py-3 rounded-lg font-bold tracking-wide uppercase text-sm transition-all bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 shadow-lg shadow-blue-500/50 flex items-center gap-2 ${(!canProceed() || isLoading) ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}>
-            {isLoading ? 'Creating...' : step === totalSteps ? 'Enter the Arena' : 'Continue'}
-            {!isLoading && <ChevronRight className="w-5 h-5" />}
-          </button>
         </div>
       </div>
     </div>
