@@ -127,72 +127,6 @@ export default function DraftModeIntro() {
         style={{ left: '43%', top: '72%', width: '18.5%', height: '8%' }}
       />
 
-      {/* Practice Arena + Friend Battle floating buttons (bottom-right) */}
-      <div style={{
-        position: 'absolute',
-        bottom: 56,
-        right: 16,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 8,
-        zIndex: 10,
-      }}>
-        {/* Practice Arena */}
-        <button
-          onClick={() => setScreen('practice-game')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            padding: '10px 16px',
-            background: 'rgba(34,197,94,0.15)',
-            border: '1px solid rgba(34,197,94,0.5)',
-            borderRadius: 10,
-            color: '#4ade80',
-            fontSize: 13,
-            fontWeight: 800,
-            cursor: 'pointer',
-            backdropFilter: 'blur(8px)',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
-            whiteSpace: 'nowrap',
-            letterSpacing: '0.03em',
-          }}
-        >
-          <span style={{ fontSize: 18 }}>🎯</span>
-          <div style={{ textAlign: 'left' }}>
-            <div>Practice Arena</div>
-            <div style={{ fontSize: 10, color: 'rgba(74,222,128,0.7)', fontWeight: 500 }}>Free · vs AI · no stakes</div>
-          </div>
-        </button>
-
-        {/* Friend Battle */}
-        <button
-          onClick={() => setScreen('friend-battle')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            padding: '10px 16px',
-            background: 'rgba(139,92,246,0.15)',
-            border: '1px solid rgba(139,92,246,0.5)',
-            borderRadius: 10,
-            color: '#a78bfa',
-            fontSize: 13,
-            fontWeight: 800,
-            cursor: 'pointer',
-            backdropFilter: 'blur(8px)',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
-            whiteSpace: 'nowrap',
-            letterSpacing: '0.03em',
-          }}
-        >
-          <span style={{ fontSize: 18 }}>⚔️</span>
-          <div style={{ textAlign: 'left' }}>
-            <div>Play a Friend</div>
-            <div style={{ fontSize: 10, color: 'rgba(167,139,250,0.7)', fontWeight: 500 }}>Password room · local async</div>
-          </div>
-        </button>
-      </div>
 
       {/* PROFILE — top left */}
       <button
@@ -251,7 +185,7 @@ export default function DraftModeIntro() {
             )}
           </AnimatePresence>
         </div>
-        <span className="text-xs text-slate-500 shrink-0">247 online</span>
+        <span className="text-xs text-slate-500 shrink-0">Arena 151</span>
       </motion.div>
 
     </div>
