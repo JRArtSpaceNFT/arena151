@@ -48,10 +48,17 @@ export default function VictoryScreen() {
     // Track stats
     incrementBattlesTotal()
     if (winnerTrainer && loserTrainer) {
+      const TYPE_EMOJI: Record<string, string> = {
+        fire: '🔥', water: '💧', electric: '⚡', grass: '🌿', ice: '❄️',
+        fighting: '👊', poison: '☠️', ground: '🌍', flying: '🦅', psychic: '🔮',
+        bug: '🐛', rock: '🪨', ghost: '👻', dragon: '🐉', dark: '🌑', steel: '⚙️', normal: '⭐',
+      }
+      const arenaEmoji = arena?.type ? (TYPE_EMOJI[arena.type] ?? '⚔️') : '⚔️'
       addBattleToLog({
         winner: winnerTrainer.name,
         loser: loserTrainer.name,
         arena: arena?.name ?? 'Unknown Arena',
+        arenaEmoji,
         timestamp: Date.now(),
       })
     }

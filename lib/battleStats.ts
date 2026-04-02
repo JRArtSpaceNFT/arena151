@@ -4,6 +4,7 @@ export interface BattleLogEntry {
   winner: string
   loser: string
   arena: string
+  arenaEmoji?: string
   timestamp: number
 }
 

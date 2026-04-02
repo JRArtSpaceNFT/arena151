@@ -11,6 +11,8 @@ import { TYPE_COLORS } from '@/lib/constants';
 import { getPokemonSpriteUrl, POKEMON_DATABASE } from '@/lib/pokemon-data';
 import { clearSession, updateUser } from '@/lib/auth';
 import { getAvatarOptions } from '@/lib/trainer-avatars';
+import { getBattleLog, timeAgo } from '@/lib/battleStats';
+import type { BattleLogEntry } from '@/lib/battleStats';
 
 const SOL_PRICE_USD = 150;
 const WITHDRAWAL_FEE_SOL = 0.001;
@@ -47,20 +49,7 @@ const GYM_BADGES = [
   { arenaId: 'viridian-city',  name: 'Earth Badge',   file: '/EarthBadge.png',   type: 'ground',   color: '#fbbf24', city: 'Viridian'  },
 ];
 
-const MOCK_BATTLES = [
-  { opponent: 'TrainerRed',  result: 'win'  as const, room: 'Indigo Plateau',  arena: '🏔️', hoursAgo: 1  },
-  { opponent: 'GaryOak',     result: 'loss' as const, room: 'Cerulean Arena',  arena: '💧', hoursAgo: 3  },
-  { opponent: 'MistyW',      result: 'win'  as const, room: 'Viridian Gym',    arena: '🌿', hoursAgo: 5  },
-  { opponent: 'BrockS',      result: 'loss' as const, room: 'Pewter City',     arena: '🪨', hoursAgo: 8  },
-  { opponent: 'DragonTamer', result: 'win'  as const, room: 'Victory Road',    arena: '🐉', hoursAgo: 24 },
-];
 
-function timeAgo(hoursAgo: number) {
-  if (hoursAgo < 1) return 'just now';
-  if (hoursAgo === 1) return '1h ago';
-  if (hoursAgo < 24) return `${hoursAgo}h ago`;
-  return '1d ago';
-}
 
 // ── Floating particle background ──
 function Particles({ color }: { color: string }) {
@@ -148,6 +137,11 @@ export default function TrainerProfile() {
     if (!currentTrainer || prevWinsRef.current !== null) return;
     prevWinsRef.current = currentTrainer.record.wins;
   }, [currentTrainer]);
+
+  const [recentBattles, setRecentBattles] = useState<BattleLogEntry[]>([]);
+  useEffect(() => {
+    setRecentBattles(getBattleLog().slice(0, 10));
+  }, []);
 
   const [walletView, setWalletView] = useState<WalletView>(null);
   const [copied, setCopied] = useState(false);
@@ -710,53 +704,69 @@ export default function TrainerProfile() {
               </div>
             </div>
 
-            {/* Battle rows */}
+            {/* Battle rows — real data from localStorage */}
             <div className="flex-1 overflow-y-auto">
-              {MOCK_BATTLES.map((battle, idx) => {
-                const isWin = battle.result === 'win';
-                return (
-                  <motion.div key={idx}
-                    initial={{ opacity: 0, x: -12 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.2 + idx * 0.07 }}
-                    whileHover={{ backgroundColor: 'rgba(255,255,255,0.04)', x: 2 }}
-                    className="flex items-center justify-between px-4 py-3 cursor-default transition-colors relative"
-                    style={{
-                      borderBottom: '1px solid rgba(255,255,255,0.04)',
-                      borderLeft: `3px solid ${isWin ? '#4ade80' : '#f87171'}`,
-                    }}>
-                    {/* Result glow on left */}
-                    <div className="absolute left-0 top-0 bottom-0 w-16 pointer-events-none"
-                      style={{ background: `linear-gradient(to right, ${isWin ? 'rgba(74,222,128,0.06)' : 'rgba(248,113,113,0.06)'}, transparent)` }} />
+              {recentBattles.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full py-10 gap-3">
+                  <div className="text-4xl opacity-30">⚔️</div>
+                  <p className="font-black text-white/30 text-sm uppercase tracking-wider">No battles yet</p>
+                  <p className="text-xs text-white/20 text-center px-6">
+                    Complete your first battle and your real match history will appear here.
+                  </p>
+                </div>
+              ) : (
+                recentBattles.map((battle, idx) => {
+                  const isWin = battle.winner === currentTrainer?.displayName ||
+                                battle.winner === currentTrainer?.username;
+                  const opponent = isWin ? battle.loser : battle.winner;
+                  return (
+                    <motion.div key={idx}
+                      initial={{ opacity: 0, x: -12 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.15 + idx * 0.05 }}
+                      whileHover={{ backgroundColor: 'rgba(255,255,255,0.04)', x: 2 }}
+                      className="flex items-center justify-between px-4 py-3 cursor-default transition-colors relative"
+                      style={{
+                        borderBottom: '1px solid rgba(255,255,255,0.04)',
+                        borderLeft: `3px solid ${isWin ? '#4ade80' : '#f87171'}`,
+                      }}>
+                      <div className="absolute left-0 top-0 bottom-0 w-16 pointer-events-none"
+                        style={{ background: `linear-gradient(to right, ${isWin ? 'rgba(74,222,128,0.06)' : 'rgba(248,113,113,0.06)'}, transparent)` }} />
 
-                    <div className="flex items-center gap-3 relative z-10">
-                      {/* Arena icon */}
-                      <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-lg"
-                        style={{ background: isWin ? 'rgba(74,222,128,0.1)' : 'rgba(248,113,113,0.1)', border: `1px solid ${isWin ? 'rgba(74,222,128,0.2)' : 'rgba(248,113,113,0.2)'}` }}>
-                        {battle.arena}
+                      <div className="flex items-center gap-3 relative z-10">
+                        <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-lg"
+                          style={{ background: isWin ? 'rgba(74,222,128,0.1)' : 'rgba(248,113,113,0.1)', border: `1px solid ${isWin ? 'rgba(74,222,128,0.2)' : 'rgba(248,113,113,0.2)'}` }}>
+                          {battle.arenaEmoji ?? '⚔️'}
+                        </div>
+                        <div>
+                          <p className="font-black text-white text-sm">
+                            <span style={{ color: 'rgba(255,255,255,0.5)' }}>
+                              {isWin ? battle.winner : battle.loser}
+                            </span>
+                            <span className="text-white/30 mx-1">vs</span>
+                            <span style={{ color: isWin ? '#86efac' : '#fca5a5' }}>{opponent}</span>
+                          </p>
+                          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>{battle.arena}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-black text-white text-sm">vs <span style={{ color: isWin ? '#86efac' : '#fca5a5' }}>{battle.opponent}</span></p>
-                        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>{battle.room}</p>
-                      </div>
-                    </div>
 
-                    <div className="flex items-center gap-3 relative z-10">
-                      <span className="text-xs" style={{ color: 'rgba(255,255,255,0.25)' }}>{timeAgo(battle.hoursAgo)}</span>
-                      <motion.span
-                        className="text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider"
-                        style={isWin
-                          ? { background: 'rgba(74,222,128,0.15)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.3)', textShadow: '0 0 8px rgba(74,222,128,0.5)' }
-                          : { background: 'rgba(248,113,113,0.12)', color: '#f87171', border: '1px solid rgba(248,113,113,0.25)' }
-                        }
-                        whileHover={{ scale: 1.05 }}
-                      >
-                        {isWin ? '✓ WIN' : '✗ LOSS'}
-                      </motion.span>
-                    </div>
-                  </motion.div>
-                );
-              })}
+                      <div className="flex items-center gap-3 relative z-10">
+                        <span className="text-xs" style={{ color: 'rgba(255,255,255,0.25)' }}>{timeAgo(battle.timestamp)}</span>
+                        <motion.span
+                          className="text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider"
+                          style={isWin
+                            ? { background: 'rgba(74,222,128,0.15)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.3)', textShadow: '0 0 8px rgba(74,222,128,0.5)' }
+                            : { background: 'rgba(248,113,113,0.12)', color: '#f87171', border: '1px solid rgba(248,113,113,0.25)' }
+                          }
+                          whileHover={{ scale: 1.05 }}
+                        >
+                          {isWin ? '✓ WIN' : '✗ LOSS'}
+                        </motion.span>
+                      </div>
+                    </motion.div>
+                  );
+                })
+              )}
             </div>
           </motion.div>
 
