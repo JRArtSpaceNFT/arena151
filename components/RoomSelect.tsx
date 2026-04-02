@@ -137,166 +137,68 @@ export default function RoomSelect() {
           </div>
         </div>
 
-        {/* ── Arena Grid ── */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 flex-1 min-h-0">
+        {/* ── Top row: Practice + Play a Friend (2 wide cards) ── */}
+        <div className="grid grid-cols-2 gap-2.5 shrink-0" style={{ height: '22%', minHeight: 100, maxHeight: 140 }}>
 
-          {/* ── Practice Arena card ── */}
+          {/* Practice Arena */}
           <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.04 }}
+            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.04 }}
             onClick={() => setScreen('practice-game')}
-            whileHover={{ scale: 1.02, y: -2 }}
-            whileTap={{ scale: 0.98 }}
+            whileHover={{ scale: 1.015, y: -2 }} whileTap={{ scale: 0.98 }}
             className="relative rounded-xl flex flex-col overflow-hidden cursor-pointer"
-            style={{
-              background: 'linear-gradient(160deg, #14532d44 0%, rgba(8,6,20,0.95) 100%)',
-              border: '1px solid #4ade8033',
-              boxShadow: '0 0 12px #4ade8014',
-            }}
+            style={{ background: 'linear-gradient(135deg, #14532d55 0%, rgba(8,6,20,0.97) 100%)', border: '1px solid #4ade8044', boxShadow: '0 0 18px #4ade8018' }}
           >
-            {/* Top edge line */}
-            <div className="absolute top-0 left-0 right-0 h-0.5 pointer-events-none"
-              style={{ background: 'linear-gradient(90deg, transparent, #4ade80, transparent)' }} />
-            {/* Corner accents */}
-            <div className="absolute top-0 left-0 w-3 h-3 pointer-events-none" style={{ borderTop: '2px solid #4ade8077', borderLeft: '2px solid #4ade8077', borderTopLeftRadius: 10 }} />
-            <div className="absolute top-0 right-0 w-3 h-3 pointer-events-none" style={{ borderTop: '2px solid #4ade8077', borderRight: '2px solid #4ade8077', borderTopRightRadius: 10 }} />
-            <div className="absolute bottom-0 left-0 w-3 h-3 pointer-events-none" style={{ borderBottom: '2px solid #4ade8077', borderLeft: '2px solid #4ade8077', borderBottomLeftRadius: 10 }} />
-            <div className="absolute bottom-0 right-0 w-3 h-3 pointer-events-none" style={{ borderBottom: '2px solid #4ade8077', borderRight: '2px solid #4ade8077', borderBottomRightRadius: 10 }} />
-            <div className="absolute bottom-0 left-0 right-0 h-1 pointer-events-none rounded-b-xl"
-              style={{ background: 'linear-gradient(90deg, transparent, #4ade8033, transparent)' }} />
-
-            {/* FREE badge */}
-            <div className="absolute top-1.5 right-1.5 z-20 px-1.5 py-0.5 rounded-md font-black"
-              style={{ background: '#4ade80', color: '#000', fontSize: 9, letterSpacing: '0.05em' }}>
-              FREE
-            </div>
-
-            <div className="relative z-10 flex flex-col h-full px-3.5 pt-3 pb-3">
-              {/* Title row */}
-              <div className="flex items-center gap-2.5 mb-2">
-                <div className="text-2xl">🥊</div>
-                <div>
-                  <h2 className="font-black leading-none" style={{ fontFamily: '"Impact", "Arial Black", sans-serif', fontSize: 15, letterSpacing: '0.04em', color: '#fff', textShadow: '0 0 12px #4ade8066' }}>
-                    PRACTICE ARENA
-                  </h2>
-                  <p className="leading-none mt-0.5 font-semibold" style={{ color: '#4ade80cc', fontSize: 10 }}>
-                    vs AI • No Stakes
-                  </p>
-                </div>
+            <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: 'linear-gradient(90deg, transparent, #4ade80, transparent)' }} />
+            <div className="absolute top-1.5 right-1.5 z-20 px-1.5 py-0.5 rounded-md font-black" style={{ background: '#4ade80', color: '#000', fontSize: 9, letterSpacing: '0.05em' }}>FREE</div>
+            <div className="relative z-10 flex items-center h-full px-4 gap-4">
+              <div className="text-3xl shrink-0">🥊</div>
+              <div className="flex-1 min-w-0">
+                <h2 className="font-black leading-none" style={{ fontFamily: '"Impact","Arial Black",sans-serif', fontSize: 18, letterSpacing: '0.05em', color: '#fff', textShadow: '0 0 14px #4ade8066' }}>PRACTICE ARENA</h2>
+                <p className="mt-1 text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>Full game vs AI · no SOL · test your lineup</p>
               </div>
-
-              <div className="h-px mb-2.5" style={{ background: 'linear-gradient(90deg, transparent, #4ade8044, transparent)' }} />
-
-              <div className="flex-1 flex flex-col justify-center gap-1.5 mb-3">
-                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.55)', lineHeight: 1.5 }}>
-                  Full game experience against the AI. No SOL required — perfect for testing your lineup and strategy.
-                </p>
-              </div>
-
               <motion.div
-                className="relative flex items-center justify-center py-2.5 rounded-xl font-black overflow-hidden mt-auto"
-                style={{
-                  background: 'linear-gradient(135deg, #4ade8044 0%, #4ade8028 100%)',
-                  border: '1px solid #4ade8066',
-                  color: '#fff',
-                  fontSize: 11,
-                  letterSpacing: '0.06em',
-                  boxShadow: '0 2px 16px #4ade8022',
-                  textShadow: '0 0 10px #4ade8088',
-                }}
-                whileHover={{ background: 'linear-gradient(135deg, #4ade8066 0%, #4ade8044 100%)', boxShadow: '0 4px 24px #4ade8044' } as any}
-                whileTap={{ scale: 0.97 }}
+                className="shrink-0 px-4 py-2 rounded-xl font-black text-xs relative overflow-hidden"
+                style={{ background: 'linear-gradient(135deg,#4ade8044,#4ade8022)', border: '1px solid #4ade8066', color: '#fff', letterSpacing: '0.05em', textShadow: '0 0 8px #4ade8088', whiteSpace: 'nowrap' }}
+                whileHover={{ boxShadow: '0 0 20px #4ade8055' } as any}
               >
-                <motion.div className="absolute inset-0"
-                  style={{ background: 'linear-gradient(105deg, transparent 30%, #4ade8022 50%, transparent 70%)' }}
-                  animate={{ x: ['-100%', '200%'] }}
-                  transition={{ duration: 2.5, repeat: Infinity, repeatDelay: 2 }}
-                />
+                <motion.div className="absolute inset-0" style={{ background: 'linear-gradient(105deg,transparent 30%,#4ade8022 50%,transparent 70%)' }} animate={{ x: ['-100%','200%'] }} transition={{ duration: 2.5, repeat: Infinity, repeatDelay: 2 }} />
                 <span className="relative z-10">Enter Practice →</span>
               </motion.div>
             </div>
           </motion.div>
 
-          {/* ── Play a Friend card ── */}
+          {/* Play a Friend */}
           <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.08 }}
+            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
             onClick={() => setScreen('friend-battle')}
-            whileHover={{ scale: 1.02, y: -2 }}
-            whileTap={{ scale: 0.98 }}
+            whileHover={{ scale: 1.015, y: -2 }} whileTap={{ scale: 0.98 }}
             className="relative rounded-xl flex flex-col overflow-hidden cursor-pointer"
-            style={{
-              background: 'linear-gradient(160deg, #1e1b4b44 0%, rgba(8,6,20,0.95) 100%)',
-              border: '1px solid #818cf833',
-              boxShadow: '0 0 12px #818cf814',
-            }}
+            style={{ background: 'linear-gradient(135deg, #1e1b4b55 0%, rgba(8,6,20,0.97) 100%)', border: '1px solid #818cf844', boxShadow: '0 0 18px #818cf818' }}
           >
-            {/* Top edge line */}
-            <div className="absolute top-0 left-0 right-0 h-0.5 pointer-events-none"
-              style={{ background: 'linear-gradient(90deg, transparent, #818cf8, transparent)' }} />
-            {/* Corner accents */}
-            <div className="absolute top-0 left-0 w-3 h-3 pointer-events-none" style={{ borderTop: '2px solid #818cf877', borderLeft: '2px solid #818cf877', borderTopLeftRadius: 10 }} />
-            <div className="absolute top-0 right-0 w-3 h-3 pointer-events-none" style={{ borderTop: '2px solid #818cf877', borderRight: '2px solid #818cf877', borderTopRightRadius: 10 }} />
-            <div className="absolute bottom-0 left-0 w-3 h-3 pointer-events-none" style={{ borderBottom: '2px solid #818cf877', borderLeft: '2px solid #818cf877', borderBottomLeftRadius: 10 }} />
-            <div className="absolute bottom-0 right-0 w-3 h-3 pointer-events-none" style={{ borderBottom: '2px solid #818cf877', borderRight: '2px solid #818cf877', borderBottomRightRadius: 10 }} />
-            <div className="absolute bottom-0 left-0 right-0 h-1 pointer-events-none rounded-b-xl"
-              style={{ background: 'linear-gradient(90deg, transparent, #818cf833, transparent)' }} />
-
-            {/* LIVE badge */}
-            <div className="absolute top-1.5 right-1.5 z-20 flex items-center gap-1 px-1.5 py-0.5 rounded-md font-black"
-              style={{ background: '#818cf8', color: '#000', fontSize: 9, letterSpacing: '0.05em' }}>
-              <div className="w-1.5 h-1.5 bg-black rounded-full animate-pulse" />
-              LIVE
+            <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: 'linear-gradient(90deg, transparent, #818cf8, transparent)' }} />
+            <div className="absolute top-1.5 right-1.5 z-20 flex items-center gap-1 px-1.5 py-0.5 rounded-md font-black" style={{ background: '#818cf8', color: '#000', fontSize: 9, letterSpacing: '0.05em' }}>
+              <div className="w-1.5 h-1.5 bg-black rounded-full animate-pulse" />LIVE
             </div>
-
-            <div className="relative z-10 flex flex-col h-full px-3.5 pt-3 pb-3">
-              {/* Title row */}
-              <div className="flex items-center gap-2.5 mb-2">
-                <div className="text-2xl">⚔️</div>
-                <div>
-                  <h2 className="font-black leading-none" style={{ fontFamily: '"Impact", "Arial Black", sans-serif', fontSize: 15, letterSpacing: '0.04em', color: '#fff', textShadow: '0 0 12px #818cf866' }}>
-                    PLAY A FRIEND
-                  </h2>
-                  <p className="leading-none mt-0.5 font-semibold" style={{ color: '#818cf8cc', fontSize: 10 }}>
-                    Password Match • 60s Lobby
-                  </p>
-                </div>
+            <div className="relative z-10 flex items-center h-full px-4 gap-4">
+              <div className="text-3xl shrink-0">⚔️</div>
+              <div className="flex-1 min-w-0">
+                <h2 className="font-black leading-none" style={{ fontFamily: '"Impact","Arial Black",sans-serif', fontSize: 18, letterSpacing: '0.05em', color: '#fff', textShadow: '0 0 14px #818cf866' }}>PLAY A FRIEND</h2>
+                <p className="mt-1 text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>Share a password · 60s lobby · same device or network</p>
               </div>
-
-              <div className="h-px mb-2.5" style={{ background: 'linear-gradient(90deg, transparent, #818cf844, transparent)' }} />
-
-              <div className="flex-1 flex flex-col justify-center gap-1.5 mb-3">
-                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.55)', lineHeight: 1.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  Share a password to battle a friend on the same device or network.
-                </p>
-              </div>
-
               <motion.div
-                className="relative flex items-center justify-center py-2.5 rounded-xl font-black overflow-hidden mt-auto"
-                style={{
-                  background: 'linear-gradient(135deg, #818cf844 0%, #818cf828 100%)',
-                  border: '1px solid #818cf866',
-                  color: '#fff',
-                  fontSize: 11,
-                  letterSpacing: '0.06em',
-                  boxShadow: '0 2px 16px #818cf822',
-                  textShadow: '0 0 10px #818cf888',
-                }}
-                whileHover={{ background: 'linear-gradient(135deg, #818cf866 0%, #818cf844 100%)', boxShadow: '0 4px 24px #818cf844' } as any}
-                whileTap={{ scale: 0.97 }}
+                className="shrink-0 px-4 py-2 rounded-xl font-black text-xs relative overflow-hidden"
+                style={{ background: 'linear-gradient(135deg,#818cf844,#818cf822)', border: '1px solid #818cf866', color: '#fff', letterSpacing: '0.05em', textShadow: '0 0 8px #818cf888', whiteSpace: 'nowrap' }}
+                whileHover={{ boxShadow: '0 0 20px #818cf855' } as any}
               >
-                <motion.div className="absolute inset-0"
-                  style={{ background: 'linear-gradient(105deg, transparent 30%, #818cf822 50%, transparent 70%)' }}
-                  animate={{ x: ['-100%', '200%'] }}
-                  transition={{ duration: 2.5, repeat: Infinity, repeatDelay: 2 }}
-                />
+                <motion.div className="absolute inset-0" style={{ background: 'linear-gradient(105deg,transparent 30%,#818cf822 50%,transparent 70%)' }} animate={{ x: ['-100%','200%'] }} transition={{ duration: 2.5, repeat: Infinity, repeatDelay: 2 }} />
                 <span className="relative z-10">Challenge Friend →</span>
               </motion.div>
             </div>
           </motion.div>
+        </div>
 
+        {/* ── 8 Gym Arenas — 4×2 grid fills remaining space ── */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 flex-1 min-h-0">
           {rooms.map((room, i) => {
             const id = room.id as string;
             const identity = ARENA_IDENTITY[id] ?? { flavor: '', bgImage: '', accent: '#6366f1', accentDark: '#1e1b4b', stakeTier: 'mid' as const, btnLabel: 'Enter Arena →' };
