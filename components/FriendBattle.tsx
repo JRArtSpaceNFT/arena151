@@ -294,22 +294,36 @@ export default function FriendBattle() {
                   Wager (SOL) — leave blank for FREE
                 </label>
 
-                {/* Presets */}
-                <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
-                  {PRESETS.map(p => {
-                    const active = p === 'FREE' ? isFree : wagerInput === p
+                {/* FREE — full width */}
+                <button
+                  onClick={() => setWagerInput('')}
+                  style={{
+                    width: '100%', padding: '9px 0', borderRadius: 8, fontSize: 13, fontWeight: 900,
+                    cursor: 'pointer', border: '1px solid', marginBottom: 6,
+                    background: isFree ? 'rgba(74,222,128,0.2)' : 'rgba(255,255,255,0.04)',
+                    borderColor: isFree ? '#4ade80' : 'rgba(255,255,255,0.1)',
+                    color: isFree ? '#4ade80' : '#64748b',
+                    letterSpacing: '0.08em', transition: 'all 0.15s',
+                  }}>
+                  🆓 PLAY FOR FREE
+                </button>
+
+                {/* SOL amounts — single row */}
+                <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+                  {['0.01', '0.05', '0.1', '0.5', '1.0'].map(p => {
+                    const active = wagerInput === p
                     return (
                       <button key={p}
-                        onClick={() => setWagerInput(p === 'FREE' ? '' : p)}
+                        onClick={() => setWagerInput(p)}
                         style={{
-                          padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 800,
-                          cursor: 'pointer', border: '1px solid',
-                          background: active ? (p === 'FREE' ? 'rgba(74,222,128,0.2)' : 'rgba(129,140,248,0.2)') : 'rgba(255,255,255,0.04)',
-                          borderColor: active ? (p === 'FREE' ? '#4ade80' : '#818cf8') : 'rgba(255,255,255,0.1)',
-                          color: active ? (p === 'FREE' ? '#4ade80' : '#818cf8') : '#64748b',
+                          flex: 1, padding: '8px 0', borderRadius: 8, fontSize: 12, fontWeight: 800,
+                          cursor: 'pointer', border: '1px solid', whiteSpace: 'nowrap',
+                          background: active ? 'rgba(129,140,248,0.2)' : 'rgba(255,255,255,0.04)',
+                          borderColor: active ? '#818cf8' : 'rgba(255,255,255,0.1)',
+                          color: active ? '#818cf8' : '#64748b',
                           transition: 'all 0.15s',
                         }}>
-                        {p === 'FREE' ? '🆓 FREE' : `◎ ${p}`}
+                        ◎{p}
                       </button>
                     )
                   })}
