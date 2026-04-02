@@ -202,7 +202,7 @@ function TrainerModal({ entry, onClose }: { entry: LeaderboardEntry; onClose: ()
   );
 }
 
-type SortMode = 'wins' | 'earnings';
+type SortMode = 'wins' | 'earnings' | 'hallOfFame';
 
 export default function Leaderboard() {
   const { setScreen, currentTrainer } = useArenaStore();
@@ -283,6 +283,13 @@ export default function Leaderboard() {
                   : { color: 'rgba(255,255,255,0.5)' }}>
                 💰 Earnings
               </button>
+              <button onClick={() => setSortMode('hallOfFame')}
+                className="px-4 py-1.5 rounded-lg text-xs font-black transition-all"
+                style={sortMode === 'hallOfFame'
+                  ? { background: 'linear-gradient(135deg,#92400e,#fbbf24)', color: '#000' }
+                  : { color: 'rgba(255,255,255,0.5)' }}>
+                🏛️ Hall of Fame
+              </button>
             </div>
           </div>
 
@@ -310,59 +317,81 @@ export default function Leaderboard() {
           </div>
         </motion.div>
 
-        {/* ── Hall of Fame ── */}
-        {allUsers.filter(u => u.badges?.length >= 8).length > 0 && (
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-            className="mb-4 shrink-0 rounded-2xl overflow-hidden"
-            style={{ background: 'linear-gradient(135deg, rgba(120,80,0,0.55) 0%, rgba(60,30,0,0.7) 100%)', border: '1px solid rgba(251,191,36,0.5)', boxShadow: '0 0 40px rgba(251,191,36,0.2)' }}>
+        {/* ── Hall of Fame Tab ── */}
+        {sortMode === 'hallOfFame' && (
+          <motion.div key="hof" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+            className="flex-1 min-h-0 rounded-2xl overflow-hidden flex flex-col"
+            style={{ background: 'linear-gradient(160deg,rgba(120,80,0,0.45),rgba(30,15,0,0.75))', backdropFilter: 'blur(24px)', border: '1px solid rgba(251,191,36,0.4)', boxShadow: '0 0 60px rgba(251,191,36,0.15)' }}>
             {/* Header */}
-            <div className="flex items-center gap-3 px-4 py-3 border-b" style={{ borderColor: 'rgba(251,191,36,0.25)' }}>
+            <div className="flex items-center gap-3 px-5 py-4 border-b shrink-0" style={{ borderColor: 'rgba(251,191,36,0.2)' }}>
               <motion.div animate={{ rotate: [0, 10, -10, 0] }} transition={{ duration: 3, repeat: Infinity }}>
-                <span style={{ fontSize: 24 }}>🏆</span>
+                <span style={{ fontSize: 28 }}>🏆</span>
               </motion.div>
               <div>
-                <h2 className="font-black text-sm uppercase tracking-widest" style={{ background: 'linear-gradient(90deg,#fbbf24,#fff,#fbbf24)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', filter: 'drop-shadow(0 0 8px rgba(251,191,36,0.6))' }}>
+                <h2 className="font-black text-lg uppercase tracking-widest" style={{ background: 'linear-gradient(90deg,#fbbf24,#fff,#fbbf24)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', filter: 'drop-shadow(0 0 8px rgba(251,191,36,0.6))' }}>
                   Hall of Fame
                 </h2>
                 <p className="text-xs" style={{ color: 'rgba(251,191,36,0.6)' }}>Trainers who conquered all 8 Kanto Gyms</p>
               </div>
             </div>
             {/* Champions */}
-            <div className="flex flex-wrap gap-3 px-4 py-3">
-              {allUsers.filter(u => u.badges?.length >= 8).map((u, i) => (
-                <motion.div key={u.username}
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: i * 0.08 }}
-                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl"
-                  style={{ background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.4)', boxShadow: '0 0 16px rgba(251,191,36,0.15)' }}>
-                  {/* Avatar */}
-                  <div className="w-9 h-9 rounded-full overflow-hidden border-2 shrink-0" style={{ borderColor: '#fbbf24' }}>
-                    {u.avatar?.startsWith('/') || u.avatar?.startsWith('data:') ? (
-                      <img src={u.avatar} alt={u.displayName} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-lg" style={{ background: 'rgba(251,191,36,0.2)' }}>{u.avatar || '🧑'}</div>
-                    )}
-                  </div>
-                  <div>
-                    <p className="font-black text-sm text-white leading-none">{u.displayName}</p>
-                    <p className="text-xs mt-0.5" style={{ color: 'rgba(251,191,36,0.7)' }}>@{u.username} · {u.wins}W</p>
-                  </div>
-                  {/* All 8 badges tiny */}
-                  <div className="flex gap-0.5 ml-1">
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              {allUsers.filter(u => u.badges?.length >= 8).length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full py-20 gap-3">
+                  <span style={{ fontSize: 56 }}>🏛️</span>
+                  <p className="text-lg font-black text-white/40">No champions yet</p>
+                  <p className="text-sm text-white/25">Collect all 8 Gym Badges to enter the Hall of Fame</p>
+                  <div className="flex gap-1.5 mt-2">
                     {['/BoulderBadge.png','/CascadeBadge.png','/ThunderBadge.png','/RainbowBadge.png','/SoulBadge.png','/MarshBadge.png','/VolcanoBadge.png','/EarthBadge.png'].map((b, bi) => (
-                      <img key={bi} src={b} alt="" className="w-4 h-4 object-contain" style={{ imageRendering: 'pixelated', filter: 'drop-shadow(0 0 3px rgba(251,191,36,0.8))' }} />
+                      <img key={bi} src={b} alt="" className="w-8 h-8 object-contain" style={{ imageRendering: 'pixelated', filter: 'grayscale(100%) brightness(0.4)', opacity: 0.5 }} />
                     ))}
                   </div>
-                  <motion.span style={{ fontSize: 18 }} animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.3 }}>👑</motion.span>
-                </motion.div>
-              ))}
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {allUsers.filter(u => u.badges?.length >= 8).map((u, i) => (
+                    <motion.div key={u.username}
+                      initial={{ opacity: 0, x: -16 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.07 }}
+                      className="flex items-center gap-4 px-4 py-3 rounded-2xl cursor-pointer"
+                      onClick={() => setSelected({ ...u, rank: i + 1 })}
+                      style={{ background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.35)', boxShadow: '0 0 20px rgba(251,191,36,0.12)' }}>
+                      {/* Rank */}
+                      <div className="flex items-center justify-center w-9 h-9 rounded-xl shrink-0 font-black text-lg"
+                        style={{ background: 'rgba(251,191,36,0.18)', border: '1px solid rgba(251,191,36,0.4)', color: '#fbbf24' }}>
+                        {i === 0 ? '👑' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
+                      </div>
+                      {/* Avatar */}
+                      <div className="w-12 h-12 rounded-full overflow-hidden border-2 shrink-0" style={{ borderColor: '#fbbf24', boxShadow: '0 0 12px rgba(251,191,36,0.5)' }}>
+                        {u.avatar?.startsWith('/') || u.avatar?.startsWith('data:') ? (
+                          <img src={u.avatar} alt={u.displayName} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-2xl" style={{ background: 'rgba(251,191,36,0.2)' }}>{u.avatar || '🧑'}</div>
+                        )}
+                      </div>
+                      {/* Name + stats */}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-black text-base text-white leading-none truncate">{u.displayName}</p>
+                        <p className="text-xs mt-0.5 truncate" style={{ color: 'rgba(251,191,36,0.7)' }}>@{u.username} · {u.wins}W · {u.losses}L</p>
+                      </div>
+                      {/* All 8 badges */}
+                      <div className="flex gap-1 shrink-0">
+                        {['/BoulderBadge.png','/CascadeBadge.png','/ThunderBadge.png','/RainbowBadge.png','/SoulBadge.png','/MarshBadge.png','/VolcanoBadge.png','/EarthBadge.png'].map((b, bi) => (
+                          <img key={bi} src={b} alt="" className="w-5 h-5 object-contain" style={{ imageRendering: 'pixelated', filter: 'drop-shadow(0 0 4px rgba(251,191,36,0.9))' }} />
+                        ))}
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
             </div>
           </motion.div>
         )}
 
         {/* ── Table ── */}
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+        {sortMode !== 'hallOfFame' && (
+        <motion.div key="table" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
           className="flex-1 min-h-0 rounded-2xl overflow-hidden flex flex-col"
           style={{ background: 'rgba(10,8,24,0.82)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 0 60px rgba(0,0,0,0.6)' }}>
 
@@ -474,7 +503,9 @@ export default function Leaderboard() {
           )}
         </motion.div>
 
-        {!myRank && (
+        )}
+
+        {sortMode !== 'hallOfFame' && !myRank && (
           <p className="text-center text-xs mt-2 shrink-0" style={{ color: 'rgba(255,255,255,0.25)' }}>Sign in to see your rank</p>
         )}
       </div>

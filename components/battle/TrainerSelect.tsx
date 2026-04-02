@@ -265,6 +265,13 @@ function DossierCard({ trainer, isTaken }: { trainer: Trainer; isTaken: boolean 
                   <img
                     src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`}
                     alt={`#${id}`}
+                    onError={e => {
+                      const img = e.target as HTMLImageElement;
+                      if (!img.src.includes('official-artwork')) {
+                        img.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`;
+                        img.style.imageRendering = 'auto';
+                      }
+                    }}
                     style={{ width: 36, height: 36, imageRendering: 'pixelated', objectFit: 'contain' }}
                   />
                 </div>

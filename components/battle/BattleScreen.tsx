@@ -1399,6 +1399,18 @@ function CreatureDisplay({
               <img
                 src={src}
                 alt={`${ac.creature.name} sprite`}
+                onError={e => {
+                  const img = e.target as HTMLImageElement;
+                  if (!img.src.includes('official-artwork') && !img.src.includes('/public/')) {
+                    const idMatch = img.src.match(/\/pokemon\/(\d+)\.png/);
+                    if (idMatch) {
+                      img.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${idMatch[1]}.png`;
+                      img.style.imageRendering = 'auto';
+                      img.style.width = '260px';
+                      img.style.height = '260px';
+                    }
+                  }
+                }}
                 style={{
                   width: isIllustrated ? illustratedSize : 340,
                   height: isIllustrated ? illustratedSize : 340,

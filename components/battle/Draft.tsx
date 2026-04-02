@@ -684,6 +684,13 @@ export default function Draft() {
                         <img
                           src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${creature.id}.png`}
                           alt={creature.name}
+                          onError={e => {
+                            const img = e.target as HTMLImageElement;
+                            if (!img.src.includes('official-artwork')) {
+                              img.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${creature.id}.png`;
+                              img.style.imageRendering = 'auto';
+                            }
+                          }}
                           style={{
                             width: '100%',
                             height: '100%',
