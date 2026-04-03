@@ -1100,17 +1100,24 @@ export default function BattleScreen() {
               />
             </div>
 
-            {/* ── Announcer display ── */}
-
-
-
+            {/* ── Trainer portrait — bottom of side A ── */}
+            {p1Trainer?.spriteUrl && (
+              <div style={{ marginTop: 'auto', paddingTop: 8, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <img
+                  src={p1Trainer.spriteUrl}
+                  alt={p1Trainer.name}
+                  style={{ width: 90, height: 90, objectFit: 'contain', imageRendering: 'pixelated', filter: 'drop-shadow(0 2px 6px rgba(124,58,237,0.5))' }}
+                />
+                <div style={{ fontSize: 10, fontWeight: 800, color: '#7c3aed', letterSpacing: '0.06em', marginTop: 2 }}>{p1Trainer.name.toUpperCase()}</div>
+              </div>
+            )}
 
 
           </div>
 
           {/* Side B — team list + trainer below */}
           <div style={{ width: 155, display: 'flex', flexDirection: 'column', padding: '10px 10px 0 6px', borderLeft: '1px solid rgba(255,255,255,0.06)' }}>
-            <div style={{ color: '#ef4444', fontSize: 11, fontWeight: 700, marginBottom: 6, letterSpacing: '0.05em' }}>{p2Trainer?.name ?? 'P2'}</div>
+            <div style={{ color: '#ef4444', fontSize: 11, fontWeight: 700, marginBottom: 6, letterSpacing: '0.05em', textAlign: 'right' }}>{p2Trainer?.name ?? 'P2'}</div>
             {teamB.map((ac, i) => {
               const isActive = i === activeB
               const isKOd = koSetB.has(i)
@@ -1139,6 +1146,18 @@ export default function BattleScreen() {
                 </div>
               )
             })}
+
+            {/* ── Trainer portrait — bottom of side B ── */}
+            {p2Trainer?.spriteUrl && (
+              <div style={{ marginTop: 'auto', paddingTop: 8, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <img
+                  src={p2Trainer.spriteUrl}
+                  alt={p2Trainer.name}
+                  style={{ width: 90, height: 90, objectFit: 'contain', imageRendering: 'pixelated', filter: 'drop-shadow(0 2px 6px rgba(239,68,68,0.5))' }}
+                />
+                <div style={{ fontSize: 10, fontWeight: 800, color: '#ef4444', letterSpacing: '0.06em', marginTop: 2 }}>{p2Trainer.name.toUpperCase()}</div>
+              </div>
+            )}
           </div>
         </div>
 

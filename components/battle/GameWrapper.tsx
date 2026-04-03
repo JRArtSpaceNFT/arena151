@@ -83,7 +83,7 @@ function BattleDialogueBubble() {
 }
 
 // ── Trainer busts ─────────────────────────────────────────────
-function BattleTrainerBusts() {
+export function BattleTrainerBusts() {
   const p1Trainer = useGameStore(s => s.p1Trainer)
   const p2Trainer = useGameStore(s => s.p2Trainer)
   const battleDialogue = useGameStore(s => s.battleDialogue)

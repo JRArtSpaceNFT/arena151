@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useGameStore } from '@/lib/game-store'
 import { useArenaStore } from '@/lib/store'
 import TrainerSelect from '@/components/battle/TrainerSelect'
+import { BattleTrainerBusts } from '@/components/battle/GameWrapper'
 import Draft from '@/components/battle/Draft'
 import CoinToss from '@/components/battle/CoinToss'
 import PreBattleTalk from '@/components/battle/PreBattleTalk'
@@ -143,6 +144,7 @@ export default function PracticeGameWrapper() {
         {screens[gameScreen] ?? <TrainerSelect />}
       </div>
       {gameScreen === 'battle' && <BattleDialogueBubble />}
+      {gameScreen === 'battle' && <BattleTrainerBusts />}
       {gameScreen === 'battle' && <BattleAnimOverlay />}
     </div>
   )
