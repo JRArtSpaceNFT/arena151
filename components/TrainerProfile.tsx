@@ -17,7 +17,7 @@ import type { BattleLogEntry } from '@/lib/battleStats';
 
 const SOL_PRICE_USD = 150;
 const WITHDRAWAL_FEE_PCT = 0.005; // 0.5% processing fee
-const MIN_WITHDRAWAL_USD = 10;
+const MIN_WITHDRAWAL_USD = 5;
 const MIN_WITHDRAWAL_SOL = MIN_WITHDRAWAL_USD / SOL_PRICE_USD;
 const isValidSolAddress = (addr: string) => /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(addr.trim());
 

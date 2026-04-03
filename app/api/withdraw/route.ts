@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
 
     const minWithdrawalSol = await getMinWithdrawalSol()
     if (amountSol < minWithdrawalSol) {
-      return NextResponse.json({ error: 'Minimum withdrawal is $10 USD equivalent' }, { status: 400 })
+      return NextResponse.json({ error: 'Minimum withdrawal is $5 USD equivalent' }, { status: 400 })
     }
 
     // Get user profile

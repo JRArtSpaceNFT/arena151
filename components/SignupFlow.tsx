@@ -565,7 +565,7 @@ export default function SignupFlow() {
                     },
                     {
                       n: '8', title: 'WITHDRAWALS AND PAYOUTS',
-                      body: <><p>Minimum withdrawal thresholds apply ($10 USD equivalent). Withdrawals may require identity verification or manual review and may take 1–3 business days. Arena 151 may delay, reject, freeze, or cancel withdrawals where fraud, suspicious activity, legal risk, or violations of these Terms are suspected. Arena 151 is not responsible for lost funds resulting from incorrect wallet addresses, incompatible wallets, user error, or blockchain congestion. Transactions sent to incorrect addresses may be irreversible.</p></>
+                      body: <><p>Minimum withdrawal thresholds apply ($5 USD equivalent). Withdrawals may require identity verification or manual review and may take 1–3 business days. Arena 151 may delay, reject, freeze, or cancel withdrawals where fraud, suspicious activity, legal risk, or violations of these Terms are suspected. Arena 151 is not responsible for lost funds resulting from incorrect wallet addresses, incompatible wallets, user error, or blockchain congestion. Transactions sent to incorrect addresses may be irreversible.</p></>
                     },
                     {
                       n: '9', title: 'NO CUSTODIAL RELATIONSHIP',
