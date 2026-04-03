@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useGameStore } from '@/lib/game-store'
+import { useArenaStore } from '@/lib/store'
 import { stopMusic } from '@/lib/audio/musicEngine'
 
 export default function ResultsScreen() {
@@ -12,6 +13,7 @@ export default function ResultsScreen() {
     p1Coins, p2Coins,
     playAgain,
   } = useGameStore()
+  const setLastMatchWinner = useArenaStore(s => s.setLastMatchWinner)
 
   // Music continues from VictoryScreen/DefeatScreen — do not restart it here
 
@@ -187,7 +189,12 @@ export default function ResultsScreen() {
         <motion.button
           whileHover={{ scale: 1.05, boxShadow: '0 0 30px rgba(124,58,237,0.5)' }}
           whileTap={{ scale: 0.95 }}
-          onClick={() => { stopMusic(); playAgain() }}
+          onClick={() => {
+            stopMusic()
+            // Capture winner BEFORE playAgain() wipes matchResults to null
+            setLastMatchWinner(matchResults?.winner ?? null)
+            playAgain()
+          }}
           style={{
             padding: '16px 48px',
             background: 'linear-gradient(135deg, #7c3aed, #5b21b6)',

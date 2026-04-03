@@ -197,20 +197,14 @@ export default function GameWrapper() {
   }, [])
 
   // Watch for game returning to 'home' (playAgain was called from ResultsScreen)
-  // At that point, redirect to arena151's result screen
+  // At that point, redirect to arena151's result screen.
+  // NOTE: setLastMatchWinner is now called in ResultsScreen BEFORE playAgain() clears matchResults.
+  // GameWrapper just needs to detect the screen transition and navigate.
   const prevScreen = useRef(gameScreen)
-  const lastMatchResultsRef = useRef(matchResults)
-  useEffect(() => {
-    // Keep a ref to the latest matchResults so we can read it when the screen transitions to 'home'
-    if (matchResults) lastMatchResultsRef.current = matchResults
-  }, [matchResults])
 
   useEffect(() => {
     if (prevScreen.current !== 'home' && gameScreen === 'home' && initialized.current) {
-      // Capture winner before playAgain clears matchResults
-      const winner = lastMatchResultsRef.current?.winner ?? null
-      setLastMatchWinner(winner)
-      // Game finished and "Play Again" was clicked — go to arena151 result screen
+      // Winner was already set by ResultsScreen before playAgain() wiped matchResults
       setScreen('result')
     }
     prevScreen.current = gameScreen
