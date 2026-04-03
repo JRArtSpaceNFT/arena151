@@ -534,73 +534,125 @@ export default function SignupFlow() {
                 {/* Scrollable ToS content */}
                 <div className="bg-slate-900/80 border border-slate-700 rounded-xl p-4 mb-4 overflow-y-auto text-xs text-slate-300 space-y-3 leading-relaxed"
                   style={{ maxHeight: '320px' }}>
-                  <p className="font-black text-white text-sm text-center">ARENA 151 — TERMS OF SERVICE &amp; LEGAL AGREEMENT</p>
-
-                  <div>
-                    <p className="font-bold text-white mb-1">1. ELIGIBILITY</p>
-                    <p>You must be 18 years of age or older. By creating an account you confirm you are of legal age and that skill-based wagering is permitted in your jurisdiction.</p>
+                  <div className="text-center border-b border-slate-700 pb-3">
+                    <p className="font-black text-white text-sm">ARENA 151</p>
+                    <p className="font-black text-white text-sm">TERMS OF SERVICE AND LEGAL AGREEMENT</p>
+                    <p className="text-slate-500 mt-1">Effective Date: April 2, 2025</p>
                   </div>
 
-                  <div>
-                    <p className="font-bold text-white mb-1">2. SKILL-BASED WAGERING</p>
-                    <p>Arena 151 is a skill-based game. Battle outcomes are determined by team composition, strategic drafting, and move selection — not pure chance. However, as with any competition, outcomes are not guaranteed.</p>
-                  </div>
+                  <p className="text-slate-400">Welcome to Arena 151. These Terms of Service and Legal Agreement govern your access to and use of the Arena 151 website, application, game services, wallet features, battle system, and any related products or services we provide, collectively referred to as the Service. By creating an account, accessing the Service, connecting a wallet, entering a battle, depositing funds, withdrawing funds, or otherwise using Arena 151, you agree to be bound by these Terms. If you do not agree, do not use the Service.</p>
 
-                  <div>
-                    <p className="font-bold text-white mb-1">3. FAIR GAMING &amp; RANDOM MECHANICS</p>
-                    <ul className="space-y-1 ml-2">
-                      {[
-                        'All AI opponents are generated using a deterministic algorithm with no preferential treatment',
-                        'Move selection uses a weighted random system based on type matchups, stats, and momentum — the same rules apply to every player equally',
-                        'No player, moderator, or Arena 151 staff member can influence battle outcomes',
-                        'All randomness uses client-side seeded RNG — results can be independently verified',
-                      ].map((item, i) => <li key={i} className="flex gap-1.5"><span className="shrink-0 mt-0.5">•</span><span>{item}</span></li>)}
-                    </ul>
-                  </div>
-
-                  <div>
-                    <p className="font-bold text-white mb-1">4. HOUSE FEES</p>
-                    <ul className="space-y-1 ml-2">
-                      <li className="flex gap-1.5"><span className="shrink-0 mt-0.5">•</span><span>Arena 151 charges a 5% house fee on all wagered battles. Example: two players wager 1 SOL each (2 SOL pot) → winner receives 1.9 SOL, 0.1 SOL goes to Arena 151.</span></li>
-                      <li className="flex gap-1.5"><span className="shrink-0 mt-0.5">•</span><span>A 0.5% processing fee applies to all withdrawals. Example: withdraw 10 SOL → receive 9.95 SOL.</span></li>
-                      <li className="flex gap-1.5"><span className="shrink-0 mt-0.5">•</span><span>Free (no-wager) battles have no fees.</span></li>
-                    </ul>
-                  </div>
-
-                  <div>
-                    <p className="font-bold text-white mb-1">5. DEPOSITS &amp; WITHDRAWALS</p>
-                    <ul className="space-y-1 ml-2">
-                      <li className="flex gap-1.5"><span className="shrink-0 mt-0.5">•</span><span>Minimum withdrawal: $10 USD equivalent in SOL</span></li>
-                      <li className="flex gap-1.5"><span className="shrink-0 mt-0.5">•</span><span>Withdrawals are processed manually and may take 1-3 business days</span></li>
-                      <li className="flex gap-1.5"><span className="shrink-0 mt-0.5">•</span><span>Arena 151 is not responsible for funds sent to incorrect wallet addresses</span></li>
-                    </ul>
-                  </div>
-
-                  <div>
-                    <p className="font-bold text-white mb-1">6. RESPONSIBLE GAMING</p>
-                    <p>Only wager what you can afford to lose. If you believe you have a gambling problem, please seek help at ncpgambling.org or 1-800-522-4700.</p>
-                  </div>
-
-                  <div>
-                    <p className="font-bold text-white mb-1">7. PROHIBITED CONDUCT</p>
-                    <ul className="space-y-1 ml-2">
-                      {[
-                        'Collusion, match-fixing, or multi-accounting is prohibited and will result in permanent ban',
-                        'Exploiting bugs or glitches to gain unfair advantage is prohibited',
-                        'Any attempt to manipulate game outcomes will result in account suspension and potential legal action',
-                      ].map((item, i) => <li key={i} className="flex gap-1.5"><span className="shrink-0 mt-0.5">•</span><span>{item}</span></li>)}
-                    </ul>
-                  </div>
-
-                  <div>
-                    <p className="font-bold text-white mb-1">8. LIMITATION OF LIABILITY</p>
-                    <p>Arena 151 is provided &quot;as is.&quot; We are not liable for losses incurred through gameplay, technical issues, or market fluctuations in SOL value.</p>
-                  </div>
-
-                  <div>
-                    <p className="font-bold text-white mb-1">9. CHANGES TO TERMS</p>
-                    <p>Arena 151 reserves the right to modify these terms at any time. Continued use constitutes acceptance.</p>
-                  </div>
+                  {[
+                    {
+                      n: '1', title: 'ELIGIBILITY',
+                      body: <><p>To use Arena 151, you must meet all of the following requirements:</p><ul className="space-y-1 ml-2 mt-1">{['You must be at least 18 years old, or the age of legal majority in your jurisdiction, whichever is greater','You must have full legal capacity to enter into a binding agreement','You must not be located in, reside in, or access the Service from any jurisdiction where participation in skill-based paid competitions, digital asset transactions, or similar activities is prohibited or restricted','You must not be prohibited from using the Service under any applicable law, regulation, sanctions program, or court order'].map((t,i)=><li key={i} className="flex gap-1.5"><span className="shrink-0">•</span><span>{t}</span></li>)}</ul><p className="mt-1">By using the Service, you represent and warrant that you satisfy all eligibility requirements and that your use of Arena 151 is lawful in your jurisdiction. Arena 151 reserves the right to restrict, suspend, deny, or terminate access to any user at any time if eligibility cannot be verified or if we believe continued access may create legal, regulatory, security, or operational risk.</p></>
+                    },
+                    {
+                      n: '2', title: 'NATURE OF THE SERVICE',
+                      body: <p>Arena 151 is a competitive digital battle platform in which players assemble teams, make strategic decisions, and compete in head-to-head or AI-based battles. Depending on the game mode, players may participate in free battles or paid skill-based contests. Arena 151 is intended to reward strategic skill, roster construction, tactical decision making, matchup knowledge, and performance under competitive conditions. Arena 151 is not a financial product, bank account, brokerage, custodial wallet, or investment platform. Nothing on the Service constitutes financial advice, legal advice, tax advice, or a guarantee of winnings or profits.</p>
+                    },
+                    {
+                      n: '3', title: 'SKILL-BASED COMPETITION',
+                      body: <><p>Arena 151 is designed as a skill-based competition platform. Outcomes are intended to be materially influenced by player judgment, team construction, strategic drafting, move selection, matchup understanding, and other gameplay decisions. By participating in any paid battle or prize-based contest, you acknowledge and agree that:</p><ul className="space-y-1 ml-2 mt-1">{['Winning is not guaranteed','Losses are possible','Results may depend on your decisions, your opponent\'s decisions, platform rules, and in-game mechanics','You are voluntarily risking entry fees or digital assets in exchange for the opportunity to compete for prizes'].map((t,i)=><li key={i} className="flex gap-1.5"><span className="shrink-0">•</span><span>{t}</span></li>)}</ul><p className="mt-1">You further understand that even in a skill-based system, some mechanics may include randomized or probabilistic elements that operate consistently across all participants under the same ruleset.</p></>
+                    },
+                    {
+                      n: '4', title: 'FAIR PLAY, MATCH INTEGRITY, AND GAME MECHANICS',
+                      body: <><p>Arena 151 is committed to competitive integrity. All players are subject to the same rules, battle logic, and system constraints. You acknowledge and agree that:</p><ul className="space-y-1 ml-2 mt-1">{['Battle outcomes are determined by the game engine according to Arena 151\'s rules and mechanics','AI behavior, move logic, stat interactions, drafting systems, and battle calculations may rely on deterministic systems, weighted systems, or other rule-based decision models established by Arena 151','Certain gameplay events may involve probability-based mechanics, provided such mechanics are applied uniformly and are not manipulated to favor any player','Arena 151 may update balancing, mechanics, battle logic, matchmaking rules, and gameplay systems at any time in order to improve fairness, security, or game quality'].map((t,i)=><li key={i} className="flex gap-1.5"><span className="shrink-0">•</span><span>{t}</span></li>)}</ul><p className="mt-1">Arena 151 reserves the right to investigate any match, audit battle activity, invalidate suspicious results, cancel contests, or withhold payouts where there is evidence of cheating, system abuse, fraud, collusion, technical manipulation, or violation of these Terms.</p></>
+                    },
+                    {
+                      n: '5', title: 'ACCOUNTS AND WALLET CONNECTIONS',
+                      body: <><p>You are solely responsible for: maintaining the confidentiality of your account credentials and wallet access; all activity that occurs under your account; ensuring your wallet address is accurate before sending or receiving funds; and maintaining the security of your device, seed phrase, and login credentials. Arena 151 is not responsible for unauthorized access resulting from your failure to safeguard your credentials. You may not share accounts, sell accounts, or permit another person to use your account.</p></>
+                    },
+                    {
+                      n: '6', title: 'DEPOSITS, ENTRY FEES, WAGERS, AND PRIZE POOLS',
+                      body: <><p>By entering a paid battle, you understand and agree that your entry fee or wager is placed at risk once the contest begins. Prize distributions will be governed by the rules displayed at the time of entry. Arena 151 may deduct platform fees, processing fees, and other disclosed charges before distributing winnings. If a battle is canceled, interrupted, voided, or invalidated, Arena 151 may determine whether to refund entry fees, replay the battle, split the prize pool, or take another commercially reasonable action.</p></>
+                    },
+                    {
+                      n: '7', title: 'FEES',
+                      body: <><p>Current fees include:</p><ul className="space-y-1 ml-2 mt-1">{['A 5% house fee on paid wager battles. Example: two players each contribute 1 SOL (2 SOL pot) → winner receives 1.9 SOL, Arena 151 retains 0.1 SOL.','A 0.5% processing fee on all withdrawals. Example: withdraw 10 SOL → receive 9.95 SOL.','No fees for free battles unless otherwise stated.'].map((t,i)=><li key={i} className="flex gap-1.5"><span className="shrink-0">•</span><span>{t}</span></li>)}</ul><p className="mt-1">All fees may be changed at any time upon notice. Blockchain network fees, gas fees, and third-party wallet fees are your sole responsibility.</p></>
+                    },
+                    {
+                      n: '8', title: 'WITHDRAWALS AND PAYOUTS',
+                      body: <><p>Minimum withdrawal thresholds apply ($10 USD equivalent). Withdrawals may require identity verification or manual review and may take 1–3 business days. Arena 151 may delay, reject, freeze, or cancel withdrawals where fraud, suspicious activity, legal risk, or violations of these Terms are suspected. Arena 151 is not responsible for lost funds resulting from incorrect wallet addresses, incompatible wallets, user error, or blockchain congestion. Transactions sent to incorrect addresses may be irreversible.</p></>
+                    },
+                    {
+                      n: '9', title: 'NO CUSTODIAL RELATIONSHIP',
+                      body: <p>Unless Arena 151 expressly states otherwise in writing, Arena 151 is not acting as your bank, trustee, escrow agent, broker, fiduciary, or financial custodian. Any balances or credits shown on the Service reflect gameplay or account status and may not represent segregated funds held on your behalf unless explicitly stated.</p>
+                    },
+                    {
+                      n: '10', title: 'COMPLIANCE, VERIFICATION, AND RESTRICTED JURISDICTIONS',
+                      body: <><p>Arena 151 reserves the right to implement identity verification, age verification, wallet screening, sanctions screening, or enhanced due diligence. You may not use the Service if you are located in a restricted jurisdiction, using a VPN or proxy to conceal your location in violation of these Terms, listed on applicable sanctions lists, or acting on behalf of another person in a prohibited location.</p></>
+                    },
+                    {
+                      n: '11', title: 'PROHIBITED CONDUCT',
+                      body: <><p>You agree not to engage in: cheating or obtaining unfair advantages; collusion or match-fixing; multi-accounting; account sharing or impersonation; exploiting bugs or glitches; reverse engineering the platform; using bots, scripts, or automation tools; interfering with servers or matchmaking; fraudulent chargebacks; money laundering or use of stolen funds; harassing or threatening staff or other users; or circumventing security or verification systems. Violations may result in account suspension, permanent ban, cancellation of winnings, or referral to law enforcement.</p></>
+                    },
+                    {
+                      n: '12', title: 'BATTLE CANCELLATIONS, DISCONNECTS, AND TECHNICAL FAILURES',
+                      body: <p>Arena 151 does not guarantee uninterrupted access. Matches may be affected by downtime, bugs, internet failures, or blockchain delays. Arena 151 reserves the right to void matches, replay contests, refund entry fees, or award results based on available data. Arena 151&apos;s internal system records may be used to resolve disputes.</p>
+                    },
+                    {
+                      n: '13', title: 'PROMOTIONS, REWARDS, AND BONUSES',
+                      body: <p>Arena 151 may offer promotions, bonuses, referral programs, or special events subject to additional terms and anti-abuse measures. Arena 151 may revoke promotional benefits if the promotion was abused, manipulated, or awarded in error. Promotions have no cash value unless explicitly stated.</p>
+                    },
+                    {
+                      n: '14', title: 'REFUND POLICY',
+                      body: <p>Except where required by law or expressly stated in writing, all entry fees, purchases, deposits, and digital asset transactions are final and nonrefundable. Refunds may be considered only where a contest is canceled before it begins, a duplicate charge is caused by a verified system error, or a technical malfunction materially prevented fair participation. Arena 151 retains sole discretion regarding refunds.</p>
+                    },
+                    {
+                      n: '15', title: 'INTELLECTUAL PROPERTY',
+                      body: <p>All Arena 151 branding, software, game logic, battle mechanics, visual assets, and content are owned by or licensed to Arena 151 and protected by applicable intellectual property laws. You may not copy, reproduce, distribute, or create derivative works from any part of the Service except as expressly permitted.</p>
+                    },
+                    {
+                      n: '16', title: 'THIRD PARTY SERVICES AND BLOCKCHAIN RISKS',
+                      body: <><p>Arena 151 may rely on third-party infrastructure including wallets, blockchain networks, hosting providers, and analytics vendors. Arena 151 is not responsible for the acts, omissions, or failures of third parties. You acknowledge the inherent risks of blockchain and digital assets including volatility, network congestion, irreversible transactions, and security vulnerabilities in third-party wallets.</p></>
+                    },
+                    {
+                      n: '17', title: 'TAXES',
+                      body: <p>You are solely responsible for determining what taxes apply to your use of Arena 151, including taxes arising from winnings, withdrawals, rewards, or digital asset transactions. Arena 151 may collect tax-related information, issue forms, or report information to authorities where required by law.</p>
+                    },
+                    {
+                      n: '18', title: 'RESPONSIBLE PLAY',
+                      body: <><p>Arena 151 encourages responsible participation. Only enter paid contests with funds you can afford to lose. If you believe you may have a problem with compulsive gambling or problematic wagering behavior, seek professional support immediately.</p><p className="mt-1 font-semibold text-white">National Problem Gambling Helpline: 1-800-522-4700 · ncpgambling.org</p></>
+                    },
+                    {
+                      n: '19', title: 'SUSPENSION AND TERMINATION',
+                      body: <p>Arena 151 may suspend or terminate your account at any time, with or without notice, if you violate these Terms, we suspect fraud or unlawful activity, your conduct creates risk for other users or the platform, or we are required to do so by law or court order. Arena 151 may freeze pending balances during investigation and retain records as required by law.</p>
+                    },
+                    {
+                      n: '20', title: 'DISCLAIMER OF WARRANTIES',
+                      body: <p>The Service is provided on an &quot;as is&quot; and &quot;as available&quot; basis. To the fullest extent permitted by law, Arena 151 disclaims all warranties, express or implied, including any implied warranties of merchantability, fitness for a particular purpose, availability, accuracy, or uninterrupted operation.</p>
+                    },
+                    {
+                      n: '21', title: 'LIMITATION OF LIABILITY',
+                      body: <><p>To the fullest extent permitted by law, Arena 151 and its owners, officers, employees, contractors, affiliates, and partners shall not be liable for any indirect, incidental, consequential, special, or punitive damages, including lost profits, lost digital assets, or gameplay losses. Arena 151&apos;s total aggregate liability for any claim shall not exceed the greater of: the total fees paid by you to Arena 151 in the 3 months preceding the claim, or $100 USD.</p></>
+                    },
+                    {
+                      n: '22', title: 'INDEMNIFICATION',
+                      body: <p>You agree to defend, indemnify, and hold harmless Arena 151 and its owners, affiliates, officers, employees, and partners from any claims, liabilities, damages, losses, costs, and expenses arising out of your use or misuse of the Service, violation of these Terms, or violation of any law or third-party right.</p>
+                    },
+                    {
+                      n: '23', title: 'PRIVACY AND DATA USE',
+                      body: <p>By using the Service, you acknowledge that Arena 151 may collect, use, store, and share information necessary to operate the platform, protect users, comply with law, detect fraud, and improve the Service. This may include account data, wallet addresses, IP information, device information, gameplay data, match history, and transaction records.</p>
+                    },
+                    {
+                      n: '24', title: 'CHANGES TO THE SERVICE AND THESE TERMS',
+                      body: <p>Arena 151 may modify, suspend, or discontinue any aspect of the Service at any time. Arena 151 may revise these Terms at any time — updated Terms become effective when posted. Your continued use of the Service after revised Terms are posted constitutes your acceptance. If you do not agree to revised Terms, you must stop using the Service.</p>
+                    },
+                    {
+                      n: '25', title: 'SEVERABILITY AND ENTIRE AGREEMENT',
+                      body: <p>If any provision of these Terms is found to be unlawful or unenforceable, the remaining provisions shall remain in full force and effect. These Terms constitute the entire agreement between you and Arena 151 regarding the Service and supersede all prior understandings relating to the same subject matter.</p>
+                    },
+                    {
+                      n: '26', title: 'CONTACT',
+                      body: <><p>For questions, disputes, or support inquiries:</p><ul className="space-y-1 ml-2 mt-1"><li className="flex gap-1.5"><span className="shrink-0">•</span><span>General support: <span className="text-blue-400">support@arena151.gg</span></span></li><li className="flex gap-1.5"><span className="shrink-0">•</span><span>Legal &amp; AML inquiries: <span className="text-blue-400">legal@arena151.gg</span></span></li></ul></>
+                    },
+                  ].map(({ n, title, body }) => (
+                    <div key={n}>
+                      <p className="font-bold text-white mb-1">{n}. {title}</p>
+                      <div className="text-slate-300">{body}</div>
+                    </div>
+                  ))}
 
                   <p className="text-slate-400 text-center pt-2 border-t border-slate-700">
                     By checking the box below, you confirm you have read, understood, and agree to these Terms of Service.
