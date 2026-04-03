@@ -4,7 +4,6 @@
 // See SUPABASE_SETUP.md and supabase/schema.sql for setup instructions.
 
 import { supabase } from './supabase'
-import { generateUserWallet } from './solana'
 
 export interface StoredUser {
   id: string
@@ -60,88 +59,41 @@ export async function registerUser(data: {
   favoritePokemonName: string
   favoritePokemonTypes: string[]
 }): Promise<{ success: boolean; error?: string; user?: StoredUser }> {
-  // 1. Create Supabase Auth user
-  const { data: authData, error: authError } = await supabase.auth.signUp({
+  // Call server-side registration API — uses admin client to bypass RLS
+  // and auto-confirms email so users aren't stuck waiting for confirmation
+  const res = await fetch('/api/auth/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+
+  const result = await res.json()
+  if (!res.ok) {
+    return { success: false, error: result.error || 'Registration failed.' }
+  }
+
+  // Now sign in to get a real session
+  const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
     email: data.email,
     password: data.password,
   })
 
-  if (authError) {
-    if (authError.message.includes('already registered') || authError.message.includes('User already registered')) {
-      return { success: false, error: 'An account with this email already exists.' }
-    }
-    return { success: false, error: authError.message }
+  if (signInError || !authData.user) {
+    return { success: false, error: 'Account created but login failed. Please sign in manually.' }
   }
 
-  if (!authData.user) {
-    return { success: false, error: 'Failed to create account. Please try again.' }
+  // Fetch the created profile
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', authData.user.id)
+    .single()
+
+  if (!profile) {
+    return { success: false, error: 'Profile not found after creation. Please contact support.' }
   }
 
-  const { publicKey, encryptedPrivateKey } = generateUserWallet()
-
-  // 2. Insert profile record
-  const profile = {
-    id: authData.user.id,
-    email: data.email.toLowerCase(),
-    username: data.username.toLowerCase(),
-    display_name: data.displayName,
-    bio: data.bio,
-    avatar: data.avatar,
-    favorite_pokemon_id: data.favoritePokemonId,
-    favorite_pokemon_name: data.favoritePokemonName,
-    favorite_pokemon_types: data.favoritePokemonTypes,
-    internal_wallet_id: publicKey,
-    sol_address: publicKey,
-    encrypted_private_key: encryptedPrivateKey,
-    balance: 0,
-    earnings: 0,
-    wins: 0,
-    losses: 0,
-    badges: [],
-    joined_date: new Date().toISOString(),
-  }
-
-  const { error: profileError } = await supabase.from('profiles').insert(profile)
-
-  if (profileError) {
-    if (profileError.code === '23505') {
-      if (profileError.message.includes('username')) {
-        return { success: false, error: 'That username is already taken.' }
-      }
-      return { success: false, error: 'An account with this email already exists.' }
-    }
-    return { success: false, error: profileError.message }
-  }
-
-  const user: StoredUser = {
-    id: authData.user.id,
-    email: data.email.toLowerCase(),
-    username: data.username.toLowerCase(),
-    displayName: data.displayName,
-    bio: data.bio,
-    avatar: data.avatar,
-    favoritePokemonId: data.favoritePokemonId,
-    favoritePokemonName: data.favoritePokemonName,
-    favoritePokemonTypes: data.favoritePokemonTypes,
-    internalWalletId: publicKey,
-    balance: 0,
-    earnings: 0,
-    wins: 0,
-    losses: 0,
-    badges: [],
-    joinedDate: new Date().toISOString(),
-  }
-
-  // Register wallet address with Helius webhook (fire-and-forget)
-  if (typeof window !== 'undefined') {
-    fetch('/api/wallet/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ address: publicKey }),
-    }).catch(err => console.warn('[Wallet] Helius registration failed:', err))
-  }
-
-  return { success: true, user }
+  return { success: true, user: profileToUser(profile) }
 }
 
 export async function loginUser(
