@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { sendSol, calcWithdrawal, getSolBalance } from '@/lib/solana'
+import { sendSol, calcWithdrawal, getSolBalance, getMinWithdrawalSol } from '@/lib/solana'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -13,7 +13,7 @@ const supabaseAnon = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-const MIN_WITHDRAWAL_SOL = 10 / 150 // ~$10 at ~$150/SOL — update with live price
+// Min withdrawal calculated from live SOL price at request time
 
 export async function POST(req: NextRequest) {
   try {
@@ -39,7 +39,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    if (amountSol < MIN_WITHDRAWAL_SOL) {
+    const minWithdrawalSol = await getMinWithdrawalSol()
+    if (amountSol < minWithdrawalSol) {
       return NextResponse.json({ error: 'Minimum withdrawal is $10 USD equivalent' }, { status: 400 })
     }
 
