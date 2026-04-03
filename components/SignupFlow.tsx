@@ -698,7 +698,7 @@ export default function SignupFlow() {
             )}
             <button onClick={handleNext} disabled={!canProceed() || isLoading}
               className={`px-8 py-3 rounded-lg font-bold tracking-wide uppercase text-sm transition-all bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 shadow-lg shadow-blue-500/50 flex items-center gap-2 ${(!canProceed() || isLoading) ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}>
-              {isLoading ? 'Creating...' : step === totalSteps ? '⚔️ Enter the Arena' : 'Continue'}
+              {isLoading ? 'Creating...' : step === totalSteps ? 'Enter the Arena' : 'Continue'}
               {!isLoading && <ChevronRight className="w-5 h-5" />}
             </button>
           </div>

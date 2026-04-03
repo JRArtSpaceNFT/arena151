@@ -180,7 +180,7 @@ export default function RoomSelect() {
               <div className="w-1.5 h-1.5 bg-black rounded-full animate-pulse" />LIVE
             </div>
             <div className="relative z-10 flex items-center h-full px-4 gap-4">
-              <div className="text-3xl shrink-0">⚔️</div>
+              <div className="text-3xl shrink-0">🎮</div>
               <div className="flex-1 min-w-0">
                 <h2 className="font-black leading-none" style={{ fontFamily: '"Impact","Arial Black",sans-serif', fontSize: 18, letterSpacing: '0.05em', color: '#fff', textShadow: '0 0 14px #818cf866' }}>PLAY A FRIEND</h2>
                 <p className="mt-1 text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>Challenge a friend • Share a battle code • Settle the score</p>
