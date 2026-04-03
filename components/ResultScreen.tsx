@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Trophy, TrendingUp, Home, RotateCcw } from 'lucide-react';
 import { useArenaStore } from '@/lib/store';
 import { updateUser } from '@/lib/auth';
+import { supabase } from '@/lib/supabase';
 import { ARENA_BADGES } from '@/lib/constants';
 
 // ── Badge Ceremony Overlay ──────────────────────────────────────────────────
@@ -161,9 +162,46 @@ export default function ResultScreen() {
 
     // Update trainer record — run only once on mount
     // NOTE: Balance is NOT updated client-side for real money games.
-    // Real SOL payouts must happen server-side via a settlement API.
-    // Client-side balance updates are only safe for practice/free games.
+    // Real SOL payouts happen server-side via /api/settle (on-chain transfers).
     const isRealMoneyGame = currentMatch.room.entryFee > 0;
+
+    // ── Real-money on-chain settlement ────────────────────────────
+    if (isRealMoneyGame) {
+      const winnerId  = isVictory ? currentTrainer.id : currentMatch.player2.id
+      const loserId   = isVictory ? currentMatch.player2.id : currentTrainer.id
+      const isBotMatch = currentMatch.player2.id.startsWith('bot_')
+
+      if (!isBotMatch) {
+        // Fire and track — get the auth token from the current Supabase session
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (!session?.access_token) return
+          fetch('/api/settle', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              matchId:     currentMatch.matchId,
+              winnerId,
+              loserId,
+              entryFeeSol: currentMatch.room.entryFee,
+            }),
+          })
+          .then(r => r.json())
+          .then(data => {
+            if (data.ok && !data.alreadySettled && data.winnerBalanceAfter !== undefined) {
+              // Refresh the local balance from the settled on-chain value
+              const updatedBalance = isVictory ? data.winnerBalanceAfter : data.loserBalanceAfter
+              if (updatedBalance !== undefined) {
+                setTrainer({ ...currentTrainer, balance: updatedBalance })
+              }
+            }
+          })
+          .catch(err => console.error('[ResultScreen] settle error:', err))
+        })
+      }
+    }
 
     // Badge awarding — first win in this arena earns the gym badge
     const arenaId = currentMatch.room.id as string;
