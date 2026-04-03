@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         webhookURL: `${process.env.NEXT_PUBLIC_APP_URL}/api/webhook/deposit`,
-        transactionTypes: ['TRANSFER'],
+        transactionTypes: ['Any'],
         accountAddresses: [...existingAddresses, address],
         webhookType: 'enhanced',
       }),
