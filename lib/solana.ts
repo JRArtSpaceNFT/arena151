@@ -9,7 +9,7 @@ const connection = new Connection(HELIUS_RPC, 'confirmed')
 export const TREASURY_ADDRESS = 'FSWXt6eniHH7fQw7eCyM4NVVPGAHXDdNdkZKLriaPy3C'
 export const HOUSE_FEE_PCT = 0.05       // 5% on wagers
 export const WITHDRAWAL_FEE_PCT = 0.005 // 0.5% on withdrawals
-export const MIN_WITHDRAWAL_USD = 10    // $10 minimum
+export const MIN_WITHDRAWAL_USD = 5    // $5 minimum
 
 // ── AES-256-GCM encryption for private keys ──────────────────
 // Key must be 32 bytes hex — set via WALLET_ENCRYPTION_SECRET env var
