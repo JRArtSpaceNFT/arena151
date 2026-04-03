@@ -600,52 +600,48 @@ export default function SignupFlow() {
                       body: <p>Except where required by law or expressly stated in writing, all entry fees, purchases, deposits, and digital asset transactions are final and nonrefundable. Refunds may be considered only where a contest is canceled before it begins, a duplicate charge is caused by a verified system error, or a technical malfunction materially prevented fair participation. Arena 151 retains sole discretion regarding refunds.</p>
                     },
                     {
-                      n: '15', title: 'INTELLECTUAL PROPERTY',
-                      body: <p>All Arena 151 branding, software, game logic, battle mechanics, visual assets, and content are owned by or licensed to Arena 151 and protected by applicable intellectual property laws. You may not copy, reproduce, distribute, or create derivative works from any part of the Service except as expressly permitted.</p>
-                    },
-                    {
-                      n: '16', title: 'THIRD PARTY SERVICES AND BLOCKCHAIN RISKS',
+                      n: '15', title: 'THIRD PARTY SERVICES AND BLOCKCHAIN RISKS',
                       body: <><p>Arena 151 may rely on third-party infrastructure including wallets, blockchain networks, hosting providers, and analytics vendors. Arena 151 is not responsible for the acts, omissions, or failures of third parties. You acknowledge the inherent risks of blockchain and digital assets including volatility, network congestion, irreversible transactions, and security vulnerabilities in third-party wallets.</p></>
                     },
                     {
-                      n: '17', title: 'TAXES',
+                      n: '16', title: 'TAXES',
                       body: <p>You are solely responsible for determining what taxes apply to your use of Arena 151, including taxes arising from winnings, withdrawals, rewards, or digital asset transactions. Arena 151 may collect tax-related information, issue forms, or report information to authorities where required by law.</p>
                     },
                     {
-                      n: '18', title: 'RESPONSIBLE PLAY',
+                      n: '17', title: 'RESPONSIBLE PLAY',
                       body: <><p>Arena 151 encourages responsible participation. Only enter paid contests with funds you can afford to lose. If you believe you may have a problem with compulsive gambling or problematic wagering behavior, seek professional support immediately.</p><p className="mt-1 font-semibold text-white">National Problem Gambling Helpline: 1-800-522-4700 · ncpgambling.org</p></>
                     },
                     {
-                      n: '19', title: 'SUSPENSION AND TERMINATION',
+                      n: '18', title: 'SUSPENSION AND TERMINATION',
                       body: <p>Arena 151 may suspend or terminate your account at any time, with or without notice, if you violate these Terms, we suspect fraud or unlawful activity, your conduct creates risk for other users or the platform, or we are required to do so by law or court order. Arena 151 may freeze pending balances during investigation and retain records as required by law.</p>
                     },
                     {
-                      n: '20', title: 'DISCLAIMER OF WARRANTIES',
+                      n: '19', title: 'DISCLAIMER OF WARRANTIES',
                       body: <p>The Service is provided on an &quot;as is&quot; and &quot;as available&quot; basis. To the fullest extent permitted by law, Arena 151 disclaims all warranties, express or implied, including any implied warranties of merchantability, fitness for a particular purpose, availability, accuracy, or uninterrupted operation.</p>
                     },
                     {
-                      n: '21', title: 'LIMITATION OF LIABILITY',
+                      n: '20', title: 'LIMITATION OF LIABILITY',
                       body: <><p>To the fullest extent permitted by law, Arena 151 and its owners, officers, employees, contractors, affiliates, and partners shall not be liable for any indirect, incidental, consequential, special, or punitive damages, including lost profits, lost digital assets, or gameplay losses. Arena 151&apos;s total aggregate liability for any claim shall not exceed the greater of: the total fees paid by you to Arena 151 in the 3 months preceding the claim, or $100 USD.</p></>
                     },
                     {
-                      n: '22', title: 'INDEMNIFICATION',
+                      n: '21', title: 'INDEMNIFICATION',
                       body: <p>You agree to defend, indemnify, and hold harmless Arena 151 and its owners, affiliates, officers, employees, and partners from any claims, liabilities, damages, losses, costs, and expenses arising out of your use or misuse of the Service, violation of these Terms, or violation of any law or third-party right.</p>
                     },
                     {
-                      n: '23', title: 'PRIVACY AND DATA USE',
+                      n: '22', title: 'PRIVACY AND DATA USE',
                       body: <p>By using the Service, you acknowledge that Arena 151 may collect, use, store, and share information necessary to operate the platform, protect users, comply with law, detect fraud, and improve the Service. This may include account data, wallet addresses, IP information, device information, gameplay data, match history, and transaction records.</p>
                     },
                     {
-                      n: '24', title: 'CHANGES TO THE SERVICE AND THESE TERMS',
+                      n: '23', title: 'CHANGES TO THE SERVICE AND THESE TERMS',
                       body: <p>Arena 151 may modify, suspend, or discontinue any aspect of the Service at any time. Arena 151 may revise these Terms at any time — updated Terms become effective when posted. Your continued use of the Service after revised Terms are posted constitutes your acceptance. If you do not agree to revised Terms, you must stop using the Service.</p>
                     },
                     {
-                      n: '25', title: 'SEVERABILITY AND ENTIRE AGREEMENT',
+                      n: '24', title: 'SEVERABILITY AND ENTIRE AGREEMENT',
                       body: <p>If any provision of these Terms is found to be unlawful or unenforceable, the remaining provisions shall remain in full force and effect. These Terms constitute the entire agreement between you and Arena 151 regarding the Service and supersede all prior understandings relating to the same subject matter.</p>
                     },
                     {
-                      n: '26', title: 'CONTACT',
-                      body: <><p>For questions, disputes, or support inquiries:</p><ul className="space-y-1 ml-2 mt-1"><li className="flex gap-1.5"><span className="shrink-0">•</span><span>General support: <span className="text-blue-400">support@arena151.gg</span></span></li><li className="flex gap-1.5"><span className="shrink-0">•</span><span>Legal &amp; AML inquiries: <span className="text-blue-400">legal@arena151.gg</span></span></li></ul></>
+                      n: '25', title: 'CONTACT',
+                      body: <><p>For questions, disputes, or support inquiries:</p><ul className="space-y-1 ml-2 mt-1"><li className="flex gap-1.5"><span className="shrink-0">•</span><span>General support: <span className="text-blue-400">ArenaOneFiveOne@gmail.com</span></span></li><li className="flex gap-1.5"><span className="shrink-0">•</span><span>Legal &amp; AML inquiries: <span className="text-blue-400">legal@arena151.gg</span></span></li></ul></>
                     },
                   ].map(({ n, title, body }) => (
                     <div key={n}>
