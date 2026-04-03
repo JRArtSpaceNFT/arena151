@@ -426,11 +426,18 @@ export default function TrainerProfile() {
           <ArrowLeft className="w-4 h-4" /> Arena
         </motion.button>
         <div />
-        <motion.button whileTap={{ scale: 0.97 }} onClick={handleLogout}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-bold transition-all border"
-          style={{ background: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.5)' }}>
-          <LogOut className="w-4 h-4" /> Sign Out
-        </motion.button>
+        <div className="flex items-center gap-2">
+          <motion.button whileTap={{ scale: 0.97 }} onClick={() => setScreen('fair-gaming')}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-bold transition-all border"
+            style={{ background: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.5)' }}>
+            🛡️ Fair Gaming
+          </motion.button>
+          <motion.button whileTap={{ scale: 0.97 }} onClick={handleLogout}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-bold transition-all border"
+            style={{ background: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.5)' }}>
+            <LogOut className="w-4 h-4" /> Sign Out
+          </motion.button>
+        </div>
       </div>
 
       {/* ── Body ── */}

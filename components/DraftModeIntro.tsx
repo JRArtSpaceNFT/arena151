@@ -117,22 +117,7 @@ export default function DraftModeIntro() {
         style={{ left: '86%', top: '54%', width: '11.6%', height: '9.3%' }}
       />
 
-      {/* Fair Gaming & Legal link */}
-      <motion.button
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.6 }}
-        onClick={() => setScreen('fair-gaming')}
-        className="absolute bottom-12 right-4 text-xs font-bold px-3 py-1.5 rounded-lg border transition-all hover:border-purple-500/40 hover:text-purple-300"
-        style={{
-          background: 'rgba(0,0,0,0.55)',
-          backdropFilter: 'blur(6px)',
-          borderColor: 'rgba(255,255,255,0.1)',
-          color: 'rgba(255,255,255,0.4)',
-        }}
-      >
-        🛡️ Fair Gaming &amp; Legal
-      </motion.button>
+
 
 
 
