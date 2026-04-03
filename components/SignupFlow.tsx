@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronRight, Check, User, Mail, AtSign, Heart, Lock, Eye, EyeOff, Upload, Wallet, Copy, AlertCircle } from 'lucide-react';
+import { ChevronRight, Check, User, Mail, AtSign, Heart, Lock, Eye, EyeOff, Upload, Wallet, AlertCircle } from 'lucide-react';
 import { useArenaStore } from '@/lib/store';
 import { DEFAULT_AVATARS } from '@/lib/constants';
 import { getAvatarOptions } from '@/lib/trainer-avatars';
@@ -16,11 +16,11 @@ import type { PokemonType } from '@/types';
 type FlowMode = 'login' | 'signup' | 'forgot';
 
 export default function SignupFlow() {
-  const { setTrainer, setScreen, testingMode } = useArenaStore();
+  const { setTrainer, setScreen } = useArenaStore();
   const [mode, setMode] = useState<FlowMode>('login');
   const [step, setStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
-  const [copied, setCopied] = useState(false);
+
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -150,7 +150,6 @@ export default function SignupFlow() {
       favoritePokemonId: formData.favoritePokemon.id,
       favoritePokemonName: formData.favoritePokemon.name,
       favoritePokemonTypes: formData.favoritePokemon.types,
-      testingMode,
     });
     setIsLoading(false);
     if (!result.success) {
@@ -177,12 +176,6 @@ export default function SignupFlow() {
     await initiatePasswordReset(forgotEmail);
     setSuccess('If an account exists with that email, a reset link has been sent.');
     setError('');
-  };
-
-  const copyAddress = () => {
-    navigator.clipboard.writeText('arena151_' + formData.email.replace(/[^a-z0-9]/gi, ''));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
   };
 
   // ── LOGIN MODE ──────────────────────────────────────────────
@@ -674,23 +667,20 @@ export default function SignupFlow() {
               <motion.div key="s6" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
                 <div className="flex items-center gap-3 mb-6"><Wallet className="w-8 h-8 text-purple-400" /><h2 className="text-3xl font-bold">Fund Your Account</h2></div>
                 <div className="bg-purple-950/30 border-2 border-purple-500/50 rounded-xl p-6 mb-6">
-                  <p className="text-slate-300 mb-4">Send <span className="font-bold text-purple-400">SOL</span> to your Arena 151 wallet to start battling. You can also skip this for now.</p>
+                  <p className="text-slate-300 mb-4">When you create your account, a <span className="font-bold text-purple-400">Solana wallet</span> will be automatically generated for you. You can deposit SOL immediately from your trainer profile.</p>
                   <div className="bg-slate-900/80 rounded-lg p-4 border border-slate-700 mb-4">
-                    <p className="text-xs text-slate-500 mb-2">Your Wallet Address</p>
+                    <p className="text-xs text-slate-500 mb-2">Your wallet address will appear in your Trainer Profile after sign-up</p>
                     <div className="flex items-center gap-3">
-                      <code className="flex-1 font-mono text-sm text-slate-200 break-all">{`arena151_${formData.email.replace(/[^a-z0-9]/gi, '')}`}</code>
-                      <button onClick={copyAddress} className="flex-shrink-0 px-4 py-2 bg-purple-600 hover:bg-purple-500 rounded-lg transition-colors flex items-center gap-2 text-sm font-bold">
-                        {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}{copied ? 'Copied!' : 'Copy'}
-                      </button>
+                      <div className="flex-1 font-mono text-sm text-slate-500 italic">Generated on account creation...</div>
                     </div>
                   </div>
                   <div className="space-y-1 text-sm text-slate-400">
                     <p>⚠️ <span className="font-bold text-purple-300">SOL ONLY</span></p>
-                    <p>💰 Minimum: 0.01 SOL • ⚡ Confirms in ~1 min</p>
+                    <p>💰 Minimum deposit: 0.01 SOL • ⚡ Confirms in ~1 min</p>
                   </div>
                 </div>
                 <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700 text-sm text-slate-400">
-                  You can deposit more SOL anytime from your trainer profile.
+                  You can deposit SOL anytime from your trainer profile after sign-up.
                 </div>
               </motion.div>
             )}

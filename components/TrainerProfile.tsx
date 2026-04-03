@@ -10,6 +10,7 @@ import { useArenaStore } from '@/lib/store';
 import { TYPE_COLORS } from '@/lib/constants';
 import { getPokemonSpriteUrl, POKEMON_DATABASE } from '@/lib/pokemon-data';
 import { clearSession, updateUser } from '@/lib/auth';
+import { supabase } from '@/lib/supabase';
 import { getAvatarOptions } from '@/lib/trainer-avatars';
 import { getBattleLog, timeAgo } from '@/lib/battleStats';
 import type { BattleLogEntry } from '@/lib/battleStats';
@@ -212,9 +213,20 @@ export default function TrainerProfile() {
     if (!currentTrainer) return;
     setIsLoading(true);
     try {
+      // Get session token to authenticate the withdrawal request
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        setWithdrawError('Session expired. Please sign in again.');
+        setWithdrawStep('form');
+        setIsLoading(false);
+        return;
+      }
       const res = await fetch('/api/withdraw', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify({
           userId: currentTrainer.id,
           toAddress: withdrawAddr,

@@ -182,7 +182,7 @@ export default function ResultScreen() {
     };
 
     setTrainer(updatedTrainer);
-    // Persist win/loss + balance + earnings + badges to localStorage
+    // Persist win/loss + balance + earnings + badges to Supabase
     updateUser(currentTrainer.id, {
       wins: updatedTrainer.record.wins,
       losses: updatedTrainer.record.losses,

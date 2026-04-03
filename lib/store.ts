@@ -48,7 +48,7 @@ export const useArenaStore = create<ArenaState>((set) => ({
   setTrainer: (trainer) => set({ currentTrainer: trainer }),
   clearTrainer: () => set({ currentTrainer: null }),
 
-  testingMode: true, // Default to testing mode
+  testingMode: false, // Production: real money mode
   setTestingMode: (enabled) => set({ testingMode: enabled }),
 
   queueState: {

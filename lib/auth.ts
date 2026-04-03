@@ -59,7 +59,6 @@ export async function registerUser(data: {
   favoritePokemonId: number
   favoritePokemonName: string
   favoritePokemonTypes: string[]
-  testingMode?: boolean
 }): Promise<{ success: boolean; error?: string; user?: StoredUser }> {
   // 1. Create Supabase Auth user
   const { data: authData, error: authError } = await supabase.auth.signUp({
