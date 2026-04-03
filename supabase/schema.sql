@@ -19,8 +19,31 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   losses INTEGER DEFAULT 0,
   badges TEXT[] DEFAULT ARRAY[]::TEXT[],
   joined_date TIMESTAMPTZ DEFAULT now(),
+  created_at TIMESTAMPTZ DEFAULT now(),
+  sol_address TEXT UNIQUE,
+  encrypted_private_key TEXT
+);
+
+-- Transactions table for deposit/withdrawal/win/loss tracking
+CREATE TABLE IF NOT EXISTS public.transactions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+  type TEXT NOT NULL, -- 'deposit', 'withdrawal', 'win', 'loss', 'fee'
+  amount_sol NUMERIC NOT NULL,
+  status TEXT DEFAULT 'pending', -- 'pending', 'confirmed', 'failed'
+  tx_signature TEXT,
+  from_address TEXT,
+  to_address TEXT,
+  notes TEXT,
   created_at TIMESTAMPTZ DEFAULT now()
 );
+
+ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can read own transactions"
+  ON public.transactions
+  FOR SELECT
+  USING (auth.uid() = user_id);
 
 -- Enable Row Level Security
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;

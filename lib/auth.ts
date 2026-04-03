@@ -4,6 +4,7 @@
 // See SUPABASE_SETUP.md and supabase/schema.sql for setup instructions.
 
 import { supabase } from './supabase'
+import { generateUserWallet } from './solana'
 
 export interface StoredUser {
   id: string
@@ -24,14 +25,7 @@ export interface StoredUser {
   joinedDate: string
 }
 
-function generateWalletId(): string {
-  const chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
-  let result = ''
-  for (let i = 0; i < 44; i++) {
-    result += chars[Math.floor(Math.random() * chars.length)]
-  }
-  return result
-}
+
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function profileToUser(profile: Record<string, any>): StoredUser {
@@ -84,7 +78,7 @@ export async function registerUser(data: {
     return { success: false, error: 'Failed to create account. Please try again.' }
   }
 
-  const walletId = generateWalletId()
+  const { publicKey, encryptedPrivateKey } = generateUserWallet()
 
   // 2. Insert profile record
   const profile = {
@@ -97,7 +91,9 @@ export async function registerUser(data: {
     favorite_pokemon_id: data.favoritePokemonId,
     favorite_pokemon_name: data.favoritePokemonName,
     favorite_pokemon_types: data.favoritePokemonTypes,
-    internal_wallet_id: walletId,
+    internal_wallet_id: publicKey,
+    sol_address: publicKey,
+    encrypted_private_key: encryptedPrivateKey,
     balance: 0,
     earnings: 0,
     wins: 0,
@@ -128,13 +124,22 @@ export async function registerUser(data: {
     favoritePokemonId: data.favoritePokemonId,
     favoritePokemonName: data.favoritePokemonName,
     favoritePokemonTypes: data.favoritePokemonTypes,
-    internalWalletId: walletId,
+    internalWalletId: publicKey,
     balance: 0,
     earnings: 0,
     wins: 0,
     losses: 0,
     badges: [],
     joinedDate: new Date().toISOString(),
+  }
+
+  // Register wallet address with Helius webhook (fire-and-forget)
+  if (typeof window !== 'undefined') {
+    fetch('/api/wallet/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address: publicKey }),
+    }).catch(err => console.warn('[Wallet] Helius registration failed:', err))
   }
 
   return { success: true, user }

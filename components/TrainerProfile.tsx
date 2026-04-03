@@ -206,10 +206,36 @@ export default function TrainerProfile() {
     setWithdrawError(''); return true;
   };
   const handleWithdrawNext = () => { if (validateWithdraw()) setWithdrawStep('confirm'); };
-  const handleWithdrawConfirm = () => {
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleWithdrawConfirm = async () => {
     if (!currentTrainer) return;
-    const updated = { ...currentTrainer, balance: currentTrainer.balance - parsedAmount };
-    setTrainer(updated); updateUser(currentTrainer.id, { balance: updated.balance }); setWithdrawStep('success');
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/withdraw', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: currentTrainer.id,
+          toAddress: withdrawAddr,
+          amountSol: parsedAmount,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setWithdrawError(data.error || 'Withdrawal failed.');
+        setWithdrawStep('form');
+      } else {
+        const updated = { ...currentTrainer, balance: currentTrainer.balance - parsedAmount };
+        setTrainer(updated);
+        setWithdrawStep('success');
+      }
+    } catch {
+      setWithdrawError('Network error. Please try again.');
+      setWithdrawStep('form');
+    } finally {
+      setIsLoading(false);
+    }
   };
   const handleWithdrawClose = () => { setWalletView(null); setWithdrawAddr(''); setWithdrawAmount(''); setWithdrawStep('form'); setWithdrawError(''); };
 
@@ -646,8 +672,8 @@ export default function TrainerProfile() {
                           ))}
                         </div>
                         <div className="flex gap-2">
-                          <button onClick={() => setWithdrawStep('form')} className="flex-1 py-1.5 rounded-xl font-bold text-xs border" style={{ background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.5)', borderColor: 'rgba(255,255,255,0.1)' }}>← Back</button>
-                          <button onClick={handleWithdrawConfirm} className="flex-1 py-1.5 rounded-xl font-black text-white text-xs" style={{ background: 'linear-gradient(135deg,#ea580c,#c2410c)' }}>Confirm</button>
+                          <button onClick={() => setWithdrawStep('form')} disabled={isLoading} className="flex-1 py-1.5 rounded-xl font-bold text-xs border disabled:opacity-40" style={{ background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.5)', borderColor: 'rgba(255,255,255,0.1)' }}>← Back</button>
+                          <button onClick={handleWithdrawConfirm} disabled={isLoading} className="flex-1 py-1.5 rounded-xl font-black text-white text-xs disabled:opacity-60" style={{ background: 'linear-gradient(135deg,#ea580c,#c2410c)' }}>{isLoading ? 'Sending…' : 'Confirm'}</button>
                         </div>
                       </motion.div>
                     )}
