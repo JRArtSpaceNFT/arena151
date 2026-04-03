@@ -518,7 +518,7 @@ export default function SignupFlow() {
             {step === 5 && (
               <motion.div key="s5" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
                 <div className="flex items-center gap-3 mb-4">
-                  <span className="text-3xl">📋</span>
+                  <span className="text-3xl">📜</span>
                   <h2 className="text-2xl font-bold">Terms of Service</h2>
                 </div>
                 <p className="text-slate-400 text-sm mb-4">Please read and agree to our Terms of Service before creating your account.</p>
@@ -633,7 +633,7 @@ export default function SignupFlow() {
                     },
                     {
                       n: '25', title: 'CONTACT',
-                      body: <><p>For questions, disputes, or support inquiries:</p><ul className="space-y-1 ml-2 mt-1"><li className="flex gap-1.5"><span className="shrink-0">•</span><span>General support: <span className="text-blue-400">ArenaOneFiveOne@gmail.com</span></span></li><li className="flex gap-1.5"><span className="shrink-0">•</span><span>Legal &amp; AML inquiries: <span className="text-blue-400">legal@arena151.gg</span></span></li></ul></>
+                      body: <><p>For questions, disputes, or support inquiries:</p><ul className="space-y-1 ml-2 mt-1"><li className="flex gap-1.5"><span className="shrink-0">•</span><span>General support: <span className="text-blue-400">ArenaOneFiveOne@gmail.com</span></span></li></ul></>
                     },
                   ].map(({ n, title, body }) => (
                     <div key={n}>

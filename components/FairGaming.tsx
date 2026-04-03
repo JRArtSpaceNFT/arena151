@@ -181,15 +181,15 @@ export default function FairGaming() {
             {/* Reporting */}
             <div className="rounded-2xl p-5 border"
               style={{ background: 'linear-gradient(135deg, #0d1a2e, #0a0a1a)', borderColor: 'rgba(251,191,36,0.2)' }}>
-              <h3 className="font-black text-base text-white mb-2">📋 Reporting</h3>
+              <h3 className="font-black text-base text-white mb-2">Reporting</h3>
               <p className="text-sm mb-2" style={{ color: 'rgba(255,255,255,0.65)' }}>
                 Arena 151 will cooperate fully with law enforcement requests and may report suspicious activity as required
                 by applicable law.
               </p>
               <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                For AML-related inquiries:{' '}
-                <a href="mailto:legal@arena151.gg" className="text-amber-400 hover:text-amber-300 transition-colors">
-                  legal@arena151.gg
+                For inquiries:{' '}
+                <a href="mailto:ArenaOneFiveOne@gmail.com" className="text-amber-400 hover:text-amber-300 transition-colors">
+                  ArenaOneFiveOne@gmail.com
                 </a>
               </p>
             </div>
@@ -300,7 +300,7 @@ export default function FairGaming() {
 
         {/* Footer */}
         <div className="text-center text-xs pb-8" style={{ color: 'rgba(255,255,255,0.2)' }}>
-          Arena 151 · legal@arena151.gg · v1.0
+          Arena 151 · ArenaOneFiveOne@gmail.com · v1.0
         </div>
       </div>
     </div>
