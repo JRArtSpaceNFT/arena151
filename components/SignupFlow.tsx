@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronRight, Check, User, Mail, AtSign, Heart, Lock, Eye, EyeOff, Upload, Wallet, Copy, AlertCircle } from 'lucide-react';
 import { useArenaStore } from '@/lib/store';
@@ -55,12 +55,11 @@ export default function SignupFlow() {
   const [forgotEmail, setForgotEmail] = useState('');
 
   // Load session on mount
-  useState(() => {
-    const session = getSession();
-    if (session) {
-      applySession(session);
-    }
-  });
+  useEffect(() => {
+    getSession().then(session => {
+      if (session) applySession(session);
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function applySession(session: any) {
     const favPokemon = POKEMON_DATABASE.find(p => p.id === session.favoritePokemonId);
@@ -130,18 +129,18 @@ export default function SignupFlow() {
     }
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     setError('');
     if (step < totalSteps) {
       setStep(step + 1);
     } else {
-      handleCreateAccount();
+      await handleCreateAccount();
     }
   };
 
-  const handleCreateAccount = () => {
+  const handleCreateAccount = async () => {
     setIsLoading(true);
-    const result = registerUser({
+    const result = await registerUser({
       email: formData.email,
       password: formData.password,
       username: formData.username,
@@ -161,10 +160,10 @@ export default function SignupFlow() {
     applySession(result.user!);
   };
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     setIsLoading(true);
     setError('');
-    const result = loginUser(formData.email, formData.password);
+    const result = await loginUser(formData.email, formData.password);
     setIsLoading(false);
     if (!result.success) {
       setError(result.error || 'Login failed.');
@@ -173,9 +172,9 @@ export default function SignupFlow() {
     applySession(result.user!);
   };
 
-  const handleForgotPassword = () => {
+  const handleForgotPassword = async () => {
     if (!forgotEmail.includes('@')) { setError('Please enter a valid email.'); return; }
-    initiatePasswordReset(forgotEmail);
+    await initiatePasswordReset(forgotEmail);
     setSuccess('If an account exists with that email, a reset link has been sent.');
     setError('');
   };

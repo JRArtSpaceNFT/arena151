@@ -155,11 +155,13 @@ export default function TrainerProfile() {
     navigator.clipboard.writeText(currentTrainer.internalWalletId);
     setCopied(true); setTimeout(() => setCopied(false), 2000);
   };
-  const handleLogout = () => { clearSession(); clearTrainer(); setScreen('home'); };
+  const handleLogout = () => { clearSession().then(() => { clearTrainer(); setScreen('home'); }); };
   const handleAvatarChange = (newAvatar: string) => {
     if (!currentTrainer) return;
     const updated = { ...currentTrainer, avatar: newAvatar };
-    setTrainer(updated); updateUser(currentTrainer.id, { avatar: newAvatar }); setShowAvatarPicker(false);
+    setTrainer(updated);
+    updateUser(currentTrainer.id, { avatar: newAvatar }); // fire-and-forget
+    setShowAvatarPicker(false);
   };
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -181,7 +183,7 @@ export default function TrainerProfile() {
       },
     };
     setTrainer(updated);
-    updateUser(currentTrainer.id, { favoritePokemonId: pokemon.id, favoritePokemonName: pokemon.name, favoritePokemonTypes: pokemon.types });
+    updateUser(currentTrainer.id, { favoritePokemonId: pokemon.id, favoritePokemonName: pokemon.name, favoritePokemonTypes: pokemon.types }); // fire-and-forget
     setShowPokemonPicker(false);
     setPokemonSearch('');
   };

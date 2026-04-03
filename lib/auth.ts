@@ -1,193 +1,243 @@
-// Arena 151 Auth Layer
-// Currently uses localStorage for persistence.
-// Ready to swap for Supabase / Postgres when backend is configured.
-// See BACKEND_SETUP.md for what's needed.
+// Arena 151 Auth Layer — Supabase Backend
+// Uses Supabase Auth for email/password authentication.
+// User profile data (username, avatar, etc.) stored in `profiles` table.
+// See SUPABASE_SETUP.md and supabase/schema.sql for setup instructions.
+
+import { supabase } from './supabase'
 
 export interface StoredUser {
-  id: string;
-  email: string;
-  passwordHash: string; // In production: bcrypt hash via backend API
-  username: string;
-  displayName: string;
-  bio: string;
-  avatar: string; // URL or base64 data URI
-  favoritePokemonId: number;
-  favoritePokemonName: string;
-  favoritePokemonTypes: string[];
-  internalWalletId: string;
-  balance: number;
-  earnings: number; // net SOL from battles
-  wins: number;
-  losses: number;
-  badges: string[]; // arena IDs for earned gym badges
-  joinedDate: string;
-  resetToken?: string;
-  resetTokenExpiry?: number;
+  id: string
+  email: string
+  username: string
+  displayName: string
+  bio: string
+  avatar: string
+  favoritePokemonId: number
+  favoritePokemonName: string
+  favoritePokemonTypes: string[]
+  internalWalletId: string
+  balance: number
+  earnings: number
+  wins: number
+  losses: number
+  badges: string[]
+  joinedDate: string
 }
 
-const STORAGE_KEY = 'arena151_users';
-const SESSION_KEY = 'arena151_session';
-
-// Simple hash for frontend demo — replace with bcrypt on backend
-function simpleHash(password: string): string {
-  let hash = 0;
-  for (let i = 0; i < password.length; i++) {
-    const char = password.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
+function generateWalletId(): string {
+  const chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+  let result = ''
+  for (let i = 0; i < 44; i++) {
+    result += chars[Math.floor(Math.random() * chars.length)]
   }
-  return Math.abs(hash).toString(36) + password.length.toString(36);
+  return result
 }
 
-function getUsers(): StoredUser[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-  } catch {
-    return [];
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function profileToUser(profile: Record<string, any>): StoredUser {
+  return {
+    id: profile.id as string,
+    email: profile.email as string,
+    username: profile.username as string,
+    displayName: profile.display_name as string,
+    bio: (profile.bio as string) || '',
+    avatar: (profile.avatar as string) || '',
+    favoritePokemonId: (profile.favorite_pokemon_id as number) || 25,
+    favoritePokemonName: (profile.favorite_pokemon_name as string) || 'Pikachu',
+    favoritePokemonTypes: (profile.favorite_pokemon_types as string[]) || ['electric'],
+    internalWalletId: (profile.internal_wallet_id as string) || '',
+    balance: Number(profile.balance) || 0,
+    earnings: Number(profile.earnings) || 0,
+    wins: (profile.wins as number) || 0,
+    losses: (profile.losses as number) || 0,
+    badges: (profile.badges as string[]) || [],
+    joinedDate: (profile.joined_date as string) || new Date().toISOString(),
   }
 }
 
-function saveUsers(users: StoredUser[]): void {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
-}
+export async function registerUser(data: {
+  email: string
+  password: string
+  username: string
+  displayName: string
+  bio: string
+  avatar: string
+  favoritePokemonId: number
+  favoritePokemonName: string
+  favoritePokemonTypes: string[]
+  testingMode?: boolean
+}): Promise<{ success: boolean; error?: string; user?: StoredUser }> {
+  // 1. Create Supabase Auth user
+  const { data: authData, error: authError } = await supabase.auth.signUp({
+    email: data.email,
+    password: data.password,
+  })
 
-export function registerUser(data: {
-  email: string;
-  password: string;
-  username: string;
-  displayName: string;
-  bio: string;
-  avatar: string;
-  favoritePokemonId: number;
-  favoritePokemonName: string;
-  favoritePokemonTypes: string[];
-  testingMode: boolean;
-}): { success: boolean; error?: string; user?: StoredUser } {
-  const users = getUsers();
-
-  if (users.find(u => u.email.toLowerCase() === data.email.toLowerCase())) {
-    return { success: false, error: 'An account with this email already exists.' };
+  if (authError) {
+    if (authError.message.includes('already registered') || authError.message.includes('User already registered')) {
+      return { success: false, error: 'An account with this email already exists.' }
+    }
+    return { success: false, error: authError.message }
   }
-  if (users.find(u => u.username.toLowerCase() === data.username.toLowerCase())) {
-    return { success: false, error: 'That username is already taken.' };
+
+  if (!authData.user) {
+    return { success: false, error: 'Failed to create account. Please try again.' }
   }
 
-  const newUser: StoredUser = {
-    id: `user_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+  const walletId = generateWalletId()
+
+  // 2. Insert profile record
+  const profile = {
+    id: authData.user.id,
     email: data.email.toLowerCase(),
-    passwordHash: simpleHash(data.password),
-    username: data.username,
+    username: data.username.toLowerCase(),
+    display_name: data.displayName,
+    bio: data.bio,
+    avatar: data.avatar,
+    favorite_pokemon_id: data.favoritePokemonId,
+    favorite_pokemon_name: data.favoritePokemonName,
+    favorite_pokemon_types: data.favoritePokemonTypes,
+    internal_wallet_id: walletId,
+    balance: 0,
+    earnings: 0,
+    wins: 0,
+    losses: 0,
+    badges: [],
+    joined_date: new Date().toISOString(),
+  }
+
+  const { error: profileError } = await supabase.from('profiles').insert(profile)
+
+  if (profileError) {
+    if (profileError.code === '23505') {
+      if (profileError.message.includes('username')) {
+        return { success: false, error: 'That username is already taken.' }
+      }
+      return { success: false, error: 'An account with this email already exists.' }
+    }
+    return { success: false, error: profileError.message }
+  }
+
+  const user: StoredUser = {
+    id: authData.user.id,
+    email: data.email.toLowerCase(),
+    username: data.username.toLowerCase(),
     displayName: data.displayName,
     bio: data.bio,
     avatar: data.avatar,
     favoritePokemonId: data.favoritePokemonId,
     favoritePokemonName: data.favoritePokemonName,
     favoritePokemonTypes: data.favoritePokemonTypes,
-    internalWalletId: `arena151_${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`,
+    internalWalletId: walletId,
     balance: 0,
     earnings: 0,
     wins: 0,
     losses: 0,
     badges: [],
     joinedDate: new Date().toISOString(),
-  };
-
-  users.push(newUser);
-  saveUsers(users);
-  saveSession(newUser.id);
-  return { success: true, user: newUser };
-}
-
-export function loginUser(email: string, password: string): { success: boolean; error?: string; user?: StoredUser } {
-  const users = getUsers();
-  const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-
-  if (!user) {
-    return { success: false, error: 'No account found with that email.' };
-  }
-  if (user.passwordHash !== simpleHash(password)) {
-    return { success: false, error: 'Incorrect password.' };
   }
 
-  saveSession(user.id);
-  return { success: true, user };
+  return { success: true, user }
 }
 
-export function updateUser(id: string, updates: Partial<StoredUser>): void {
-  const users = getUsers();
-  const idx = users.findIndex(u => u.id === id);
-  if (idx !== -1) {
-    users[idx] = { ...users[idx], ...updates };
-    saveUsers(users);
-  }
-}
+export async function loginUser(
+  email: string,
+  password: string
+): Promise<{ success: boolean; error?: string; user?: StoredUser }> {
+  const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  })
 
-export function getUserById(id: string): StoredUser | null {
-  return getUsers().find(u => u.id === u.id && u.id === id) || null;
-}
-
-export function getAllUsers(): Omit<StoredUser, 'passwordHash' | 'resetToken' | 'resetTokenExpiry'>[] {
-  return getUsers().map(({ passwordHash: _ph, resetToken: _rt, resetTokenExpiry: _rte, ...safe }) => safe);
-}
-
-export function saveSession(userId: string): void {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(SESSION_KEY, userId);
-}
-
-export function getSession(): StoredUser | null {
-  if (typeof window === 'undefined') return null;
-  const userId = localStorage.getItem(SESSION_KEY);
-  if (!userId) return null;
-  return getUserById(userId);
-}
-
-export function clearSession(): void {
-  if (typeof window === 'undefined') return;
-  localStorage.removeItem(SESSION_KEY);
-}
-
-// Password reset - generates token and "sends" email (logs to console in dev)
-export function initiatePasswordReset(email: string): { success: boolean; error?: string; token?: string } {
-  const users = getUsers();
-  const userIdx = users.findIndex(u => u.email.toLowerCase() === email.toLowerCase());
-
-  if (userIdx === -1) {
-    // Don't reveal if email exists - security best practice
-    return { success: true };
+  if (authError) {
+    if (
+      authError.message.toLowerCase().includes('invalid login') ||
+      authError.message.toLowerCase().includes('invalid credentials') ||
+      authError.message.toLowerCase().includes('email not confirmed')
+    ) {
+      return { success: false, error: 'Incorrect email or password.' }
+    }
+    return { success: false, error: authError.message }
   }
 
-  const token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
-  const expiry = Date.now() + 60 * 60 * 1000; // 1 hour
-
-  users[userIdx].resetToken = token;
-  users[userIdx].resetTokenExpiry = expiry;
-  saveUsers(users);
-
-  // In production: send via Resend/SendGrid. For now, log to console.
-  console.log(`[Arena 151] Password reset link for ${email}: /reset-password?token=${token}`);
-
-  return { success: true, token }; // Remove token from return in production
-}
-
-export function resetPassword(token: string, newPassword: string): { success: boolean; error?: string } {
-  const users = getUsers();
-  const userIdx = users.findIndex(u =>
-    u.resetToken === token &&
-    u.resetTokenExpiry &&
-    u.resetTokenExpiry > Date.now()
-  );
-
-  if (userIdx === -1) {
-    return { success: false, error: 'Invalid or expired reset link.' };
+  if (!authData.user) {
+    return { success: false, error: 'Login failed.' }
   }
 
-  users[userIdx].passwordHash = simpleHash(newPassword);
-  users[userIdx].resetToken = undefined;
-  users[userIdx].resetTokenExpiry = undefined;
-  saveUsers(users);
+  // Fetch profile
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', authData.user.id)
+    .single()
 
-  return { success: true };
+  if (profileError || !profile) {
+    return { success: false, error: 'Profile not found. Please contact support.' }
+  }
+
+  return { success: true, user: profileToUser(profile) }
+}
+
+export async function updateUser(id: string, updates: Partial<StoredUser>): Promise<void> {
+  const dbUpdates: Record<string, unknown> = {}
+  if (updates.displayName !== undefined) dbUpdates.display_name = updates.displayName
+  if (updates.bio !== undefined) dbUpdates.bio = updates.bio
+  if (updates.avatar !== undefined) dbUpdates.avatar = updates.avatar
+  if (updates.favoritePokemonId !== undefined) dbUpdates.favorite_pokemon_id = updates.favoritePokemonId
+  if (updates.favoritePokemonName !== undefined) dbUpdates.favorite_pokemon_name = updates.favoritePokemonName
+  if (updates.favoritePokemonTypes !== undefined) dbUpdates.favorite_pokemon_types = updates.favoritePokemonTypes
+  if (updates.balance !== undefined) dbUpdates.balance = updates.balance
+  if (updates.earnings !== undefined) dbUpdates.earnings = updates.earnings
+  if (updates.wins !== undefined) dbUpdates.wins = updates.wins
+  if (updates.losses !== undefined) dbUpdates.losses = updates.losses
+  if (updates.badges !== undefined) dbUpdates.badges = updates.badges
+
+  await supabase.from('profiles').update(dbUpdates).eq('id', id)
+}
+
+export async function getSession(): Promise<StoredUser | null> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
+  if (!session?.user) return null
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', session.user.id)
+    .single()
+
+  if (!profile) return null
+  return profileToUser(profile)
+}
+
+export async function clearSession(): Promise<void> {
+  await supabase.auth.signOut()
+}
+
+export async function initiatePasswordReset(
+  email: string
+): Promise<{ success: boolean; error?: string }> {
+  const redirectTo =
+    typeof window !== 'undefined'
+      ? `${window.location.origin}/reset-password`
+      : undefined
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo })
+  if (error) return { success: false, error: error.message }
+  return { success: true }
+}
+
+// Legacy: kept for leaderboard — reads all profiles via service role (server-side only)
+// On client, use the leaderboard API route instead.
+export async function getAllUsers(): Promise<Omit<StoredUser, never>[]> {
+  const { data, error } = await supabase.from('profiles').select('*')
+  if (error || !data) return []
+  return data.map(profileToUser)
+}
+
+// Kept for backwards compat — does nothing meaningful client-side with Supabase
+export function getUserById(_id: string): StoredUser | null {
+  return null
 }

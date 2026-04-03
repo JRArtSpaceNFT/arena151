@@ -213,16 +213,17 @@ export default function Leaderboard() {
   const [sortMode, setSortMode] = useState<SortMode>('wins');
 
   useEffect(() => {
-    const users = getAllUsers();
-    const mapped = users.map(u => ({
-      avatar: u.avatar, displayName: u.displayName, username: u.username, bio: u.bio,
-      wins: u.wins, losses: u.losses, joinedDate: u.joinedDate,
-      favoritePokemonId: u.favoritePokemonId, favoritePokemonName: u.favoritePokemonName,
-      favoritePokemonTypes: u.favoritePokemonTypes, balance: u.balance, earnings: u.earnings ?? 0,
-      badges: u.badges ?? [],
-      winRate: u.wins + u.losses > 0 ? (u.wins / (u.wins + u.losses)) * 100 : 0,
-    }));
-    setAllUsers(mapped.map((u, i) => ({ ...u, rank: i + 1 })));
+    getAllUsers().then(users => {
+      const mapped = users.map(u => ({
+        avatar: u.avatar, displayName: u.displayName, username: u.username, bio: u.bio,
+        wins: u.wins, losses: u.losses, joinedDate: u.joinedDate,
+        favoritePokemonId: u.favoritePokemonId, favoritePokemonName: u.favoritePokemonName,
+        favoritePokemonTypes: u.favoritePokemonTypes, balance: u.balance, earnings: u.earnings ?? 0,
+        badges: u.badges ?? [],
+        winRate: u.wins + u.losses > 0 ? (u.wins / (u.wins + u.losses)) * 100 : 0,
+      }));
+      setAllUsers(mapped.map((u, i) => ({ ...u, rank: i + 1 })));
+    });
   }, []);
 
   useEffect(() => {
