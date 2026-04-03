@@ -72,24 +72,8 @@ export default function ArenaReveal() {
       timeoutRef.current = setTimeout(advance, SCHEDULE[0])
     }
 
-    // Preload all arena images first, then start spin once they're cached
-    const imageSrcs = ARENAS.map(a => a.image).filter(Boolean) as string[]
-    let loaded = 0
-    const total = imageSrcs.length
-
-    if (total === 0) {
-      startSpin()
-      return
-    }
-
-    imageSrcs.forEach(src => {
-      const img = new window.Image()
-      img.onload = img.onerror = () => {
-        loaded++
-        if (loaded >= total) startSpin()
-      }
-      img.src = src
-    })
+    // Start spin immediately — images cache naturally in the browser
+    startSpin()
 
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current)
