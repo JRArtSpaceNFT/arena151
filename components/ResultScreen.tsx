@@ -160,7 +160,10 @@ export default function ResultScreen() {
     if (!currentMatch || !currentTrainer) return;
 
     // Update trainer record — run only once on mount
-    const delta = isVictory ? currentMatch.room.prizePool : -currentMatch.room.entryFee;
+    // NOTE: Balance is NOT updated client-side for real money games.
+    // Real SOL payouts must happen server-side via a settlement API.
+    // Client-side balance updates are only safe for practice/free games.
+    const isRealMoneyGame = currentMatch.room.entryFee > 0;
 
     // Badge awarding — first win in this arena earns the gym badge
     const arenaId = currentMatch.room.id as string;
@@ -174,20 +177,18 @@ export default function ResultScreen() {
         wins: isVictory ? currentTrainer.record.wins + 1 : currentTrainer.record.wins,
         losses: !isVictory ? currentTrainer.record.losses + 1 : currentTrainer.record.losses,
       },
-      balance: isVictory
-        ? currentTrainer.balance + currentMatch.room.prizePool
-        : currentTrainer.balance - currentMatch.room.entryFee,
-      earnings: (currentTrainer.earnings ?? 0) + delta,
+      // Do NOT update balance locally for real money — server settlement handles this
+      balance: currentTrainer.balance,
+      earnings: currentTrainer.earnings ?? 0,
       badges: updatedBadges,
     };
 
     setTrainer(updatedTrainer);
-    // Persist win/loss + balance + earnings + badges to Supabase
+    // Persist win/loss + badges to Supabase (balance is NOT written — server settles real money)
     updateUser(currentTrainer.id, {
       wins: updatedTrainer.record.wins,
       losses: updatedTrainer.record.losses,
-      balance: updatedTrainer.balance,
-      earnings: updatedTrainer.earnings,
+      ...(isRealMoneyGame ? {} : { balance: updatedTrainer.balance, earnings: updatedTrainer.earnings }),
       badges: updatedBadges,
     });
 

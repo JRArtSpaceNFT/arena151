@@ -1100,18 +1100,6 @@ export default function BattleScreen() {
               />
             </div>
 
-            {/* ── Trainer portrait — bottom of side A ── */}
-            {p1Trainer?.spriteUrl && (
-              <div style={{ marginTop: 'auto', paddingTop: 8, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <img
-                  src={p1Trainer.spriteUrl}
-                  alt={p1Trainer.name}
-                  style={{ width: 90, height: 90, objectFit: 'contain', imageRendering: 'pixelated', filter: 'drop-shadow(0 2px 6px rgba(124,58,237,0.5))' }}
-                />
-                <div style={{ fontSize: 10, fontWeight: 800, color: '#7c3aed', letterSpacing: '0.06em', marginTop: 2 }}>{p1Trainer.name.toUpperCase()}</div>
-              </div>
-            )}
-
 
           </div>
 
@@ -1147,17 +1135,6 @@ export default function BattleScreen() {
               )
             })}
 
-            {/* ── Trainer portrait — bottom of side B ── */}
-            {p2Trainer?.spriteUrl && (
-              <div style={{ marginTop: 'auto', paddingTop: 8, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <img
-                  src={p2Trainer.spriteUrl}
-                  alt={p2Trainer.name}
-                  style={{ width: 90, height: 90, objectFit: 'contain', imageRendering: 'pixelated', filter: 'drop-shadow(0 2px 6px rgba(239,68,68,0.5))' }}
-                />
-                <div style={{ fontSize: 10, fontWeight: 800, color: '#ef4444', letterSpacing: '0.06em', marginTop: 2 }}>{p2Trainer.name.toUpperCase()}</div>
-              </div>
-            )}
           </div>
         </div>
 

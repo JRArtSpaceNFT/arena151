@@ -175,10 +175,11 @@ export default function QueueScreen() {
     const interval = setInterval(() => {
       setElapsed(Math.floor((Date.now() - queueState.searchStartTime!) / 1000));
     }, 1000);
-    const matchTimeout = setTimeout(() => {
+    // Only auto-resolve to a bot in testing mode — real money rooms must wait for a real opponent
+    const matchTimeout = testingMode ? setTimeout(() => {
       setScreen('match-found');
-    }, Math.random() * 7000 + 8000);
-    return () => { clearInterval(interval); clearTimeout(matchTimeout); };
+    }, Math.random() * 7000 + 8000) : null;
+    return () => { clearInterval(interval); if (matchTimeout) clearTimeout(matchTimeout); };
   }, [queueState.searchStartTime, setScreen]);
 
   // Rotate flavor text every 2.5s
@@ -291,13 +292,19 @@ export default function QueueScreen() {
               </motion.h2>
             </AnimatePresence>
             <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>
-              {testingMode ? 'Finding an AI opponent for testing' : 'The arena is finding you a worthy opponent'}
+              {testingMode ? 'Finding an AI opponent for testing' : 'Waiting for a real opponent to join...'}
             </p>
-            {testingMode && (
+            {testingMode ? (
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full mt-1.5 border"
                 style={{ background: 'rgba(74,222,128,0.06)', borderColor: 'rgba(74,222,128,0.2)' }}>
                 <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
                 <span className="text-xs font-bold text-green-400">Testing Mode: AI Bot</span>
+              </div>
+            ) : (
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full mt-1.5 border"
+                style={{ background: 'rgba(251,191,36,0.06)', borderColor: 'rgba(251,191,36,0.2)' }}>
+                <div className="w-1.5 h-1.5 bg-yellow-400 rounded-full animate-pulse" />
+                <span className="text-xs font-bold text-yellow-400">Real money — waiting for a live opponent</span>
               </div>
             )}
           </div>
