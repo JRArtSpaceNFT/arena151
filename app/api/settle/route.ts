@@ -25,7 +25,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { sendSol, TREASURY_ADDRESS, HOUSE_FEE_PCT } from '@/lib/solana'
+import { sendSol, getSolBalance, TREASURY_ADDRESS, HOUSE_FEE_PCT, RENT_EXEMPT_MIN, GAS_BUFFER } from '@/lib/solana'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -158,7 +158,41 @@ export async function POST(req: NextRequest) {
     const houseFee     = parseFloat((pot * HOUSE_FEE_PCT).toFixed(9))
     const winnerPayout = parseFloat((pot - houseFee).toFixed(9))
 
-    // ── Step 1: Send winner payout from loser wallet → winner ────
+    // ── Step 1: Pre-flight: verify loser wallet can cover full payout ────
+    // FIX 9: Check actual on-chain balance BEFORE calling sendSol.
+    // sendSol now has a strict pre-flight check, but we add an explicit check
+    // here to provide a better error message and avoid even attempting the tx
+    // when the wallet is clearly underfunded.
+    const loserOnChainSol = await getSolBalance(loserProfile.sol_address)
+    const totalRequired = winnerPayout + houseFee + RENT_EXEMPT_MIN + GAS_BUFFER
+    if (loserOnChainSol < totalRequired) {
+      const shortfall = totalRequired - loserOnChainSol
+      await supabaseAdmin.from('matches').update({
+        status: 'settlement_failed',
+        error_message: `Loser wallet underfunded: has ${loserOnChainSol.toFixed(6)} SOL on-chain, needs ${totalRequired.toFixed(6)} SOL (shortfall: ${shortfall.toFixed(6)} SOL). DB balance may be inconsistent with on-chain state.`,
+        updated_at: new Date().toISOString(),
+      }).eq('id', matchId)
+
+      await supabaseAdmin.from('audit_log').insert({
+        user_id: loserId,
+        match_id: matchId,
+        event_type: 'settlement_failed_underfunded',
+        metadata: {
+          loser_onchain_sol: loserOnChainSol,
+          required_sol: totalRequired,
+          shortfall_sol: shortfall,
+          loser_db_balance: loserProfile.balance,
+          note: 'On-chain wallet balance insufficient. Possible DB/on-chain drift. Manual reconciliation required.',
+        },
+      })
+
+      return NextResponse.json({
+        error: `Settlement failed: loser wallet has insufficient on-chain balance (${loserOnChainSol.toFixed(6)} SOL available, ${totalRequired.toFixed(6)} SOL required).`,
+        code: 'LOSER_WALLET_UNDERFUNDED',
+      }, { status: 402 })
+    }
+
+    // ── Step 2: Send winner payout from loser wallet → winner ────
     const payoutResult = await sendSol(
       loserProfile.encrypted_private_key,
       winnerProfile.sol_address,
@@ -190,16 +224,26 @@ export async function POST(req: NextRequest) {
 
     // ── Step 2: Send house fee from loser wallet → treasury ──────
     // Best-effort — log failure but don't roll back winner payout (can't reverse on-chain tx)
+    // skipPreflightCheck=true: house fee truncation is acceptable (our money, not user funds).
     let feeSignature: string | undefined
     const feeResult = await sendSol(
       loserProfile.encrypted_private_key,
       TREASURY_ADDRESS,
       houseFee,
+      { skipPreflightCheck: true }
     )
     if (feeResult.success) {
       feeSignature = feeResult.signature
     } else {
+      // FIX 7: Log to audit_log so reconciliation query detects missing fees
       console.error('[Settle] House fee transfer failed (non-fatal):', feeResult.error)
+      await supabaseAdmin.from('audit_log').insert({
+        user_id: loserId,
+        match_id: matchId,
+        event_type: 'house_fee_failed',
+        amount_sol: houseFee,
+        metadata: { error: feeResult.error, note: 'House fee not collected. Run reconciliation query to detect and retry.' },
+      })
     }
 
     // ── Step 3: Atomic DB settlement via RPC ─────────────────────

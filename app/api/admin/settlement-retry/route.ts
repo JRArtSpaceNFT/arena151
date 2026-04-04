@@ -167,17 +167,24 @@ export async function POST(req: NextRequest) {
     try {
       const heliusKey = process.env.HELIUS_API_KEY
       if (heliusKey && loserProfile.sol_address) {
+        // FIX 5: Expanded limit=100 (was 20) to reduce risk of missing the payment
+        // in high-activity wallets. Also add timestamp bounding: only look at txs
+        // within the last 48h (well beyond any expected retry window).
+        const cutoffTimestamp = Math.floor((Date.now() - 48 * 60 * 60 * 1000) / 1000)
         const sigRes = await fetch(
-          `https://api.helius.xyz/v0/addresses/${loserProfile.sol_address}/transactions?api-key=${heliusKey}&limit=20&type=TRANSFER`,
-          { signal: AbortSignal.timeout(5000) }
+          `https://api.helius.xyz/v0/addresses/${loserProfile.sol_address}/transactions?api-key=${heliusKey}&limit=100&type=TRANSFER`,
+          { signal: AbortSignal.timeout(8000) }
         )
         if (sigRes.ok) {
           const txs = await sigRes.json() as Array<{
+            timestamp?: number
             nativeTransfers?: Array<{ fromUserAccount: string; toUserAccount: string; amount: number }>
           }>
           const winnerLamports = Math.floor(winnerPayout * 1_000_000_000)
+          // Only consider txs within our 48h window (timestamp is unix seconds from Helius)
+          const recentTxs = txs.filter(tx => !tx.timestamp || tx.timestamp >= cutoffTimestamp)
           // Allow ±1000 lamports tolerance for rounding
-          alreadyPaidOnChain = txs.some(tx =>
+          alreadyPaidOnChain = recentTxs.some(tx =>
             (tx.nativeTransfers ?? []).some(t =>
               t.fromUserAccount === loserProfile.sol_address &&
               t.toUserAccount === winnerProfile.sol_address &&
@@ -243,8 +250,18 @@ export async function POST(req: NextRequest) {
       continue
     }
 
-    // ── Step 7: House fee (best-effort) ──────────────────────
-    await sendSol(loserProfile.encrypted_private_key, TREASURY_ADDRESS, houseFee)
+    // ── Step 7: House fee (best-effort, skipPreflightCheck — truncation ok) ──
+    // FIX 7: Log failures so reconciliation query can detect missing fees.
+    const feeRetryResult = await sendSol(loserProfile.encrypted_private_key, TREASURY_ADDRESS, houseFee, { skipPreflightCheck: true })
+    if (!feeRetryResult.success) {
+      console.error(`[SettlementRetry] House fee failed for match ${matchId}:`, feeRetryResult.error)
+      await supabaseAdmin.from('audit_log').insert({
+        match_id: matchId,
+        event_type: 'house_fee_failed',
+        amount_sol: houseFee,
+        metadata: { error: feeRetryResult.error, note: 'House fee not collected — reconcile against settled matches' },
+      })
+    }
 
     // ── Step 8: DB settlement ─────────────────────────────────
     const { error: dbError } = await supabaseAdmin.rpc('settle_match_db', {

@@ -105,7 +105,11 @@ export async function POST(
 
     if (updateError || !updatedRows || updatedRows.length === 0) {
       // Funds were locked above — unlock them immediately in both error cases.
-      await supabaseAdmin.rpc('unlock_player_funds', { p_user_id: userId, p_amount: match.entry_fee_sol })
+      // FIX 4: Check unlock return value — if unlock fails, log it for manual reconciliation.
+      const unlockResult = await supabaseAdmin.rpc('unlock_player_funds', { p_user_id: userId, p_amount: match.entry_fee_sol })
+      if (!unlockResult.data?.success) {
+        console.error('[Match Join] CRITICAL: fund unlock failed after join race. User funds may be stuck.', { userId, matchId, unlockResult: unlockResult.data })
+      }
 
       if (updateError) {
         console.error('[Match Join] update error:', updateError)

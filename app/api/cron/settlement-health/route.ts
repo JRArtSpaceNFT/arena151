@@ -80,8 +80,12 @@ export async function GET(req: NextRequest) {
 
       for (const m of matches) {
         if (m.entry_fee_sol != null) {
-          await supabaseAdmin.rpc('unlock_player_funds', { p_user_id: m.player_a_id, p_amount: m.entry_fee_sol })
-          if (m.player_b_id) await supabaseAdmin.rpc('unlock_player_funds', { p_user_id: m.player_b_id, p_amount: m.entry_fee_sol })
+          const unlockA = await supabaseAdmin.rpc('unlock_player_funds', { p_user_id: m.player_a_id, p_amount: m.entry_fee_sol })
+          if (!unlockA.data?.success) console.error(`[SettlementHealth] ready-expiry unlock failed for player_a ${m.player_a_id} match ${m.id}:`, unlockA.data)
+          if (m.player_b_id) {
+            const unlockB = await supabaseAdmin.rpc('unlock_player_funds', { p_user_id: m.player_b_id, p_amount: m.entry_fee_sol })
+            if (!unlockB.data?.success) console.error(`[SettlementHealth] ready-expiry unlock failed for player_b ${m.player_b_id} match ${m.id}:`, unlockB.data)
+          }
         }
       }
 
@@ -122,7 +126,8 @@ export async function GET(req: NextRequest) {
 
       for (const m of matches) {
         if (m.entry_fee_sol != null) {
-          await supabaseAdmin.rpc('unlock_player_funds', { p_user_id: m.player_a_id, p_amount: m.entry_fee_sol })
+          const unlockA = await supabaseAdmin.rpc('unlock_player_funds', { p_user_id: m.player_a_id, p_amount: m.entry_fee_sol })
+          if (!unlockA.data?.success) console.error(`[SettlementHealth] forming-expiry unlock failed for ${m.player_a_id} match ${m.id}:`, unlockA.data)
         }
       }
 

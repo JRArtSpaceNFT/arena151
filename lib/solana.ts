@@ -105,26 +105,46 @@ export async function getSolBalance(address: string): Promise<number> {
 }
 
 // ── Send SOL ──────────────────────────────────────────────────
+// FIX 3: Pre-flight balance check — verify on-chain wallet can cover
+// the full requested amount BEFORE sending. If it can't, return a
+// structured error instead of silently truncating the payment.
+// This prevents the case where sendSol returns success with a truncated
+// amount, causing DB/on-chain drift on every underfunded settlement.
 export async function sendSol(
   encryptedOrRawPrivateKey: string,
   toAddress: string,
-  amountSol: number
-): Promise<{ success: boolean; signature?: string; error?: string }> {
+  amountSol: number,
+  opts?: { skipPreflightCheck?: boolean }
+): Promise<{ success: boolean; signature?: string; error?: string; actualLamports?: number; requestedLamports?: number }> {
   try {
     const privateKeyBase58 = decryptPrivateKey(encryptedOrRawPrivateKey)
     const secretKey = bs58.decode(privateKeyBase58)
     const fromKeypair = Keypair.fromSecretKey(secretKey)
     const toPubkey = new PublicKey(toAddress)
-    // Cap lamports so we never leave the source account below rent-exempt minimum
+
     const walletLamports = await connection.getBalance(fromKeypair.publicKey)
     const rentLamports = Math.ceil(RENT_EXEMPT_MIN * LAMPORTS_PER_SOL)
     const gasLamports = Math.ceil(GAS_BUFFER * LAMPORTS_PER_SOL)
     const maxSendable = walletLamports - rentLamports - gasLamports
-    const lamports = Math.min(Math.floor(amountSol * LAMPORTS_PER_SOL), maxSendable)
+    const requestedLamports = Math.floor(amountSol * LAMPORTS_PER_SOL)
 
-    if (lamports <= 0) {
-      return { success: false, error: 'Insufficient funds after rent-exempt reserve' }
+    if (maxSendable <= 0) {
+      return { success: false, error: 'Insufficient funds after rent-exempt reserve', requestedLamports }
     }
+
+    // FIX 3: Strict pre-flight — if wallet cannot cover the full requested amount,
+    // fail explicitly rather than sending a truncated payment.
+    // Exception: skipPreflightCheck=true is used for house fee (best-effort, truncation ok).
+    if (!opts?.skipPreflightCheck && requestedLamports > maxSendable) {
+      return {
+        success: false,
+        error: `Wallet underfunded: has ${maxSendable} sendable lamports but ${requestedLamports} requested. Diff: ${requestedLamports - maxSendable} lamports. Settlement aborted to prevent partial payment.`,
+        actualLamports: maxSendable,
+        requestedLamports,
+      }
+    }
+
+    const lamports = Math.min(requestedLamports, maxSendable)
 
     const transaction = new Transaction().add(
       SystemProgram.transfer({
@@ -135,7 +155,7 @@ export async function sendSol(
     )
 
     const signature = await sendAndConfirmTransaction(connection, transaction, [fromKeypair])
-    return { success: true, signature }
+    return { success: true, signature, actualLamports: lamports, requestedLamports }
   } catch (err: unknown) {
     return { success: false, error: err instanceof Error ? err.message : String(err) }
   }

@@ -111,14 +111,15 @@ export async function POST(
 
       if (elapsed >= BATTLE_TIMEOUT_MS) {
         // M5 FIX: Unlock both players' funds when transitioning to manual_review.
-        // Previously, flagging a battle as manual_review without unlocking left
-        // both players' locked_balance permanently elevated — they couldn't withdraw.
-        // Unlock here so funds are accessible while admin reviews.
+        // FIX 4: Check unlock return values — strict mode returns {success:false} on mismatch.
         if (match.player_b_id) {
-          await supabaseAdmin.rpc('unlock_player_funds', { p_user_id: match.player_a_id, p_amount: match.entry_fee_sol })
-          await supabaseAdmin.rpc('unlock_player_funds', { p_user_id: match.player_b_id, p_amount: match.entry_fee_sol })
+          const unlockA = await supabaseAdmin.rpc('unlock_player_funds', { p_user_id: match.player_a_id, p_amount: match.entry_fee_sol })
+          if (!unlockA.data?.success) console.error('[Abandon] unlock failed for player_a:', match.player_a_id, unlockA.data)
+          const unlockB = await supabaseAdmin.rpc('unlock_player_funds', { p_user_id: match.player_b_id, p_amount: match.entry_fee_sol })
+          if (!unlockB.data?.success) console.error('[Abandon] unlock failed for player_b:', match.player_b_id, unlockB.data)
         } else {
-          await supabaseAdmin.rpc('unlock_player_funds', { p_user_id: match.player_a_id, p_amount: match.entry_fee_sol })
+          const unlockA = await supabaseAdmin.rpc('unlock_player_funds', { p_user_id: match.player_a_id, p_amount: match.entry_fee_sol })
+          if (!unlockA.data?.success) console.error('[Abandon] unlock failed for player_a:', match.player_a_id, unlockA.data)
         }
 
         await supabaseAdmin.from('matches').update({
