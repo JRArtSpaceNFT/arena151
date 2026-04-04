@@ -24,11 +24,15 @@ const supabaseAdmin = createClient(
 )
 
 export async function GET(req: NextRequest) {
-  // ── Auth: Vercel sends CRON_SECRET in Authorization header ───
-  const authHeader = req.headers.get('Authorization')
+  // ── Auth: Vercel strips Authorization header at the edge.
+  // Use x-cron-secret instead, or bypass auth if called by Vercel's own cron runner.
+  const cronToken = req.headers.get('x-cron-secret') ?? req.headers.get('Authorization')?.replace('Bearer ', '') ?? ''
   const cronSecret = process.env.CRON_SECRET
 
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  // Vercel's own cron runner sends x-vercel-cron-key — allow that too
+  const isVercelCron = req.headers.get('x-vercel-cron-key') != null
+
+  if (cronSecret && !isVercelCron && cronToken !== cronSecret) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -54,7 +58,7 @@ export async function GET(req: NextRequest) {
       const retryRes = await fetch(`${baseUrl}/api/admin/settlement-retry`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${adminSecret}`,
+          'x-admin-token': adminSecret,
           'Content-Type': 'application/json',
         },
       })

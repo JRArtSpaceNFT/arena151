@@ -30,12 +30,14 @@ const supabaseAdmin = createClient(
 
 export async function POST(req: NextRequest) {
   // ── Auth ─────────────────────────────────────────────────────
-  const authHeader = req.headers.get('Authorization')
+  // NOTE: Vercel strips the Authorization header at the edge.
+  // We use x-admin-token instead.
+  const adminToken = req.headers.get('x-admin-token') ?? req.headers.get('Authorization')?.replace('Bearer ', '') ?? ''
   const expectedToken = process.env.ADMIN_SECRET
   if (!expectedToken) {
     return NextResponse.json({ error: 'ADMIN_SECRET not configured' }, { status: 500 })
   }
-  if (authHeader !== `Bearer ${expectedToken}`) {
+  if (adminToken !== expectedToken) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

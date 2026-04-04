@@ -43,9 +43,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Webhook not configured' }, { status: 500 })
   }
 
-  // Helius sends the authHeader value as a raw string in the Authorization header.
-  // Accept both the raw secret and 'sha256=<hmac>' formats for compatibility.
-  const sigHeader = req.headers.get('authorization') ?? req.headers.get('helius-webhook-authorization') ?? ''
+  // NOTE: Vercel strips the Authorization header at the edge.
+  // Primary auth: ?secret= query param in the webhook URL (set in Helius dashboard)
+  // Fallback: custom headers that Vercel doesn't strip
+  const url = new URL(req.url)
+  const sigHeader = url.searchParams.get('secret')
+    ?? req.headers.get('x-helius-authorization')
+    ?? req.headers.get('helius-webhook-authorization')
+    ?? ''
   let authorized = false
   try {
     // Try direct match first (Helius authHeader mode)
