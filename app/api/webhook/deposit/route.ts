@@ -42,27 +42,40 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Webhook not configured' }, { status: 500 })
   }
 
-  // Helius sends the HMAC in the Authorization header (not stripped by Vercel edge)
-  // or x-helius-authorization as a fallback for older webhook configs.
+  // Helius "Authentication Header" mode sends the raw secret as the Authorization header value.
+  // We support two verification modes:
+  //   1. Raw header match — timingSafeEqual(header, secret)  [Helius standard auth header mode]
+  //   2. HMAC-SHA256     — timingSafeEqual(header, sha256=<hmac>) [if Helius adds signing in future]
+  // Both are checked. Either passing = authorized.
   const authHeader = req.headers.get('authorization')
     ?? req.headers.get('x-helius-authorization')
     ?? ''
 
   let authorized = false
   try {
-    const expectedHmac = 'sha256=' + createHmac('sha256', HELIUS_WEBHOOK_SECRET).update(rawBody).digest('hex')
+    // Mode 1: Raw header comparison (Helius "Authentication Header" mode)
+    // Helius sends the secret value directly as the Authorization header.
     const a = Buffer.from(authHeader.trim())
-    const b = Buffer.from(expectedHmac)
+    const b = Buffer.from(HELIUS_WEBHOOK_SECRET.trim())
     if (a.length === b.length) {
       authorized = timingSafeEqual(a, b)
+    }
+
+    // Mode 2: HMAC-SHA256 (future-proofing / if using Helius signing secret mode)
+    if (!authorized) {
+      const expectedHmac = 'sha256=' + createHmac('sha256', HELIUS_WEBHOOK_SECRET).update(rawBody).digest('hex')
+      const c = Buffer.from(authHeader.trim())
+      const d = Buffer.from(expectedHmac)
+      if (c.length === d.length) {
+        authorized = timingSafeEqual(c, d)
+      }
     }
   } catch {
     authorized = false
   }
 
   if (!authorized) {
-    // Log without exposing the secret or the full header value
-    console.warn('[Deposit Webhook] HMAC verification failed. Header present:', authHeader.length > 0)
+    console.warn('[Deposit Webhook] Auth failed. Header present:', authHeader.length > 0)
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
