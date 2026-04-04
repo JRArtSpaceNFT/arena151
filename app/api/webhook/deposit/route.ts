@@ -1,5 +1,29 @@
+/**
+ * POST /api/webhook/deposit
+ *
+ * Helius webhook handler for SOL deposits.
+ *
+ * Security fixes applied:
+ * - HMAC-SHA256 signature verification using HELIUS_WEBHOOK_SECRET
+ * - Atomic deposit processing via process_deposit() RPC (idempotent)
+ * - Raw body captured before JSON parse (required for HMAC)
+ * - Audit log written by RPC function
+ * - Returns 200 even on duplicate (idempotent)
+ *
+ * Required env vars:
+ *   HELIUS_WEBHOOK_SECRET  — Secret set in Helius dashboard → webhooks → signing secret
+ *   NEXT_PUBLIC_SUPABASE_URL
+ *   SUPABASE_SERVICE_KEY
+ */
+
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { createHmac } from 'crypto'
+
+// REQUIRED: Set HELIUS_WEBHOOK_SECRET in your environment.
+// In Helius dashboard → Webhooks → select webhook → Signing Secret.
+// This MUST be set in production or all deposits will be rejected.
+const HELIUS_WEBHOOK_SECRET = process.env.HELIUS_WEBHOOK_SECRET
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -7,70 +31,88 @@ const supabaseAdmin = createClient(
 )
 
 export async function POST(req: NextRequest) {
+  // ── 1. Read raw body FIRST (needed for HMAC verification) ────
+  const rawBody = await req.text()
+
+  // ── 2. Verify Helius webhook signature ───────────────────────
+  // Helius uses the header: "authorization" with value "sha256=<hex>"
+  // NOTE: If HELIUS_WEBHOOK_SECRET is not configured, reject ALL requests.
+  // This prevents unauthenticated balance crediting in production.
+  if (!HELIUS_WEBHOOK_SECRET) {
+    console.error('[Deposit Webhook] HELIUS_WEBHOOK_SECRET is not set! Rejecting request. Set this env var in production.')
+    return NextResponse.json({ error: 'Webhook not configured' }, { status: 500 })
+  }
+
+  const sigHeader = req.headers.get('authorization') ?? req.headers.get('helius-webhook-authorization') ?? ''
+  const expectedSig = 'sha256=' + createHmac('sha256', HELIUS_WEBHOOK_SECRET)
+    .update(rawBody)
+    .digest('hex')
+
+  if (sigHeader !== expectedSig) {
+    console.warn('[Deposit Webhook] Signature mismatch. Possible spoofed request.')
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  // ── 3. Parse body ────────────────────────────────────────────
+  let body: unknown
   try {
-    const body = await req.json()
+    body = JSON.parse(rawBody)
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
 
-    // Helius sends an array of transaction events
-    const events = Array.isArray(body) ? body : [body]
+  // Helius sends an array of transaction events
+  const events = Array.isArray(body) ? body : [body]
+  const results: Record<string, string> = {}
 
-    for (const event of events) {
-      // Look for SOL transfers (native transfers)
-      const nativeTransfers = event.nativeTransfers || []
+  for (const event of events) {
+    const signature: string = (event as Record<string, unknown>).signature as string
+    if (!signature) continue
 
-      for (const transfer of nativeTransfers) {
-        const toAddress = transfer.toUserAccount
-        const amountLamports = transfer.amount
-        const amountSol = amountLamports / 1_000_000_000
-        const signature = event.signature
+    const nativeTransfers: Array<{ toUserAccount: string; amount: number }> =
+      ((event as Record<string, unknown>).nativeTransfers as Array<{ toUserAccount: string; amount: number }>) ?? []
 
-        if (!toAddress || amountSol < 0.001) continue
+    for (const transfer of nativeTransfers) {
+      const toAddress = transfer.toUserAccount
+      const amountSol = transfer.amount / 1_000_000_000
 
-        // Find the user with this wallet address
-        const { data: profile } = await supabaseAdmin
-          .from('profiles')
-          .select('id, balance, email')
-          .eq('sol_address', toAddress)
-          .single()
+      // Ignore dust and transfers to no one
+      if (!toAddress || amountSol < 0.001) continue
 
-        if (!profile) continue
+      // ── 4. Atomic deposit via RPC ────────────────────────────
+      // The process_deposit() function:
+      //   - Finds user by sol_address
+      //   - Inserts transaction with ON CONFLICT DO NOTHING on tx_signature
+      //   - Credits balance ONLY if the insert succeeded (atomic, no double-credit)
+      //   - Writes to audit_log
+      const { data: result, error } = await supabaseAdmin.rpc('process_deposit', {
+        p_sol_address: toAddress,
+        p_amount_sol: amountSol,
+        p_tx_signature: signature,
+        p_notes: `Deposit of ${amountSol.toFixed(6)} SOL`,
+      })
 
-        // Check we haven't already processed this transaction
-        const { data: existing } = await supabaseAdmin
-          .from('transactions')
-          .select('id')
-          .eq('tx_signature', signature)
-          .single()
+      if (error) {
+        console.error('[Deposit Webhook] RPC error:', error)
+        results[`${signature}:${toAddress}`] = 'rpc_error'
+        continue
+      }
 
-        if (existing) continue // Already processed
+      const outcome = result as string
+      results[`${signature}:${toAddress}`] = outcome
 
-        // Credit the user's balance
-        const newBalance = (profile.balance || 0) + amountSol
-
-        await supabaseAdmin
-          .from('profiles')
-          .update({ balance: newBalance })
-          .eq('id', profile.id)
-
-        // Record the transaction
-        await supabaseAdmin
-          .from('transactions')
-          .insert({
-            user_id: profile.id,
-            type: 'deposit',
-            amount_sol: amountSol,
-            status: 'confirmed',
-            tx_signature: signature,
-            to_address: toAddress,
-            notes: `Deposit of ${amountSol.toFixed(4)} SOL`,
-          })
-
-        console.log(`[Deposit] ${amountSol} SOL credited to user ${profile.id} (${toAddress})`)
+      if (outcome === 'credited') {
+        console.log(`[Deposit Webhook] Credited ${amountSol} SOL to ${toAddress} (tx: ${signature})`)
+      } else if (outcome === 'duplicate') {
+        console.log(`[Deposit Webhook] Duplicate tx ignored: ${signature}`)
+      } else if (outcome === 'user_not_found') {
+        // Not an error — could be a transfer to an address not registered in our system
+        console.log(`[Deposit Webhook] No user found for address ${toAddress}`)
       }
     }
-
-    return NextResponse.json({ ok: true })
-  } catch (err) {
-    console.error('[Webhook] Error:', err)
-    return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 })
   }
+
+  // Always return 200 — Helius retries on non-2xx, which would cause duplicates.
+  // Our RPC is idempotent so retries are safe.
+  return NextResponse.json({ ok: true, results })
 }

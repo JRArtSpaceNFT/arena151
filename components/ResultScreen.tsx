@@ -166,32 +166,43 @@ export default function ResultScreen() {
     const isRealMoneyGame = currentMatch.room.entryFee > 0;
 
     // ── Real-money on-chain settlement ────────────────────────────
+    // SECURITY: Client now sends ONLY matchId to /api/settle.
+    // Winner/loser/fee come from the database (server-authoritative).
+    // Real-money matches must be registered via /api/match/create first.
     if (isRealMoneyGame) {
-      const winnerId  = isVictory ? currentTrainer.id : currentMatch.player2.id
-      const loserId   = isVictory ? currentMatch.player2.id : currentTrainer.id
       const isBotMatch = currentMatch.player2.id.startsWith('bot_')
+      // UUID format check: server-registered matches have a proper UUID (not 'match_<timestamp>')
+      const hasServerMatchId = currentMatch.matchId &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(currentMatch.matchId)
 
-      if (!isBotMatch) {
-        // Fire and track — get the auth token from the current Supabase session
+      if (!isBotMatch && hasServerMatchId) {
+        const claimedWinnerId = isVictory ? currentTrainer.id : currentMatch.player2.id
         supabase.auth.getSession().then(({ data: { session } }) => {
           if (!session?.access_token) return
-          fetch('/api/settle', {
+          const headers = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          }
+          // Step 1: Submit result claim to server
+          fetch(`/api/match/${currentMatch.matchId}/result`, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${session.access_token}`,
-            },
-            body: JSON.stringify({
-              matchId:     currentMatch.matchId,
-              winnerId,
-              loserId,
-              entryFeeSol: currentMatch.room.entryFee,
-            }),
+            headers,
+            body: JSON.stringify({ winnerId: claimedWinnerId }),
           })
           .then(r => r.json())
+          .then(resultData => {
+            if (resultData.status === 'settlement_pending') {
+              // Step 2: Trigger settlement — server looks up winner/loser/fee from DB
+              return fetch('/api/settle', {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ matchId: currentMatch.matchId }),
+              }).then(r => r.json())
+            }
+            return resultData
+          })
           .then(data => {
-            if (data.ok && !data.alreadySettled && data.winnerBalanceAfter !== undefined) {
-              // Refresh the local balance from the settled on-chain value
+            if (data?.ok && !data.alreadySettled && data.winnerBalanceAfter !== undefined) {
               const updatedBalance = isVictory ? data.winnerBalanceAfter : data.loserBalanceAfter
               if (updatedBalance !== undefined) {
                 setTrainer({ ...currentTrainer, balance: updatedBalance })
@@ -200,6 +211,10 @@ export default function ResultScreen() {
           })
           .catch(err => console.error('[ResultScreen] settle error:', err))
         })
+      } else if (!isBotMatch && !hasServerMatchId) {
+        // SAFETY BLOCK: Real-money match without server registration.
+        // This should not happen in production. Do NOT call settle.
+        console.error('[ResultScreen] BLOCKED: Real-money match has no server matchId. Settlement requires /api/match/create flow. matchId:', currentMatch.matchId)
       }
     }
 

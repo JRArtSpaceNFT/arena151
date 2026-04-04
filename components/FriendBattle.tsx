@@ -32,7 +32,11 @@ function PokeBall({ size = 56 }: { size?: number }) {
 export default function FriendBattle() {
   const { setScreen, currentTrainer } = useArenaStore()
   const [password, setPassword] = useState('')
-  const [wagerInput, setWagerInput] = useState('')           // '' = FREE
+  // ⚠️  SECURITY: Wagered friend battles are disabled until server-enforced wager
+  // flow is complete. All friend battles are FREE practice-only.
+  // DO NOT re-enable wager input here — wagers must route through
+  // /api/match/create → /api/match/[id]/join → /api/match/[id]/start first.
+  const [wagerInput] = useState('')           // LOCKED: always FREE (see security note above)
   const [phase, setPhase] = useState<'input' | 'searching' | 'accept' | 'timeout' | 'error'>('input')
   const [countdown, setCountdown] = useState(60)
   const [errorMsg, setErrorMsg] = useState('')
@@ -127,7 +131,7 @@ export default function FriendBattle() {
       p1: { name: playerName, timestamp: now },
       p2: null,
       state: 'waiting',
-      wager: isFree ? 0 : parsedWager,
+      wager: 0,  // SECURITY: Always 0 until server-enforced wagers are implemented
       createdAt: now,
       expiresAt: now + 60000,
     }
@@ -288,82 +292,32 @@ export default function FriendBattle() {
                 />
               </div>
 
-              {/* Wager */}
-              <div style={{ marginBottom: 20 }}>
-                <label style={{ display: 'block', fontSize: 10, color: '#64748b', fontWeight: 800, letterSpacing: '0.15em', marginBottom: 8, textTransform: 'uppercase' }}>
-                  Wager (SOL) — leave blank for FREE
-                </label>
-
-                {/* FREE — full width */}
-                <button
-                  onClick={() => setWagerInput('')}
-                  style={{
-                    width: '100%', padding: '9px 0', borderRadius: 8, fontSize: 13, fontWeight: 900,
-                    cursor: 'pointer', border: '1px solid', marginBottom: 6,
-                    background: isFree ? 'rgba(74,222,128,0.2)' : 'rgba(255,255,255,0.04)',
-                    borderColor: isFree ? '#4ade80' : 'rgba(255,255,255,0.1)',
-                    color: isFree ? '#4ade80' : '#64748b',
-                    letterSpacing: '0.08em', transition: 'all 0.15s',
-                  }}>
-                  🆓 PLAY FOR FREE
-                </button>
-
-                {/* SOL amounts — single row */}
-                <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-                  {['0.01', '0.05', '0.1', '0.5', '1.0'].map(p => {
-                    const active = wagerInput === p
-                    return (
-                      <button key={p}
-                        onClick={() => setWagerInput(p)}
-                        style={{
-                          flex: 1, padding: '8px 0', borderRadius: 8, fontSize: 12, fontWeight: 800,
-                          cursor: 'pointer', border: '1px solid', whiteSpace: 'nowrap',
-                          background: active ? 'rgba(129,140,248,0.2)' : 'rgba(255,255,255,0.04)',
-                          borderColor: active ? '#818cf8' : 'rgba(255,255,255,0.1)',
-                          color: active ? '#818cf8' : '#64748b',
-                          transition: 'all 0.15s',
-                        }}>
-                        ◎{p}
-                      </button>
-                    )
-                  })}
+              {/* Wagered battles notice */}
+              <div style={{
+                marginBottom: 20, padding: '14px 16px',
+                background: 'rgba(251,191,36,0.08)',
+                border: '1px solid rgba(251,191,36,0.3)',
+                borderRadius: 12,
+              }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: '#fbbf24', marginBottom: 4, letterSpacing: '0.05em' }}>
+                  💰 WAGERED FRIEND BATTLES — COMING SOON
                 </div>
-
-                {/* Custom amount */}
-                <div style={{ position: 'relative' }}>
-                  <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#818cf8', fontWeight: 900, fontSize: 14 }}>◎</span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.001"
-                    value={wagerInput}
-                    onChange={e => setWagerInput(e.target.value)}
-                    placeholder="Custom amount or leave blank"
-                    style={{
-                      width: '100%', background: 'rgba(255,255,255,0.05)',
-                      border: `1px solid ${isFree ? 'rgba(255,255,255,0.1)' : 'rgba(129,140,248,0.5)'}`,
-                      borderRadius: 10, padding: '10px 12px 10px 30px',
-                      color: '#e2e8f0', fontSize: 14, outline: 'none',
-                      boxSizing: 'border-box',
-                      boxShadow: isFree ? 'none' : '0 0 12px rgba(129,140,248,0.2)',
-                    }}
-                  />
+                <div style={{ fontSize: 12, color: '#64748b', lineHeight: 1.6 }}>
+                  Wagered friend battles are currently in development. For now, all friend battles are
+                  <strong style={{ color: '#4ade80' }}> FREE practice battles</strong> with no SOL on the line.
+                  Matchmaking-based wagered battles (via the Arena rooms) are fully supported.
                 </div>
+              </div>
 
-                {/* Wager summary */}
-                <div style={{
-                  marginTop: 10, padding: '10px 14px',
-                  background: isFree ? 'rgba(74,222,128,0.08)' : 'rgba(129,140,248,0.1)',
-                  border: `1px solid ${isFree ? 'rgba(74,222,128,0.25)' : 'rgba(129,140,248,0.35)'}`,
-                  borderRadius: 10, fontSize: 13,
-                  color: isFree ? '#4ade80' : '#818cf8',
-                  fontWeight: 800,
-                }}>
-                  {isFree
-                    ? '🆓 This battle is FREE — no SOL on the line'
-                    : `⚔️ Wager: ${parsedWager.toFixed(4)} SOL per player · Winner takes ${(parsedWager * 2).toFixed(4)} SOL`
-                  }
-                </div>
+              {/* Wager summary — always FREE */}
+              <div style={{
+                marginBottom: 20, padding: '10px 14px',
+                background: 'rgba(74,222,128,0.08)',
+                border: '1px solid rgba(74,222,128,0.25)',
+                borderRadius: 10, fontSize: 13,
+                color: '#4ade80', fontWeight: 800,
+              }}>
+                🆓 This battle is FREE — no SOL on the line
               </div>
 
               {errorMsg && (
@@ -455,7 +409,7 @@ export default function FriendBattle() {
                     letterSpacing: '0.04em',
                     boxShadow: pendingRoom.wager === 0 ? '0 0 20px rgba(74,222,128,0.3)' : '0 0 20px rgba(99,102,241,0.4)',
                   }}>
-                  {pendingRoom.wager === 0 ? '✓ Accept — Let\'s Battle!' : `✓ Accept ◎ ${pendingRoom.wager.toFixed(4)} Wager`}
+                  {'✓ Accept — Let\'s Battle! (Free Practice)'}
                 </button>
               </div>
             </motion.div>

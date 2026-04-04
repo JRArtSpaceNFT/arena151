@@ -2,6 +2,13 @@ import { Keypair, Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PE
 import bs58 from 'bs58'
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto'
 
+// ── Required environment variables ──────────────────────────
+// HELIUS_API_KEY             — Helius RPC API key
+// HELIUS_WEBHOOK_SECRET      — Helius webhook signing secret (HMAC-SHA256)
+//                              Set in Helius dashboard → Webhooks → Signing Secret
+// WALLET_ENCRYPTION_SECRET   — 64-char hex string (32 bytes) for AES-256-GCM key encryption
+// ADMIN_SECRET               — Secret for /api/admin/* endpoints
+
 // ── Helius RPC ────────────────────────────────────────────────
 const HELIUS_RPC = `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`
 const connection = new Connection(HELIUS_RPC, 'confirmed')
@@ -34,22 +41,17 @@ export function encryptPrivateKey(privateKeyBase58: string): string {
 }
 
 export function decryptPrivateKey(encryptedHex: string): string {
-  // Handle legacy base58 keys (not encrypted — before this feature was added)
-  if (!encryptedHex.startsWith('0') && encryptedHex.length < 100) {
-    return encryptedHex // plain base58, return as-is
-  }
-  try {
-    const key = getEncryptionKey()
-    const iv = Buffer.from(encryptedHex.slice(0, 24), 'hex')
-    const authTag = Buffer.from(encryptedHex.slice(24, 56), 'hex')
-    const encrypted = Buffer.from(encryptedHex.slice(56), 'hex')
-    const decipher = createDecipheriv('aes-256-gcm', key, iv)
-    decipher.setAuthTag(authTag)
-    return decipher.update(encrypted) + decipher.final('utf8')
-  } catch {
-    // Fallback for any legacy plain keys
-    return encryptedHex
-  }
+  // ⚠️  SECURITY: Legacy plaintext key fallback has been REMOVED.
+  // All private keys must be encrypted with AES-256-GCM via encryptPrivateKey().
+  // If you have unencrypted keys in the database, re-encrypt them before deploying.
+  // Required env var: WALLET_ENCRYPTION_SECRET (64-char hex string)
+  const key = getEncryptionKey()
+  const iv = Buffer.from(encryptedHex.slice(0, 24), 'hex')
+  const authTag = Buffer.from(encryptedHex.slice(24, 56), 'hex')
+  const encrypted = Buffer.from(encryptedHex.slice(56), 'hex')
+  const decipher = createDecipheriv('aes-256-gcm', key, iv)
+  decipher.setAuthTag(authTag)
+  return decipher.update(encrypted) + decipher.final('utf8')
 }
 
 // ── Wallet generation ─────────────────────────────────────────
