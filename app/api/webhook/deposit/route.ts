@@ -44,19 +44,34 @@ export async function POST(req: NextRequest) {
   }
 
   // Helius sends the authHeader value as a raw string in the Authorization header.
-  // We use timingSafeEqual to prevent timing attacks.
+  // Accept both the raw secret and 'sha256=<hmac>' formats for compatibility.
   const sigHeader = req.headers.get('authorization') ?? req.headers.get('helius-webhook-authorization') ?? ''
   let authorized = false
   try {
-    const a = Buffer.from(sigHeader)
-    const b = Buffer.from(HELIUS_WEBHOOK_SECRET)
-    authorized = a.length === b.length && timingSafeEqual(a, b)
+    // Try direct match first (Helius authHeader mode)
+    const a = Buffer.from(sigHeader.trim())
+    const b = Buffer.from(HELIUS_WEBHOOK_SECRET.trim())
+    if (a.length === b.length) {
+      authorized = timingSafeEqual(a, b)
+    }
+    // Also try sha256=<hmac> format (Helius signing secret mode)
+    if (!authorized) {
+      const { createHmac } = await import('crypto')
+      const expectedHmac = 'sha256=' + createHmac('sha256', HELIUS_WEBHOOK_SECRET).update(rawBody).digest('hex')
+      const c = Buffer.from(sigHeader.trim())
+      const d2 = Buffer.from(expectedHmac)
+      if (c.length === d2.length) {
+        authorized = timingSafeEqual(c, d2)
+      }
+    }
   } catch {
     authorized = false
   }
 
+  console.log('[Deposit Webhook] Auth check:', { headerLen: sigHeader.length, secretLen: HELIUS_WEBHOOK_SECRET.length, authorized })
+
   if (!authorized) {
-    console.warn('[Deposit Webhook] Authorization header mismatch. Possible spoofed request. Header:', sigHeader.slice(0, 8) + '...')
+    console.warn('[Deposit Webhook] Authorization header mismatch. Header prefix:', sigHeader.slice(0, 8) + '...')
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
