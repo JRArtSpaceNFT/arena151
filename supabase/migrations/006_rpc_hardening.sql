@@ -71,17 +71,13 @@ BEGIN
   -- negative) without aborting the outer transaction. If the balance
   -- updates fail, we roll back to the savepoint, record the on-chain
   -- tx signature for reconciliation, and return a structured error.
-  SAVEPOINT settle_balance_updates;
-
   BEGIN
-    -- Loser: pays both stakes from their wallet (2×entry_fee total)
     UPDATE public.profiles
     SET
       balance        = balance - (p_entry_fee * 2),
       locked_balance = GREATEST(0, locked_balance - p_entry_fee)
     WHERE id = p_loser_id;
 
-    -- Winner: receives winner_payout into their balance; stake released
     UPDATE public.profiles
     SET
       balance        = balance + p_winner_payout,
@@ -90,11 +86,10 @@ BEGIN
 
   EXCEPTION
     WHEN check_violation OR not_null_violation OR numeric_value_out_of_range THEN
-      -- Balance constraint violated — roll back balance updates only.
-      -- The match status is already 'settled' (on-chain tx ran successfully).
-      -- Record the error so manual reconciliation can fix the DB balances.
-      ROLLBACK TO SAVEPOINT settle_balance_updates;
-
+      -- PL/pgSQL BEGIN..EXCEPTION blocks use an implicit savepoint internally.
+      -- The balance updates above are rolled back automatically when we enter EXCEPTION.
+      -- The match UPDATE (status=settled) above this block is NOT rolled back
+      -- because it ran before the BEGIN..EXCEPTION scope.
       UPDATE public.matches
       SET error_message = format(
         'BALANCE_UPDATE_FAILED after on-chain settlement. settlement_tx=%s. Manual reconciliation required. Error: %s',
@@ -110,8 +105,6 @@ BEGIN
         'note',           'On-chain tx succeeded. Match marked settled. Balance updates failed — manual reconciliation needed.'
       );
   END;
-
-  RELEASE SAVEPOINT settle_balance_updates;
 
   -- ── Capture post-settlement balances ──────────────────────────
   SELECT balance INTO v_winner_bal_after FROM public.profiles WHERE id = p_winner_id;
