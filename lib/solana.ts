@@ -10,6 +10,8 @@ export const TREASURY_ADDRESS = 'FSWXt6eniHH7fQw7eCyM4NVVPGAHXDdNdkZKLriaPy3C'
 export const HOUSE_FEE_PCT = 0.05       // 5% on wagers
 export const WITHDRAWAL_FEE_PCT = 0.005 // 0.5% on withdrawals
 export const MIN_WITHDRAWAL_USD = 5    // $5 minimum
+export const RENT_EXEMPT_MIN = 0.00089088  // Solana rent-exempt minimum for system accounts
+export const GAS_BUFFER = 0.00002         // ~2x tx fee buffer
 
 // ── AES-256-GCM encryption for private keys ──────────────────
 // Key must be 32 bytes hex — set via WALLET_ENCRYPTION_SECRET env var
@@ -111,7 +113,16 @@ export async function sendSol(
     const secretKey = bs58.decode(privateKeyBase58)
     const fromKeypair = Keypair.fromSecretKey(secretKey)
     const toPubkey = new PublicKey(toAddress)
-    const lamports = Math.floor(amountSol * LAMPORTS_PER_SOL)
+    // Cap lamports so we never leave the source account below rent-exempt minimum
+    const walletLamports = await connection.getBalance(fromKeypair.publicKey)
+    const rentLamports = Math.ceil(RENT_EXEMPT_MIN * LAMPORTS_PER_SOL)
+    const gasLamports = Math.ceil(GAS_BUFFER * LAMPORTS_PER_SOL)
+    const maxSendable = walletLamports - rentLamports - gasLamports
+    const lamports = Math.min(Math.floor(amountSol * LAMPORTS_PER_SOL), maxSendable)
+
+    if (lamports <= 0) {
+      return { success: false, error: 'Insufficient funds after rent-exempt reserve' }
+    }
 
     const transaction = new Transaction().add(
       SystemProgram.transfer({

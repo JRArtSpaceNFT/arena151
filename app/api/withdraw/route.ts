@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { sendSol, calcWithdrawal, getSolBalance, getMinWithdrawalSol } from '@/lib/solana'
+import { sendSol, calcWithdrawal, getSolBalance, getMinWithdrawalSol, RENT_EXEMPT_MIN, GAS_BUFFER } from '@/lib/solana'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -59,20 +59,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Insufficient balance' }, { status: 400 })
     }
 
-    const { fee, netAmount } = calcWithdrawal(amountSol)
-
     // Check the user's custodial wallet has enough SOL
     const walletBalance = await getSolBalance(profile.sol_address)
-    if (walletBalance < amountSol + 0.000005) { // extra for gas
+    const spendable = walletBalance - RENT_EXEMPT_MIN - GAS_BUFFER
+    if (spendable <= 0) {
       return NextResponse.json({
         error: 'Wallet balance insufficient for withdrawal. Please contact support.',
       }, { status: 400 })
     }
+    // Cap requested amount to spendable (leaves rent-exempt reserve in wallet)
+    const effectiveAmountSol = Math.min(amountSol, spendable)
+    const { fee, netAmount } = calcWithdrawal(effectiveAmountSol)
 
     // Deduct from DB balance first (optimistic, prevents double-spend)
     await supabaseAdmin
       .from('profiles')
-      .update({ balance: profile.balance - amountSol })
+      .update({ balance: profile.balance - effectiveAmountSol })
       .eq('id', userId)
 
     // Send net amount to user
@@ -96,11 +98,11 @@ export async function POST(req: NextRequest) {
       .insert({
         user_id: userId,
         type: 'withdrawal',
-        amount_sol: amountSol,
+        amount_sol: effectiveAmountSol,
         status: 'confirmed',
         tx_signature: result.signature,
         to_address: toAddress,
-        notes: `Withdrawal: ${amountSol} SOL → ${netAmount} SOL after 0.5% fee`,
+        notes: `Withdrawal: ${effectiveAmountSol} SOL → ${netAmount} SOL after 0.5% fee`,
       })
 
     return NextResponse.json({
