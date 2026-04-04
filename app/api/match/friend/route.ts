@@ -1,0 +1,257 @@
+/**
+ * POST /api/match/friend
+ *
+ * Friend Battle server-side room management.
+ * Works across any device/browser — no localStorage dependency.
+ *
+ * Actions:
+ *   create — P1 creates a room with a battle code (free, wager=0)
+ *   join   — P2 joins by entering the same code
+ *   status — Poll for room state (P1 uses this to detect when P2 joined)
+ *   cancel — P1 cancels their open room
+ *
+ * Uses the existing matches table with:
+ *   - entry_fee_sol = 0 (free practice)
+ *   - friend_code column (added in migration 007)
+ *   - status = 'forming' while waiting, 'ready' once P2 joins
+ *
+ * Auth: Bearer JWT required for create/join/cancel. Status is public (uses code).
+ */
+
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_KEY!
+)
+
+const supabaseAnon = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
+
+// Friend rooms expire after 5 minutes if no opponent joins
+const FRIEND_ROOM_TTL_MS = 5 * 60 * 1000
+
+async function getAuthUser(req: NextRequest) {
+  const authHeader = req.headers.get('Authorization')
+  if (!authHeader?.startsWith('Bearer ')) return null
+  const token = authHeader.slice(7)
+  const { data: { user }, error } = await supabaseAnon.auth.getUser(token)
+  if (error || !user) return null
+  return user
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json()
+    const { action } = body as { action: string }
+
+    // ── CREATE ────────────────────────────────────────────────────
+    if (action === 'create') {
+      const user = await getAuthUser(req)
+      if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+      const { friendCode } = body as { friendCode: string }
+      if (!friendCode || friendCode.length < 4 || friendCode.length > 20) {
+        return NextResponse.json({ error: 'Battle code must be 4–20 characters' }, { status: 400 })
+      }
+
+      // Sanitize: alphanumeric only
+      const code = friendCode.toLowerCase().replace(/[^a-z0-9]/g, '')
+      if (code.length < 4) {
+        return NextResponse.json({ error: 'Battle code must contain at least 4 letters or numbers' }, { status: 400 })
+      }
+
+      // Cancel any existing open friend rooms for this user first (cleanup)
+      await supabaseAdmin
+        .from('matches')
+        .update({ status: 'voided', error_message: 'Replaced by new friend room', updated_at: new Date().toISOString() })
+        .eq('player_a_id', user.id)
+        .eq('status', 'forming')
+        .eq('entry_fee_sol', 0)
+        .not('friend_code', 'is', null)
+
+      // Check if code is already taken by another active room
+      const { data: existing } = await supabaseAdmin
+        .from('matches')
+        .select('id, created_at')
+        .eq('friend_code', code)
+        .eq('status', 'forming')
+        .single()
+
+      if (existing) {
+        const age = Date.now() - new Date(existing.created_at).getTime()
+        if (age < FRIEND_ROOM_TTL_MS) {
+          return NextResponse.json({
+            error: 'That battle code is already in use — try a different one',
+            code: 'CODE_TAKEN',
+          }, { status: 409 })
+        }
+        // Expired — void it and proceed
+        await supabaseAdmin
+          .from('matches')
+          .update({ status: 'voided', error_message: 'Friend room TTL expired', updated_at: new Date().toISOString() })
+          .eq('id', existing.id)
+      }
+
+      // Create the match record — entry_fee_sol = 0 (free practice)
+      const matchId = crypto.randomUUID()
+      const battleSeed = crypto.randomUUID()
+
+      const { error: insertError } = await supabaseAdmin
+        .from('matches')
+        .insert({
+          id: matchId,
+          player_a_id: user.id,
+          player_b_id: null,
+          entry_fee_sol: 0,
+          status: 'forming',
+          room_id: 'friend',
+          friend_code: code,
+          battle_seed: battleSeed,
+          idempotency_key: crypto.randomUUID(),
+        })
+
+      if (insertError) {
+        console.error('[FriendMatch Create] insert error:', insertError)
+        return NextResponse.json({ error: 'Failed to create room' }, { status: 500 })
+      }
+
+      return NextResponse.json({ matchId, battleSeed, friendCode: code, status: 'forming' })
+    }
+
+    // ── JOIN ──────────────────────────────────────────────────────
+    if (action === 'join') {
+      const user = await getAuthUser(req)
+      if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+      const { friendCode } = body as { friendCode: string }
+      if (!friendCode) return NextResponse.json({ error: 'friendCode required' }, { status: 400 })
+
+      const code = friendCode.toLowerCase().replace(/[^a-z0-9]/g, '')
+
+      // Find the open room
+      const { data: match, error: findError } = await supabaseAdmin
+        .from('matches')
+        .select('id, player_a_id, player_b_id, status, battle_seed, created_at, entry_fee_sol')
+        .eq('friend_code', code)
+        .eq('status', 'forming')
+        .single()
+
+      if (findError || !match) {
+        return NextResponse.json({ error: 'No open room found with that code — ask your friend to create one first' }, { status: 404 })
+      }
+
+      // Check TTL
+      const age = Date.now() - new Date(match.created_at).getTime()
+      if (age > FRIEND_ROOM_TTL_MS) {
+        await supabaseAdmin.from('matches').update({ status: 'voided', error_message: 'Friend room TTL expired' }).eq('id', match.id)
+        return NextResponse.json({ error: 'Room expired — ask your friend to create a new one' }, { status: 410 })
+      }
+
+      // Can't join your own room
+      if (match.player_a_id === user.id) {
+        return NextResponse.json({ error: 'You cannot join your own room — share the code with a friend' }, { status: 400 })
+      }
+
+      // Atomic join — .eq('status', 'forming') + .is('player_b_id', null) prevents race condition
+      const { data: updated, error: updateError } = await supabaseAdmin
+        .from('matches')
+        .update({
+          player_b_id: user.id,
+          status: 'ready',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', match.id)
+        .eq('status', 'forming')
+        .is('player_b_id', null)
+        .select('id')
+
+      if (updateError || !updated || updated.length === 0) {
+        return NextResponse.json({ error: 'Room was just taken — ask your friend to create a new one' }, { status: 409 })
+      }
+
+      return NextResponse.json({
+        matchId: match.id,
+        battleSeed: match.battle_seed,
+        friendCode: code,
+        status: 'ready',
+        role: 'p2',
+      })
+    }
+
+    // ── STATUS ────────────────────────────────────────────────────
+    if (action === 'status') {
+      const { matchId, friendCode } = body as { matchId?: string; friendCode?: string }
+
+      let query = supabaseAdmin
+        .from('matches')
+        .select('id, status, player_a_id, player_b_id, battle_seed, friend_code, created_at')
+
+      if (matchId) {
+        query = query.eq('id', matchId) as typeof query
+      } else if (friendCode) {
+        const code = friendCode.toLowerCase().replace(/[^a-z0-9]/g, '')
+        query = query.eq('friend_code', code).in('status', ['forming', 'ready']) as typeof query
+      } else {
+        return NextResponse.json({ error: 'matchId or friendCode required' }, { status: 400 })
+      }
+
+      const { data: match } = await query.single()
+
+      if (!match) {
+        return NextResponse.json({ status: 'not_found' })
+      }
+
+      // Auto-void expired forming rooms
+      if (match.status === 'forming') {
+        const age = Date.now() - new Date(match.created_at).getTime()
+        if (age > FRIEND_ROOM_TTL_MS) {
+          await supabaseAdmin.from('matches').update({ status: 'voided', error_message: 'TTL expired' }).eq('id', match.id)
+          return NextResponse.json({ status: 'expired' })
+        }
+      }
+
+      return NextResponse.json({
+        matchId: match.id,
+        status: match.status,
+        battleSeed: match.battle_seed,
+        playerAId: match.player_a_id,
+        playerBId: match.player_b_id,
+        friendCode: match.friend_code,
+        expiresAt: new Date(new Date(match.created_at).getTime() + FRIEND_ROOM_TTL_MS).toISOString(),
+      })
+    }
+
+    // ── CANCEL ────────────────────────────────────────────────────
+    if (action === 'cancel') {
+      const user = await getAuthUser(req)
+      if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+      const { matchId } = body as { matchId: string }
+      if (!matchId) return NextResponse.json({ error: 'matchId required' }, { status: 400 })
+
+      const { data: updated } = await supabaseAdmin
+        .from('matches')
+        .update({ status: 'voided', error_message: 'Cancelled by creator', updated_at: new Date().toISOString() })
+        .eq('id', matchId)
+        .eq('player_a_id', user.id)  // Only creator can cancel
+        .eq('status', 'forming')
+        .select('id')
+
+      if (!updated || updated.length === 0) {
+        return NextResponse.json({ error: 'Room not found or already started' }, { status: 404 })
+      }
+
+      return NextResponse.json({ ok: true, cancelled: true })
+    }
+
+    return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
+
+  } catch (err) {
+    console.error('[FriendMatch] Unexpected error:', err)
+    return NextResponse.json({ error: 'Server error' }, { status: 500 })
+  }
+}
