@@ -21,7 +21,7 @@ const supabaseAnon = createClient(
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { matchId: string } }
+  { params: _params }: { params: Promise<{ matchId: string }> }
 ) {
   try {
     // ── Auth ─────────────────────────────────────────────────────
@@ -35,7 +35,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { matchId } = params
+    const { matchId } = await _params
     const userId = authUser.id
 
     // ── Load match ───────────────────────────────────────────────

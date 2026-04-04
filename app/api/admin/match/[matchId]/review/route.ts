@@ -29,7 +29,7 @@ type ReviewAction = 'settle_winner_a' | 'settle_winner_b' | 'refund_both' | 'voi
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { matchId: string } }
+  { params: _params }: { params: Promise<{ matchId: string }> }
 ) {
   try {
     // ── Admin Auth ────────────────────────────────────────────────
@@ -38,7 +38,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { matchId } = params
+    const { matchId } = await _params
     const { action, reason } = await req.json() as { action: ReviewAction; reason?: string }
 
     const validActions: ReviewAction[] = ['settle_winner_a', 'settle_winner_b', 'refund_both', 'void']

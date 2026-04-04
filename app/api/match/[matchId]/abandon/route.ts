@@ -25,7 +25,7 @@ const BATTLE_TIMEOUT_MS = 10 * 60 * 1000 // 10 minutes
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { matchId: string } }
+  { params: _params }: { params: Promise<{ matchId: string }> }
 ) {
   try {
     // ── Auth ─────────────────────────────────────────────────────
@@ -39,7 +39,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { matchId } = params
+    const { matchId } = await _params
     const userId = authUser.id
 
     // ── Load match ───────────────────────────────────────────────

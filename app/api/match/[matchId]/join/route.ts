@@ -26,7 +26,7 @@ const supabaseAnon = createClient(
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { matchId: string } }
+  { params: _params }: { params: Promise<{ matchId: string }> }
 ) {
   try {
     // ── Auth ─────────────────────────────────────────────────────
@@ -40,7 +40,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { matchId } = params
+    const { matchId } = await _params
     const userId = authUser.id
     const { teamB } = await req.json().catch(() => ({}))
 

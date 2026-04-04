@@ -31,7 +31,7 @@ const SINGLE_CLAIM_TIMEOUT_MS = 30_000 // 30 seconds
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { matchId: string } }
+  { params: _params }: { params: Promise<{ matchId: string }> }
 ) {
   try {
     // ── Auth ─────────────────────────────────────────────────────
@@ -45,7 +45,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { matchId } = params
+    const { matchId } = await _params
     const userId = authUser.id
     const { winnerId } = await req.json()
 
