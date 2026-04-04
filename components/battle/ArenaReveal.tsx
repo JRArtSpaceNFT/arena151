@@ -97,15 +97,15 @@ export default function ArenaReveal() {
     const entryFee = currentMatch?.room?.entryFee ?? 0
     const isPaidMatch = entryFee > 0
 
-    if (!isPaidMatch || serverMatchId || paidMatchCreated.current) {
-      // Practice/AI or already created — proceed immediately after delay
+    if (!isPaidMatch || paidMatchCreated.current) {
+      // Practice/AI or already handled — proceed immediately after delay
       const t = setTimeout(() => {
         proceedFromArenaReveal()
       }, 4500)
       return () => clearTimeout(t)
     }
 
-    // Paid match: create server match record, then proceed
+    // Paid match: P2 joins (serverMatchId already set) or P1 creates (serverMatchId null)
     paidMatchCreated.current = true
     setIsPaidMatchLoading(true)
 
@@ -122,20 +122,36 @@ export default function ArenaReveal() {
           return
         }
 
-        const teamAIds = lineupA.map((ac: { creature: { id: number } }) => ac.creature.id)
+        const myLineupIds = lineupA.map((ac: { creature: { id: number } }) => ac.creature.id)
 
-        const res = await fetch('/api/match/create', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({
-            roomId: currentMatch?.room?.id ?? 'pewter-city',
-            entryFeeSol: entryFee,
-            teamA: teamAIds,
-          }),
-        })
+        let res: Response
+        if (serverMatchId) {
+          // P2 joining an existing match — send our lineup as teamB
+          res = await fetch(`/api/match/${serverMatchId}/join`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              teamB: myLineupIds,
+            }),
+          })
+        } else {
+          // P1 creating a new match — send our lineup as teamA
+          res = await fetch('/api/match/create', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              roomId: currentMatch?.room?.id ?? 'pewter-city',
+              entryFeeSol: entryFee,
+              teamA: myLineupIds,
+            }),
+          })
+        }
 
         const data = await res.json()
         setIsPaidMatchLoading(false)
@@ -143,26 +159,29 @@ export default function ArenaReveal() {
         if (!res.ok) {
           const msg = data.code === 'INSUFFICIENT_FUNDS'
             ? 'Insufficient balance to enter this room.'
-            : (data.error ?? 'Failed to create match. Please try again.')
+            : (data.error ?? 'Failed to join/create match. Please try again.')
           setPaidMatchError(msg)
           return
         }
 
-        // Store server matchId and battleSeed in arena store
-        setServerMatch(data.matchId, data.battleSeed)
+        // For P1 (create flow): store server matchId and battleSeed
+        // For P2 (join flow): serverMatchId already set, battleSeed stays as-is
+        if (!serverMatchId && data.matchId) {
+          setServerMatch(data.matchId, data.battleSeed)
+        }
 
         // Now proceed to battle (with a small delay so arena info is readable)
         setTimeout(() => {
           proceedFromArenaReveal()
         }, 1000)
       } catch (err) {
-        console.error('[ArenaReveal] Paid match create error:', err)
+        console.error('[ArenaReveal] Paid match error:', err)
         setPaidMatchError('Network error. Please check your connection.')
         setIsPaidMatchLoading(false)
       }
     }
 
-    // Wait 3.5s for arena reveal to show, then create match and proceed
+    // Wait 3.5s for arena reveal to show, then create/join match and proceed
     const t = setTimeout(createAndProceed, 3500)
     return () => clearTimeout(t)
   // eslint-disable-next-line react-hooks/exhaustive-deps

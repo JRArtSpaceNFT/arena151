@@ -9,6 +9,8 @@ import { getRandomArena, getArenaById } from '@/lib/data/arenas'
 import { TRAINERS } from '@/lib/data/trainers'
 import { CREATURES } from '@/lib/data/creatures'
 import { createActiveCreature, resolveBattle } from '@/lib/engine/battle'
+import { mulberry32, seedFromMatchId } from '@/lib/engine/prng'
+import { useArenaStore } from '@/lib/store'
 import type { StoryProgress } from '@/lib/data/storyMode'
 import { createEmptyProgress, getCurrentOpponent, STORY_OPPONENTS } from '@/lib/data/storyMode'
 
@@ -399,7 +401,16 @@ export const useGameStore = create<GameState>((set, get) => ({
     const { battleState, lineupA, lineupB, arena, p1Trainer, p2Trainer } = get()
     if (!arena || !p1Trainer || !p2Trainer) return
     // Use pre-computed battleState if available; compute now for vs_human flow
-    const resolvedState = battleState ?? resolveBattle(lineupA, lineupB, arena, p1Trainer, p2Trainer)
+    if (battleState) {
+      set({ battleState, screen: 'battle' })
+      return
+    }
+    // Wire in battleSeed for deterministic server-crosscheck
+    const { battleSeed } = useArenaStore.getState()
+    const rng = battleSeed
+      ? mulberry32(seedFromMatchId(battleSeed))
+      : undefined
+    const resolvedState = resolveBattle(lineupA, lineupB, arena, p1Trainer, p2Trainer, rng)
     set({ battleState: resolvedState, screen: 'battle' })
   },
 
