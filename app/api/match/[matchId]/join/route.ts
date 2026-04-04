@@ -47,7 +47,7 @@ export async function POST(
     // ── Load match ───────────────────────────────────────────────
     const { data: match, error: matchError } = await supabaseAdmin
       .from('matches')
-      .select('id, player_a_id, player_b_id, entry_fee_sol, status')
+      .select('id, player_a_id, player_b_id, entry_fee_sol, status, battle_seed')
       .eq('id', matchId)
       .single()
 
@@ -115,7 +115,7 @@ export async function POST(
       metadata: { role: 'player_b' },
     })
 
-    return NextResponse.json({ matchId, status: 'ready' })
+    return NextResponse.json({ matchId, status: 'ready', battleSeed: (match as { battle_seed: string }).battle_seed })
 
   } catch (err) {
     console.error('[Match Join] Unexpected error:', err)

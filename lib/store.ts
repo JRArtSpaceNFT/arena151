@@ -34,6 +34,12 @@ interface ArenaState {
   battleSeed: string | null;
   setServerMatch: (matchId: string, seed: string) => void;
   clearServerMatch: () => void;
+
+  // Queue registration state
+  queueMatchId: string | null;
+  setQueueMatchId: (id: string | null) => void;
+  isMatchJoiner: boolean;        // true if this player is P2 (joining an existing match)
+  setIsMatchJoiner: (v: boolean) => void;
   
   // Chat
   chatMessages: ChatMessage[];
@@ -84,12 +90,17 @@ export const useArenaStore = create<ArenaState>((set) => ({
 
   currentMatch: null,
   setMatch: (match) => set({ currentMatch: match }),
-  clearMatch: () => set({ currentMatch: null }),
+  clearMatch: () => set({ currentMatch: null, queueMatchId: null, isMatchJoiner: false }),
 
   serverMatchId: null,
   battleSeed: null,
   setServerMatch: (matchId, seed) => set({ serverMatchId: matchId, battleSeed: seed }),
   clearServerMatch: () => set({ serverMatchId: null, battleSeed: null }),
+
+  queueMatchId: null,
+  setQueueMatchId: (id) => set({ queueMatchId: id }),
+  isMatchJoiner: false,
+  setIsMatchJoiner: (v) => set({ isMatchJoiner: v }),
 
   chatMessages: [],
   addChatMessage: (message) =>

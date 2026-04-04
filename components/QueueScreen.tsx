@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { useArenaStore } from '@/lib/store';
 import { ROOM_TIERS } from '@/lib/constants';
+import { createClient } from '@supabase/supabase-js';
+import type { Trainer, Pokemon } from '@/types';
 
 // Rotating flavor text
 const SEARCH_LINES = [
@@ -163,24 +165,44 @@ function SpinningPokeball() {
   )
 }
 
+// Generic rival trainer placeholder for real PvP opponents (no profile fetched yet)
+const GENERIC_RIVAL: Trainer = {
+  id: 'rival',
+  username: 'rival',
+  displayName: 'Rival Trainer',
+  email: '',
+  avatar: '🧑‍💻',
+  favoritePokemon: { id: 1, name: 'Bulbasaur', sprite: '', types: [], stats: { hp: 0, attack: 0, defense: 0, spAttack: 0, spDefense: 0, speed: 0 } } as Pokemon,
+  joinedDate: new Date(0),
+  record: { wins: 0, losses: 0 },
+  internalWalletId: '',
+  balance: 0,
+  earnings: 0,
+  badges: [],
+};
+
 export default function QueueScreen() {
-  const { queueState, cancelQueue, setScreen, testingMode, currentTrainer: liveTrainer } = useArenaStore();
+  const {
+    queueState, cancelQueue, setScreen, testingMode,
+    currentTrainer: liveTrainer, setMatch, setServerMatch,
+    queueMatchId, setQueueMatchId, isMatchJoiner, setIsMatchJoiner,
+  } = useArenaStore();
   const [elapsed, setElapsed] = useState(0);
   const [flavorIdx, setFlavorIdx] = useState(0);
+  const [noOpponentFound, setNoOpponentFound] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const tokenRef = useRef<string | null>(null);
 
   const trainer = liveTrainer ?? queueState.currentTrainer;
 
+  // Elapsed timer
   useEffect(() => {
     if (!queueState.searchStartTime) return;
     const interval = setInterval(() => {
       setElapsed(Math.floor((Date.now() - queueState.searchStartTime!) / 1000));
     }, 1000);
-    // Only auto-resolve to a bot in testing mode — real money rooms must wait for a real opponent
-    const matchTimeout = testingMode ? setTimeout(() => {
-      setScreen('match-found');
-    }, Math.random() * 7000 + 8000) : null;
-    return () => { clearInterval(interval); if (matchTimeout) clearTimeout(matchTimeout); };
-  }, [queueState.searchStartTime, setScreen]);
+    return () => clearInterval(interval);
+  }, [queueState.searchStartTime]);
 
   // Rotate flavor text every 2.5s
   useEffect(() => {
@@ -188,7 +210,130 @@ export default function QueueScreen() {
     return () => clearInterval(iv)
   }, [])
 
-  const handleCancel = () => { cancelQueue(); setScreen('room-select'); };
+  // Real matchmaking effect
+  useEffect(() => {
+    if (testingMode) {
+      // Testing mode: auto-resolve to bot after random delay
+      const matchTimeout = setTimeout(() => {
+        setScreen('match-found');
+      }, Math.random() * 7000 + 8000);
+      return () => clearTimeout(matchTimeout);
+    }
+
+    // Real money matchmaking
+    const run = async () => {
+      try {
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        );
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) return;
+        const token = session.access_token;
+        tokenRef.current = token;
+
+        const roomId = queueState.roomId;
+        if (!roomId) return;
+        const roomTier = ROOM_TIERS[roomId];
+        if (!roomTier) return;
+        const entryFeeSol = roomTier.entryFee;
+
+        // Step 1: Check for an existing open match to join (P2 path)
+        const checkRes = await fetch(`/api/match/queue?roomId=${roomId}`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (!checkRes.ok) return;
+        const checkData = await checkRes.json();
+
+        if (checkData.matchId) {
+          // P2: found an open match — join it immediately
+          setIsMatchJoiner(true);
+          setServerMatch(checkData.matchId, '');
+          if (trainer) {
+            setMatch({
+              player1: trainer,
+              player2: GENERIC_RIVAL,
+              room: roomTier,
+              matchId: checkData.matchId,
+            });
+          }
+          setScreen('versus');
+          return;
+        }
+
+        // Step 2: No open match — register as P1
+        const queueRes = await fetch('/api/match/queue', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({ roomId, entryFeeSol }),
+        });
+        if (!queueRes.ok) return;
+        const queueData = await queueRes.json();
+        setQueueMatchId(queueData.matchId);
+
+        // Step 3: Poll for P2 to join (every 4s, up to 5 minutes)
+        const MAX_POLL_MS = 5 * 60 * 1000;
+        const startTime = Date.now();
+
+        pollRef.current = setInterval(async () => {
+          if (Date.now() - startTime > MAX_POLL_MS) {
+            if (pollRef.current) clearInterval(pollRef.current);
+            setNoOpponentFound(true);
+            return;
+          }
+
+          try {
+            const statusRes = await fetch(`/api/match/${queueData.matchId}/status`, {
+              headers: { 'Authorization': `Bearer ${token}` },
+            });
+            if (!statusRes.ok) return;
+            const statusData = await statusRes.json();
+
+            if (statusData.status === 'ready') {
+              if (pollRef.current) clearInterval(pollRef.current);
+              if (trainer) {
+                setMatch({
+                  player1: trainer,
+                  player2: GENERIC_RIVAL,
+                  room: roomTier,
+                  matchId: queueData.matchId,
+                });
+              }
+              setScreen('versus');
+            }
+          } catch {
+            // Ignore poll errors — keep trying
+          }
+        }, 4000);
+      } catch {
+        // Ignore top-level errors
+      }
+    };
+
+    run();
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleCancel = () => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    // Best-effort abandon if we registered as P1
+    if (queueMatchId && !isMatchJoiner && tokenRef.current) {
+      fetch(`/api/match/${queueMatchId}/abandon`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${tokenRef.current}` },
+      }).catch(() => {});
+    }
+    setQueueMatchId(null);
+    cancelQueue();
+    setScreen('room-select');
+  };
   const room = queueState.roomId ? ROOM_TIERS[queueState.roomId] : null;
   const winRate = trainer && (trainer.record.wins + trainer.record.losses) > 0
     ? Math.round((trainer.record.wins / (trainer.record.wins + trainer.record.losses)) * 100)
@@ -346,6 +491,15 @@ export default function QueueScreen() {
                 )}
               </div>
             </motion.div>
+          )}
+
+          {/* No opponent found after timeout */}
+          {noOpponentFound && (
+            <div className="w-full rounded-xl px-4 py-3 border text-center"
+              style={{ background: 'rgba(239,68,68,0.06)', borderColor: 'rgba(239,68,68,0.3)' }}>
+              <p className="text-sm font-bold text-red-400">No opponent found</p>
+              <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>Your funds have been unlocked. Try again.</p>
+            </div>
           )}
 
           {/* Cancel — subtle outlined */}

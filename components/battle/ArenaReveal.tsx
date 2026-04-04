@@ -25,7 +25,7 @@ const SCHEDULE = [
 
 export default function ArenaReveal() {
   const { arena, proceedFromArenaReveal, lineupA } = useGameStore()
-  const { currentMatch, currentTrainer, serverMatchId, setServerMatch } = useArenaStore()
+  const { currentMatch, currentTrainer, serverMatchId, setServerMatch, isMatchJoiner } = useArenaStore()
   const [paidMatchError, setPaidMatchError] = useState<string | null>(null)
   const [isPaidMatchLoading, setIsPaidMatchLoading] = useState(false)
   const paidMatchCreated = useRef(false)
@@ -165,9 +165,11 @@ export default function ArenaReveal() {
         }
 
         // For P1 (create flow): store server matchId and battleSeed
-        // For P2 (join flow): serverMatchId already set, battleSeed stays as-is
+        // For P2 (join flow): serverMatchId already set — update battleSeed from join response
         if (!serverMatchId && data.matchId) {
           setServerMatch(data.matchId, data.battleSeed)
+        } else if (serverMatchId && data.battleSeed) {
+          setServerMatch(serverMatchId, data.battleSeed)
         }
 
         // Now proceed to battle (with a small delay so arena info is readable)
