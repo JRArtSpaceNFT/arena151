@@ -4,26 +4,21 @@ import { NextRequest, NextResponse } from 'next/server'
 export async function POST(req: NextRequest) {
   const adminSecret = process.env.ADMIN_SECRET ?? ''
   const heliusSecret = process.env.HELIUS_WEBHOOK_SECRET ?? ''
-  const authHeader = req.headers.get('authorization') ?? req.headers.get('Authorization') ?? ''
-  const rawBody = await req.text()
 
-  const adminMatch = authHeader === `Bearer ${adminSecret}`
-  const heliusMatch = authHeader.trim() === heliusSecret.trim()
+  // Check all possible header names
+  const headers: Record<string, string> = {}
+  req.headers.forEach((value, key) => {
+    headers[key] = value.slice(0, 16) + (value.length > 16 ? '...' : '')
+  })
 
   return NextResponse.json({
     adminSecretLen: adminSecret.length,
-    adminSecretPrefix: adminSecret.slice(0, 8),
     heliusSecretLen: heliusSecret.length,
-    heliusSecretPrefix: heliusSecret.slice(0, 8),
-    authHeaderLen: authHeader.length,
-    authHeaderPrefix: authHeader.slice(0, 8),
-    adminMatch,
-    heliusMatch,
-    bodyLen: rawBody.length,
+    allHeaders: headers,
   })
 }
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   const adminSecret = process.env.ADMIN_SECRET ?? ''
   const heliusSecret = process.env.HELIUS_WEBHOOK_SECRET ?? ''
   return NextResponse.json({
