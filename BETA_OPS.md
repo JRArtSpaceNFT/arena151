@@ -2,7 +2,14 @@
 
 ## 1. Manually Trigger Settlement Retry
 
-The settlement retry cron runs daily at 9am UTC on Vercel Hobby. For manual triggers during beta:
+The settlement retry cron runs **every 5 minutes** (`*/5 * * * *`) on Vercel Pro.
+
+> **Note on Vercel plan:** Vercel Pro supports cron frequencies up to every minute.
+> Vercel Hobby only supports **daily** crons. If you're on the Hobby plan and the cron
+> isn't firing frequently, manually trigger settlement retry using the command below,
+> or upgrade to Vercel Pro for automatic frequent retries.
+
+For manual triggers during beta:
 
 ```bash
 curl -X POST https://arena151.xyz/api/admin/settlement-retry \
