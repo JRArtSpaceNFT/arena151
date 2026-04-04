@@ -3,26 +3,23 @@
  *
  * Helius webhook handler for SOL deposits.
  *
- * Security fixes applied:
- * - HMAC-SHA256 signature verification using HELIUS_WEBHOOK_SECRET
- * - Atomic deposit processing via process_deposit() RPC (idempotent)
- * - Raw body captured before JSON parse (required for HMAC)
- * - Audit log written by RPC function
- * - Returns 200 even on duplicate (idempotent)
+ * Security:
+ * - HMAC-SHA256 only. The ?secret= query param fallback has been REMOVED.
+ *   Helius must be configured to use "Signing Secret" mode (sha256=<hmac> header).
+ *   The secret appears in NO logs this way.
+ * - Atomic + idempotent via process_deposit() RPC
+ * - Always returns 200 (Helius retries on non-2xx; RPC is safe to replay)
  *
- * Required env vars:
- *   HELIUS_WEBHOOK_SECRET  — Secret set in Helius dashboard → webhooks → signing secret
- *   NEXT_PUBLIC_SUPABASE_URL
- *   SUPABASE_SERVICE_KEY
+ * Helius dashboard setup:
+ *   Webhooks → your webhook → Auth Header: leave blank
+ *   Webhooks → your webhook → Signing Secret: set HELIUS_WEBHOOK_SECRET
+ *   Helius will send: Authorization: sha256=<hmac-hex>
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { timingSafeEqual } from 'crypto'
+import { timingSafeEqual, createHmac } from 'crypto'
 
-// REQUIRED: Set HELIUS_WEBHOOK_SECRET in your environment.
-// In Helius dashboard → Webhooks → select webhook → Signing Secret.
-// This MUST be set in production or all deposits will be rejected.
 const HELIUS_WEBHOOK_SECRET = process.env.HELIUS_WEBHOOK_SECRET
 
 const supabaseAdmin = createClient(
@@ -31,52 +28,41 @@ const supabaseAdmin = createClient(
 )
 
 export async function POST(req: NextRequest) {
-  // ── 1. Read raw body FIRST (needed for HMAC verification) ────
+  // ── 1. Read raw body FIRST (required for HMAC) ───────────────
   const rawBody = await req.text()
 
-  // ── 2. Verify Helius webhook signature ───────────────────────
-  // Helius uses the header: "authorization" with value "sha256=<hex>"
-  // NOTE: If HELIUS_WEBHOOK_SECRET is not configured, reject ALL requests.
-  // This prevents unauthenticated balance crediting in production.
+  // ── 2. HMAC-SHA256 verification — no query param fallback ────
+  // Helius sends: Authorization: sha256=<hex-hmac>
+  // We verify this against HMAC-SHA256(secret, rawBody).
+  // The ?secret= query param fallback has been intentionally removed:
+  //   - Query params appear in Helius logs, Vercel logs, CDN logs
+  //   - HMAC is replay-resistant and does not expose the secret in URLs
   if (!HELIUS_WEBHOOK_SECRET) {
-    console.error('[Deposit Webhook] HELIUS_WEBHOOK_SECRET is not set! Rejecting request. Set this env var in production.')
+    console.error('[Deposit Webhook] HELIUS_WEBHOOK_SECRET not set — rejecting all requests')
     return NextResponse.json({ error: 'Webhook not configured' }, { status: 500 })
   }
 
-  // NOTE: Vercel strips the Authorization header at the edge.
-  // Primary auth: ?secret= query param in the webhook URL (set in Helius dashboard)
-  // Fallback: custom headers that Vercel doesn't strip
-  const url = new URL(req.url)
-  const sigHeader = url.searchParams.get('secret')
+  // Helius sends the HMAC in the Authorization header (not stripped by Vercel edge)
+  // or x-helius-authorization as a fallback for older webhook configs.
+  const authHeader = req.headers.get('authorization')
     ?? req.headers.get('x-helius-authorization')
-    ?? req.headers.get('helius-webhook-authorization')
     ?? ''
+
   let authorized = false
   try {
-    // Try direct match first (Helius authHeader mode)
-    const a = Buffer.from(sigHeader.trim())
-    const b = Buffer.from(HELIUS_WEBHOOK_SECRET.trim())
+    const expectedHmac = 'sha256=' + createHmac('sha256', HELIUS_WEBHOOK_SECRET).update(rawBody).digest('hex')
+    const a = Buffer.from(authHeader.trim())
+    const b = Buffer.from(expectedHmac)
     if (a.length === b.length) {
       authorized = timingSafeEqual(a, b)
-    }
-    // Also try sha256=<hmac> format (Helius signing secret mode)
-    if (!authorized) {
-      const { createHmac } = await import('crypto')
-      const expectedHmac = 'sha256=' + createHmac('sha256', HELIUS_WEBHOOK_SECRET).update(rawBody).digest('hex')
-      const c = Buffer.from(sigHeader.trim())
-      const d2 = Buffer.from(expectedHmac)
-      if (c.length === d2.length) {
-        authorized = timingSafeEqual(c, d2)
-      }
     }
   } catch {
     authorized = false
   }
 
-  console.log('[Deposit Webhook] Auth check:', { headerLen: sigHeader.length, secretLen: HELIUS_WEBHOOK_SECRET.length, authorized })
-
   if (!authorized) {
-    console.warn('[Deposit Webhook] Authorization header mismatch. Header prefix:', sigHeader.slice(0, 8) + '...')
+    // Log without exposing the secret or the full header value
+    console.warn('[Deposit Webhook] HMAC verification failed. Header present:', authHeader.length > 0)
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -88,7 +74,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  // Helius sends an array of transaction events
   const events = Array.isArray(body) ? body : [body]
   const results: Record<string, string> = {}
 
@@ -103,15 +88,8 @@ export async function POST(req: NextRequest) {
       const toAddress = transfer.toUserAccount
       const amountSol = transfer.amount / 1_000_000_000
 
-      // Ignore dust and transfers to no one
       if (!toAddress || amountSol < 0.001) continue
 
-      // ── 4. Atomic deposit via RPC ────────────────────────────
-      // The process_deposit() function:
-      //   - Finds user by sol_address
-      //   - Inserts transaction with ON CONFLICT DO NOTHING on tx_signature
-      //   - Credits balance ONLY if the insert succeeded (atomic, no double-credit)
-      //   - Writes to audit_log
       const { data: result, error } = await supabaseAdmin.rpc('process_deposit', {
         p_sol_address: toAddress,
         p_amount_sol: amountSol,
@@ -131,15 +109,13 @@ export async function POST(req: NextRequest) {
       if (outcome === 'credited') {
         console.log(`[Deposit Webhook] Credited ${amountSol} SOL to ${toAddress} (tx: ${signature})`)
       } else if (outcome === 'duplicate') {
-        console.log(`[Deposit Webhook] Duplicate tx ignored: ${signature}`)
+        console.log(`[Deposit Webhook] Duplicate ignored: ${signature}:${toAddress}`)
       } else if (outcome === 'user_not_found') {
-        // Not an error — could be a transfer to an address not registered in our system
-        console.log(`[Deposit Webhook] No user found for address ${toAddress}`)
+        console.log(`[Deposit Webhook] No user for address ${toAddress}`)
       }
     }
   }
 
-  // Always return 200 — Helius retries on non-2xx, which would cause duplicates.
-  // Our RPC is idempotent so retries are safe.
+  // Always 200 — Helius retries on non-2xx; RPC is idempotent.
   return NextResponse.json({ ok: true, results })
 }

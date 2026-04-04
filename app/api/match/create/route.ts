@@ -51,6 +51,28 @@ export async function POST(req: NextRequest) {
 
     const userId = authUser.id
 
+    // ── Rate limit: max 3 open 'forming' matches per user ────────
+    // Prevents spam-creating matches to lock up funds or clog matchmaking.
+    // 'forming' = created but no opponent yet. Cap at 3 concurrent open matches.
+    const { count: openCount, error: openMatchError } = await supabaseAdmin
+      .from('matches')
+      .select('*', { count: 'exact', head: true })
+      .eq('player_a_id', userId)
+      .eq('status', 'forming')
+
+    if (openMatchError) {
+      console.error('[Match Create] rate limit check error:', openMatchError)
+      return NextResponse.json({ error: 'Failed to check open matches' }, { status: 500 })
+    }
+
+    if ((openCount ?? 0) >= 3) {
+      return NextResponse.json({
+        error: 'Too many open matches — cancel an existing match before creating a new one',
+        code: 'RATE_LIMIT_FORMING_MATCHES',
+        openCount,
+      }, { status: 429 })
+    }
+
     // ── Atomic fund lock ─────────────────────────────────────────
     // Single UPDATE with WHERE guard: only succeeds if available_balance >= entryFeeSol
     // available_balance = balance - locked_balance
