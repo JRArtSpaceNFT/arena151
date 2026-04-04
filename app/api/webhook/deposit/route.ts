@@ -18,7 +18,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { createHmac } from 'crypto'
+import { timingSafeEqual } from 'crypto'
 
 // REQUIRED: Set HELIUS_WEBHOOK_SECRET in your environment.
 // In Helius dashboard → Webhooks → select webhook → Signing Secret.
@@ -43,13 +43,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Webhook not configured' }, { status: 500 })
   }
 
+  // Helius sends the authHeader value as a raw string in the Authorization header.
+  // We use timingSafeEqual to prevent timing attacks.
   const sigHeader = req.headers.get('authorization') ?? req.headers.get('helius-webhook-authorization') ?? ''
-  const expectedSig = 'sha256=' + createHmac('sha256', HELIUS_WEBHOOK_SECRET)
-    .update(rawBody)
-    .digest('hex')
+  let authorized = false
+  try {
+    const a = Buffer.from(sigHeader)
+    const b = Buffer.from(HELIUS_WEBHOOK_SECRET)
+    authorized = a.length === b.length && timingSafeEqual(a, b)
+  } catch {
+    authorized = false
+  }
 
-  if (sigHeader !== expectedSig) {
-    console.warn('[Deposit Webhook] Signature mismatch. Possible spoofed request.')
+  if (!authorized) {
+    console.warn('[Deposit Webhook] Authorization header mismatch. Possible spoofed request. Header:', sigHeader.slice(0, 8) + '...')
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
