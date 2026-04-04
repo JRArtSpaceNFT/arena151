@@ -204,7 +204,7 @@ export default function FriendBattle() {
   const handleReset = () => {
     setPhase('input')
     setPassword('')
-    setWagerInput('')
+    // wagerInput is locked to '' — no reset needed
     setCountdown(60)
     setRole(null)
     setErrorMsg('')
