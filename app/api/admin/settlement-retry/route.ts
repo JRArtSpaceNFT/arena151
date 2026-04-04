@@ -18,6 +18,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { timingSafeEqual } from 'crypto'
 import { sendSol, TREASURY_ADDRESS, HOUSE_FEE_PCT } from '@/lib/solana'
 
 const MAX_RETRIES = 3
@@ -37,7 +38,14 @@ export async function POST(req: NextRequest) {
   if (!expectedToken) {
     return NextResponse.json({ error: 'ADMIN_SECRET not configured' }, { status: 500 })
   }
-  if (adminToken !== expectedToken) {
+  // M10 FIX: Use timingSafeEqual for admin token comparison to prevent timing attacks
+  let adminAuthorized = false
+  try {
+    const a = Buffer.from(adminToken)
+    const b = Buffer.from(expectedToken)
+    adminAuthorized = a.length === b.length && timingSafeEqual(a, b)
+  } catch { adminAuthorized = false }
+  if (!adminAuthorized) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -65,28 +73,35 @@ export async function POST(req: NextRequest) {
   for (const match of failedMatches ?? []) {
     const matchId = match.id
 
-    // ── Step 1: Check if tx already went through ─────────────
+    // ── Step 1: Check if on-chain tx already ran (settlement_tx is stored) ──
+    // CRITICAL: If settlement_tx is set, the payment was already sent on-chain.
+    // Do NOT call sendSol again — that would double-pay the winner.
+    // The DB just needs to be updated to reflect the completed on-chain state.
     if (match.settlement_tx) {
-      // The on-chain transfer succeeded — just mark as settled in DB
-      await supabaseAdmin
-        .from('matches')
-        .update({
-          status: 'settled',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', matchId)
-
-      await supabaseAdmin.from('audit_log').insert({
-        match_id: matchId,
-        event_type: 'settlement_recovered',
-        metadata: {
-          recovery_method: 'tx_already_set',
-          settlement_tx: match.settlement_tx,
-          note: 'settlement_tx was present but status was settlement_failed — corrected',
-        },
+      const { error: dbFixErr } = await supabaseAdmin.rpc('settle_match_db', {
+        p_match_id: matchId,
+        p_winner_id: match.winner_id,
+        p_loser_id: match.winner_id === match.player_a_id ? match.player_b_id : match.player_a_id,
+        p_entry_fee: Number(match.entry_fee_sol),
+        p_winner_payout: parseFloat((Number(match.entry_fee_sol) * 2 * (1 - (await import('@/lib/solana')).HOUSE_FEE_PCT)).toFixed(9)),
+        p_settlement_tx: match.settlement_tx,
       })
 
-      results.push({ matchId, action: 'already_settled', details: `TX: ${match.settlement_tx}` })
+      if (!dbFixErr) {
+        await supabaseAdmin.from('audit_log').insert({
+          match_id: matchId,
+          event_type: 'settlement_recovered',
+          metadata: {
+            recovery_method: 'tx_already_set_db_updated',
+            settlement_tx: match.settlement_tx,
+            note: 'settlement_tx present but DB was not settled — fixed without resending on-chain',
+          },
+        })
+        results.push({ matchId, action: 'already_settled', details: `TX: ${match.settlement_tx} (DB reconciled)` })
+      } else {
+        // settle_match_db returned already_settled or error — log but don't panic
+        results.push({ matchId, action: 'already_settled', details: `TX: ${match.settlement_tx} (DB: ${dbFixErr?.message ?? 'already settled'})` })
+      }
       continue
     }
 

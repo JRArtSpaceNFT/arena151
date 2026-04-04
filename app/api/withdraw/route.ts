@@ -147,19 +147,23 @@ export async function POST(req: NextRequest) {
     const result = await sendSol(profile.encrypted_private_key, toAddress, netAmount)
 
     if (!result.success) {
-      // ── Rollback: restore balance atomically ─────────────────
-      await supabaseAdmin
-        .from('profiles')
-        .update({ balance: profile.balance })   // Restore original balance
-        .eq('id', userId)
+      // ── C5 FIX: Rollback via RELATIVE increment, not snapshot overwrite ──
+      // Do NOT do: .update({ balance: profile.balance })
+      // A concurrent deposit webhook may have credited balance between our
+      // initial read and now. Restoring to the snapshot would erase that deposit.
+      // The correct fix: balance = balance + effectiveAmountSol (relative add-back).
+      await supabaseAdmin.rpc('credit_user_balance', {
+        p_user_id: userId,
+        p_amount: effectiveAmountSol,
+      })
 
       await supabaseAdmin.from('audit_log').insert({
         user_id: userId,
         event_type: 'withdrawal_failed',
         amount_sol: effectiveAmountSol,
         balance_before: profile.balance - effectiveAmountSol,
-        balance_after: profile.balance,
-        metadata: { error: result.error, to_address: toAddress, rolled_back: true },
+        balance_after: profile.balance,  // approximate — actual may include concurrent deposits
+        metadata: { error: result.error, to_address: toAddress, rolled_back: true, rollback_method: 'relative_increment' },
       })
 
       return NextResponse.json({ error: result.error }, { status: 500 })

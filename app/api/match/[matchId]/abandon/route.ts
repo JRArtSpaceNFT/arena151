@@ -110,9 +110,20 @@ export async function POST(
       const elapsed = Date.now() - lastUpdate
 
       if (elapsed >= BATTLE_TIMEOUT_MS) {
+        // M5 FIX: Unlock both players' funds when transitioning to manual_review.
+        // Previously, flagging a battle as manual_review without unlocking left
+        // both players' locked_balance permanently elevated — they couldn't withdraw.
+        // Unlock here so funds are accessible while admin reviews.
+        if (match.player_b_id) {
+          await supabaseAdmin.rpc('unlock_player_funds', { p_user_id: match.player_a_id, p_amount: match.entry_fee_sol })
+          await supabaseAdmin.rpc('unlock_player_funds', { p_user_id: match.player_b_id, p_amount: match.entry_fee_sol })
+        } else {
+          await supabaseAdmin.rpc('unlock_player_funds', { p_user_id: match.player_a_id, p_amount: match.entry_fee_sol })
+        }
+
         await supabaseAdmin.from('matches').update({
           status: 'manual_review',
-          error_message: `Battle timed out after ${Math.round(elapsed / 60000)} minutes`,
+          error_message: `Battle timed out after ${Math.round(elapsed / 60000)} minutes. Funds unlocked.`,
           updated_at: new Date().toISOString(),
         }).eq('id', matchId)
 
@@ -120,12 +131,12 @@ export async function POST(
           user_id: userId,
           match_id: matchId,
           event_type: 'battle_timeout',
-          metadata: { elapsed_ms: elapsed, triggered_by: userId },
+          metadata: { elapsed_ms: elapsed, triggered_by: userId, funds_unlocked: true },
         })
 
         return NextResponse.json({
           status: 'manual_review',
-          message: 'Battle timed out. Admin will review and resolve.',
+          message: 'Battle timed out. Funds unlocked. Admin will review and resolve.',
         })
       } else {
         return NextResponse.json({

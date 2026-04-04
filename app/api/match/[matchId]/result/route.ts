@@ -80,27 +80,71 @@ export async function POST(
       return NextResponse.json({ error: `Match cannot receive results (status: ${match.status})` }, { status: 409 })
     }
 
-    // ── Store this player's claim ────────────────────────────────
-    const updates: Record<string, unknown> = { status: 'result_pending', updated_at: new Date().toISOString() }
-    if (isPlayerA) {
-      updates.result_claim_a = winnerId
-      updates.result_submitted_at_a = new Date().toISOString()
-    } else {
-      updates.result_claim_b = winnerId
-      updates.result_submitted_at_b = new Date().toISOString()
+    // ── Store this player's claim (idempotency guard) ────────────
+    // C6 FIX: Only store a claim if the player has NOT already submitted one.
+    // Without this guard, a player can:
+    //   1. Re-submit a different winnerId after seeing the opponent's claim
+    //   2. Spam submissions to reset result_submitted_at, preventing timeout
+    // We enforce write-once by adding .is('result_claim_X', null) to the update.
+    // If the field is already set, 0 rows are affected and we return a 409.
+
+    const claimField = isPlayerA ? 'result_claim_a' : 'result_claim_b'
+    const alreadySubmitted = isPlayerA ? !!match.result_claim_a : !!match.result_claim_b
+
+    if (alreadySubmitted) {
+      // Already submitted — return the current state so client can proceed
+      const existingClaim = isPlayerA ? match.result_claim_a : match.result_claim_b
+      if (existingClaim === winnerId) {
+        // Idempotent re-submission of same winner — no-op, return current state
+        // (fall through to status logic below using existing values)
+      } else {
+        // Attempted to change their claim — reject
+        return NextResponse.json(
+          { error: 'Result already submitted — you cannot change your claim' },
+          { status: 409 }
+        )
+      }
     }
 
-    const { error: updateError } = await supabaseAdmin
-      .from('matches')
-      .update(updates)
-      .eq('id', matchId)
+    let updatedRows: Array<{ id: string }> | null = null
 
-    if (updateError) {
-      console.error('[Match Result] update error:', updateError)
-      return NextResponse.json({ error: 'Failed to store result claim' }, { status: 500 })
+    if (!alreadySubmitted) {
+      const updates: Record<string, unknown> = { status: 'result_pending', updated_at: new Date().toISOString() }
+      if (isPlayerA) {
+        updates.result_claim_a = winnerId
+        updates.result_submitted_at_a = new Date().toISOString()
+      } else {
+        updates.result_claim_b = winnerId
+        updates.result_submitted_at_b = new Date().toISOString()
+      }
+
+      // Write-once guard: only update if claim field is still NULL
+      // This prevents a race condition where both a re-submit and a new submit
+      // arrive simultaneously.
+      const { data, error: updateError } = await supabaseAdmin
+        .from('matches')
+        .update(updates)
+        .eq('id', matchId)
+        .is(claimField, null)  // Only write if not already set
+        .select('id')
+
+      if (updateError) {
+        console.error('[Match Result] update error:', updateError)
+        return NextResponse.json({ error: 'Failed to store result claim' }, { status: 500 })
+      }
+
+      if (!data || data.length === 0) {
+        // Race: another request stored this claim first (or it was already set)
+        return NextResponse.json(
+          { error: 'Result already submitted — concurrent submission detected' },
+          { status: 409 }
+        )
+      }
+
+      updatedRows = data
     }
 
-    // Get updated match state
+    // Get updated match state (including the claim we may have just written)
     const claimA = isPlayerA ? winnerId : match.result_claim_a
     const claimB = isPlayerB ? winnerId : match.result_claim_b
 
@@ -206,10 +250,16 @@ export async function POST(
     }
 
     // ── Only one player has submitted ────────────────────────────
-    // Check if the other player's submission has timed out
+    // Check if the other player's submission has timed out.
+    // Use the timestamp from the DB if already set (re-submission of same winner),
+    // otherwise use now() as the first submission time for a fresh submit.
     const firstSubmissionTime = isPlayerA
-      ? new Date(updates.result_submitted_at_a as string).getTime()
-      : (match.result_submitted_at_a ? new Date(match.result_submitted_at_a).getTime() : Date.now())
+      ? (match.result_submitted_at_a
+          ? new Date(match.result_submitted_at_a).getTime()
+          : Date.now())
+      : (match.result_submitted_at_b
+          ? new Date(match.result_submitted_at_b).getTime()
+          : Date.now())
 
     const elapsed = Date.now() - firstSubmissionTime
 

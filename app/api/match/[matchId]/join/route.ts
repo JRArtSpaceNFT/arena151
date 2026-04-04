@@ -86,7 +86,12 @@ export async function POST(
     }
 
     // ── Update match: set player_b, status → ready ───────────────
-    const { error: updateError } = await supabaseAdmin
+    // C4 FIX: Check rows affected, NOT just updateError.
+    // Supabase/PostgREST returns updateError=null when 0 rows match the WHERE clause.
+    // If another player joined between our read and this write, we'd get 0 rows
+    // with no error — and this player's funds would be locked with no match record.
+    // We MUST detect 0 rows and unlock funds immediately.
+    const { data: updatedRows, error: updateError } = await supabaseAdmin
       .from('matches')
       .update({
         player_b_id: userId,
@@ -95,13 +100,24 @@ export async function POST(
         updated_at: new Date().toISOString(),
       })
       .eq('id', matchId)
-      .eq('status', 'forming')  // Extra guard: only update if still forming
+      .eq('status', 'forming')  // Guard: only succeeds if match is STILL in 'forming'
+      .select('id')             // Must select to detect 0 rows affected
 
-    if (updateError) {
-      // Rollback fund lock
+    if (updateError || !updatedRows || updatedRows.length === 0) {
+      // Funds were locked above — unlock them immediately in both error cases.
       await supabaseAdmin.rpc('unlock_player_funds', { p_user_id: userId, p_amount: match.entry_fee_sol })
-      console.error('[Match Join] update error:', updateError)
-      return NextResponse.json({ error: 'Failed to join match' }, { status: 500 })
+
+      if (updateError) {
+        console.error('[Match Join] update error:', updateError)
+        return NextResponse.json({ error: 'Failed to join match' }, { status: 500 })
+      }
+
+      // 0 rows affected: another player won the race and joined this match first.
+      // Funds have been unlocked above — return a clean error.
+      return NextResponse.json(
+        { error: 'Match is no longer available — another player joined first' },
+        { status: 409 }
+      )
     }
 
     // ── Audit log for P2 ─────────────────────────────────────────

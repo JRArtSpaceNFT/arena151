@@ -83,7 +83,7 @@ export async function GET(req: NextRequest) {
 
     const { data: stuckMatches, error: stuckError } = await supabaseAdmin
       .from('matches')
-      .select('id, created_at, player_a_id, player_b_id')
+      .select('id, created_at, player_a_id, player_b_id, entry_fee_sol')  // entry_fee_sol needed for M5 fund unlock
       .eq('status', 'battling')
       .lt('updated_at', stuckCutoff)
       .limit(50)
@@ -93,15 +93,29 @@ export async function GET(req: NextRequest) {
     } else if (stuckMatches && stuckMatches.length > 0) {
       const stuckIds = stuckMatches.map(m => m.id)
 
-      // Flag all stuck matches as manual_review
+      // Flag all stuck matches as manual_review AND unlock both players' funds.
+      // M5 FIX: Transitioning to manual_review without unlocking funds causes
+      // permanent fund lock — players can't withdraw and the match is never settled.
+      // We must unlock both players' funds here so they can access their balance
+      // while the dispute is being reviewed.
       await supabaseAdmin
         .from('matches')
         .update({
           status: 'manual_review',
-          error_message: `Match stuck in battling for >${STUCK_BATTLE_MINUTES} minutes — flagged by health check cron`,
+          error_message: `Match stuck in battling for >${STUCK_BATTLE_MINUTES} minutes — flagged by health check cron. Funds unlocked.`,
           updated_at: new Date().toISOString(),
         })
         .in('id', stuckIds)
+
+      // Unlock both players' funds for each stuck match
+      for (const m of stuckMatches) {
+        if (m.entry_fee_sol != null) {
+          await supabaseAdmin.rpc('unlock_player_funds', { p_user_id: m.player_a_id, p_amount: m.entry_fee_sol })
+          if (m.player_b_id) {
+            await supabaseAdmin.rpc('unlock_player_funds', { p_user_id: m.player_b_id, p_amount: m.entry_fee_sol })
+          }
+        }
+      }
 
       // Log each stuck match
       const auditEntries = stuckMatches.flatMap(m => [
@@ -112,6 +126,7 @@ export async function GET(req: NextRequest) {
           metadata: {
             reason: `stuck_in_battling_for_>${STUCK_BATTLE_MINUTES}min`,
             stuck_since: m.created_at,
+            funds_unlocked: true,
           },
         },
         ...(m.player_b_id ? [{
@@ -121,6 +136,7 @@ export async function GET(req: NextRequest) {
           metadata: {
             reason: `stuck_in_battling_for_>${STUCK_BATTLE_MINUTES}min`,
             stuck_since: m.created_at,
+            funds_unlocked: true,
           },
         }] : []),
       ])

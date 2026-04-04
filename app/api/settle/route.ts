@@ -3,19 +3,22 @@
  *
  * Server-authoritative match settlement.
  *
- * ⚠️  CRITICAL SECURITY CHANGES from previous version:
- *   OLD: Client sent { matchId, winnerId, loserId, entryFeeSol } — all client-controlled
- *   NEW: Client sends ONLY { matchId } — all values come from database
+ * Security properties:
+ *   - Client sends ONLY { matchId } — all values (winner, fee) come from DB
+ *   - Auth required; caller must be a player in the match
+ *   - Settlement mutex: atomically transitions status='settlement_pending' → 'settling'
+ *     Only ONE concurrent request can hold 'settling'; all others get 409.
+ *   - settle_match_db() RPC is idempotent: second call returns {reason:'already_settled'}
+ *   - Balance math: loser pays 2×entry_fee; winner receives winner_payout (see 005_critical_fixes.sql)
  *
  * Flow:
- *   1. Auth: verify caller is one of the two players
- *   2. Load match from DB — get winner, loser, fee from TRUSTED source
- *   3. Verify status is 'settlement_pending' (set by /result endpoint after both players agree)
- *   4. Idempotency: check if already settled
- *   5. DB lock: prevent concurrent settlement of same match
- *   6. Execute on-chain transfers
- *   7. Atomic DB update via settle_match_db() RPC
- *   8. Log all events to audit_log
+ *   1. Auth
+ *   2. Load match from DB
+ *   3. Idempotency: already settled → return cached result
+ *   4. ATOMIC MUTEX: UPDATE status='settlement_pending'→'settling' (only one concurrent winner)
+ *   5. Execute on-chain transfers
+ *   6. settle_match_db() — idempotent atomic DB settlement
+ *   7. Log to audit_log + transactions
  *
  * Treasury: FSWXt6eniHH7fQw7eCyM4NVVPGAHXDdNdkZKLriaPy3C
  */
@@ -105,20 +108,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Match is missing player data' }, { status: 500 })
     }
 
-    // ── Lock match to prevent concurrent settlement ──────────────
-    // Set status to settlement_pending→ (it already is, but we do a conditional update
-    // to ensure only one concurrent request can proceed)
-    const { data: lockResult, error: lockError } = await supabaseAdmin
+    // ── ATOMIC SETTLEMENT MUTEX ──────────────────────────────────
+    // Transition status from 'settlement_pending' → 'settling'.
+    // 'settling' is an EXCLUSIVE state: only one concurrent request can win this race.
+    // Any other request hitting this for the same match will find 0 rows and bail.
+    // This is the ONLY correct way to prevent double-payment from concurrent calls.
+    const { data: lockRows, error: lockError } = await supabaseAdmin
       .from('matches')
-      .update({ status: 'settlement_pending', updated_at: new Date().toISOString() })
+      .update({ status: 'settling', updated_at: new Date().toISOString() })
       .eq('id', matchId)
-      .eq('status', 'settlement_pending')  // Only if STILL pending (concurrent guard)
+      .eq('status', 'settlement_pending')  // ONLY advances from pending → settling
       .select('id')
-      .single()
 
-    if (lockError || !lockResult) {
-      // Another request already started settlement, or status changed
-      // Re-fetch to see current state
+    if (lockError || !lockRows || lockRows.length === 0) {
+      // Another request already grabbed the 'settling' mutex, or status changed.
+      // Re-fetch to distinguish 'already settled' from 'in progress'.
       const { data: recheckMatch } = await supabaseAdmin
         .from('matches')
         .select('status, settlement_tx, winner_id')
@@ -128,7 +132,10 @@ export async function POST(req: NextRequest) {
       if (recheckMatch?.status === 'settled') {
         return NextResponse.json({ ok: true, alreadySettled: true, settlementTx: recheckMatch.settlement_tx })
       }
-      return NextResponse.json({ error: 'Settlement already in progress' }, { status: 409 })
+      if (recheckMatch?.status === 'settling') {
+        return NextResponse.json({ error: 'Settlement already in progress — please wait and retry' }, { status: 409 })
+      }
+      return NextResponse.json({ error: 'Settlement mutex failed: unexpected match state', state: recheckMatch?.status }, { status: 409 })
     }
 
     // ── Load player wallet data ──────────────────────────────────
@@ -159,6 +166,7 @@ export async function POST(req: NextRequest) {
     )
 
     if (!payoutResult.success) {
+      // Revert 'settling' back to 'settlement_pending' so it can be retried
       await supabaseAdmin
         .from('matches')
         .update({
@@ -205,8 +213,16 @@ export async function POST(req: NextRequest) {
     })
 
     if (dbError) {
-      // On-chain tx succeeded but DB update failed — critical: needs manual reconciliation
+      // On-chain tx succeeded but DB update failed — critical inconsistency.
+      // The match is in 'settling' state, on-chain payment was sent.
+      // Flag for manual reconciliation; do NOT retry automatically (would double-pay).
       console.error('[Settle] DB settlement RPC failed after on-chain success:', dbError)
+      await supabaseAdmin.from('matches').update({
+        status: 'settlement_failed',
+        error_message: `DB_UPDATE_FAILED_AFTER_ONCHAIN: ${dbError.message}. settlement_tx=${payoutResult.signature}. DO NOT AUTO-RETRY.`,
+        settlement_tx: payoutResult.signature,  // Store the tx sig so retry worker knows not to re-send
+        updated_at: new Date().toISOString(),
+      }).eq('id', matchId)
       await supabaseAdmin.from('audit_log').insert({
         user_id: callerId,
         match_id: matchId,
@@ -216,7 +232,22 @@ export async function POST(req: NextRequest) {
           settlement_tx: payoutResult.signature,
           winner_id: winnerId,
           loser_id: loserId,
-          note: 'CRITICAL: On-chain tx succeeded but DB update failed. Manual reconciliation required.',
+          note: 'CRITICAL: On-chain tx succeeded but DB update failed. settlement_tx stored. Retry worker will detect and reconcile.',
+        },
+      })
+    } else if (dbResult?.reason === 'already_settled') {
+      // settle_match_db idempotency: already settled by a concurrent request
+      // On-chain tx still sent — this is a double-payment if it happens.
+      // The 'settling' mutex should prevent this, but log it as a critical alert.
+      console.error('[Settle] CRITICAL: settle_match_db returned already_settled after on-chain tx! Possible double-payment.')
+      await supabaseAdmin.from('audit_log').insert({
+        user_id: callerId,
+        match_id: matchId,
+        event_type: 'settlement_possible_double_payment',
+        metadata: {
+          settlement_tx: payoutResult.signature,
+          winner_id: winnerId,
+          note: 'CRITICAL: settle_match_db already_settled but on-chain tx was sent. Investigate immediately.',
         },
       })
     }
