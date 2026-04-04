@@ -43,7 +43,7 @@ export function getTypeMultiplier(attackType: PokemonType, defenseTypes: Pokemon
 export const HP_SCALE = 1
 
 // ── CREATE ACTIVE CREATURE ────────────────────────────────────
-export function createActiveCreature(creatureId: number): ActiveCreature {
+export function createActiveCreature(creatureId: number, rng?: () => number): ActiveCreature {
   const creature = CREATURES.find(c => c.id === creatureId)
   if (!creature) throw new Error(`Creature ${creatureId} not found`)
 
@@ -51,7 +51,7 @@ export function createActiveCreature(creatureId: number): ActiveCreature {
     .map(id => MOVE_MAP[id])
     .filter(Boolean)
 
-  const isShiny = Math.random() < 1 / 256
+  const isShiny = (rng ?? Math.random)() < 1 / 256
   const maxHp = creature.baseHp * HP_SCALE
 
   return {
@@ -249,6 +249,7 @@ function pickMove(
   defenderBCS: BattleCreatureState,
   arena: Arena,
   trainerAtk: Trainer,
+  rng: () => number,
 ): Move {
   // Ditto: force Transform on first move if not yet transformed
   if (attackerBCS.ac.creature.id === 132 && !attackerBCS.dittoTransformed) {
@@ -318,7 +319,7 @@ function pickMove(
 
   // Weighted random: higher score = more likely
   const total = pool.reduce((sum, s) => sum + s.score, 0)
-  let rand = Math.random() * total
+  let rand = rng() * total
   for (const s of pool) {
     rand -= s.score
     if (rand <= 0) return s.move
@@ -401,6 +402,7 @@ function simulateAttack(
   log: BattleLogEntry[],
   crowdMeter: { value: number },
   weather: string = 'none',
+  rng: () => number = Math.random.bind(Math),
 ): void {
   // Skip if attacker fainted
   if (attackerBCS.ac.currentHp <= 0) return
@@ -437,7 +439,7 @@ function simulateAttack(
   const accuracy = move.accuracy === 999 ? 100 : move.accuracy
   const effectiveAccuracy = accuracy < 100 ? Math.max(accuracy, 88) : 100
   const trainerAccBonus = trainerAtk.ability.effectKey === 'professor_strategy' ? trainerAtk.ability.value : 0
-  const accCheck = Math.random() * 100
+  const accCheck = rng() * 100
   if (accCheck > effectiveAccuracy + trainerAccBonus * 100) {
     log.push({
       id: nextId(), type: 'move', side,
@@ -471,7 +473,7 @@ function simulateAttack(
           defenderBCS.status = 'sleep'
           defenderBCS.sleepTurns = 0
           attackerBCS.sleepUsedAgainst = defenderBCS.ac.creature.name  // lock: can't sleep this target again
-          ;(defenderBCS.ac.creature as any).sleepDuration = Math.random() < 0.5 ? 2 : 3 // 2 or 3 missed moves
+          ;(defenderBCS.ac.creature as any).sleepDuration = rng() < 0.5 ? 2 : 3 // 2 or 3 missed moves
           log.push({
             id: nextId(), type: 'move', side,
             text: `💤 ${attackerBCS.ac.creature.name} used ${move.name}! ${defenderBCS.ac.creature.name} fell asleep!`,
@@ -491,7 +493,7 @@ function simulateAttack(
       } else if (move.id === 'confuse_ray' || move.id === 'supersonic') {
         if (defenderBCS.status !== 'confused') {
           defenderBCS.status = 'confused'
-          defenderBCS.confuseTurns = 2 + Math.floor(Math.random() * 2)
+          defenderBCS.confuseTurns = 2 + Math.floor(rng() * 2)
           log.push({
             id: nextId(), type: 'move', side,
             text: `😵 ${attackerBCS.ac.creature.name} used ${move.name}! ${defenderBCS.ac.creature.name} is now confused!`,
@@ -529,7 +531,7 @@ function simulateAttack(
         // ── DITTO LIVE TRANSFORM ─────────────────────────────────
         // Pick a random Pokémon from all 151 (excluding Ditto itself)
         const candidates = CREATURES.filter(c => c.id !== 132)
-        const target = candidates[Math.floor(Math.random() * candidates.length)]
+        const target = candidates[Math.floor(rng() * candidates.length)]
         const isMythical = target.id === 150 || target.id === 151
         // Clone creature so we don't mutate the global CREATURES singleton
         attackerBCS.ac.creature = { ...attackerBCS.ac.creature }
@@ -576,7 +578,7 @@ function simulateAttack(
         // After this follow-up, Ditto's next attack opportunity is skipped (opponent goes next)
         const followUpMove = attackerBCS.ac.assignedMoves.find(m => m.power > 0) ?? attackerBCS.ac.assignedMoves[0]
         if (followUpMove) {
-          simulateAttack(attackerBCS, defenderBCS, followUpMove, arena, trainerAtk, trainerDef, side, log, crowdMeter)
+          simulateAttack(attackerBCS, defenderBCS, followUpMove, arena, trainerAtk, trainerDef, side, log, crowdMeter, weather, rng)
           attackerBCS.dittoSkipNextAttack = true
         }
       } else if (move.id === 'sunny_day') {
@@ -599,7 +601,7 @@ function simulateAttack(
         }
       } else if (move.id === 'toxic') {
         const poisonChance = trainerAtk.ability.effectKey === 'toxic_tactics' ? 1.0 : 0.9
-        if (defenderBCS.status === 'none' && Math.random() < poisonChance) {
+        if (defenderBCS.status === 'none' && rng() < poisonChance) {
           defenderBCS.status = 'poisoned'
           log.push({
             id: nextId(), type: 'move', side,
@@ -676,7 +678,7 @@ function simulateAttack(
   const critBaseChance = 0.06
   const critTrainerBonus = trainerAtk.ability.effectKey === 'champion_focus' ? 0.02 : 0
   const noGuardCrit = attackerBCS.ac.creature.passive.effectKey === 'no_guard_crit' ? 0.05 : 0
-  const isCrit = Math.random() < (critBaseChance + critTrainerBonus + noGuardCrit)
+  const isCrit = rng() < (critBaseChance + critTrainerBonus + noGuardCrit)
   // Shell Armor: no crits
   const defEk = defenderBCS.ac.creature.passive.effectKey
   const noCrit = defEk === 'no_crit' || defEk === 'no_crit_def'
@@ -787,12 +789,12 @@ function simulateAttack(
   const hitRange = multiHit[move.id]
   let hitCount = 1
   if (hitRange) {
-    hitCount = hitRange[0] + Math.floor(Math.random() * (hitRange[1] - hitRange[0] + 1))
+    hitCount = hitRange[0] + Math.floor(rng() * (hitRange[1] - hitRange[0] + 1))
   }
 
   let damage = 0
   for (let h = 0; h < hitCount; h++) {
-    const rf = 0.85 + Math.random() * 0.15
+    const rf = 0.85 + rng() * 0.15
     let d = Math.floor((atk / Math.max(def, 1)) * move.power * typeMultiplier * rf * DAMAGE_SCALE * weatherMult)
     if (multiscaleActive && h === 0) d = Math.floor(d * 0.75)
     if (isCrit && !noCrit && h === 0) {
@@ -841,15 +843,15 @@ function simulateAttack(
   if (typeMultiplier >= 2) crowdMeter.value = Math.min(100, crowdMeter.value + 10)
 
   // Flame Body: burn attacker on contact
-  if ((defEk === 'flame_body') && Math.random() < 0.30 && attackerBCS.status === 'none') {
+  if ((defEk === 'flame_body') && rng() < 0.30 && attackerBCS.status === 'none') {
     attackerBCS.status = 'burned'
   }
   // Static: paralyze attacker on contact
-  if ((defEk === 'static' || defEk === 'static_spd' || defEk === 'static2') && Math.random() < 0.10 && attackerBCS.status === 'none') {
+  if ((defEk === 'static' || defEk === 'static_spd' || defEk === 'static2') && rng() < 0.10 && attackerBCS.status === 'none') {
     attackerBCS.status = 'paralyzed'
   }
   // Poison Touch
-  if ((defEk === 'poison_touch') && Math.random() < 0.10 && attackerBCS.status === 'none') {
+  if ((defEk === 'poison_touch') && rng() < 0.10 && attackerBCS.status === 'none') {
     attackerBCS.status = 'poisoned'
   }
 
@@ -861,21 +863,21 @@ function simulateAttack(
   if (defAlive && defenderBCS.status === 'none') {
     if (move.type === 'poison' && move.id !== 'toxic') {
       const chance = (move.id === 'poison_sting' || move.id === 'sludge_bomb' || move.id === 'sludge') ? 0.15 : 0.10
-      if (Math.random() < chance) { defenderBCS.status = 'poisoned'; defenderBCS.statusTurns = 0 }
+      if (rng() < chance) { defenderBCS.status = 'poisoned'; defenderBCS.statusTurns = 0 }
     } else if (move.type === 'electric') {
-      if (Math.random() < 0.10) { defenderBCS.status = 'paralyzed'; defenderBCS.statusTurns = 0 }
+      if (rng() < 0.10) { defenderBCS.status = 'paralyzed'; defenderBCS.statusTurns = 0 }
     } else if (move.type === 'fire') {
-      if (Math.random() < 0.10) { defenderBCS.status = 'burned'; defenderBCS.statusTurns = 0 }
+      if (rng() < 0.10) { defenderBCS.status = 'burned'; defenderBCS.statusTurns = 0 }
     } else if (move.type === 'ice') {
       // 5% freeze — rare but dramatic
-      if (Math.random() < 0.05) { defenderBCS.status = 'frozen'; defenderBCS.statusTurns = 0 }
+      if (rng() < 0.05) { defenderBCS.status = 'frozen'; defenderBCS.statusTurns = 0 }
     }
   }
 
   // 2. Confusion proc from psychic/water moves
   if (defAlive && defenderBCS.status !== 'confused') {
     if (move.id === 'psybeam' || move.id === 'confusion') {
-      if (Math.random() < 0.15) {
+      if (rng() < 0.15) {
         defenderBCS.status = 'confused'
         defenderBCS.confuseTurns = 2
       }
@@ -885,9 +887,9 @@ function simulateAttack(
   // 3. Flinch from high-impact physical moves
   const flinchMoves = new Set(['rock_slide','body_slam','stomp','crabhammer','bone_club','headbutt','bite','crunch','air_slash','iron_head'])
   if (defAlive && !defenderBCS.flinched && flinchMoves.has(move.id)) {
-    if (Math.random() < 0.30) defenderBCS.flinched = true
+    if (rng() < 0.30) defenderBCS.flinched = true
   } else if (defAlive && !defenderBCS.flinched && move.category === 'physical' && move.power >= 90) {
-    if (Math.random() < 0.10) defenderBCS.flinched = true
+    if (rng() < 0.10) defenderBCS.flinched = true
   }
 
   // 4. Recoil damage for certain moves
@@ -944,9 +946,9 @@ function simulateAttack(
   ]
   const isLowHp = attackerBCS.ac.currentHp / attackerBCS.ac.maxHp < 0.25
   const pool = typeMultiplier >= 2 ? superEffLines : isCrit ? critLines : normalLines
-  let commentary: string | undefined = pool[Math.floor(Math.random() * pool.length)]
-  if (isLowHp && Math.random() < 0.5) {
-    const drama = lowHpLines[Math.floor(Math.random() * lowHpLines.length)]
+  let commentary: string | undefined = pool[Math.floor(rng() * pool.length)]
+  if (isLowHp && rng() < 0.5) {
+    const drama = lowHpLines[Math.floor(rng() * lowHpLines.length)]
     commentary = commentary ? `${drama} ${commentary}` : drama
   }
 
@@ -975,36 +977,36 @@ function simulateAttack(
     log.push({ id: nextId(), type: 'announcer', side, text: getAnnouncerLine('ultimate') })
     if (trainerAtk.battleReactions?.onUltimate?.length) {
       const lines = trainerAtk.battleReactions.onUltimate
-      log.push({ id: nextId(), type: 'trainer_react', side, text: `${trainerAtk.name}: "${lines[Math.floor(Math.random() * lines.length)]}"` })
+      log.push({ id: nextId(), type: 'trainer_react', side, text: `${trainerAtk.name}: "${lines[Math.floor(rng() * lines.length)]}"` })
     }
   } else if (isCrit && !noCrit) {
-    if (Math.random() < 0.7) log.push({ id: nextId(), type: 'announcer', side, text: getAnnouncerLine('critHit') })
-    if (Math.random() < 0.5 && trainerAtk.battleReactions?.onCrit?.length) {
+    if (rng() < 0.7) log.push({ id: nextId(), type: 'announcer', side, text: getAnnouncerLine('critHit') })
+    if (rng() < 0.5 && trainerAtk.battleReactions?.onCrit?.length) {
       const lines = trainerAtk.battleReactions.onCrit
-      log.push({ id: nextId(), type: 'trainer_react', side, text: `${trainerAtk.name}: "${lines[Math.floor(Math.random() * lines.length)]}"` })
+      log.push({ id: nextId(), type: 'trainer_react', side, text: `${trainerAtk.name}: "${lines[Math.floor(rng() * lines.length)]}"` })
     }
   } else if (typeMultiplier >= 2) {
-    if (Math.random() < 0.5) log.push({ id: nextId(), type: 'announcer', side, text: getAnnouncerLine('superEffective') })
-    if (Math.random() < 0.4 && trainerAtk.battleReactions?.onSuperEffective?.length) {
+    if (rng() < 0.5) log.push({ id: nextId(), type: 'announcer', side, text: getAnnouncerLine('superEffective') })
+    if (rng() < 0.4 && trainerAtk.battleReactions?.onSuperEffective?.length) {
       const lines = trainerAtk.battleReactions.onSuperEffective
-      log.push({ id: nextId(), type: 'trainer_react', side, text: `${trainerAtk.name}: "${lines[Math.floor(Math.random() * lines.length)]}"` })
+      log.push({ id: nextId(), type: 'trainer_react', side, text: `${trainerAtk.name}: "${lines[Math.floor(rng() * lines.length)]}"` })
     }
-  } else if (Math.random() < 0.06) {
+  } else if (rng() < 0.06) {
     log.push({ id: nextId(), type: 'announcer', side, text: getAnnouncerLine('general') })
   }
 
   // Status applied announcer (only if new status was applied)
-  if (defenderBCS.status !== prevDefStatus && defenderBCS.status !== 'none' && Math.random() < 0.55) {
+  if (defenderBCS.status !== prevDefStatus && defenderBCS.status !== 'none' && rng() < 0.55) {
     log.push({ id: nextId(), type: 'announcer', side, text: getAnnouncerLine('statusApplied') })
   }
 
   // Low HP defending trainer reaction
-  if (defenderBCS.ac.currentHp > 0 && defenderBCS.ac.currentHp / defenderBCS.ac.maxHp < 0.30 && Math.random() < 0.35) {
+  if (defenderBCS.ac.currentHp > 0 && defenderBCS.ac.currentHp / defenderBCS.ac.maxHp < 0.30 && rng() < 0.35) {
     const defTrainer = side === 'A' ? trainerDef : trainerAtk
     if (defTrainer.battleReactions?.onLowHp?.length) {
       const lines = defTrainer.battleReactions.onLowHp
       const defSide: 'A' | 'B' = side === 'A' ? 'B' : 'A'
-      log.push({ id: nextId(), type: 'trainer_react', side: defSide, text: `${defTrainer.name}: "${lines[Math.floor(Math.random() * lines.length)]}"` })
+      log.push({ id: nextId(), type: 'trainer_react', side: defSide, text: `${defTrainer.name}: "${lines[Math.floor(rng() * lines.length)]}"` })
     }
   }
 
@@ -1022,7 +1024,7 @@ function simulateAttack(
 }
 
 // ── APPLY TURN-END STATUS DAMAGE ─────────────────────────────
-function applyStatusDamage(bcs: BattleCreatureState, side: 'A' | 'B', log: BattleLogEntry[]): void {
+function applyStatusDamage(bcs: BattleCreatureState, side: 'A' | 'B', log: BattleLogEntry[], rng: () => number = Math.random.bind(Math)): void {
   // Poison: 3% per full turn
   if (bcs.status === 'poisoned') {
     const dmg = Math.max(1, Math.floor(bcs.ac.maxHp * 0.03))
@@ -1060,7 +1062,7 @@ function applyStatusDamage(bcs: BattleCreatureState, side: 'A' | 'B', log: Battl
 
   // Shed skin: chance to recover
   const passiveEk = bcs.ac.creature.passive.effectKey
-  if (passiveEk === 'shed_skin' && Math.random() < 0.33 && bcs.status !== 'none') {
+  if (passiveEk === 'shed_skin' && rng() < 0.33 && bcs.status !== 'none') {
     bcs.status = 'none'
     log.push({
       id: nextId(), type: 'move', side,
@@ -1078,7 +1080,7 @@ function applyStatusDamage(bcs: BattleCreatureState, side: 'A' | 'B', log: Battl
   }
 
   // Harvest/Regen
-  if (passiveEk === 'harvest' && Math.random() < 0.50 && bcs.ac.currentHp > 0) {
+  if (passiveEk === 'harvest' && rng() < 0.50 && bcs.ac.currentHp > 0) {
     const heal = Math.floor(bcs.ac.maxHp * 0.05)
     bcs.ac.currentHp = Math.min(bcs.ac.maxHp, bcs.ac.currentHp + heal)
   }
@@ -1100,7 +1102,9 @@ export function resolveBattle(
   arena: Arena,
   trainerA: Trainer,
   trainerB: Trainer,
+  rng?: () => number,
 ): BattleState {
+  const _rng: () => number = rng ?? Math.random.bind(Math)
   _logId = 0
   const log: BattleLogEntry[] = []
   const crowdMeter = { value: 0 }
@@ -1117,6 +1121,9 @@ export function resolveBattle(
     trainerA.id === 'ash' &&
     teamA.length > 0 &&
     teamA[0].creature.id === 25
+
+  // Bind _rng locally so it can be captured in closures below
+  const rngFn = _rng
 
   console.log('[PIKACHU EGG] ashPikachuEgg=', ashPikachuEgg)
 
@@ -1161,7 +1168,7 @@ export function resolveBattle(
 
   // ── SQUIRTLE SQUAD EASTER EGG (1 in 25 chance) ───────────────
   for (const ac of [...teamA, ...teamB]) {
-    if (ac.creature.id === 7 && Math.random() < 0.10) {
+    if (ac.creature.id === 7 && rngFn() < 0.10) {
       cloneCreature(ac)
       const boost = 1.05
       ac.maxHp = Math.floor(ac.maxHp * boost)
@@ -1328,7 +1335,7 @@ export function resolveBattle(
       // ── PRE-MOVE STATUS CHECKS ───────────────────────────────
       // Pick the intended move first so we can stamp lastMoveId even on skipped turns,
       // preventing the AI from repeating the same move after a forced skip.
-      const intendedMove = pickMove(attBCS, defBCS, arena, attkSide === 'A' ? trainerA : trainerB)
+      const intendedMove = pickMove(attBCS, defBCS, arena, attkSide === 'A' ? trainerA : trainerB, rngFn)
 
       // Flinch: skip this attack (cleared immediately) — NOT an excused skip
       if (attBCS.flinched) {
@@ -1362,7 +1369,7 @@ export function resolveBattle(
       }
 
       // Paralysis: 25% chance to skip — EXCUSED skip
-      if (attBCS.status === 'paralyzed' && Math.random() < 0.25) {
+      if (attBCS.status === 'paralyzed' && rngFn() < 0.25) {
         attBCS.lastMoveId = intendedMove.id  // count as used so next turn picks something different
         attBCS.lastMoveCount = 1
         attBCS.lastTurnActuallyAttacked = false
@@ -1401,7 +1408,7 @@ export function resolveBattle(
             text: `✨ ${attBCS.ac.creature.name} snapped out of confusion!`,
             creatureName: attBCS.ac.creature.name,
           })
-        } else if (Math.random() < 0.33) {
+        } else if (rngFn() < 0.33) {
           const selfDmg = Math.max(1, Math.floor(attBCS.ac.maxHp * 0.07))
           attBCS.ac.currentHp = Math.max(0, attBCS.ac.currentHp - selfDmg)
           log.push({
@@ -1443,7 +1450,7 @@ export function resolveBattle(
       else if (move.id === 'rain_dance') { weather = 'rain'; weatherTurns = 5 }
       else if (move.id === 'sandstorm') { weather = 'sand'; weatherTurns = 5 }
 
-      simulateAttack(attBCS, defBCS, move, arena, attkSide === 'A' ? trainerA : trainerB, attkSide === 'B' ? trainerA : trainerB, attkSide, log, crowdMeter, weather)
+      simulateAttack(attBCS, defBCS, move, arena, attkSide === 'A' ? trainerA : trainerB, attkSide === 'B' ? trainerA : trainerB, attkSide, log, crowdMeter, weather, rngFn)
 
       // Stamp hpAfter + statusAfter on last attack OR status move entry
       for (let i = log.length - 1; i >= 0; i--) {
@@ -1462,8 +1469,8 @@ export function resolveBattle(
     }
 
     // Turn-end: status damage, regen, paralysis expiry
-    applyStatusDamage(bcsA, 'A', log)
-    applyStatusDamage(bcsB, 'B', log)
+    applyStatusDamage(bcsA, 'A', log, rngFn)
+    applyStatusDamage(bcsB, 'B', log, rngFn)
 
     // Weather end-of-turn
     if (weather !== 'none') {
@@ -1595,7 +1602,7 @@ export function resolveBattle(
         })
         if (activeA === statesA.length - 1 && trainerA.battleReactions?.onAceEnter?.length) {
           const lines = trainerA.battleReactions.onAceEnter
-          log.push({ id: nextId(), type: 'trainer_react', side: 'A', text: `${trainerA.name}: "${lines[Math.floor(Math.random() * lines.length)]}"` })
+          log.push({ id: nextId(), type: 'trainer_react', side: 'A', text: `${trainerA.name}: "${lines[Math.floor(rngFn() * lines.length)]}"` })
         }
       }
     }
@@ -1660,11 +1667,14 @@ export function resolveBattle(
         })
         if (activeB === statesB.length - 1 && trainerB.battleReactions?.onAceEnter?.length) {
           const lines = trainerB.battleReactions.onAceEnter
-          log.push({ id: nextId(), type: 'trainer_react', side: 'B', text: `${trainerB.name}: "${lines[Math.floor(Math.random() * lines.length)]}"` })
+          log.push({ id: nextId(), type: 'trainer_react', side: 'B', text: `${trainerB.name}: "${lines[Math.floor(rngFn() * lines.length)]}"` })
         }
       }
     }
   }
+
+  // Bind rngFn for closures in the battle loop (used below via local capture)
+  void rngFn // ensure no lint warnings on unused variable in hoisting
 
   // Determine winner
   // If both teams ran out simultaneously (e.g. mutual explosion/recoil KO),

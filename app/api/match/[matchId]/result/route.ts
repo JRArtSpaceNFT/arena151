@@ -15,6 +15,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { runServerBattle } from '@/lib/engine/server-battle'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -55,7 +56,7 @@ export async function POST(
     // ── Load match ───────────────────────────────────────────────
     const { data: match, error: matchError } = await supabaseAdmin
       .from('matches')
-      .select('id, player_a_id, player_b_id, entry_fee_sol, status, result_claim_a, result_claim_b, result_submitted_at_a, result_submitted_at_b, team_a, team_b')
+      .select('id, player_a_id, player_b_id, entry_fee_sol, status, result_claim_a, result_claim_b, result_submitted_at_a, result_submitted_at_b, team_a, team_b, battle_seed')
       .eq('id', matchId)
       .single()
 
@@ -118,12 +119,69 @@ export async function POST(
           message: 'Both players agree. Settlement will proceed.',
         })
       } else {
-        // Disagreement → manual review, unlock funds
+        // Disagreement → run authoritative server-side battle with the stored seed
+        let serverWinnerId: string | null = null
+        let resolvedViaServer = false
+
+        if (match.battle_seed && match.team_a) {
+          // Both teams must be recorded; player_b's team may be in team_b column
+          const teamAIds: number[] | null = Array.isArray(match.team_a) ? match.team_a : null
+          const teamBIds: number[] | null = Array.isArray(match.team_b) ? match.team_b : null
+
+          if (teamAIds && teamBIds) {
+            try {
+              const serverResult = runServerBattle(
+                teamAIds, teamBIds,
+                match.player_a_id, match.player_b_id,
+                match.battle_seed,
+              )
+              serverWinnerId = serverResult.winnerId
+              resolvedViaServer = true
+
+              // Log server resolution
+              await supabaseAdmin.from('audit_log').insert([
+                {
+                  user_id: match.player_a_id, match_id: matchId,
+                  event_type: 'server_battle_resolution',
+                  metadata: {
+                    claim_a: claimA, claim_b: claimB,
+                    server_winner: serverWinnerId,
+                    battle_seed: match.battle_seed,
+                  },
+                },
+              ])
+            } catch (err) {
+              console.error('[Match Result] Server battle resolution failed:', err)
+            }
+          }
+        }
+
+        if (resolvedViaServer && serverWinnerId) {
+          // Server is authoritative — set winner and proceed to settlement
+          await supabaseAdmin
+            .from('matches')
+            .update({
+              status: 'settlement_pending',
+              winner_id: serverWinnerId,
+              error_message: `Dispute resolved by server: player_a claimed ${claimA}, player_b claimed ${claimB}. Server computed winner: ${serverWinnerId}`,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', matchId)
+
+          return NextResponse.json({
+            status: 'settlement_pending',
+            winnerId: serverWinnerId,
+            message: 'Dispute resolved by server-authoritative battle replay. Settlement will proceed.',
+            serverResolved: true,
+          })
+        }
+
+        // Fallback: no battle_seed or teams unavailable — manual review
         await supabaseAdmin
           .from('matches')
           .update({
             status: 'manual_review',
-            error_message: `Disputed result: player_a claims ${claimA}, player_b claims ${claimB}`,
+            error_message: `Disputed result: player_a claims ${claimA}, player_b claims ${claimB}. Server resolution unavailable.`,
             updated_at: new Date().toISOString(),
           })
           .eq('id', matchId)
@@ -136,8 +194,8 @@ export async function POST(
 
         // Audit log for dispute
         await supabaseAdmin.from('audit_log').insert([
-          { user_id: match.player_a_id, match_id: matchId, event_type: 'dispute_raised', metadata: { claim_a: claimA, claim_b: claimB } },
-          { user_id: match.player_b_id, match_id: matchId, event_type: 'dispute_raised', metadata: { claim_a: claimA, claim_b: claimB } },
+          { user_id: match.player_a_id, match_id: matchId, event_type: 'dispute_raised', metadata: { claim_a: claimA, claim_b: claimB, reason: 'server_resolution_unavailable' } },
+          { user_id: match.player_b_id, match_id: matchId, event_type: 'dispute_raised', metadata: { claim_a: claimA, claim_b: claimB, reason: 'server_resolution_unavailable' } },
         ])
 
         return NextResponse.json({

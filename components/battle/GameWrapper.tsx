@@ -182,7 +182,19 @@ export default function GameWrapper() {
   const playAgain = useGameStore(s => s.playAgain)
   const matchResults = useGameStore(s => s.matchResults)
   const gameMode = useGameStore(s => s.gameMode)
-  const { setScreen, setLastMatchWinner } = useArenaStore()
+  const battleState = useGameStore(s => s.battleState)
+  const lineupA = useGameStore(s => s.lineupA)
+
+  const {
+    setScreen, setLastMatchWinner,
+    currentMatch, currentTrainer,
+    serverMatchId,
+    setServerMatch, clearServerMatch,
+  } = useArenaStore()
+
+  const [matchCreateError, setMatchCreateError] = useState<string | null>(null)
+  const [isCreatingMatch, setIsCreatingMatch] = useState(false)
+  const [resultSubmitted, setResultSubmitted] = useState(false)
 
   // Track whether we've initialized this session
   const initialized = useRef(false)
@@ -205,10 +217,109 @@ export default function GameWrapper() {
   useEffect(() => {
     if (prevScreen.current !== 'home' && gameScreen === 'home' && initialized.current) {
       // Winner was already set by ResultsScreen before playAgain() wiped matchResults
+      clearServerMatch()
+      setResultSubmitted(false)
+      setMatchCreateError(null)
       setScreen('result')
     }
     prevScreen.current = gameScreen
-  }, [gameScreen, setScreen, setLastMatchWinner])
+  }, [gameScreen, setScreen, setLastMatchWinner, clearServerMatch])
+
+  // ── PAID MATCH: Submit result after battle resolves ───────────
+  // For paid matches (wager > 0), submit the winner to the server when done.
+  // For practice/AI (wager = 0), skip — no money movement.
+  useEffect(() => {
+    if (!battleState || battleState.phase !== 'finished') return
+    if (!serverMatchId || resultSubmitted) return
+    if (!currentTrainer) return
+
+    const entryFee = currentMatch?.room?.entryFee ?? 0
+    if (entryFee <= 0) return // practice — no result submission needed
+
+    setResultSubmitted(true)
+
+    ;(async () => {
+      try {
+        const { createClient } = await import('@supabase/supabase-js')
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        )
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session?.access_token) return
+
+        // P1 (currentTrainer) is always player_a in the server match
+        const winnerId = battleState.winner === 'A'
+          ? currentTrainer.id
+          : (currentMatch?.player2?.id ?? currentTrainer.id)
+
+        await fetch(`/api/match/${serverMatchId}/result`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ winnerId }),
+        })
+        // Result submitted — settlement is handled server-side after both players agree
+        // (or after the 30s timeout for single-player vs AI).
+      } catch (err) {
+        console.error('[GameWrapper] Result submission error:', err)
+      }
+    })()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [battleState?.phase, serverMatchId, resultSubmitted])
+
+  // ── PAID MATCH: Create server match when arena_reveal starts ──
+  // Intercept the arena_reveal → battle transition for paid matches only.
+  // For practice/AI (wager = 0), we let ArenaReveal call proceedFromArenaReveal() directly.
+  // This effect fires when the user would normally transition to battle.
+  // The actual intercepted call happens in ArenaReveal — here we just detect if
+  // a paid match needs to pre-register before battle begins.
+  // NOTE: This is called from ArenaReveal via a custom hook pattern; the matchCreateError
+  // state is displayed in the UI below if creation fails.
+
+  // Show error overlay if match creation failed
+  if (matchCreateError) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: '#0a0a0f',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexDirection: 'column',
+        gap: 16,
+        color: '#fff',
+        fontFamily: '"Courier New", monospace',
+        padding: 32,
+        textAlign: 'center',
+      }}>
+        <div style={{ fontSize: 48 }}>⚠️</div>
+        <div style={{ fontSize: 22, fontWeight: 700, color: '#ef4444' }}>Match Creation Failed</div>
+        <div style={{ fontSize: 15, color: '#94a3b8', maxWidth: 360 }}>{matchCreateError}</div>
+        <button
+          onClick={() => {
+            setMatchCreateError(null)
+            setScreen('room-select')
+          }}
+          style={{
+            marginTop: 16,
+            padding: '12px 32px',
+            background: '#7c3aed',
+            border: 'none',
+            borderRadius: 8,
+            color: '#fff',
+            fontSize: 16,
+            fontWeight: 700,
+            cursor: 'pointer',
+          }}
+        >
+          Back to Room Select
+        </button>
+      </div>
+    )
+  }
 
   const screens: Record<string, React.ReactNode> = {
     trainer_select: <TrainerSelect />,

@@ -76,6 +76,8 @@ export async function POST(req: NextRequest) {
     // ── Create match record ──────────────────────────────────────
     const idempotencyKey = randomUUID()
     const matchId = randomUUID()
+    // Deterministic battle seed: both client and server use this to run identical battles
+    const battleSeed = randomUUID()
 
     const { error: matchError } = await supabaseAdmin
       .from('matches')
@@ -89,6 +91,7 @@ export async function POST(req: NextRequest) {
         team_a: teamA ?? null,
         team_b: null,
         idempotency_key: idempotencyKey,
+        battle_seed: battleSeed,
       })
 
     if (matchError) {
@@ -109,7 +112,7 @@ export async function POST(req: NextRequest) {
       metadata: { room_id: roomId, idempotency_key: idempotencyKey },
     })
 
-    return NextResponse.json({ matchId, idempotencyKey, status: 'forming' })
+    return NextResponse.json({ matchId, idempotencyKey, battleSeed, status: 'forming' })
 
   } catch (err) {
     console.error('[Match Create] Unexpected error:', err)

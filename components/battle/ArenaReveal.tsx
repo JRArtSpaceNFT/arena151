@@ -3,9 +3,11 @@
 import { useEffect, useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useGameStore } from '@/lib/game-store'
+import { useArenaStore } from '@/lib/store'
 import { playMusic, resumeAudioContext, startCrowdAmbient } from '@/lib/audio/musicEngine'
 import { ARENAS } from '@/lib/data/arenas'
 import ArenaArtwork from '@/components/battle/ArenaArtwork'
+import { createClient } from '@supabase/supabase-js'
 
 const TYPE_COLORS: Record<string, string> = {
   normal: '#9ca3af', fire: '#f97316', water: '#3b82f6', electric: '#eab308',
@@ -22,7 +24,11 @@ const SCHEDULE = [
 ]
 
 export default function ArenaReveal() {
-  const { arena, proceedFromArenaReveal } = useGameStore()
+  const { arena, proceedFromArenaReveal, lineupA } = useGameStore()
+  const { currentMatch, currentTrainer, serverMatchId, setServerMatch } = useArenaStore()
+  const [paidMatchError, setPaidMatchError] = useState<string | null>(null)
+  const [isPaidMatchLoading, setIsPaidMatchLoading] = useState(false)
+  const paidMatchCreated = useRef(false)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isLocked, setIsLocked] = useState(false)
   const [sequenceBuilt, setSequenceBuilt] = useState<number[]>([])
@@ -81,19 +87,115 @@ export default function ArenaReveal() {
   }, [arena])
 
   // After locking, start battle music then proceed (4.5s so players can read the arena info)
+  // For paid matches (wager > 0), create the server match record first before proceeding.
   useEffect(() => {
     if (!isLocked) return
     resumeAudioContext()
     playMusic('battle')
     startCrowdAmbient() // very quiet crowd murmur under the battle music
-    const t = setTimeout(() => {
-      proceedFromArenaReveal()
-    }, 4500)
+
+    const entryFee = currentMatch?.room?.entryFee ?? 0
+    const isPaidMatch = entryFee > 0
+
+    if (!isPaidMatch || serverMatchId || paidMatchCreated.current) {
+      // Practice/AI or already created — proceed immediately after delay
+      const t = setTimeout(() => {
+        proceedFromArenaReveal()
+      }, 4500)
+      return () => clearTimeout(t)
+    }
+
+    // Paid match: create server match record, then proceed
+    paidMatchCreated.current = true
+    setIsPaidMatchLoading(true)
+
+    const createAndProceed = async () => {
+      try {
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        )
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session?.access_token) {
+          setPaidMatchError('Not authenticated. Please log in to play.')
+          setIsPaidMatchLoading(false)
+          return
+        }
+
+        const teamAIds = lineupA.map((ac: { creature: { id: number } }) => ac.creature.id)
+
+        const res = await fetch('/api/match/create', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            roomId: currentMatch?.room?.id ?? 'pewter-city',
+            entryFeeSol: entryFee,
+            teamA: teamAIds,
+          }),
+        })
+
+        const data = await res.json()
+        setIsPaidMatchLoading(false)
+
+        if (!res.ok) {
+          const msg = data.code === 'INSUFFICIENT_FUNDS'
+            ? 'Insufficient balance to enter this room.'
+            : (data.error ?? 'Failed to create match. Please try again.')
+          setPaidMatchError(msg)
+          return
+        }
+
+        // Store server matchId and battleSeed in arena store
+        setServerMatch(data.matchId, data.battleSeed)
+
+        // Now proceed to battle (with a small delay so arena info is readable)
+        setTimeout(() => {
+          proceedFromArenaReveal()
+        }, 1000)
+      } catch (err) {
+        console.error('[ArenaReveal] Paid match create error:', err)
+        setPaidMatchError('Network error. Please check your connection.')
+        setIsPaidMatchLoading(false)
+      }
+    }
+
+    // Wait 3.5s for arena reveal to show, then create match and proceed
+    const t = setTimeout(createAndProceed, 3500)
     return () => clearTimeout(t)
-  }, [isLocked, proceedFromArenaReveal])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLocked])
 
   const displayArena = ARENAS[currentIndex]
   if (!arena || !displayArena) return null
+
+  // Show error if paid match creation failed
+  if (paidMatchError) {
+    return (
+      <div style={{
+        minHeight: '100vh', background: '#0a0a0f',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        flexDirection: 'column', gap: 16, color: '#fff',
+        fontFamily: '"Courier New", monospace', padding: 32, textAlign: 'center',
+      }}>
+        <div style={{ fontSize: 48 }}>⚠️</div>
+        <div style={{ fontSize: 22, fontWeight: 700, color: '#ef4444' }}>Match Creation Failed</div>
+        <div style={{ fontSize: 15, color: '#94a3b8', maxWidth: 360 }}>{paidMatchError}</div>
+        <button
+          onClick={() => { window.location.href = '/' }}
+          style={{
+            marginTop: 16, padding: '12px 32px', background: '#7c3aed',
+            border: 'none', borderRadius: 8, color: '#fff',
+            fontSize: 16, fontWeight: 700, cursor: 'pointer',
+          }}
+        >
+          Return Home
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div style={{

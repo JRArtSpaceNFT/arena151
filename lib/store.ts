@@ -28,6 +28,12 @@ interface ArenaState {
   currentMatch: MatchFound | null;
   setMatch: (match: MatchFound) => void;
   clearMatch: () => void;
+
+  // Server match lifecycle (paid matches only — wager > 0)
+  serverMatchId: string | null;
+  battleSeed: string | null;
+  setServerMatch: (matchId: string, seed: string) => void;
+  clearServerMatch: () => void;
   
   // Chat
   chatMessages: ChatMessage[];
@@ -79,6 +85,11 @@ export const useArenaStore = create<ArenaState>((set) => ({
   currentMatch: null,
   setMatch: (match) => set({ currentMatch: match }),
   clearMatch: () => set({ currentMatch: null }),
+
+  serverMatchId: null,
+  battleSeed: null,
+  setServerMatch: (matchId, seed) => set({ serverMatchId: matchId, battleSeed: seed }),
+  clearServerMatch: () => set({ serverMatchId: null, battleSeed: null }),
 
   chatMessages: [],
   addChatMessage: (message) =>
