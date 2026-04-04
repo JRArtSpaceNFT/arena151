@@ -177,39 +177,75 @@ export default function ResultScreen() {
 
       if (!isBotMatch && hasServerMatchId) {
         const claimedWinnerId = isVictory ? currentTrainer.id : currentMatch.player2.id
-        supabase.auth.getSession().then(({ data: { session } }) => {
+
+        // Poll for settlement_pending after submitting result claim.
+        // Needed for vs-AI matches where the 30s single-player timeout path is used.
+        const pollForSettlement = async (headers: Record<string, string>) => {
+          for (let i = 0; i < 30; i++) { // 30 * 2s = 60s max
+            await new Promise(r => setTimeout(r, 2000))
+            try {
+              const statusRes = await fetch(`/api/match/${currentMatch.matchId}/status`, { headers })
+              const statusData = await statusRes.json()
+              if (statusData.status === 'settlement_pending') {
+                // Trigger settlement — server looks up winner/loser/fee from DB
+                const settleRes = await fetch('/api/settle', {
+                  method: 'POST',
+                  headers,
+                  body: JSON.stringify({ matchId: currentMatch.matchId }),
+                })
+                return settleRes.json()
+              }
+              if (statusData.status === 'settled') {
+                return statusData // Already settled (e.g. cron beat us to it)
+              }
+              if (['voided', 'manual_review', 'settlement_failed'].includes(statusData.status)) {
+                break // Terminal state — stop polling
+              }
+            } catch (pollErr) {
+              console.error('[ResultScreen] poll error:', pollErr)
+            }
+          }
+          return null
+        }
+
+        supabase.auth.getSession().then(async ({ data: { session } }) => {
           if (!session?.access_token) return
-          const headers = {
+          const headers: Record<string, string> = {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${session.access_token}`,
           }
-          // Step 1: Submit result claim to server
-          fetch(`/api/match/${currentMatch.matchId}/result`, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({ winnerId: claimedWinnerId }),
-          })
-          .then(r => r.json())
-          .then(resultData => {
+          try {
+            // Step 1: Submit result claim to server
+            const resultRes = await fetch(`/api/match/${currentMatch.matchId}/result`, {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({ winnerId: claimedWinnerId }),
+            })
+            const resultData = await resultRes.json()
+
+            let data: Record<string, unknown> | null = null
             if (resultData.status === 'settlement_pending') {
-              // Step 2: Trigger settlement — server looks up winner/loser/fee from DB
-              return fetch('/api/settle', {
+              // Both players agreed immediately — trigger settle right away
+              const settleRes = await fetch('/api/settle', {
                 method: 'POST',
                 headers,
                 body: JSON.stringify({ matchId: currentMatch.matchId }),
-              }).then(r => r.json())
+              })
+              data = await settleRes.json()
+            } else if (resultData.status === 'result_pending') {
+              // Single-player path (vs AI) — poll until server sets settlement_pending
+              data = await pollForSettlement(headers)
             }
-            return resultData
-          })
-          .then(data => {
+
             if (data?.ok && !data.alreadySettled && data.winnerBalanceAfter !== undefined) {
               const updatedBalance = isVictory ? data.winnerBalanceAfter : data.loserBalanceAfter
               if (updatedBalance !== undefined) {
-                setTrainer({ ...currentTrainer, balance: updatedBalance })
+                setTrainer({ ...currentTrainer, balance: updatedBalance as number })
               }
             }
-          })
-          .catch(err => console.error('[ResultScreen] settle error:', err))
+          } catch (err) {
+            console.error('[ResultScreen] settle error:', err)
+          }
         })
       } else if (!isBotMatch && !hasServerMatchId) {
         // SAFETY BLOCK: Real-money match without server registration.
