@@ -280,9 +280,9 @@ function DossierCard({ trainer, isTaken }: { trainer: Trainer; isTaken: boolean 
                 width: 'clamp(180px, 28vh, 260px)',
                 height: 'clamp(180px, 28vh, 260px)',
                 objectFit: 'contain',
-                // pixel art trainers (80×80 originals): keep pixelated so they don't blur
-                // high-res trainers (530px+): use auto for smooth scaling
-                imageRendering: ['red','ash','gary','oak','fuji'].includes(trainer.id) ? 'pixelated' : 'auto',
+                // all trainers are pixel art — pixelated keeps them crisp at large sizes
+                // only misty + jessie-james are hi-res photos so they get auto
+                imageRendering: ['misty','jessie-james'].includes(trainer.id) ? 'auto' : 'pixelated',
                 filter: `drop-shadow(0 8px 20px ${trainer.color}88)`,
                 position: 'relative', zIndex: 1,
               }}
