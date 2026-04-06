@@ -266,7 +266,7 @@ function DossierCard({ trainer, isTaken }: { trainer: Trainer; isTaken: boolean 
             transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
             style={{
               width: 160,
-              height: 170,
+              height: 'clamp(90px, 19vh, 170px)',
               objectFit: 'contain',
               objectPosition: '50% 50%',
               imageRendering: trainer.id === 'jessie-james' ? 'auto' : 'pixelated',
@@ -515,6 +515,9 @@ export default function TrainerSelect() {
         gap: 12,
         width: '100%',
         maxWidth: 960,
+        flex: '1 1 auto',
+        minHeight: 0,
+        overflow: 'hidden',
       }}>
         {/* PREV */}
         <motion.button

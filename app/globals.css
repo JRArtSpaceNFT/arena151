@@ -37,6 +37,12 @@ html, body {
   .screen-pad-reduce { padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
 }
 
+/* Normalize Tailwind h-screen to 100dvh so it behaves correctly
+   on mobile browsers where the URL bar changes the viewport height */
+.h-screen {
+  height: 100dvh !important;
+}
+
 @theme {
   --color-arena-blue: #1e40af;
   --color-arena-red: #dc2626;

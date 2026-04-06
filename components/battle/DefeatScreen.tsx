@@ -36,7 +36,7 @@ export default function DefeatScreen() {
   const arenaImage = arena?.image ?? null
 
   return (
-    <div style={{ height: '100dvh', maxHeight: '100dvh', position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '28px 20px 40px', overflow: 'hidden' }}>
+    <div style={{ height: '100dvh', maxHeight: '100dvh', position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 'clamp(14px,2vh,28px) 20px clamp(16px,2.5vh,32px)', overflow: 'hidden' }}>
 
       {/* ── Battlefield at 8% opacity — loser stood here ── */}
       {arenaImage && (
@@ -88,7 +88,7 @@ export default function DefeatScreen() {
       ))}
 
       {/* ── Content ── */}
-      <div style={{ position: 'relative', zIndex: 10, width: '100%', maxWidth: 820, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <div style={{ position: 'relative', zIndex: 10, width: '100%', maxWidth: 820, display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, minHeight: 0, justifyContent: 'center' }}>
 
         {/* Fallen trainer — large, center, greyscale */}
         {loserTrainer?.spriteUrl && (
@@ -109,7 +109,7 @@ export default function DefeatScreen() {
               animate={{ opacity: 0.65, y: 0 }}
               transition={{ delay: 0.2, duration: 0.6 }}
               style={{
-                height: 160, width: 'auto',
+                height: 'clamp(90px, 18vh, 160px)', width: 'auto',
                 imageRendering: 'pixelated',
                 filter: 'grayscale(100%) brightness(0.45) drop-shadow(0 0 20px rgba(239,68,68,0.4))',
                 display: 'block', position: 'relative', zIndex: 1,
@@ -124,7 +124,7 @@ export default function DefeatScreen() {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.3, type: 'spring', stiffness: 200, damping: 18 }}
           style={{
-            fontSize: 72, fontWeight: 900, margin: '0 0 10px',
+            fontSize: 'clamp(40px, 8vh, 72px)', fontWeight: 900, margin: '0 0 clamp(6px,1vh,10px)',
             color: '#ef4444',
             textShadow: '0 0 60px rgba(239,68,68,0.9), 0 0 120px rgba(180,0,0,0.6), 4px 4px 12px rgba(0,0,0,0.95)',
             letterSpacing: '0.12em', lineHeight: 1,
@@ -135,14 +135,14 @@ export default function DefeatScreen() {
 
         {/* Cracked line divider */}
         <motion.div initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.5, duration: 0.5 }}
-          style={{ width: 280, height: 1, background: 'linear-gradient(90deg,transparent,rgba(239,68,68,0.6),transparent)', marginBottom: 14 }} />
+          style={{ width: 280, height: 1, background: 'linear-gradient(90deg,transparent,rgba(239,68,68,0.6),transparent)', marginBottom: 'clamp(8px,1.2vh,14px)' }} />
 
         {/* Defeat message */}
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.55 }}
-          style={{ fontSize: 15, color: '#fca5a5', marginBottom: 28, lineHeight: 1.6, textAlign: 'center', maxWidth: 480, opacity: 0.85 }}
+          style={{ fontSize: 'clamp(12px,1.6vh,15px)', color: '#fca5a5', marginBottom: 'clamp(12px,2vh,28px)', lineHeight: 1.5, textAlign: 'center', maxWidth: 480, opacity: 0.85 }}
         >
           {gameMode === 'story' ? "Don't give up! Every Champion has lost before. Return to your journey and try again!" : defeatLine}
         </motion.p>
@@ -152,7 +152,7 @@ export default function DefeatScreen() {
         {/* Battle summary */}
         {battleState && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.9 }}
-            style={{ display: 'flex', gap: 14, marginBottom: 28, justifyContent: 'center' }}>
+            style={{ display: 'flex', gap: 14, marginBottom: 'clamp(14px,2vh,28px)', justifyContent: 'center' }}>
             {[
               { label: 'Turns', value: battleState.turn, color: '#7c3aed' },
               { label: 'Your KOs', value: battleState.teamA.reduce((s: number, c: any) => s + (c.kos ?? 0), 0), color: '#7c3aed' },

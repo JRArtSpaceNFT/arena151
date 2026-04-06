@@ -196,7 +196,7 @@ export default function ResultsScreen() {
             playAgain()
           }}
           style={{
-            padding: '16px 48px',
+            padding: 'clamp(10px, 1.5vh, 16px) 48px',
             background: 'linear-gradient(135deg, #7c3aed, #5b21b6)',
             border: 'none', borderRadius: 14,
             color: 'white', fontSize: 20, fontWeight: 900, cursor: 'pointer',
