@@ -126,19 +126,19 @@ export default function DraftModeIntro() {
             background: 'transparent', border: 'none', cursor: 'pointer' }}
         />
 
-        {/* LEADERBOARD — pushed way down to ~y=600 per pixel scan */}
+        {/* LEADERBOARD — nudged right */}
         <button
           onClick={() => setScreen('leaderboard')}
           aria-label="Leaderboard"
-          style={{ position: 'absolute', left: '0.0%', top: '55.6%', width: '12.3%', height: '7.4%',
+          style={{ position: 'absolute', left: '1.5%', top: '55.6%', width: '12.3%', height: '7.4%',
             background: 'transparent', border: 'none', cursor: 'pointer' }}
         />
 
-        {/* ENTER THE ARENA — moved down quite a lot */}
+        {/* ENTER THE ARENA — nudged lower */}
         <button
           onClick={() => currentTrainer ? setScreen('room-select') : setScreen('signup')}
           aria-label="Enter the Arena"
-          style={{ position: 'absolute', left: '31.5%', top: '62%', width: '34.6%', height: '5.1%',
+          style={{ position: 'absolute', left: '31.5%', top: '68%', width: '34.6%', height: '5.1%',
             background: 'transparent', border: 'none', cursor: 'pointer' }}
         />
 
