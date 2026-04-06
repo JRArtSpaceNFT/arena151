@@ -224,29 +224,29 @@ function DossierCard({ trainer, isTaken }: { trainer: Trainer; isTaken: boolean 
 
       {/* Header — name / title / location */}
       <div style={{
-        padding: '8px 16px 8px',
+        padding: '5px 14px 5px',
         borderBottom: `1px solid ${trainer.color}33`,
         background: `linear-gradient(135deg, ${trainer.color}18 0%, transparent 80%)`,
         textAlign: 'center',
       }}>
         <div style={{
-          fontSize: 9, letterSpacing: '0.25em', color: `${trainer.color}99`,
-          textTransform: 'uppercase', marginBottom: 4,
+          fontSize: 8, letterSpacing: '0.25em', color: `${trainer.color}99`,
+          textTransform: 'uppercase', marginBottom: 2,
         }}>
           ── TRAINER DOSSIER ──
         </div>
         <div style={{
           fontFamily: 'Impact, Arial Black, sans-serif',
-          fontSize: 26, fontWeight: 900, color: trainer.color,
+          fontSize: 'clamp(18px, 2.5vh, 26px)', fontWeight: 900, color: trainer.color,
           lineHeight: 1, letterSpacing: '0.04em',
           textShadow: `0 0 20px ${trainer.color}66`,
         }}>
           {trainer.name.toUpperCase()}
         </div>
-        <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>
+        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
           {dossier.title}
         </div>
-        <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>
+        <div style={{ fontSize: 10, color: '#475569', marginTop: 1 }}>
           📍 {dossier.location}
         </div>
       </div>
@@ -255,7 +255,7 @@ function DossierCard({ trainer, isTaken }: { trainer: Trainer; isTaken: boolean 
       <div style={{
         display: 'flex', justifyContent: 'center', alignItems: 'flex-end',
         background: `radial-gradient(ellipse at 50% 100%, ${trainer.color}33 0%, transparent 65%)`,
-        paddingTop: 6, paddingBottom: 0, minHeight: 160, position: 'relative',
+        paddingTop: 4, paddingBottom: 0, minHeight: 0, height: 'clamp(90px, 16vh, 150px)', position: 'relative',
       }}>
         {!imgError && trainer.spriteUrl ? (
           <motion.img
@@ -265,8 +265,8 @@ function DossierCard({ trainer, isTaken }: { trainer: Trainer; isTaken: boolean 
             animate={{ y: [0, -7, 0] }}
             transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
             style={{
-              width: 160,
-              height: 'clamp(90px, 19vh, 170px)',
+              width: 'clamp(80px, 14vh, 150px)',
+              height: 'clamp(80px, 14vh, 150px)',
               objectFit: 'contain',
               objectPosition: '50% 50%',
               imageRendering: trainer.id === 'jessie-james' ? 'auto' : 'pixelated',
@@ -289,14 +289,14 @@ function DossierCard({ trainer, isTaken }: { trainer: Trainer; isTaken: boolean 
       <div style={{ height: 1, background: `linear-gradient(90deg, transparent, ${trainer.color}66, transparent)` }} />
 
       {/* Ability */}
-      <div style={{ padding: '8px 14px', borderBottom: `1px solid ${trainer.color}22`, textAlign: 'center', background: `${trainer.color}08` }}>
-        <div style={{ fontSize: 9, letterSpacing: '0.2em', color: `${trainer.color}88`, textTransform: 'uppercase', marginBottom: 4 }}>
+      <div style={{ padding: '5px 14px', borderBottom: `1px solid ${trainer.color}22`, textAlign: 'center', background: `${trainer.color}08` }}>
+        <div style={{ fontSize: 8, letterSpacing: '0.2em', color: `${trainer.color}88`, textTransform: 'uppercase', marginBottom: 2 }}>
           ── ABILITY ──
         </div>
-        <div style={{ fontSize: 14, fontWeight: 900, color: trainer.color, marginBottom: 4, letterSpacing: '0.04em' }}>
+        <div style={{ fontSize: 13, fontWeight: 900, color: trainer.color, marginBottom: 2, letterSpacing: '0.04em' }}>
           ⚡ {trainer.ability.name}
         </div>
-        <div style={{ fontSize: 11, color: '#94a3b8', lineHeight: 1.4, marginBottom: 8 }}>
+        <div style={{ fontSize: 10, color: '#94a3b8', lineHeight: 1.35, marginBottom: 5 }}>
           {trainer.ability.description}
         </div>
         {/* Value bar */}
@@ -319,7 +319,7 @@ function DossierCard({ trainer, isTaken }: { trainer: Trainer; isTaken: boolean 
       </div>
 
       {/* Battle styles + Signature Pokémon — side by side to save vertical space */}
-      <div style={{ padding: '6px 14px', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+      <div style={{ padding: '4px 14px 5px', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
         <div style={{ flex: 1, textAlign: 'center' }}>
           <div style={{ fontSize: 9, letterSpacing: '0.2em', color: `${trainer.color}88`, textTransform: 'uppercase', marginBottom: 4 }}>
             ── STYLE ──
@@ -440,7 +440,7 @@ export default function TrainerSelect() {
       height: '100dvh',
       maxHeight: '100dvh',
       background: '#050510',
-      padding: '12px 24px 12px',
+      padding: '8px 24px 8px',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
@@ -450,7 +450,7 @@ export default function TrainerSelect() {
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        style={{ textAlign: 'center', marginBottom: 10, width: '100%', maxWidth: 800 }}
+        style={{ textAlign: 'center', marginBottom: 6, width: '100%', maxWidth: 800, flexShrink: 0 }}
       >
         <div style={{
           fontSize: 11, letterSpacing: '0.35em', color: '#334155',
@@ -459,20 +459,20 @@ export default function TrainerSelect() {
           ── SELECT YOUR TRAINER ──
         </div>
         <h1 style={{
-          fontSize: 24, fontWeight: 900, margin: 0,
+          fontSize: 'clamp(16px, 2.5vh, 24px)', fontWeight: 900, margin: 0,
           color: playerColor, letterSpacing: '0.05em',
           fontFamily: 'Impact, Arial Black, sans-serif',
         }}>
           {isP1Turn ? 'PLAYER 1' : 'PLAYER 2'}: CHOOSE YOUR TRAINER
         </h1>
-        <p style={{ color: '#475569', marginTop: 3, marginBottom: 0, fontSize: 12 }}>
+        <p style={{ color: '#475569', marginTop: 2, marginBottom: 0, fontSize: 11 }}>
           {(gameMode === 'vs_ai') && isP1Turn
             ? 'AI will pick automatically after you choose'
             : 'Your trainer ability activates in battle'}
         </p>
 
         {/* Timer + P1 chosen row */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginTop: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginTop: 4 }}>
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: 6,
             background: timeLeft <= 10 ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.04)',
@@ -634,9 +634,9 @@ export default function TrainerSelect() {
 
       {/* SELECT button + hints */}
       <div style={{
-        marginTop: 10, width: '100%',
+        marginTop: 6, width: '100%', flexShrink: 0,
         display: 'flex', flexDirection: 'column',
-        alignItems: 'center', gap: 8,
+        alignItems: 'center', gap: 5,
       }}>
         <motion.button
           whileHover={!isTaken && !lockedIn ? {
