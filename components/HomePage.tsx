@@ -1,14 +1,39 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useArenaStore } from '@/lib/store';
 import { playMusic, resumeAudioContext } from '@/lib/audio/musicEngine';
 import { getSession } from '@/lib/auth';
 import type { PokemonType } from '@/types';
 import { trackSession } from '@/lib/battleStats';
 
+// The home screen was designed at this canvas size (matches Perfect.png dimensions)
+const DESIGN_W = 2605;
+const DESIGN_H = 1080;
+
 export default function HomePage() {
   const { setScreen, setTrainer, currentTrainer } = useArenaStore();
+
+  // ── Viewport-fit scaling ──────────────────────────────────────────────
+  // We treat the home screen as a fixed-size game stage (DESIGN_W × DESIGN_H)
+  // and uniformly scale it down to fit the actual browser viewport.
+  // This keeps the entire composition visible with no clipping, no scrollbars,
+  // and no need to manually resize the window.
+  const [scale, setScale] = useState(1);
+
+  const computeScale = useCallback(() => {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const scaleX = vw / DESIGN_W;
+    const scaleY = vh / DESIGN_H;
+    setScale(Math.min(scaleX, scaleY));
+  }, []);
+
+  useEffect(() => {
+    computeScale();
+    window.addEventListener('resize', computeScale);
+    return () => window.removeEventListener('resize', computeScale);
+  }, [computeScale]);
 
   // Restore session on load
   useEffect(() => {
@@ -81,39 +106,89 @@ export default function HomePage() {
     }
   };
 
+  // Scaled stage dimensions in CSS pixels
+  const stageW = DESIGN_W * scale;
+  const stageH = DESIGN_H * scale;
+
   return (
-    <div className="h-screen w-screen overflow-hidden relative">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src="/Perfect.png"
-        alt="Arena 151 — Draft Battle Conquer"
-        className="absolute inset-0 w-full h-full select-none"
-        style={{ objectFit: 'contain', objectPosition: 'center center' }}
-        draggable={false}
-      />
-
-      {/* Enter Arena — invisible click zone over the button in the image (desktop) */}
-      <button
-        onClick={handleEnterArena}
-        aria-label="Enter the Arena"
-        className="absolute hidden sm:block"
+    /*
+     * Outer shell: fills the full viewport, clips anything that might
+     * theoretically bleed out, centers the scaled stage.
+     * overflow:hidden on the shell prevents any scrollbars.
+     */
+    <div
+      style={{
+        width: '100vw',
+        height: '100dvh',
+        overflow: 'hidden',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#000',
+      }}
+    >
+      {/*
+       * Inner stage: fixed at DESIGN_W × DESIGN_H, then uniformly scaled
+       * so the entire composition fits within the viewport.
+       * transform-origin: top left + explicit translate keeps centering math simple.
+       */}
+      <div
         style={{
-          top: '42%',
-          left: '39%',
-          width: '22%',
-          height: '10%',
-          background: 'transparent',
-          border: 'none',
-          cursor: 'pointer',
+          position: 'relative',
+          width: DESIGN_W,
+          height: DESIGN_H,
+          transform: `scale(${scale})`,
+          transformOrigin: 'top left',
+          // Offset to visually center the scaled stage inside the shell
+          marginLeft: (stageW - DESIGN_W) / 2,
+          marginTop: (stageH - DESIGN_H) / 2,
+          flexShrink: 0,
         }}
-      />
+      >
+        {/* Full-stage background image — no contain/cover needed; stage IS the image size */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/Perfect.png"
+          alt="Arena 151 — Draft Battle Conquer"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'fill',
+            display: 'block',
+            userSelect: 'none',
+          }}
+          draggable={false}
+        />
 
-      {/* Mobile "ENTER ARENA" button — always visible on small screens */}
+        {/* Enter Arena — click zone positioned exactly over the button in the image.
+            These % values map to the image's design canvas (DESIGN_W × DESIGN_H),
+            so they stay pixel-perfect regardless of viewport size. */}
+        <button
+          onClick={handleEnterArena}
+          aria-label="Enter the Arena"
+          style={{
+            position: 'absolute',
+            top: '42%',
+            left: '39%',
+            width: '22%',
+            height: '10%',
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+          }}
+        />
+      </div>
+
+      {/* Mobile "ENTER ARENA" button — rendered outside the stage so it
+          is always legible at small screen sizes (phone-width viewports). */}
       <button
         onClick={handleEnterArena}
         aria-label="Enter the Arena"
-        className="sm:hidden absolute"
+        className="sm:hidden"
         style={{
+          position: 'fixed',
           bottom: '12%',
           left: '50%',
           transform: 'translateX(-50%)',
@@ -128,7 +203,7 @@ export default function HomePage() {
           fontWeight: 900,
           fontFamily: '"Impact", "Arial Black", sans-serif',
           letterSpacing: '0.1em',
-          textTransform: 'uppercase',
+          textTransform: 'uppercase' as const,
           cursor: 'pointer',
           boxShadow: '0 0 32px rgba(124,58,237,0.6), 0 4px 16px rgba(0,0,0,0.6)',
           whiteSpace: 'nowrap',
