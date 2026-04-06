@@ -197,7 +197,7 @@ function DossierCard({ trainer, isTaken }: { trainer: Trainer; isTaken: boolean 
       background: '#0a0a1a',
       border: `2px solid ${trainer.color}66`,
       borderRadius: 6,
-      width: 380,
+      width: 440,
       overflow: 'hidden',
       boxShadow: `0 0 48px ${trainer.color}2a, inset 0 0 60px rgba(0,0,0,0.6)`,
       position: 'relative',
@@ -236,17 +236,17 @@ function DossierCard({ trainer, isTaken }: { trainer: Trainer; isTaken: boolean 
         </div>
         <div style={{
           fontFamily: 'Impact, Arial Black, sans-serif',
-          fontSize: 'clamp(20px, 2.8vh, 30px)',
+          fontSize: 'clamp(26px, 3.6vh, 42px)',
           fontWeight: 900, color: trainer.color,
           lineHeight: 1, letterSpacing: '0.06em',
-          textShadow: `0 0 24px ${trainer.color}88`,
+          textShadow: `0 0 28px ${trainer.color}99`,
         }}>
           {trainer.name.toUpperCase()}
         </div>
-        <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 3, fontStyle: 'italic' }}>
+        <div style={{ fontSize: 13, color: '#94a3b8', marginTop: 4, fontStyle: 'italic' }}>
           {dossier.title}
         </div>
-        <div style={{ fontSize: 10, color: '#475569', marginTop: 1 }}>
+        <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>
           📍 {dossier.location}
         </div>
       </div>
@@ -256,7 +256,7 @@ function DossierCard({ trainer, isTaken }: { trainer: Trainer; isTaken: boolean 
 
         {/* LEFT — big sprite */}
         <div style={{
-          width: 160,
+          width: 190,
           flexShrink: 0,
           display: 'flex',
           alignItems: 'center',
@@ -277,8 +277,8 @@ function DossierCard({ trainer, isTaken }: { trainer: Trainer; isTaken: boolean 
               animate={{ y: [0, -6, 0] }}
               transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
               style={{
-                width: 'clamp(110px, 17vh, 180px)',
-                height: 'clamp(110px, 17vh, 180px)',
+                width: 'clamp(140px, 22vh, 220px)',
+                height: 'clamp(140px, 22vh, 220px)',
                 objectFit: 'contain',
                 imageRendering: trainer.id === 'jessie-james' ? 'auto' : 'pixelated',
                 filter: `drop-shadow(0 8px 20px ${trainer.color}88)`,
@@ -334,16 +334,13 @@ function DossierCard({ trainer, isTaken }: { trainer: Trainer; isTaken: boolean 
           </div>
 
           {/* STYLE */}
-          <div>
+          <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 8, letterSpacing: '0.2em', color: `${trainer.color}77`, textTransform: 'uppercase', marginBottom: 5 }}>
               ── STYLE ──
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center' }}>
               {dossier.battleStyles.map((style, i) => (
-                <div key={i} style={{
-                  fontSize: 11, color: '#94a3b8',
-                  display: 'flex', alignItems: 'center', gap: 5,
-                }}>
+                <div key={i} style={{ fontSize: 11, color: '#94a3b8' }}>
                   {style}
                 </div>
               ))}
@@ -352,20 +349,20 @@ function DossierCard({ trainer, isTaken }: { trainer: Trainer; isTaken: boolean 
 
           {/* SIG. POKÉMON */}
           {dossier.signaturePokemon.length > 0 && (
-            <div style={{ marginTop: 'auto' }}>
+            <div style={{ marginTop: 'auto', textAlign: 'center' }}>
               <div style={{
                 fontSize: 8, letterSpacing: '0.2em', color: `${trainer.color}77`,
-                textTransform: 'uppercase', marginBottom: 5,
+                textTransform: 'uppercase', marginBottom: 6,
               }}>
                 ── SIG. POKÉMON ──
               </div>
-              <div style={{ display: 'flex', gap: 5 }}>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
                 {dossier.signaturePokemon.map(id => (
                   <div key={id} style={{
-                    width: 46, height: 46,
+                    width: 50, height: 50,
                     background: `${trainer.color}0f`,
-                    border: `1px solid ${trainer.color}33`,
-                    borderRadius: 6,
+                    border: `1px solid ${trainer.color}44`,
+                    borderRadius: 8,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>
                     <img
@@ -378,7 +375,7 @@ function DossierCard({ trainer, isTaken }: { trainer: Trainer; isTaken: boolean 
                           img.style.imageRendering = 'auto'
                         }
                       }}
-                      style={{ width: 38, height: 38, imageRendering: 'pixelated', objectFit: 'contain' }}
+                      style={{ width: 42, height: 42, imageRendering: 'pixelated', objectFit: 'contain' }}
                     />
                   </div>
                 ))}
