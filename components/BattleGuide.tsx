@@ -11,7 +11,6 @@ const STEPS = [
     title: 'Choose Your Stakes',
     desc: 'Pick one of 8 Kanto Gym arenas. Entry fees range from $5 at Pewter City to $1,000 at Viridian City. Higher stakes means bigger prizes — but tougher competition.',
     img: '/guide/room-select.png',
-    icon: '🏟️',
     tip: 'Start with Pewter City to get your bearings.',
   },
   {
@@ -19,7 +18,6 @@ const STEPS = [
     title: 'Pick Your Trainer',
     desc: 'Choose from 18 legendary trainers, each with a unique ability that activates in battle. Ash, Giovanni, Misty and more are waiting. Your trainer ability can be the difference between a win and a loss.',
     img: '/guide/trainer-select.png',
-    icon: '🧢',
     tip: 'Trainer abilities stack with your Pokémon\'s natural strengths.',
   },
   {
@@ -27,7 +25,6 @@ const STEPS = [
     title: 'Draft Your Team',
     desc: 'Build a squad of 5 Pokémon from all 151 Gen 1 originals. Real stats, real types, real moves. Each Pokémon has a cost — manage your budget wisely to build the strongest team.',
     img: '/guide/draft.png',
-    icon: '⚡',
     tip: 'Type coverage beats raw power. Diversify your team.',
   },
   {
@@ -35,7 +32,6 @@ const STEPS = [
     title: 'Set Your Battle Order',
     desc: 'Lock in the order your 5 Pokémon will fight. This is your last chance to strategize before the battle begins — lead with your opener, save your closer for last.',
     img: '/guide/battle-order.png',
-    icon: '📋',
     tip: 'Put a fast Pokémon first to set the tempo early.',
   },
   {
@@ -43,7 +39,6 @@ const STEPS = [
     title: 'Battle!',
     desc: 'Your team fights using real Pokémon mechanics: type advantages, status effects, crits, and trainer abilities all play out automatically. Watch your squad dominate — or learn from the defeat.',
     img: '/guide/battle.png',
-    icon: '⚔️',
     tip: 'Use the 3× speed button to fast-forward through battles.',
   },
   {
@@ -51,7 +46,6 @@ const STEPS = [
     title: 'Collect Your Prize',
     desc: 'Winner takes 95% of the combined pot. Your balance updates instantly on-chain. Keep climbing arenas, stacking badges, and building your legend.',
     img: '/guide/victory.png',
-    icon: '🏆',
     tip: 'Win all 8 Gym arenas to earn every Kanto badge.',
   },
 ];
@@ -59,7 +53,7 @@ const STEPS = [
 const BADGES = Object.entries(ARENA_BADGES);
 
 export default function BattleGuide() {
-  const { setScreen } = useArenaStore();
+  const { setScreen, currentTrainer } = useArenaStore();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState(0);
 
@@ -230,8 +224,7 @@ export default function BattleGuide() {
                       {step.num} / {STEPS.length}
                     </div>
 
-                    {/* Icon fallback (always visible behind image) */}
-                    <div style={{ fontSize: 72, opacity: 0.15, userSelect: 'none' }}>{step.icon}</div>
+                    {/* Placeholder shown only when screenshot hasn't loaded */}
 
                     <img
                       src={step.img}
@@ -335,7 +328,7 @@ export default function BattleGuide() {
               <motion.button
                 whileHover={{ scale: 1.04, boxShadow: '0 0 28px rgba(251,191,36,0.5)' }}
                 whileTap={{ scale: 0.97 }}
-                onClick={() => setScreen('draft-mode-intro')}
+                onClick={() => currentTrainer ? setScreen('room-select') : setScreen('signup')}
                 style={{
                   padding: '11px 40px',
                   background: 'linear-gradient(135deg, #fbbf24, #f97316)',
