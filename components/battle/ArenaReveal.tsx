@@ -16,11 +16,11 @@ const TYPE_COLORS: Record<string, string> = {
   rock: '#78716c', ghost: '#6d28d9', dragon: '#7c3aed', dark: '#374151', steel: '#94a3b8',
 }
 
-// Slowdown schedule in ms
+// Slowdown schedule in ms — starts fast, decelerates into the final pick
 const SCHEDULE = [
-  50, 50, 60, 70, 90,
-  120, 160, 210, 280,
-  370, 470, 590, 720,
+  80, 90, 105, 125, 150,
+  185, 225, 275, 340,
+  420, 520, 640, 780,
 ]
 
 export default function ArenaReveal() {
@@ -355,6 +355,9 @@ export default function ArenaReveal() {
   const displayArena = ARENAS[currentIndex]
   if (!arena || !displayArena) return null
 
+  // All arena images to preload
+  const allArenaImages = ARENAS.map(a => a.image).filter(Boolean)
+
   // Show error if paid match creation failed
   if (paidMatchError) {
     const isTimeout = paidMatchError === 'NO_OPPONENT'
@@ -412,6 +415,13 @@ export default function ArenaReveal() {
       position: 'relative',
       overflow: 'hidden',
     }}>
+      {/* Preload ALL arena images so browser caches them before the spin starts */}
+      <div style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden', pointerEvents: 'none' }} aria-hidden="true">
+        {allArenaImages.map(src => (
+          <img key={src} src={src!} alt="" />
+        ))}
+      </div>
+
         <div
           style={{
             height: '100dvh',
@@ -423,27 +433,31 @@ export default function ArenaReveal() {
             justifyContent: 'center',
             position: 'relative',
             overflow: 'hidden',
-            transition: isLocked ? 'background 0.4s ease' : 'none',
-            animation: isLocked ? 'fadeIn 0.3s ease forwards' : 'none',
+            transition: isLocked ? 'background 0.6s ease' : 'background 0.15s ease',
           }}
         >
-          {/* Arena image background — keyed so React fully replaces it on every index change */}
-          {displayArena.image && (
-            <img
-              key={`arena-bg-${currentIndex}`}
-              src={displayArena.image}
-              alt=""
-              aria-hidden="true"
-              style={{
-                position: 'absolute', inset: 0,
-                width: '100%', height: '100%',
-                objectFit: 'cover',
-                objectPosition: 'center',
-                opacity: 0.55,
-                pointerEvents: 'none',
-              }}
-            />
-          )}
+          {/* Arena images — ALL rendered, only active one is visible. No key-destroy thrashing. */}
+          {ARENAS.map((a, i) => (
+            a.image ? (
+              <img
+                key={a.id}
+                src={a.image}
+                alt=""
+                aria-hidden="true"
+                style={{
+                  position: 'absolute', inset: 0,
+                  width: '100%', height: '100%',
+                  objectFit: 'cover',
+                  objectPosition: 'center',
+                  opacity: i === currentIndex ? 0.45 : 0,
+                  transition: i === currentIndex
+                    ? (isLocked ? 'opacity 0.5s ease' : 'opacity 0.08s ease')
+                    : 'opacity 0.08s ease',
+                  pointerEvents: 'none',
+                }}
+              />
+            ) : null
+          ))}
 
           {/* Scanline overlay */}
           <div style={{
@@ -518,8 +532,55 @@ export default function ArenaReveal() {
               </div>
             )}
 
-            {/* Arena artwork */}
-
+            {/* Arena image card — the main visual during the slot machine spin */}
+            <div style={{
+              width: '100%',
+              maxWidth: 560,
+              margin: '0 auto 20px',
+              borderRadius: 16,
+              overflow: 'hidden',
+              border: isLocked
+                ? '2px solid rgba(251,191,36,0.6)'
+                : '2px solid rgba(255,255,255,0.12)',
+              boxShadow: isLocked
+                ? '0 0 40px rgba(251,191,36,0.35), 0 8px 32px rgba(0,0,0,0.6)'
+                : '0 4px 24px rgba(0,0,0,0.5)',
+              aspectRatio: '16/9',
+              position: 'relative',
+              transition: 'border-color 0.4s ease, box-shadow 0.4s ease',
+            }}>
+              {ARENAS.map((a, i) => (
+                a.image ? (
+                  <img
+                    key={a.id}
+                    src={a.image}
+                    alt={a.name}
+                    style={{
+                      position: 'absolute', inset: 0,
+                      width: '100%', height: '100%',
+                      objectFit: 'cover',
+                      objectPosition: 'center',
+                      opacity: i === currentIndex ? 1 : 0,
+                      transition: i === currentIndex
+                        ? (isLocked ? 'opacity 0.5s ease' : 'opacity 0.07s ease')
+                        : 'opacity 0.07s ease',
+                    }}
+                  />
+                ) : (
+                  <div key={a.id} style={{
+                    position: 'absolute', inset: 0,
+                    background: a.bgGradient,
+                    opacity: i === currentIndex ? 1 : 0,
+                    transition: 'opacity 0.07s ease',
+                  }} />
+                )
+              ))}
+              {/* Scanline overlay on card */}
+              <div style={{
+                position: 'absolute', inset: 0, pointerEvents: 'none',
+                background: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.07) 3px, rgba(0,0,0,0.07) 6px)',
+              }} />
+            </div>
 
             {/* Arena name */}
             <motion.h1
