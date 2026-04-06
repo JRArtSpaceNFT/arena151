@@ -20,7 +20,7 @@ import { supabase } from '@/lib/supabase'
 import { TRAINERS } from '@/lib/data/trainers'
 import { createActiveCreature, resolveBattle } from '@/lib/engine/battle'
 import { mulberry32, seedFromMatchId } from '@/lib/engine/prng'
-import { getRandomArena } from '@/lib/data/arenas'
+import { getRandomArena, ARENAS } from '@/lib/data/arenas'
 import TrainerSelect from '@/components/battle/TrainerSelect'
 import { BattleTrainerBusts } from '@/components/battle/GameWrapper'
 import Draft from '@/components/battle/Draft'
@@ -290,23 +290,48 @@ export default function FriendGameWrapper() {
     const trainerId = p1Trainer?.id ?? ''
     console.log('[FriendBattle] 🗂️ Lineup locked. Order:', lineupIds)
 
-    waitForOpponent('lineup_locked', { lineupIds, trainerId }, (oppData, seed, _role, _pAId, _pBId) => {
+    waitForOpponent('lineup_locked', { lineupIds, trainerId }, (oppData, seed, myRole, playerAId, playerBId) => {
       const oppLineupIds = (oppData as { lineupIds: number[] }).lineupIds ?? []
       const oppTrainerId = (oppData as { trainerId: string }).trainerId
-      const oppTrainer = TRAINERS.find(t => t.id === oppTrainerId) ?? useGameStore.getState().p2Trainer ?? TRAINERS[0]
-      const oppLineup = oppLineupIds.map((id: number) => createActiveCreature(id))
-      const myLineup  = useGameStore.getState().lineupA
-      const myTrainer = useGameStore.getState().p1Trainer!
-      const arena     = useGameStore.getState().arena ?? getRandomArena()
+      const oppTrainer   = TRAINERS.find(t => t.id === oppTrainerId) ?? useGameStore.getState().p2Trainer ?? TRAINERS[0]
+      const myTrainer    = useGameStore.getState().p1Trainer!
+      const myLineup     = useGameStore.getState().lineupA
+      const oppLineup    = oppLineupIds.map((id: number) => createActiveCreature(id))
 
-      console.log('[FriendBattle] ⚔️ Computing battle. seed:', seed, 'myTeam:', lineupIds, 'oppTeam:', oppLineupIds)
+      // CANONICAL ORDER: always compute resolveBattle(player_a_team, player_b_team)
+      // regardless of which player is viewing. This ensures BOTH devices produce
+      // the IDENTICAL battle sequence with the same seed.
+      const amPlayerA    = myRole === 'a'
+      const teamA        = amPlayerA ? myLineup  : oppLineup
+      const teamB        = amPlayerA ? oppLineup : myLineup
+      const trainerA     = amPlayerA ? myTrainer  : oppTrainer
+      const trainerB     = amPlayerA ? oppTrainer : myTrainer
 
-      // Deterministic RNG — same seed = same battle outcome on both devices
-      const rng = seed ? mulberry32(seedFromMatchId(seed)) : undefined
-      const battleState = resolveBattle(myLineup, oppLineup, arena, myTrainer, oppTrainer, rng)
+      // Arena derived from seed — same seed = same arena on both devices.
+      const seedNum     = seed ? Math.abs(seed.split('').reduce((h: number, c: string) => Math.imul(h, 31) + c.charCodeAt(0) | 0, 0)) : 0
+      const arena       = ARENAS[seedNum % ARENAS.length]
 
-      console.log('[FriendBattle] ✅ Battle computed. Winner:', battleState.winner)
-      useGameStore.setState({ p2Trainer: oppTrainer, lineupB: oppLineup, battleState, screen: 'battle' })
+      console.log('[FriendBattle] ⚔️ Computing battle. seed:', seed, 'role:', myRole,
+        'teamA:', teamA.map(a => a.creature.id), 'teamB:', teamB.map(a => a.creature.id),
+        'arena:', arena?.id)
+
+      // Shared deterministic RNG — same inputs + same seed = identical battle on both screens
+      const rng         = seed ? mulberry32(seedFromMatchId(seed)) : undefined
+      const battleState = resolveBattle(teamA, teamB, arena, trainerA, trainerB, rng)
+
+      // Winner 'A' always means player_a won. Each device shows victory/defeat accordingly.
+      const iWon = (battleState.winner === 'A' && amPlayerA) || (battleState.winner === 'B' && !amPlayerA)
+      console.log('[FriendBattle] ✅ Battle computed. Winner side:', battleState.winner, '| I won:', iWon)
+
+      useGameStore.setState({
+        p1Trainer: amPlayerA ? myTrainer  : oppTrainer,
+        p2Trainer: amPlayerA ? oppTrainer : myTrainer,
+        lineupA:   teamA,
+        lineupB:   teamB,
+        arena,
+        battleState,
+        screen: 'battle',
+      })
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameScreen])
