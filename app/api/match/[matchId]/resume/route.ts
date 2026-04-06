@@ -17,8 +17,23 @@
  * resumePhase tells the client exactly where to resume:
  *   waiting_p2    → P1 should return to ArenaReveal and wait for P2
  *   battle_ready  → both joined; compute canonical battle and go to battle screen
- *   settled       → match already settled; show result
+ *   settled       → match already settled; show result — includes full resultPayload
  *   abandoned     → match voided/refunded; show error
+ *
+ * When resumePhase === 'settled', the response also includes:
+ *   resultPayload: {
+ *     winnerId:       string — UUID of the winner
+ *     myRole:         'player_a' | 'player_b'
+ *     iWon:           boolean
+ *     entryFeeSol:    number
+ *     payoutDelta:    number — net SOL change for caller (+winner, -loser)
+ *     finalStatus:    string — e.g. 'settled'
+ *     battleSeed:     string
+ *     settlementTx:   string | null
+ *     myProfile:      { id, username, displayName, balance, wins, losses, badges, avatar }
+ *     opponentProfile: { id, username, displayName } | null
+ *     roomId:         string | null
+ *   }
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -49,7 +64,7 @@ export async function GET(
 
     const { data: match, error } = await supabaseAdmin
       .from('matches')
-      .select('id, player_a_id, player_b_id, status, battle_seed, team_a, team_b, winner_id, entry_fee_sol, settlement_tx')
+      .select('id, player_a_id, player_b_id, status, battle_seed, team_a, team_b, winner_id, entry_fee_sol, settlement_tx, room_id')
       .eq('id', matchId)
       .single()
 
@@ -83,7 +98,8 @@ export async function GET(
       resumePhase = 'battle_ready' // default: attempt to proceed
     }
 
-    return NextResponse.json({
+    // Base response for all phases
+    const baseResponse = {
       myRole,
       status:      match.status,
       battleSeed:  match.battle_seed,
@@ -94,7 +110,74 @@ export async function GET(
       settlementTx: match.settlement_tx,
       resumePhase,
       matchId:     match.id,
-    })
+    }
+
+    // For settled matches, enrich with a full result payload so the client can
+    // render ResultScreen without any in-memory Zustand state.
+    if (resumePhase === 'settled' && match.winner_id) {
+      const winnerId = match.winner_id as string
+      const iWon = (
+        (myRole === 'player_a' && winnerId === match.player_a_id) ||
+        (myRole === 'player_b' && winnerId === match.player_b_id)
+      )
+      const entryFee = Number(match.entry_fee_sol)
+      // Winner receives 2× entry minus any platform fee (currently 0% — net = +entryFee).
+      // Loser loses their entry (net = -entryFee).
+      const payoutDelta = iWon ? entryFee : -entryFee
+
+      // Fetch caller's profile
+      const { data: myProfile } = await supabaseAdmin
+        .from('profiles')
+        .select('id, username, display_name, balance, wins, losses, badges, avatar')
+        .eq('id', user.id)
+        .single()
+
+      // Fetch opponent's profile (may be null if match was voided before P2 joined)
+      const opponentId = myRole === 'player_a' ? match.player_b_id : match.player_a_id
+      let opponentProfile: { id: string; username: string; displayName: string } | null = null
+      if (opponentId) {
+        const { data: opp } = await supabaseAdmin
+          .from('profiles')
+          .select('id, username, display_name')
+          .eq('id', opponentId)
+          .single()
+        if (opp) {
+          opponentProfile = {
+            id: opp.id,
+            username: opp.username,
+            displayName: opp.display_name,
+          }
+        }
+      }
+
+      return NextResponse.json({
+        ...baseResponse,
+        resultPayload: {
+          winnerId,
+          myRole,
+          iWon,
+          entryFeeSol:     entryFee,
+          payoutDelta,
+          finalStatus:     match.status,
+          battleSeed:      match.battle_seed ?? null,
+          settlementTx:    match.settlement_tx ?? null,
+          roomId:          match.room_id ?? null,
+          myProfile:       myProfile ? {
+            id:          myProfile.id,
+            username:    myProfile.username,
+            displayName: myProfile.display_name,
+            balance:     Number(myProfile.balance ?? 0),
+            wins:        myProfile.wins ?? 0,
+            losses:      myProfile.losses ?? 0,
+            badges:      myProfile.badges ?? [],
+            avatar:      myProfile.avatar ?? '🧑',
+          } : null,
+          opponentProfile,
+        },
+      })
+    }
+
+    return NextResponse.json(baseResponse)
 
   } catch (err) {
     console.error('[MatchResume] Unexpected error:', err)

@@ -270,7 +270,15 @@ export default function GameWrapper() {
           }
 
           if (rd.resumePhase === 'settled') {
-            // Already settled — clear sessionStorage and go to result
+            // Already settled — hydrate result state from server payload, THEN navigate.
+            // Clearing sessionStorage before hydration would create a blank ResultScreen.
+            if (rd.resultPayload) {
+              const { setSettledMatchResult, setLastMatchWinner } = (await import('@/lib/store')).useArenaStore.getState()
+              setSettledMatchResult(rd.resultPayload)
+              // lastMatchWinner: 1 = iWon (player perspective), 2 = opponent won
+              setLastMatchWinner(rd.resultPayload.iWon ? 1 : 2)
+            }
+            // Only clear sessionStorage AFTER hydration so ResultScreen has data.
             sessionStorage.removeItem('arena_matchId')
             sessionStorage.removeItem('arena_seed')
             sessionStorage.removeItem('arena_isJoiner')

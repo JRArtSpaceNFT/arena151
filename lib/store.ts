@@ -1,7 +1,36 @@
 import { create } from 'zustand';
 import type { Trainer, AppScreen, BattleRoom, RoomTier, QueueState, ChatMessage, MatchFound } from '@/types';
+/**
+ * Hydrated result from the server when resuming a settled match after refresh.
+ * Populated by the /resume endpoint's resultPayload field.
+ */
+export interface SettledMatchResult {
+  winnerId: string;
+  myRole: 'player_a' | 'player_b';
+  iWon: boolean;
+  entryFeeSol: number;
+  payoutDelta: number;
+  finalStatus: string;
+  battleSeed: string | null;
+  settlementTx: string | null;
+  roomId: string | null;
+  myProfile: {
+    id: string;
+    username: string;
+    displayName: string;
+    balance: number;
+    wins: number;
+    losses: number;
+    badges: string[];
+    avatar: string;
+  } | null;
+  opponentProfile: { id: string; username: string; displayName: string } | null;
+}
 
 interface ArenaState {
+  // Hydrated settled-match result for post-refresh resume (avoids Zustand-only state loss)
+  settledMatchResult: SettledMatchResult | null;
+  setSettledMatchResult: (result: SettledMatchResult | null) => void;
   // Current screen
   currentScreen: AppScreen;
   setScreen: (screen: AppScreen) => void;
@@ -55,6 +84,9 @@ export const useArenaStore = create<ArenaState>((set) => ({
 
   lastMatchWinner: null,
   setLastMatchWinner: (winner) => set({ lastMatchWinner: winner }),
+
+  settledMatchResult: null,
+  setSettledMatchResult: (result) => set({ settledMatchResult: result }),
 
   currentTrainer: null,
   setTrainer: (trainer) => set({ currentTrainer: trainer }),
