@@ -311,17 +311,17 @@ function pickMove(
       let score = (isStatus ? 30 : m.power) * (isStatus ? 1 : tm) * (acc / 100)
       score *= getPersonalityMultiplier(personality, m.power, acc, isUlt, isStatus, hpRatio)
       // Hard block: can never use the same move twice in a row
-      if (m.id === lastMoveId) {
-        score = 0
-      }
+      if (m.id === lastMoveId) return { move: m, score: 0 }  // hard zero — not eligible
       return { move: m, score: Math.max(score, 0.1) }
     })
 
   // Filter out hard-blocked moves (score === 0), fall back to full list if all blocked
   const eligible = scored.filter(s => s.score > 0)
-  const pool = eligible.length > 0 ? eligible : scored
+  // If ALL moves are hard-blocked (e.g. only 1 move in pool), use Struggle rather than
+  // repeating the blocked move. The scored fallback would otherwise bypass the repeat block.
+  const pool = eligible.length > 0 ? eligible : []
 
-  if (pool.length === 0) return moves[0]
+  if (pool.length === 0) return STRUGGLE  // all moves blocked (e.g. only 1 move, just used it)
 
   // Weighted random: higher score = more likely
   const total = pool.reduce((sum, s) => sum + s.score, 0)
