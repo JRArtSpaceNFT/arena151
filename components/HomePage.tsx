@@ -106,43 +106,35 @@ export default function HomePage() {
     }
   };
 
-  // Scaled stage dimensions in CSS pixels
-  const stageW = DESIGN_W * scale;
-  const stageH = DESIGN_H * scale;
-
   return (
     /*
-     * Outer shell: fills the full viewport, clips anything that might
-     * theoretically bleed out, centers the scaled stage.
-     * overflow:hidden on the shell prevents any scrollbars.
+     * Outer shell: fills the full viewport, clips overflow, black letterbox bg.
+     * position:relative so the inner stage can absolute-center inside it.
      */
     <div
       style={{
-        width: '100vw',
-        height: '100dvh',
+        position: 'fixed',
+        inset: 0,
         overflow: 'hidden',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
         background: '#000',
       }}
     >
       {/*
-       * Inner stage: fixed at DESIGN_W × DESIGN_H, then uniformly scaled
-       * so the entire composition fits within the viewport.
-       * transform-origin: top left + explicit translate keeps centering math simple.
+       * Inner stage: DESIGN_W × DESIGN_H in layout space, absolutely centered
+       * in the shell via top/left 50% + translate(-50%,-50%).
+       * Then scale() shrinks it uniformly around its own center.
+       * Because translate happens before scale in the transform chain,
+       * the visual center stays pinned to the viewport center.
        */}
       <div
         style={{
-          position: 'relative',
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
           width: DESIGN_W,
           height: DESIGN_H,
-          transform: `scale(${scale})`,
-          transformOrigin: 'top left',
-          // Offset to visually center the scaled stage inside the shell
-          marginLeft: (stageW - DESIGN_W) / 2,
-          marginTop: (stageH - DESIGN_H) / 2,
-          flexShrink: 0,
+          transform: `translate(-50%, -50%) scale(${scale})`,
+          transformOrigin: 'center center',
         }}
       >
         {/* Full-stage background image — no contain/cover needed; stage IS the image size */}
