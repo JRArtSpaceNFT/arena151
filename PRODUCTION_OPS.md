@@ -42,6 +42,7 @@ SELECT * FROM matches
 WHERE status IN ('settling', 'settlement_pending')
 AND updated_at < now() - interval '10 minutes';
 -- Resolve via admin API:
+-- Use refund_both for settling/settlement_pending (both players locked funds)
 curl -X POST https://arena151.xyz/api/admin/match/MATCH_ID/review \
   -H "x-admin-token: $ADMIN_SECRET" \
   -H "Content-Type: application/json" \
@@ -142,11 +143,13 @@ ORDER BY created_at ASC;
 curl https://arena151.xyz/api/cron/settlement-health \
   -H "x-cron-secret: $CRON_SECRET"
 
-# Step 2: if match still forming, void it via admin API
+# Step 2: if match still forming, refund P1 and void via admin API
+# Note: 'refund_both' is safe here even though P2 never joined —
+# the endpoint checks player_b_id and only unlocks P1's funds if P2 is null.
 curl -X POST https://arena151.xyz/api/admin/match/MATCH_ID/review \
   -H "x-admin-token: $ADMIN_SECRET" \
   -H "Content-Type: application/json" \
-  -d '{"action":"refund_both","reason":"Stuck forming > 30 min — cron miss, manual void"}'
+  -d '{"action":"refund_both","reason":"Stuck forming > 30 min — cron miss, P1 refund only"}'
 ```
 
 ---
