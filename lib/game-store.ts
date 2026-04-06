@@ -179,13 +179,16 @@ export const useGameStore = create<GameState>((set, get) => ({
           screen: 'draft',
         })
       } else if (gameMode === 'friend_battle') {
-        // Friend battle: same as paid_pvp — P2 trainer comes from server sync
+        // Friend battle: each player is on their own device.
+        // P1 picks their trainer and immediately advances to draft.
+        // trainerSelectPhase stays 'p1' — there is no local P2 selection.
+        // P2's trainer is resolved via server sync in FriendGameWrapper step 1.
         const placeholder = TRAINERS.find(t => t.id !== trainer.id) ?? TRAINERS[0]
-        console.log('[FriendBattle] P1 trainer selected:', trainer.id)
+        console.log('[FriendBattle] P1 trainer selected:', trainer.id, '→ advancing to draft')
         set({
           p1Trainer: trainer,
           p2Trainer: placeholder,
-          trainerSelectPhase: 'p2',
+          trainerSelectPhase: 'p1',  // keep at p1 — no local P2 pick in friend_battle
           draftCurrentPicker: 'p1',
           screen: 'draft',
         })
