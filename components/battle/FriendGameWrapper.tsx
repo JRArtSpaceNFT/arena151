@@ -298,38 +298,58 @@ export default function FriendGameWrapper() {
       const myLineup     = useGameStore.getState().lineupA
       const oppLineup    = oppLineupIds.map((id: number) => createActiveCreature(id))
 
-      // CANONICAL ORDER: always compute resolveBattle(player_a_team, player_b_team)
-      // regardless of which player is viewing. This ensures BOTH devices produce
-      // the IDENTICAL battle sequence with the same seed.
+      // CANONICAL ORDER for deterministic computation:
+      // Always compute resolveBattle(player_a_team, player_b_team) with same seed.
+      // Both devices produce the SAME battle sequence.
       const amPlayerA    = myRole === 'a'
-      const teamA        = amPlayerA ? myLineup  : oppLineup
-      const teamB        = amPlayerA ? oppLineup : myLineup
-      const trainerA     = amPlayerA ? myTrainer  : oppTrainer
-      const trainerB     = amPlayerA ? oppTrainer : myTrainer
+      const canonTeamA   = amPlayerA ? myLineup  : oppLineup  // player_a's team
+      const canonTeamB   = amPlayerA ? oppLineup : myLineup   // player_b's team
+      const canonTrainerA = amPlayerA ? myTrainer : oppTrainer
+      const canonTrainerB = amPlayerA ? oppTrainer : myTrainer
 
-      // Arena derived from seed — same seed = same arena on both devices.
+      // Arena derived from seed — same on both devices
       const seedNum     = seed ? Math.abs(seed.split('').reduce((h: number, c: string) => Math.imul(h, 31) + c.charCodeAt(0) | 0, 0)) : 0
       const arena       = ARENAS[seedNum % ARENAS.length]
 
       console.log('[FriendBattle] ⚔️ Computing battle. seed:', seed, 'role:', myRole,
-        'teamA:', teamA.map(a => a.creature.id), 'teamB:', teamB.map(a => a.creature.id),
+        'canonTeamA:', canonTeamA.map(a => a.creature.id),
+        'canonTeamB:', canonTeamB.map(a => a.creature.id),
         'arena:', arena?.id)
 
-      // Shared deterministic RNG — same inputs + same seed = identical battle on both screens
-      const rng         = seed ? mulberry32(seedFromMatchId(seed)) : undefined
-      const battleState = resolveBattle(teamA, teamB, arena, trainerA, trainerB, rng)
+      // Deterministic battle — same canonical inputs + same seed = same winner on both devices
+      const rng           = seed ? mulberry32(seedFromMatchId(seed)) : undefined
+      const canonBattle   = resolveBattle(canonTeamA, canonTeamB, arena, canonTrainerA, canonTrainerB, rng)
 
-      // Winner 'A' always means player_a won. Each device shows victory/defeat accordingly.
-      const iWon = (battleState.winner === 'A' && amPlayerA) || (battleState.winner === 'B' && !amPlayerA)
-      console.log('[FriendBattle] ✅ Battle computed. Winner side:', battleState.winner, '| I won:', iWon)
+      // FIX 7: Adjust perspective so winner='A' ALWAYS means "I won" on this device.
+      // BattleScreen shows Victory when winner='A' and Defeat when winner='B'.
+      // For player_b: canonical winner='A' means player_a won (I lost), so we must
+      // set lineupA=myTeam, lineupB=oppTeam and invert the winner for display.
+      const iWon = (canonBattle.winner === 'A' && amPlayerA) || (canonBattle.winner === 'B' && !amPlayerA)
+      const displayWinner = iWon ? 'A' : 'B'
+
+      // Build display battle state from my perspective (my team = A, opponent = B)
+      const displayBattle = {
+        ...canonBattle,
+        winner: displayWinner as 'A' | 'B',
+        // Swap team arrays if I'm player_b so BattleScreen shows my team on left (A side)
+        teamA: amPlayerA ? canonBattle.teamA : canonBattle.teamB,
+        teamB: amPlayerA ? canonBattle.teamB : canonBattle.teamA,
+        // Also swap the log entries' side references so animations match
+        log: canonBattle.log.map(entry => amPlayerA ? entry : {
+          ...entry,
+          side: (entry.side === 'A' ? 'B' : entry.side === 'B' ? 'A' : entry.side) as 'A' | 'B' | undefined,
+        }),
+      }
+
+      console.log('[FriendBattle] ✅ Battle computed. Canonical winner:', canonBattle.winner, '| I won:', iWon, '| Display winner:', displayWinner)
 
       useGameStore.setState({
-        p1Trainer: amPlayerA ? myTrainer  : oppTrainer,
-        p2Trainer: amPlayerA ? oppTrainer : myTrainer,
-        lineupA:   teamA,
-        lineupB:   teamB,
+        p1Trainer: myTrainer,    // always MY trainer on MY screen
+        p2Trainer: oppTrainer,   // always OPPONENT's trainer on MY screen
+        lineupA:   amPlayerA ? canonTeamA : canonTeamB,  // my team always in slot A
+        lineupB:   amPlayerA ? canonTeamB : canonTeamA,  // opponent always in slot B
         arena,
-        battleState,
+        battleState: displayBattle,
         screen: 'battle',
       })
     })

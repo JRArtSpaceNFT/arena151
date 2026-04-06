@@ -97,6 +97,19 @@ export default function ArenaReveal() {
     const entryFee = currentMatch?.room?.entryFee ?? 0
     const isPaidMatch = entryFee > 0
 
+    // FIX 5: Friend battle — skip the 4.5s delay entirely.
+    // FriendGameWrapper handles battle computation via lineup_locked sync.
+    // proceedFromArenaReveal is a no-op in friend_battle mode anyway,
+    // but we also skip the 4.5s wait to avoid wasting time.
+    const { useGameStore: gs } = require('@/lib/game-store') as { useGameStore: typeof import('@/lib/game-store').useGameStore }
+    const isFriendBattle = gs.getState().gameMode === 'friend_battle'
+
+    if (isFriendBattle) {
+      // FriendGameWrapper computes and sets screen='battle' directly after lineup sync.
+      // Nothing to do here — just let the ArenaReveal visuals play.
+      return
+    }
+
     if (!isPaidMatch || paidMatchCreated.current) {
       // Practice/AI or already handled — proceed immediately after delay
       const t = setTimeout(() => {
@@ -183,7 +196,7 @@ export default function ArenaReveal() {
         // P2: server already computed winner — teamA + teamB both present in response
         const finalData = isP2 ? data : await waitForP2(matchId, session.access_token)
         if (!finalData) {
-          setPaidMatchError('Opponent did not join in time. Funds returned.')
+          setPaidMatchError('Opponent did not join. Your funds will be unlocked automatically within the hour.')
           return
         }
         const finalSeed  = finalData.battleSeed ?? seed
@@ -208,10 +221,15 @@ export default function ArenaReveal() {
           const seedNum = Math.abs(seed.split('').reduce((h: number, c: string) => Math.imul(h, 31) + c.charCodeAt(0) | 0, 0))
           const canonicalArena = ARENAS[seedNum % ARENAS.length]
 
-          // Canonical trainers — use current store trainers (P1/P2 already selected)
+          // Canonical trainers: derive from seed so BOTH devices use the same trainers.
+          // Using state.p1Trainer/p2Trainer would give different random AI trainers per device.
+          // Seed-derived index ensures both clients pick identical trainers for the display battle.
+          // The settlement winner is determined server-side (doesn't depend on client trainer display).
           const state = gameStore.getState()
-          const trainerA = state.p1Trainer ?? TRAINERS[0]
-          const trainerB = state.p2Trainer ?? TRAINERS[1]
+          const trainerSeedA = Math.abs((seedNum * 7 + 3) % TRAINERS.length)
+          const trainerSeedB = Math.abs((seedNum * 13 + 7) % TRAINERS.length)
+          const trainerA = TRAINERS[trainerSeedA] ?? state.p1Trainer ?? TRAINERS[0]
+          const trainerB = TRAINERS[trainerSeedB !== trainerSeedA ? trainerSeedB : (trainerSeedB + 1) % TRAINERS.length] ?? state.p2Trainer ?? TRAINERS[1]
 
           const rng = mulberry32(seedFromMatchId(seed))
           const battleState = resolveBattle(teamA, teamB, canonicalArena, trainerA, trainerB, rng)

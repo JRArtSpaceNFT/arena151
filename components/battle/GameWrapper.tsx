@@ -248,20 +248,33 @@ export default function GameWrapper() {
         const { data: { session } } = await supabase.auth.getSession()
         if (!session?.access_token) return
 
-        // Server already has winner_id — just trigger settlement
-        const res = await fetch('/api/settle', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({ matchId: serverMatchId }),
-        })
-        const data = await res.json()
-        if (!res.ok) {
-          console.error('[GameWrapper] Settlement failed:', data)
-        } else {
-          console.log('[GameWrapper] Settled successfully:', data)
+        // Server already has winner_id — just trigger settlement.
+        // Retry up to 3 times with 2s delay (handles transient network blips).
+        let settled = false
+        for (let attempt = 0; attempt < 3 && !settled; attempt++) {
+          if (attempt > 0) await new Promise(r => setTimeout(r, 2000))
+          const res = await fetch('/api/settle', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({ matchId: serverMatchId }),
+          })
+          const data = await res.json()
+          if (res.ok || data.alreadySettled) {
+            console.log('[GameWrapper] Settled successfully:', data)
+            settled = true
+          } else if (res.status === 409) {
+            // Another player already triggered settlement — that's fine
+            console.log('[GameWrapper] Settlement already in progress or done:', data)
+            settled = true
+          } else {
+            console.error(`[GameWrapper] Settlement attempt ${attempt + 1}/3 failed:`, data)
+          }
+        }
+        if (!settled) {
+          console.error('[GameWrapper] Settlement failed after 3 attempts. Cron will retry automatically.')
         }
       } catch (err) {
         console.error('[GameWrapper] Auto-settle error:', err)
