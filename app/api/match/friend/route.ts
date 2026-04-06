@@ -112,6 +112,8 @@ export async function POST(req: NextRequest) {
           friend_code: code,
           battle_seed: battleSeed,
           idempotency_key: crypto.randomUUID(),
+          metadata_a: {},
+          metadata_b: {},
         })
 
       if (insertError) {
@@ -156,12 +158,15 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'You cannot join your own room — share the code with a friend' }, { status: 400 })
       }
 
-      // Atomic join — .eq('status', 'forming') + .is('player_b_id', null) prevents race condition
+      // Atomic join — .eq('status', 'forming') + .is('player_b_id', null) prevents race condition.
+      // Also clear metadata_a/b to reset any stale sync state from prior failed sessions.
       const { data: updated, error: updateError } = await supabaseAdmin
         .from('matches')
         .update({
           player_b_id: user.id,
           status: 'ready',
+          metadata_a: {},
+          metadata_b: {},
           updated_at: new Date().toISOString(),
         })
         .eq('id', match.id)

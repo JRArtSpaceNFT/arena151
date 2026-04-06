@@ -169,29 +169,69 @@ export default function FriendBattle() {
     setTimeout(() => startGame(data.battleSeed, data.matchId), 1500)
   }
 
-  // Smart button — try join first, create if no room exists
+  // Smart button — try join first, create if no room exists.
+  // Handles race condition: if both players hit at the same time,
+  // one create will fail with CODE_TAKEN — that player falls back to join.
   const handleFindMatch = async () => {
     const trimmed = code.trim()
     if (trimmed.length < 4) { setErrorMsg('Code must be at least 4 characters'); return }
     setErrorMsg('')
 
-    // First try to join
     const token = await getToken()
     if (!token) { setErrorMsg('You must be logged in'); return }
 
+    // Check if a room already exists for this code
     const checkRes = await fetch('/api/match/friend', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ action: 'status', friendCode: trimmed }),
     })
     const checkData = await checkRes.json()
 
-    if (checkData.status === 'forming') {
+    if (checkData.status === 'forming' || checkData.status === 'ready') {
       // Room exists — join it
       await handleJoin()
     } else {
-      // No room — create one
-      await handleCreate()
+      // No room — try to create; if CODE_TAKEN race occurred, fall back to join
+      const createRes = await fetch('/api/match/friend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action: 'create', friendCode: trimmed }),
+      })
+      const createData = await createRes.json()
+
+      if (createRes.ok) {
+        // Successfully created — set up as P1
+        setMatchId(createData.matchId)
+        setRole('p1')
+        setPhase('waiting')
+        pollRef.current = setInterval(async () => {
+          const pollRes = await fetch('/api/match/friend', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'status', matchId: createData.matchId }),
+          })
+          const pollData = await pollRes.json()
+          if (pollData.status === 'ready') {
+            stopPolling()
+            setPhase('found')
+            if (pollData.playerBId) {
+              const { data: profile } = await import('@/lib/supabase').then(m =>
+                m.supabase.from('profiles').select('display_name, username').eq('id', pollData.playerBId).single()
+              )
+              setOpponentName((profile as {display_name?:string;username?:string})?.display_name || (profile as {display_name?:string;username?:string})?.username || 'Challenger')
+            }
+            setTimeout(() => startGame(createData.battleSeed, createData.matchId), 2000)
+          } else if (pollData.status === 'expired' || pollData.status === 'not_found') {
+            stopPolling(); setPhase('expired')
+          }
+        }, 2000)
+      } else if (createData.code === 'CODE_TAKEN') {
+        // Race condition: someone else created with this code just now — join instead
+        await handleJoin()
+      } else {
+        setErrorMsg(createData.error ?? 'Failed to connect')
+      }
     }
   }
 
