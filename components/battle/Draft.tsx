@@ -912,8 +912,8 @@ export default function Draft() {
                 inset: 0,
                 width: '100%',
                 height: '100%',
-                objectFit: 'contain',
-                objectPosition: 'center center',
+                objectFit: 'cover',
+                objectPosition: 'center bottom',
                 zIndex: 0,
                 pointerEvents: 'none',
               }}

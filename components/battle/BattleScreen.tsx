@@ -58,9 +58,23 @@ export default function BattleScreen() {
     return () => {
       setMoveAnim(null) // safety: always clear animation on unmount
       stopCrowdAmbient()
+      // Flush dialogue queue — prevents callbacks from running after unmount
+      dialogueQueueRef.current = []
+      dialogueBusyRef.current = false
+      if (busyTimeoutRef.current) clearTimeout(busyTimeoutRef.current)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // ── LOCAL PLAYBACK SPEED ─────────────────────────────────────
+  // Client-only. Never touches battle state, results, or server.
+  // 1 = normal, 3 = fast. Each player sets this independently.
+  const [playbackSpeed, setPlaybackSpeed] = useState<1 | 3>(1)
+  const playbackSpeedRef = useRef<1 | 3>(1)
+  useEffect(() => { playbackSpeedRef.current = playbackSpeed }, [playbackSpeed])
+  // Unmount guard — prevents state updates from fire-and-forget animation timeouts firing after unmount
+  const isMountedRef = useRef(true)
+  useEffect(() => { isMountedRef.current = true; return () => { isMountedRef.current = false } }, [])
 
   // ── Core playback state ─────────────────────────────────────
   const [visibleLog, setVisibleLog] = useState<BattleLogEntry[]>([])
@@ -155,11 +169,12 @@ export default function BattleScreen() {
 
     // Safety: if queue never drains (e.g. React timing edge case), force-unlock after 3s
     if (busyTimeoutRef.current) clearTimeout(busyTimeoutRef.current)
+    const spd = playbackSpeedRef.current
     busyTimeoutRef.current = setTimeout(() => {
       clearBattleDialogue()
       dialogueBusyRef.current = false
-      setTimeout(drainDialogueQueue, 400) // 400ms gap — ensures previous box is fully gone before next appears
-    }, 2200)
+      setTimeout(drainDialogueQueue, Math.max(40, Math.round(400 / spd)))
+    }, Math.max(80, Math.round(2200 / spd)))
   }, [showBattleDialogue, clearBattleDialogue])
 
   const queueDialogue = useCallback((text: string, side: 'A' | 'B') => {
@@ -225,7 +240,7 @@ export default function BattleScreen() {
       dialogueQueueRef.current = []
       dialogueBusyRef.current = false
       clearBattleDialogue()
-      setTimeout(() => setIsDone(true), 1500)
+      setTimeout(() => setIsDone(true), Math.max(80, Math.round(1500 / playbackSpeedRef.current)))
       return
     }
     if (logIndex === 0 && visibleLog.length > 0) return // stale state guard
@@ -254,11 +269,11 @@ export default function BattleScreen() {
         setStatusA(entry.statusAfter.A)
         setStatusB(entry.statusAfter.B)
         if (entry.statusAfter.A !== 'none' && entry.statusAfter.A !== prevStatusA.current) {
-          const s = entry.statusAfter.A; setTimeout(() => playStatusSound(s), 100)
+          const s = entry.statusAfter.A; setTimeout(() => playStatusSound(s), Math.max(20, Math.round(100 / playbackSpeedRef.current)))
           prevStatusA.current = entry.statusAfter.A
         }
         if (entry.statusAfter.B !== 'none' && entry.statusAfter.B !== prevStatusB.current) {
-          const s = entry.statusAfter.B; setTimeout(() => playStatusSound(s), 100)
+          const s = entry.statusAfter.B; setTimeout(() => playStatusSound(s), Math.max(20, Math.round(100 / playbackSpeedRef.current)))
           prevStatusB.current = entry.statusAfter.B
         }
       }
@@ -276,10 +291,10 @@ export default function BattleScreen() {
       }
 
       setLogIndex(prev => prev + 1)
-    }, getDelay(battleState.log[logIndex]))
+    }, getDelay(battleState.log[logIndex], playbackSpeedRef.current))
 
     return () => clearTimeout(timer)
-  }, [battleState, logIndex, isDone, specialFlash])
+  }, [battleState, logIndex, isDone, specialFlash, playbackSpeed])
 
   // ── Animation triggers ──────────────────────────────────────
   useEffect(() => {
@@ -317,14 +332,17 @@ export default function BattleScreen() {
       const defenderSide = entry.side === 'A' ? 'B' : 'A'
       setTimeout(() => {
         setMissPopup({ side: defenderSide, key: Date.now() })
-        setTimeout(() => setMissPopup(null), 950) // matches missPopIn duration
-      }, 600)
+        setTimeout(() => setMissPopup(null), Math.max(40, Math.round(950 / playbackSpeedRef.current)))
+      }, Math.max(40, Math.round(600 / playbackSpeedRef.current)))
     }
 
     // Attack animations fire AFTER dialogue has had time to show
-    const ATTACK_DELAY = 1400
+    // Scale animation delays by playback speed (local, client-only)
+    const spd = playbackSpeedRef.current
+    const ATTACK_DELAY = Math.max(40, Math.round(1400 / spd))
     // For ultimates: all attack visuals fire AFTER the special flash ends (~3.9s)
-    const ULTIMATE_ATTACK_DELAY = 3900
+    // At 3x speed the special flash itself is skipped, so we use a shorter delay
+    const ULTIMATE_ATTACK_DELAY = Math.max(80, Math.round(3900 / spd))
 
     // ── ATTACK VISUAL GATE ──────────────────────────────────────────────────────
     // Hard rule: same side NEVER animates twice in a row.
@@ -343,14 +361,14 @@ export default function BattleScreen() {
       const side = entry.side
       setTimeout(() => {
         setAttackingSide(side)
-        setTimeout(() => setAttackingSide(null), 350)
+        setTimeout(() => setAttackingSide(null), Math.max(40, Math.round(350 / spd)))
       }, ATTACK_DELAY)
     }
     if (entry.type === 'ultimate' && entry.side && !sameAsLast) {
       const side = entry.side
       setTimeout(() => {
         setAttackingSide(side)
-        setTimeout(() => setAttackingSide(null), 350)
+        setTimeout(() => setAttackingSide(null), Math.max(40, Math.round(350 / spd)))
       }, ULTIMATE_ATTACK_DELAY)
     }
 
@@ -364,7 +382,7 @@ export default function BattleScreen() {
         setTimeout(() => {
           setFlashingSide(null)
           setFlashMoveType(null)
-        }, 200)
+        }, Math.max(40, Math.round(200 / spd)))
       }, ATTACK_DELAY)
     }
 
@@ -372,8 +390,8 @@ export default function BattleScreen() {
     if ((entry.type === 'damage' || entry.type === 'critical') && entry.damage && entry.damage > 60 && !sameAsLast) {
       setTimeout(() => {
         setHitStop(true)
-        setTimeout(() => setHitStop(false), entry.type === 'critical' ? 180 : 80)
-      }, ATTACK_DELAY + 200)
+        setTimeout(() => setHitStop(false), Math.max(20, Math.round((entry.type === 'critical' ? 180 : 80) / spd)))
+      }, ATTACK_DELAY + Math.max(20, Math.round(200 / spd)))
     }
 
     // Type advantage burst — skip if same side attacked last
@@ -388,15 +406,15 @@ export default function BattleScreen() {
       const color = (moveType && burstColors[moveType]) ?? '#fff'
       setTimeout(() => {
         setTypeBurst({ color, side: defenderSide })
-        setTimeout(() => setTypeBurst(null), 500)
-      }, ATTACK_DELAY + 100)
+        setTimeout(() => setTypeBurst(null), Math.max(40, Math.round(500 / spd)))
+      }, ATTACK_DELAY + Math.max(20, Math.round(100 / spd)))
     }
 
     // Screen shake on crit — skip if same side attacked last
     if (entry.type === 'critical' && !sameAsLast) {
       setTimeout(() => {
         setShakeActive(true)
-        setTimeout(() => setShakeActive(false), 450)
+        setTimeout(() => setShakeActive(false), Math.max(40, Math.round(450 / spd)))
       }, ATTACK_DELAY)
     }
 
@@ -406,7 +424,7 @@ export default function BattleScreen() {
       if (attackingTrainer?.id) {
         setTimeout(() => {
           setSpecialFlash({ trainerId: attackingTrainer.id, moveName: entry.moveName ?? 'SPECIAL MOVE' })
-          setTimeout(() => setSpecialFlash(null), 4600)
+          setTimeout(() => setSpecialFlash(null), Math.max(200, Math.round(4600 / spd)))
         }, ATTACK_DELAY)
       }
     }
@@ -436,7 +454,7 @@ export default function BattleScreen() {
             'dark','ghost','ghost_ball','ghost_wave','nightmare',
             'quake','tsunami','waterfall','surf_wave',
           ])
-          const clearDelay = isExplosion ? 2200 : isUltimateAnim ? 2000 : longAnims.has(move.animationKey) ? 1800 : 1400
+          const clearDelay = Math.max(40, Math.round((isExplosion ? 2200 : isUltimateAnim ? 2000 : longAnims.has(move.animationKey) ? 1800 : 1400) / spd))
           setTimeout(() => {
             if (currentAnimId.current === animId) {
               setMoveAnim(null)
@@ -445,7 +463,7 @@ export default function BattleScreen() {
           }, clearDelay)
           if (isExplosion) {
             setBigShake(true)
-            setTimeout(() => setBigShake(false), 850)
+            setTimeout(() => setBigShake(false), Math.max(40, Math.round(850 / spd)))
           }
         }, particleDelay)
       }
@@ -457,18 +475,18 @@ export default function BattleScreen() {
       const statusAfterSnap = entry.statusAfter
       // Ultimate: if flash fires (not sameAsLast), drop HP after flash ends + 500ms pause + red flash
       // If sameAsLast blocked the flash, still drop HP at normal delay so damage always registers
-      const hpDelay = (entry.type === 'ultimate' && !sameAsLast) ? ATTACK_DELAY + 4600 + 500 : ATTACK_DELAY + 400
+      const hpDelay = (entry.type === 'ultimate' && !sameAsLast) ? ATTACK_DELAY + Math.max(200, Math.round(4600 / spd)) + Math.max(20, Math.round(500 / spd)) : ATTACK_DELAY + Math.max(20, Math.round(400 / spd))
       setTimeout(() => {
         // For ultimates that showed the flash: defender red flash first, then HP drops
         if (entry.type === 'ultimate' && !sameAsLast && entry.side) {
           const defenderSide = entry.side === 'A' ? 'B' : 'A'
           setFlashingSide(defenderSide)
           setFlashMoveType('fire')
-          setTimeout(() => { setFlashingSide(null); setFlashMoveType(null) }, 400)
+          setTimeout(() => { setFlashingSide(null); setFlashMoveType(null) }, Math.max(40, Math.round(400 / spd)))
           setTimeout(() => {
             setCurrentHpA(hpAfter.A)
             setCurrentHpB(hpAfter.B)
-          }, 400)
+          }, Math.max(40, Math.round(400 / spd)))
         } else {
           setCurrentHpA(hpAfter.A)
           setCurrentHpB(hpAfter.B)
@@ -506,8 +524,8 @@ export default function BattleScreen() {
       }
       // KO sound effects
       playKOSound()
-      setTimeout(() => playRealCrowdCheer(), 300)
-      setTimeout(() => playRandomCrowdReaction(), 1200)
+      setTimeout(() => playRealCrowdCheer(), Math.max(20, Math.round(300 / spd)))
+      setTimeout(() => playRandomCrowdReaction(), Math.max(40, Math.round(1200 / spd)))
     }
 
     // KO phrase — winning trainer taunts
@@ -516,7 +534,7 @@ export default function BattleScreen() {
       const winningTrainer = winningSide === 'A' ? p1Trainer : p2Trainer
       if (winningTrainer?.koPhrases?.length) {
         const phrase = winningTrainer.koPhrases[Math.floor(Math.random() * winningTrainer.koPhrases.length)]
-        setTimeout(() => queueDialogue(phrase, winningSide), 900)
+        setTimeout(() => queueDialogue(phrase, winningSide), Math.max(40, Math.round(900 / spd)))
       }
     }
 
@@ -527,7 +545,7 @@ export default function BattleScreen() {
       setTimeout(() => {
         setCrowdRoarActive(false)
         setCrowdGlow(false)
-      }, 700)
+      }, Math.max(40, Math.round(700 / spd)))
     }
 
     // Ditto transform reveal — clear the override for the active slot to reveal new form
@@ -550,26 +568,26 @@ export default function BattleScreen() {
 
       if (side === 'A') {
         setSwappingA(true)
-        setTimeout(() => setSwappingA(false), 500)
+        setTimeout(() => setSwappingA(false), Math.max(40, Math.round(500 / spd)))
         const idx = battleState.teamA.findIndex(ac => ac.creature.name === entry.creatureName)
         if (idx !== -1) {
           // Reveal this slot
           setRevealedA(prev => { const n = new Set(prev); n.add(idx); return n })
           if (battleState.teamA[idx].shiny) {
             setSparkleA(true)
-            setTimeout(() => setSparkleA(false), 1200)
+            setTimeout(() => setSparkleA(false), Math.max(40, Math.round(1200 / spd)))
           }
         }
       } else {
         setSwappingB(true)
-        setTimeout(() => setSwappingB(false), 500)
+        setTimeout(() => setSwappingB(false), Math.max(40, Math.round(500 / spd)))
         const idx = battleState.teamB.findIndex(ac => ac.creature.name === entry.creatureName)
         if (idx !== -1) {
           // Reveal this slot
           setRevealedB(prev => { const n = new Set(prev); n.add(idx); return n })
           if (battleState.teamB[idx].shiny) {
             setSparkleB(true)
-            setTimeout(() => setSparkleB(false), 1200)
+            setTimeout(() => setSparkleB(false), Math.max(40, Math.round(1200 / spd)))
           }
         }
       }
@@ -578,11 +596,11 @@ export default function BattleScreen() {
     // Arena event flash
     if (entry.type === 'arena_event') {
       // Don't interrupt a special flash — delay arena event until flash is done
-      const delay = specialFlash ? 3400 : 0
+      const arenaDelay = specialFlash ? Math.max(80, Math.round(3400 / spd)) : 0
       setTimeout(() => {
         setArenaEventActive(entry.text)
-        setTimeout(() => setArenaEventActive(null), 4000)
-      }, delay)
+        setTimeout(() => setArenaEventActive(null), Math.max(80, Math.round(4000 / spd)))
+      }, arenaDelay)
     }
 
     // Announcer lines — removed from display (instant-skipped in log)
@@ -592,11 +610,11 @@ export default function BattleScreen() {
 
     // Arena telegraph — reuse arenaEventActive state with different style
     if (entry.type === 'arena_telegraph') {
-      const delay = specialFlash ? 3400 : 0
+      const telegraphDelay = specialFlash ? Math.max(80, Math.round(3400 / spd)) : 0
       setTimeout(() => {
         setArenaEventActive(entry.text)
-        setTimeout(() => setArenaEventActive(null), 2800)
-      }, delay)
+        setTimeout(() => setArenaEventActive(null), Math.max(80, Math.round(2800 / spd)))
+      }, telegraphDelay)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibleLog.length])
@@ -1005,7 +1023,7 @@ export default function BattleScreen() {
         {/* Main battle area */}
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
           {/* Side A — team list + trainer below */}
-          <div style={{ width: 155, display: 'flex', flexDirection: 'column', padding: '10px 6px 0 10px', borderRight: '1px solid rgba(255,255,255,0.06)' }}>
+          <div style={{ width: 'clamp(80px, 12vw, 155px)', display: 'flex', flexDirection: 'column', padding: '8px 4px 0 8px', borderRight: '1px solid rgba(255,255,255,0.06)', minHeight: 0, overflow: 'hidden' }}>
             <div style={{ color: '#7c3aed', fontSize: 11, fontWeight: 700, marginBottom: 6, letterSpacing: '0.05em' }}>{p1Trainer?.name ?? 'P1'}</div>
             {teamA.map((ac, i) => {
               const isActive = i === activeA
@@ -1038,11 +1056,11 @@ export default function BattleScreen() {
           </div>
 
           {/* Center battle view */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', padding: '40px 0 0', position: 'relative' }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '8px 0', position: 'relative', minHeight: 0 }}>
             {/* Matchup display */}
             <div 
               data-battle-container 
-              style={{ display: 'flex', alignItems: 'flex-start', gap: 24, width: '100%', justifyContent: 'center', position: 'relative', zIndex: 1 }}
+              style={{ display: 'flex', alignItems: 'flex-start', gap: 'clamp(4px, 2vw, 24px)', width: '100%', justifyContent: 'center', position: 'relative', zIndex: 1 }}
             >
               {/* Creature A */}
               <CreatureDisplay
@@ -1072,9 +1090,10 @@ export default function BattleScreen() {
                 }}
                 transition={{ duration: 1.5, repeat: Infinity, repeatType: 'reverse', ease: 'easeInOut', type: 'tween' }}
                 style={{
-                  fontSize: 40, fontWeight: 900, color: '#fbbf24',
+                  fontSize: 'clamp(18px, 3.5vw, 40px)', fontWeight: 900, color: '#fbbf24',
                   textShadow: '0 0 20px rgba(251,191,36,0.6)',
                   userSelect: 'none',
+                  flexShrink: 0,
                 }}
               >
                 VS
@@ -1105,7 +1124,7 @@ export default function BattleScreen() {
           </div>
 
           {/* Side B — team list + trainer below */}
-          <div style={{ width: 155, display: 'flex', flexDirection: 'column', padding: '10px 10px 0 6px', borderLeft: '1px solid rgba(255,255,255,0.06)' }}>
+          <div style={{ width: 'clamp(80px, 12vw, 155px)', display: 'flex', flexDirection: 'column', padding: '8px 8px 0 4px', borderLeft: '1px solid rgba(255,255,255,0.06)', minHeight: 0, overflow: 'hidden' }}>
             <div style={{ color: '#ef4444', fontSize: 11, fontWeight: 700, marginBottom: 6, letterSpacing: '0.05em', textAlign: 'right' }}>{p2Trainer?.name ?? 'P2'}</div>
             {teamB.map((ac, i) => {
               const isActive = i === activeB
@@ -1147,6 +1166,44 @@ export default function BattleScreen() {
 
 
       {/* Winner banner — plain CSS to guarantee visibility */}
+      {/* ── SPEED TOGGLE — fixed floating button, always visible during battle ── */}
+      {!isDone && (
+        <button
+          onClick={() => setPlaybackSpeed(s => s === 1 ? 3 : 1)}
+          title={playbackSpeed === 1 ? 'Switch to 3× speed' : 'Switch to normal speed'}
+          style={{
+            position: 'fixed',
+            bottom: 24,
+            right: 24,
+            zIndex: 9999,
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '10px 18px',
+            borderRadius: 12,
+            border: playbackSpeed === 3
+              ? '2px solid #fbbf24'
+              : '2px solid rgba(255,255,255,0.4)',
+            background: playbackSpeed === 3
+              ? 'linear-gradient(135deg, rgba(251,191,36,0.35), rgba(249,115,22,0.25))'
+              : 'rgba(10,10,20,0.85)',
+            color: playbackSpeed === 3 ? '#fbbf24' : '#e2e8f0',
+            fontSize: 14,
+            fontWeight: 900,
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+            letterSpacing: '0.08em',
+            boxShadow: playbackSpeed === 3
+              ? '0 0 20px rgba(251,191,36,0.6), 0 4px 16px rgba(0,0,0,0.6)'
+              : '0 4px 16px rgba(0,0,0,0.6)',
+            backdropFilter: 'blur(8px)',
+            textTransform: 'uppercase',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <span style={{ fontSize: 16 }}>{playbackSpeed === 3 ? '⚡' : '▶'}</span>
+          {playbackSpeed === 3 ? '3× FAST' : '1× SPEED'}
+        </button>
+      )}
+
       {isDone && battleState.winner && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 50,
@@ -1282,7 +1339,7 @@ function CreatureDisplay({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isKO])
 
-  if (!ac) return <div style={{ width: 340 }} />
+  if (!ac) return <div style={{ width: 'clamp(140px, 28vw, 340px)' }} />
 
   const primaryType = ac.creature.types[0] as string
   const typeColor = TYPE_COLORS[primaryType] ?? '#9ca3af'
@@ -1307,7 +1364,7 @@ function CreatureDisplay({
     <div 
       data-creature-display 
       data-side={side}
-      style={{ textAlign: 'center', width: 340, position: 'relative' }}
+      style={{ textAlign: 'center', width: 'clamp(140px, 28vw, 340px)', position: 'relative' }}
     >
 
       {/* ── Name + HP bar ABOVE the sprite ── */}
@@ -1315,7 +1372,7 @@ function CreatureDisplay({
 
         {/* Name row */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 5 }}>
-          <span style={{ fontSize: 18, fontWeight: 800, color: '#f1f5f9', letterSpacing: '0.02em' }}>
+          <span style={{ fontSize: 'clamp(11px, 1.5vw, 18px)', fontWeight: 800, color: '#f1f5f9', letterSpacing: '0.02em' }}>
             {ac.creature.name}
           </span>
           {ac.shiny && (
@@ -1409,9 +1466,9 @@ function CreatureDisplay({
                   }
                 }}
                 style={{
-                  width: isIllustrated ? illustratedSize : 340,
-                  height: isIllustrated ? illustratedSize : 340,
-                  marginTop: isJessieJames ? -180 : isIllustrated ? 60 : 0,
+                  width: isIllustrated ? `clamp(80px, ${Math.round(illustratedSize * 0.08)}dvh, ${illustratedSize}px)` : 'clamp(120px, 28dvh, 340px)',
+                  height: isIllustrated ? `clamp(80px, ${Math.round(illustratedSize * 0.08)}dvh, ${illustratedSize}px)` : 'clamp(120px, 28dvh, 340px)',
+                  marginTop: isJessieJames ? 'clamp(-90px, -18dvh, -180px)' : isIllustrated ? 'clamp(20px, 6dvh, 60px)' : 0,
                   imageRendering: 'pixelated',
                   // Illustrated sprites face right by default — flip logic is inverted vs pixel art
                   transform: isIllustrated
@@ -1647,25 +1704,32 @@ function GbDialogueBubble({ text, dialogueKey }: { text: string; dialogueKey: nu
 
 
 // ── DELAY FUNCTION ──────────────────────────────────────────────
-function getDelay(entry: BattleLogEntry): number {
-  switch (entry.type) {
-    case 'intro':           return 1000
-    case 'move':            return 2400   // show dialogue, pause, then attack
-    case 'damage':          return 2600
-    case 'critical':        return 2800
-    case 'ultimate':        return 5200  // must exceed special flash (4.6s) + attack anim
-    case 'ko':              return 2400
-    case 'swap':            return 1400
-    case 'win':             return 1000
-    case 'shiny':           return 1800
-    case 'crowd_roar':      return 900
-    case 'arena_event':     return 2800
-    case 'trainer_passive': return 900
-    case 'clutch':          return 1200
-    case 'arena_telegraph': return 2000
-    case 'status_damage':   return 1400  // quick — no attack animation
-    case 'trainer_react':   return 0     // removed from display — instant skip
-    case 'announcer':       return 0     // removed from display — instant skip
-    default:                return 1000
-  }
+// speed: 1 = normal, 3 = fast. Instant-skip entries (trainer_react, announcer)
+// are always 0 regardless of speed. A minimum floor of 80ms is kept at 3x
+// so React state updates don't collapse into a single render frame.
+const BASE_DELAYS: Record<string, number> = {
+  intro:           1000,
+  move:            2400,
+  damage:          2600,
+  critical:        2800,
+  ultimate:        5200,
+  ko:              2400,
+  swap:            1400,
+  win:             1000,
+  shiny:           1800,
+  crowd_roar:       900,
+  arena_event:     2800,
+  trainer_passive:  900,
+  clutch:          1200,
+  arena_telegraph: 2000,
+  status_damage:   1400,
+  // always instant:
+  trainer_react:      0,
+  announcer:          0,
+}
+
+function getDelay(entry: BattleLogEntry, speed: number = 1): number {
+  const base = BASE_DELAYS[entry.type] ?? 1000
+  if (base === 0) return 0  // instant entries never slow down or speed up
+  return Math.max(80, Math.round(base / speed))
 }

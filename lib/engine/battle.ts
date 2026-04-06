@@ -99,10 +99,12 @@ interface BattleCreatureState {
   dittoTransformed: boolean
   // Ditto: used follow-up attack after Transform this turn — skip next attack opportunity
   dittoSkipNextAttack: boolean
-  // Consecutive-attack tracking: did this side land an attack last turn?
-  lastTurnActuallyAttacked: boolean
-  // Was this side's skip last turn excused (sleep / paralysis)? If so, opponent may go again.
-  lastTurnSkipWasExcused: boolean
+  // ── TURN STATE MACHINE ───────────────────────────────────────
+  // Whether this side has consumed its turn attempt in the current round.
+  // Set to true by: acting, sleeping, paralysis skip, freeze skip, flinch skip,
+  // confusion self-hit, or any other status that prevents acting.
+  // Reset to false at the START of each new round.
+  roundTurnConsumed: boolean
 }
 
 function buildPpMap(moves: Move[]): Record<string, number> {
@@ -131,8 +133,7 @@ function initBCS(ac: ActiveCreature): BattleCreatureState {
     ppMap: buildPpMap(ac.assignedMoves),
     dittoTransformed: false,
     dittoSkipNextAttack: false,
-    lastTurnActuallyAttacked: false,
-    lastTurnSkipWasExcused: false,
+    roundTurnConsumed: false,
   }
 }
 
@@ -271,7 +272,12 @@ function pickMove(
 
   const moves = allMoves.filter(m => m.power > 0)
   if (moves.length === 0) {
-    return allMoves[0]
+    // No damaging moves — pick a status move, but never Rest/Recover/Soft-Boiled at full HP
+    const usableStatus = allMoves.filter(m =>
+      !(m.effectType === 'heal' && m.category === 'status' && attackerBCS.ac.currentHp >= attackerBCS.ac.maxHp) &&
+      !(m.effectType === 'heal' && m.category === 'status' && attackerBCS.healUsed)
+    )
+    return usableStatus.length > 0 ? usableStatus[0] : STRUGGLE
   }
 
   const hpRatio = attackerBCS.ac.currentHp / attackerBCS.ac.maxHp
@@ -1272,8 +1278,157 @@ export function resolveBattle(
     hpAfter: { A: statesA[activeA].ac.currentHp, B: statesB[activeB].ac.currentHp },
   })
 
-  // Track which side just sent in a fresh Pokémon after a KO — they go first that turn
+  // Track which side just sent in a fresh Pokémon after a KO — they go first that round
   let freshEntrySide: 'A' | 'B' | null = null
+
+  // ── EXECUTE ONE SIDE'S TURN ATTEMPT ──────────────────────────────────────────
+  // This is the ONLY place that may call simulateAttack for a given side in a round.
+  // Every code path MUST set bcs.roundTurnConsumed = true before returning.
+  // Returns true if an attack was actually fired (not skipped by status).
+  function executeTurnAttempt(
+    attBCS: BattleCreatureState,
+    defBCS: BattleCreatureState,
+    attkSide: 'A' | 'B',
+  ): boolean {
+    // INVARIANT: should never be called twice per round for the same side
+    if (attBCS.roundTurnConsumed) {
+      console.error(`[BATTLE INVARIANT] executeTurnAttempt called twice for side ${attkSide} in round ${turn}!`)
+      return false
+    }
+
+    // Pick intended move upfront so we can stamp lastMoveId on any skip path
+    const intendedMove = pickMove(attBCS, defBCS, arena, attkSide === 'A' ? trainerA : trainerB, rngFn)
+
+    // ── STATUS / CONDITION SKIPS ──────────────────────────────────────────────
+    // Each path: set roundTurnConsumed = true, return false.
+    // The opponent always gets its own turn regardless of why we skipped.
+
+    // Flinch
+    if (attBCS.flinched) {
+      attBCS.flinched = false
+      attBCS.lastMoveId = intendedMove.id
+      attBCS.lastMoveCount = 1
+      attBCS.roundTurnConsumed = true
+      log.push({
+        id: nextId(), type: 'move', side: attkSide,
+        text: `😨 ${attBCS.ac.creature.name} flinched and couldn't move!`,
+        creatureName: attBCS.ac.creature.name,
+      })
+      return false
+    }
+
+    // Frozen: skip 1 turn then auto-thaw
+    if (attBCS.status === 'frozen') {
+      attBCS.status = 'none'
+      attBCS.statusTurns = 0
+      attBCS.lastMoveId = intendedMove.id
+      attBCS.lastMoveCount = 1
+      attBCS.roundTurnConsumed = true
+      log.push({
+        id: nextId(), type: 'move', side: attkSide,
+        text: `🧊 ${attBCS.ac.creature.name} is frozen solid and can't move! It thawed out after!`,
+        creatureName: attBCS.ac.creature.name,
+      })
+      return false
+    }
+
+    // Paralysis: 25% skip
+    if (attBCS.status === 'paralyzed' && rngFn() < 0.25) {
+      attBCS.lastMoveId = intendedMove.id
+      attBCS.lastMoveCount = 1
+      attBCS.roundTurnConsumed = true
+      log.push({
+        id: nextId(), type: 'move', side: attkSide,
+        text: `⚡ ${attBCS.ac.creature.name} is paralyzed and can't move!`,
+        creatureName: attBCS.ac.creature.name,
+      })
+      return false
+    }
+
+    // Ditto Transform follow-up used last turn: skip this turn so opponent goes next
+    if (attBCS.dittoSkipNextAttack) {
+      attBCS.dittoSkipNextAttack = false
+      attBCS.lastMoveId = intendedMove.id
+      attBCS.lastMoveCount = 1
+      attBCS.roundTurnConsumed = true
+      log.push({
+        id: nextId(), type: 'move', side: attkSide,
+        text: `🌀 ${attBCS.ac.creature.name} is adjusting to its new form...`,
+        creatureName: attBCS.ac.creature.name,
+      })
+      return false
+    }
+
+    // Confusion: 33% chance to hurt self (still consumes the turn)
+    if (attBCS.status === 'confused') {
+      attBCS.confuseTurns--
+      if (attBCS.confuseTurns <= 0) {
+        attBCS.status = 'none'
+        attBCS.confuseTurns = 0
+        log.push({
+          id: nextId(), type: 'move', side: attkSide,
+          text: `✨ ${attBCS.ac.creature.name} snapped out of confusion!`,
+          creatureName: attBCS.ac.creature.name,
+        })
+        // Fall through to normal attack below
+      } else if (rngFn() < 0.33) {
+        const selfDmg = Math.max(1, Math.floor(attBCS.ac.maxHp * 0.07))
+        attBCS.ac.currentHp = Math.max(0, attBCS.ac.currentHp - selfDmg)
+        log.push({
+          id: nextId(), type: 'damage', side: attkSide,
+          text: `😵 ${attBCS.ac.creature.name} is confused! It hurt itself! (-${selfDmg} HP)`,
+          damage: selfDmg,
+          creatureName: attBCS.ac.creature.name,
+          hpAfter: { A: statesA[activeA].ac.currentHp, B: statesB[activeB].ac.currentHp },
+        })
+        attBCS.roundTurnConsumed = true  // self-hit consumes the turn; no attack follows
+        return false
+      } else {
+        log.push({
+          id: nextId(), type: 'move', side: attkSide,
+          text: `😵 ${attBCS.ac.creature.name} is confused but pushed through!`,
+          creatureName: attBCS.ac.creature.name,
+        })
+        // Fall through to normal attack below
+      }
+    }
+
+    // ── ATTACK PHASE ──────────────────────────────────────────────────────────
+    checkAshBoost(attBCS, attkSide === 'A' ? trainerA : trainerB)
+
+    const move = intendedMove
+
+    // Handle weather-setting moves
+    if (move.id === 'sunny_day') { weather = 'sunny'; weatherTurns = 5 }
+    else if (move.id === 'rain_dance') { weather = 'rain'; weatherTurns = 5 }
+    else if (move.id === 'sandstorm') { weather = 'sand'; weatherTurns = 5 }
+
+    // Mark turn consumed before simulateAttack (sleep skip returns early from inside it)
+    attBCS.roundTurnConsumed = true
+
+    simulateAttack(
+      attBCS, defBCS, move, arena,
+      attkSide === 'A' ? trainerA : trainerB,
+      attkSide === 'B' ? trainerA : trainerB,
+      attkSide, log, crowdMeter, weather, rngFn,
+    )
+
+    // Stamp hpAfter + statusAfter on last relevant log entry
+    for (let i = log.length - 1; i >= 0; i--) {
+      const e = log[i]
+      if (e.type === 'damage' || e.type === 'critical' || e.type === 'ultimate') {
+        e.hpAfter = { A: statesA[activeA].ac.currentHp, B: statesB[activeB].ac.currentHp }
+        e.statusAfter = { A: statesA[activeA].status, B: statesB[activeB].status }
+        break
+      }
+      if (e.type === 'move' && e.defenderName) {
+        e.statusAfter = { A: statesA[activeA].status, B: statesB[activeB].status }
+        break
+      }
+    }
+
+    return true
+  }
 
   // Battle loop
   while (activeA < statesA.length && activeB < statesB.length) {
@@ -1283,189 +1438,45 @@ export function resolveBattle(
     const bcsA = statesA[activeA]
     const bcsB = statesB[activeB]
 
-    // Speed determines who goes first (with stat stages + paralysis)
-    // Exception: if a Pokémon just entered after a KO, it goes first that turn
+    // ── ROUND SETUP ───────────────────────────────────────────────────────────
+    // Reset round-level flags. Both must reach true by end of round (or battle ends).
+    bcsA.roundTurnConsumed = false
+    bcsB.roundTurnConsumed = false
+
+    // Speed determines who goes first (with stat stages + paralysis penalty)
+    // Override: if a Pokémon just entered after a KO, it goes first
     const spdA = bcsA.ac.creature.baseSpe * stageMult(bcsA.speStage) * (bcsA.status === 'paralyzed' ? 0.5 : 1)
     const spdB = bcsB.ac.creature.baseSpe * stageMult(bcsB.speStage) * (bcsB.status === 'paralyzed' ? 0.5 : 1)
 
     const firstSide: 'A' | 'B' = freshEntrySide === 'A' ? 'A'
       : freshEntrySide === 'B' ? 'B'
       : spdA >= spdB ? 'A' : 'B'
-    freshEntrySide = null  // consume — only applies for one turn
+    freshEntrySide = null  // consume — only applies for one round
 
-    const pairs: [BattleCreatureState, BattleCreatureState, 'A' | 'B'][] =
-      firstSide === 'A'
-        ? [[bcsA, bcsB, 'A'], [bcsB, bcsA, 'B']]
-        : [[bcsB, bcsA, 'B'], [bcsA, bcsB, 'A']]
+    const firstBCS  = firstSide === 'A' ? bcsA : bcsB
+    const secondBCS = firstSide === 'A' ? bcsB : bcsA
+    const secondSide: 'A' | 'B' = firstSide === 'A' ? 'B' : 'A'
 
-    const tookTurn = new Set<'A' | 'B'>()  // sides that have already acted this turn
+    // ── FIRST MOVER ───────────────────────────────────────────────────────────
+    if (firstBCS.ac.currentHp > 0 && secondBCS.ac.currentHp > 0) {
+      executeTurnAttempt(firstBCS, secondBCS, firstSide)
+    } else {
+      firstBCS.roundTurnConsumed = true
+    }
 
-    // Per-turn tracking for consecutive-attack enforcement
-    // attackedThisTurn[side] = actually fired a move; skipExcused[side] = skip was sleep/paralysis
-    const attackedThisTurn: Record<'A' | 'B', boolean> = { A: false, B: false }
-    const skipExcused: Record<'A' | 'B', boolean> = { A: false, B: false }
+    // ── SECOND MOVER ──────────────────────────────────────────────────────────
+    // Always gets a turn unless it was KO'd by the first mover this very round.
+    if (secondBCS.ac.currentHp > 0 && firstBCS.ac.currentHp > 0) {
+      executeTurnAttempt(secondBCS, firstBCS, secondSide)
+    } else {
+      secondBCS.roundTurnConsumed = true
+    }
 
-    for (const [attBCS, defBCS, attkSide] of pairs) {
-      if (attBCS.ac.currentHp <= 0 || defBCS.ac.currentHp <= 0) continue
-      // Hard rule: each side acts at most once per turn
-      if (tookTurn.has(attkSide)) continue
-      tookTurn.add(attkSide)
-
-      // ── CONSECUTIVE ATTACK GUARD ─────────────────────────────
-      // A Pokémon cannot attack two turns in a row unless the opponent's last skip
-      // was excused (sleep or paralysis). Flinch, freeze, confusion, etc. do NOT excuse it.
-      const defSide: 'A' | 'B' = attkSide === 'A' ? 'B' : 'A'
-      const defBCSPrev = attkSide === 'A' ? bcsB : bcsA
-      if (
-        attBCS.lastTurnActuallyAttacked &&
-        !defBCSPrev.lastTurnActuallyAttacked &&
-        !defBCSPrev.lastTurnSkipWasExcused
-      ) {
-        // Forced yield — opponent's skip was unexcused; attacker must wait this turn
-        attBCS.lastTurnActuallyAttacked = false
-        attBCS.lastTurnSkipWasExcused = false
-        log.push({
-          id: nextId(), type: 'move', side: attkSide,
-          text: `⏳ ${attBCS.ac.creature.name} waits for its opponent to recover!`,
-          creatureName: attBCS.ac.creature.name,
-        })
-        continue
-      }
-
-      // ── PRE-MOVE STATUS CHECKS ───────────────────────────────
-      // Pick the intended move first so we can stamp lastMoveId even on skipped turns,
-      // preventing the AI from repeating the same move after a forced skip.
-      const intendedMove = pickMove(attBCS, defBCS, arena, attkSide === 'A' ? trainerA : trainerB, rngFn)
-
-      // Flinch: skip this attack (cleared immediately) — NOT an excused skip
-      if (attBCS.flinched) {
-        attBCS.flinched = false
-        attBCS.lastMoveId = intendedMove.id  // count as used so next turn picks something different
-        attBCS.lastMoveCount = 1
-        attBCS.lastTurnActuallyAttacked = false
-        attBCS.lastTurnSkipWasExcused = false
-        log.push({
-          id: nextId(), type: 'move', side: attkSide,
-          text: `😨 ${attBCS.ac.creature.name} flinched and couldn't move!`,
-          creatureName: attBCS.ac.creature.name,
-        })
-        continue
-      }
-
-      // Frozen: skip exactly 1 move then auto-thaw — NOT an excused skip
-      if (attBCS.status === 'frozen') {
-        attBCS.status = 'none'
-        attBCS.statusTurns = 0
-        attBCS.lastMoveId = intendedMove.id  // count as used so next turn picks something different
-        attBCS.lastMoveCount = 1
-        attBCS.lastTurnActuallyAttacked = false
-        attBCS.lastTurnSkipWasExcused = false
-        log.push({
-          id: nextId(), type: 'move', side: attkSide,
-          text: `🧊 ${attBCS.ac.creature.name} is frozen solid and can't move! It thawed out after!`,
-          creatureName: attBCS.ac.creature.name,
-        })
-        continue
-      }
-
-      // Paralysis: 25% chance to skip — EXCUSED skip
-      if (attBCS.status === 'paralyzed' && rngFn() < 0.25) {
-        attBCS.lastMoveId = intendedMove.id  // count as used so next turn picks something different
-        attBCS.lastMoveCount = 1
-        attBCS.lastTurnActuallyAttacked = false
-        attBCS.lastTurnSkipWasExcused = true  // paralysis = excused, opponent may go again
-        log.push({
-          id: nextId(), type: 'move', side: attkSide,
-          text: `⚡ ${attBCS.ac.creature.name} is paralyzed and can't move!`,
-          creatureName: attBCS.ac.creature.name,
-        })
-        continue
-      }
-
-      // Ditto Transform follow-up: skip this attack so the opponent goes next — NOT excused
-      if (attBCS.dittoSkipNextAttack) {
-        attBCS.dittoSkipNextAttack = false
-        attBCS.lastMoveId = intendedMove.id
-        attBCS.lastMoveCount = 1
-        attBCS.lastTurnActuallyAttacked = false
-        attBCS.lastTurnSkipWasExcused = false
-        log.push({
-          id: nextId(), type: 'move', side: attkSide,
-          text: `🌀 ${attBCS.ac.creature.name} is adjusting to its new form...`,
-          creatureName: attBCS.ac.creature.name,
-        })
-        continue
-      }
-
-      // Confusion: 33% chance to hurt self instead of attacking
-      if (attBCS.status === 'confused') {
-        attBCS.confuseTurns--
-        if (attBCS.confuseTurns <= 0) {
-          attBCS.status = 'none'
-          attBCS.confuseTurns = 0
-          log.push({
-            id: nextId(), type: 'move', side: attkSide,
-            text: `✨ ${attBCS.ac.creature.name} snapped out of confusion!`,
-            creatureName: attBCS.ac.creature.name,
-          })
-        } else if (rngFn() < 0.33) {
-          const selfDmg = Math.max(1, Math.floor(attBCS.ac.maxHp * 0.07))
-          attBCS.ac.currentHp = Math.max(0, attBCS.ac.currentHp - selfDmg)
-          log.push({
-            id: nextId(), type: 'damage', side: attkSide,
-            text: `😵 ${attBCS.ac.creature.name} is confused! It hurt itself! (-${selfDmg} HP)`,
-            damage: selfDmg,
-            creatureName: attBCS.ac.creature.name,
-            hpAfter: { A: statesA[activeA].ac.currentHp, B: statesB[activeB].ac.currentHp },
-          })
-          continue
-        } else {
-          log.push({
-            id: nextId(), type: 'move', side: attkSide,
-            text: `😵 ${attBCS.ac.creature.name} is confused but snapped out of it this turn!`,
-            creatureName: attBCS.ac.creature.name,
-          })
-        }
-      }
-
-      // Check Ash boost trigger
-      checkAshBoost(attBCS, attkSide === 'A' ? trainerA : trainerB)
-
-      const move = intendedMove
-
-      // Sleep skip is excused (handled inside simulateAttack); mark before calling
-      const willSleepSkip = attBCS.status === 'sleep'
-      if (willSleepSkip) {
-        attBCS.lastTurnActuallyAttacked = false
-        attBCS.lastTurnSkipWasExcused = true
-      } else {
-        // Will actually attack
-        attBCS.lastTurnActuallyAttacked = true
-        attBCS.lastTurnSkipWasExcused = false
-        attackedThisTurn[attkSide] = true
-      }
-
-      // Handle weather-setting moves
-      if (move.id === 'sunny_day') { weather = 'sunny'; weatherTurns = 5 }
-      else if (move.id === 'rain_dance') { weather = 'rain'; weatherTurns = 5 }
-      else if (move.id === 'sandstorm') { weather = 'sand'; weatherTurns = 5 }
-
-      simulateAttack(attBCS, defBCS, move, arena, attkSide === 'A' ? trainerA : trainerB, attkSide === 'B' ? trainerA : trainerB, attkSide, log, crowdMeter, weather, rngFn)
-
-      // Stamp hpAfter + statusAfter on last attack OR status move entry
-      for (let i = log.length - 1; i >= 0; i--) {
-        const e = log[i]
-        if (e.type === 'damage' || e.type === 'critical' || e.type === 'ultimate') {
-          e.hpAfter = { A: statesA[activeA].ac.currentHp, B: statesB[activeB].ac.currentHp }
-          e.statusAfter = { A: statesA[activeA].status, B: statesB[activeB].status }
-          break
-        }
-        // Also stamp move-type entries that carry a defenderName (status was applied to them)
-        if (e.type === 'move' && e.defenderName) {
-          e.statusAfter = { A: statesA[activeA].status, B: statesB[activeB].status }
-          break
-        }
-      }
+    // INVARIANT CHECK
+    if (!bcsA.roundTurnConsumed || !bcsB.roundTurnConsumed) {
+      console.error(
+        `[BATTLE INVARIANT] Round ${turn} ended with unconsumed turns! A=${bcsA.roundTurnConsumed} B=${bcsB.roundTurnConsumed}`,
+      )
     }
 
     // Turn-end: status damage, regen, paralysis expiry
@@ -1590,9 +1601,6 @@ export function resolveBattle(
         freshEntrySide = 'A'  // new Pokémon goes first next turn
         // New opponent for B — reset B's sleep lock so it can use sleep again
         statesB[activeB].sleepUsedAgainst = null
-        // Reset consecutive-attack tracking for the new entrant
-        statesA[activeA].lastTurnActuallyAttacked = false
-        statesA[activeA].lastTurnSkipWasExcused = false
         applyEntryEffects(statesA[activeA], trainerA, arena, log, 'A')
         log.push({
           id: nextId(), type: 'swap', side: 'A',
@@ -1655,9 +1663,6 @@ export function resolveBattle(
         freshEntrySide = 'B'  // new Pokémon goes first next turn
         // New opponent for A — reset A's sleep lock so it can use sleep again
         if (activeA < statesA.length) statesA[activeA].sleepUsedAgainst = null
-        // Reset consecutive-attack tracking for the new entrant
-        statesB[activeB].lastTurnActuallyAttacked = false
-        statesB[activeB].lastTurnSkipWasExcused = false
         applyEntryEffects(statesB[activeB], trainerB, arena, log, 'B')
         log.push({
           id: nextId(), type: 'swap', side: 'B',
