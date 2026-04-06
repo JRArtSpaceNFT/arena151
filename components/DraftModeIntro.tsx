@@ -138,7 +138,7 @@ export default function DraftModeIntro() {
         <button
           onClick={() => currentTrainer ? setScreen('room-select') : setScreen('signup')}
           aria-label="Enter the Arena"
-          style={{ position: 'absolute', left: '31.5%', top: '68%', width: '34.6%', height: '5.1%',
+          style={{ position: 'absolute', left: '31.5%', top: '73%', width: '34.6%', height: '5.1%',
             background: 'transparent', border: 'none', cursor: 'pointer' }}
         />
 
