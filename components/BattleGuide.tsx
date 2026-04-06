@@ -228,7 +228,9 @@ export default function BattleGuide() {
                       style={{
                         position: 'absolute', inset: 0,
                         width: '100%', height: '100%',
-                        objectFit: 'cover', opacity: 0.92,
+                        objectFit: 'cover',
+                        objectPosition: step.img.includes('draft') ? 'center 80%' : 'center top',
+                        opacity: 0.92,
                       }}
                       onError={e => { (e.target as HTMLImageElement).style.opacity = '0'; }}
                     />
