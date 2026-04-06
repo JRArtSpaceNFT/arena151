@@ -277,8 +277,8 @@ function DossierCard({ trainer, isTaken }: { trainer: Trainer; isTaken: boolean 
               animate={{ y: [0, -6, 0] }}
               transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
               style={{
-                width: 'clamp(180px, 28vh, 260px)',
-                height: 'clamp(180px, 28vh, 260px)',
+                width: ['ash','jessie-james'].includes(trainer.id) ? 'clamp(220px, 34vh, 310px)' : 'clamp(180px, 28vh, 260px)',
+                height: ['ash','jessie-james'].includes(trainer.id) ? 'clamp(220px, 34vh, 310px)' : 'clamp(180px, 28vh, 260px)',
                 objectFit: 'contain',
                 // all trainers are pixel art — pixelated keeps them crisp at large sizes
                 // only misty + jessie-james are hi-res photos so they get auto
