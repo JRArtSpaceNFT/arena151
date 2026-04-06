@@ -113,41 +113,41 @@ export default function DraftModeIntro() {
           Because the stage is always DESIGN_W×DESIGN_H before scaling,
           these percentages are pixel-perfect regardless of viewport size.
 
-          ENTER THE ARENA:  x600-920,   y468-523
-          PROFILE:          x22-177,    y5-40
-          LEADERBOARD:      x10-210,    y338-403
-          BATTLE GUIDE:     x2395-2595, y338-445
+          PROFILE:          x30-240,    y10-68
+          LEADERBOARD:      x0-220,     y370-460
+          ENTER THE ARENA:  x1050-1380, y840-930  (centered ~x1215)
+          BATTLE GUIDE:     x2385-2605, y640-775
         */}
 
-        {/* ENTER THE ARENA */}
-        <button
-          onClick={() => currentTrainer ? setScreen('room-select') : setScreen('signup')}
-          aria-label="Enter the Arena"
-          style={{ position: 'absolute', left: '23.0%', top: '43.3%', width: '12.3%', height: '5.1%',
-            background: 'transparent', border: 'none', cursor: 'pointer' }}
-        />
-
-        {/* PROFILE */}
+        {/* PROFILE — top-left tab, shifted right per feedback */}
         <button
           onClick={() => setScreen(currentTrainer ? 'profile' : 'signup')}
           aria-label="View Profile"
-          style={{ position: 'absolute', left: '0.8%', top: '0.5%', width: '5.9%', height: '3.2%',
+          style={{ position: 'absolute', left: '1.2%', top: '0.9%', width: '8.1%', height: '5.4%',
             background: 'transparent', border: 'none', cursor: 'pointer' }}
         />
 
-        {/* LEADERBOARD */}
+        {/* LEADERBOARD — left side tab, shifted down+right per feedback */}
         <button
           onClick={() => setScreen('leaderboard')}
           aria-label="Leaderboard"
-          style={{ position: 'absolute', left: '0.4%', top: '31.3%', width: '8.1%', height: '6.0%',
+          style={{ position: 'absolute', left: '0.0%', top: '34.3%', width: '8.4%', height: '8.3%',
             background: 'transparent', border: 'none', cursor: 'pointer' }}
         />
 
-        {/* BATTLE GUIDE */}
+        {/* ENTER THE ARENA — centered button, shifted down+right per feedback */}
+        <button
+          onClick={() => currentTrainer ? setScreen('room-select') : setScreen('signup')}
+          aria-label="Enter the Arena"
+          style={{ position: 'absolute', left: '40.3%', top: '77.8%', width: '12.7%', height: '8.3%',
+            background: 'transparent', border: 'none', cursor: 'pointer' }}
+        />
+
+        {/* BATTLE GUIDE — far-right tab, shifted down+left per feedback */}
         <button
           onClick={() => setScreen('battle-guide')}
           aria-label="Battle Guide"
-          style={{ position: 'absolute', left: '91.9%', top: '31.9%', width: '7.7%', height: '9.3%',
+          style={{ position: 'absolute', left: '91.6%', top: '59.3%', width: '8.4%', height: '12.5%',
             background: 'transparent', border: 'none', cursor: 'pointer' }}
         />
 
