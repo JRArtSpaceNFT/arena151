@@ -181,7 +181,7 @@ function SideCard({ trainer }: { trainer: Trainer }) {
   )
 }
 
-// ── Main dossier card ─────────────────────────────────────────────────────────
+// ── Main dossier card — two-column layout: big sprite left, info right ────────
 function DossierCard({ trainer, isTaken }: { trainer: Trainer; isTaken: boolean }) {
   const [imgError, setImgError] = useState(false)
   const dossier = DOSSIER[trainer.id] ?? {
@@ -190,60 +190,60 @@ function DossierCard({ trainer, isTaken }: { trainer: Trainer; isTaken: boolean 
     battleStyles: ['⚔️ Balanced'],
     signaturePokemon: [],
   }
+  const abilityPct = Math.min(20, Math.round(trainer.ability.value * 100))
 
   return (
     <div style={{
-      background: '#0d0d1f',
-      border: `2px solid ${trainer.color}88`,
-      borderRadius: 4,
-      width: 320,
+      background: '#0a0a1a',
+      border: `2px solid ${trainer.color}66`,
+      borderRadius: 6,
+      width: 380,
       overflow: 'hidden',
-      boxShadow: `0 0 40px ${trainer.color}33, inset 0 0 40px rgba(0,0,0,0.5)`,
+      boxShadow: `0 0 48px ${trainer.color}2a, inset 0 0 60px rgba(0,0,0,0.6)`,
       position: 'relative',
       fontFamily: "'Courier New', Courier, monospace",
     }}>
-      {/* Top color bar */}
-      <div style={{ height: 3, background: trainer.color }} />
+
+      {/* Top accent bar */}
+      <div style={{ height: 3, background: `linear-gradient(90deg, transparent, ${trainer.color}, transparent)` }} />
 
       {/* TAKEN overlay */}
       {isTaken && (
         <div style={{
           position: 'absolute', inset: 0, zIndex: 20,
-          background: 'rgba(0,0,0,0.7)',
+          background: 'rgba(0,0,0,0.75)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          backdropFilter: 'blur(2px)',
+          backdropFilter: 'blur(3px)',
         }}>
           <div style={{
             background: '#7c3aed', borderRadius: 8,
-            padding: '10px 24px', fontSize: 18, fontWeight: 900,
+            padding: '10px 28px', fontSize: 20, fontWeight: 900,
             color: 'white', letterSpacing: '0.15em',
-            boxShadow: '0 0 20px rgba(124,58,237,0.8)',
+            boxShadow: '0 0 24px rgba(124,58,237,0.9)',
           }}>TAKEN</div>
         </div>
       )}
 
-      {/* Header — name / title / location */}
+      {/* ── HEADER: dossier label + name + subtitle ── */}
       <div style={{
-        padding: '5px 14px 5px',
-        borderBottom: `1px solid ${trainer.color}33`,
-        background: `linear-gradient(135deg, ${trainer.color}18 0%, transparent 80%)`,
+        padding: '8px 16px 6px',
+        background: `linear-gradient(135deg, ${trainer.color}18 0%, transparent 70%)`,
+        borderBottom: `1px solid ${trainer.color}22`,
         textAlign: 'center',
       }}>
-        <div style={{
-          fontSize: 8, letterSpacing: '0.25em', color: `${trainer.color}99`,
-          textTransform: 'uppercase', marginBottom: 2,
-        }}>
+        <div style={{ fontSize: 8, letterSpacing: '0.3em', color: `${trainer.color}66`, textTransform: 'uppercase', marginBottom: 3 }}>
           ── TRAINER DOSSIER ──
         </div>
         <div style={{
           fontFamily: 'Impact, Arial Black, sans-serif',
-          fontSize: 'clamp(18px, 2.5vh, 26px)', fontWeight: 900, color: trainer.color,
-          lineHeight: 1, letterSpacing: '0.04em',
-          textShadow: `0 0 20px ${trainer.color}66`,
+          fontSize: 'clamp(20px, 2.8vh, 30px)',
+          fontWeight: 900, color: trainer.color,
+          lineHeight: 1, letterSpacing: '0.06em',
+          textShadow: `0 0 24px ${trainer.color}88`,
         }}>
           {trainer.name.toUpperCase()}
         </div>
-        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
+        <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 3, fontStyle: 'italic' }}>
           {dossier.title}
         </div>
         <div style={{ fontSize: 10, color: '#475569', marginTop: 1 }}>
@@ -251,121 +251,145 @@ function DossierCard({ trainer, isTaken }: { trainer: Trainer; isTaken: boolean 
         </div>
       </div>
 
-      {/* Trainer sprite */}
-      <div style={{
-        display: 'flex', justifyContent: 'center', alignItems: 'flex-end',
-        background: `radial-gradient(ellipse at 50% 100%, ${trainer.color}33 0%, transparent 65%)`,
-        paddingTop: 4, paddingBottom: 0, minHeight: 0, height: 'clamp(90px, 16vh, 150px)', position: 'relative',
-      }}>
-        {!imgError && trainer.spriteUrl ? (
-          <motion.img
-            src={trainer.spriteUrl}
-            alt={trainer.name}
-            onError={() => setImgError(true)}
-            animate={{ y: [0, -7, 0] }}
-            transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-            style={{
-              width: 'clamp(80px, 14vh, 150px)',
-              height: 'clamp(80px, 14vh, 150px)',
-              objectFit: 'contain',
-              objectPosition: '50% 50%',
-              imageRendering: trainer.id === 'jessie-james' ? 'auto' : 'pixelated',
-              filter: `drop-shadow(0 10px 24px ${trainer.color}66)`,
-            }}
-          />
-        ) : (
-          <div style={{
-            width: 160, height: 160, borderRadius: '50%',
-            background: `${trainer.color}22`, border: `3px solid ${trainer.color}`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 80, fontWeight: 900, color: trainer.color, marginBottom: 12,
-          }}>
-            {trainer.name[0]}
-          </div>
-        )}
-      </div>
+      {/* ── BODY: sprite left + info right ── */}
+      <div style={{ display: 'flex', minHeight: 0 }}>
 
-      {/* Divider */}
-      <div style={{ height: 1, background: `linear-gradient(90deg, transparent, ${trainer.color}66, transparent)` }} />
-
-      {/* Ability */}
-      <div style={{ padding: '5px 14px', borderBottom: `1px solid ${trainer.color}22`, textAlign: 'center', background: `${trainer.color}08` }}>
-        <div style={{ fontSize: 8, letterSpacing: '0.2em', color: `${trainer.color}88`, textTransform: 'uppercase', marginBottom: 2 }}>
-          ── ABILITY ──
-        </div>
-        <div style={{ fontSize: 13, fontWeight: 900, color: trainer.color, marginBottom: 2, letterSpacing: '0.04em' }}>
-          ⚡ {trainer.ability.name}
-        </div>
-        <div style={{ fontSize: 10, color: '#94a3b8', lineHeight: 1.35, marginBottom: 5 }}>
-          {trainer.ability.description}
-        </div>
-        {/* Value bar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
-          <div style={{ fontSize: 9, color: '#64748b' }}>BONUS</div>
-          <div style={{ width: 80, height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}>
+        {/* LEFT — big sprite */}
+        <div style={{
+          width: 160,
+          flexShrink: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: `radial-gradient(ellipse at 50% 80%, ${trainer.color}33 0%, transparent 70%)`,
+          borderRight: `1px solid ${trainer.color}22`,
+          padding: '12px 8px',
+          position: 'relative',
+        }}>
+          {/* Subtle corner accent */}
+          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 32,
+            background: `linear-gradient(to top, ${trainer.color}18, transparent)` }} />
+          {!imgError && trainer.spriteUrl ? (
+            <motion.img
+              src={trainer.spriteUrl}
+              alt={trainer.name}
+              onError={() => setImgError(true)}
+              animate={{ y: [0, -6, 0] }}
+              transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+              style={{
+                width: 'clamp(110px, 17vh, 180px)',
+                height: 'clamp(110px, 17vh, 180px)',
+                objectFit: 'contain',
+                imageRendering: trainer.id === 'jessie-james' ? 'auto' : 'pixelated',
+                filter: `drop-shadow(0 8px 20px ${trainer.color}88)`,
+                position: 'relative', zIndex: 1,
+              }}
+            />
+          ) : (
             <div style={{
-              height: '100%',
-              width: `${Math.min(100, Math.round(trainer.ability.value * 100) * 5)}%`,
-              background: trainer.color,
-              borderRadius: 3,
-              boxShadow: `0 0 6px ${trainer.color}`,
-              maxWidth: '100%',
-            }} />
-          </div>
-          <div style={{ fontSize: 11, color: trainer.color, fontWeight: 900 }}>
-            +{Math.round(trainer.ability.value * 100)}%
-          </div>
-        </div>
-      </div>
-
-      {/* Battle styles + Signature Pokémon — side by side to save vertical space */}
-      <div style={{ padding: '4px 14px 5px', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-        <div style={{ flex: 1, textAlign: 'center' }}>
-          <div style={{ fontSize: 9, letterSpacing: '0.2em', color: `${trainer.color}88`, textTransform: 'uppercase', marginBottom: 4 }}>
-            ── STYLE ──
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center' }}>
-            {dossier.battleStyles.map((style, i) => (
-              <div key={i} style={{ fontSize: 10, color: '#94a3b8' }}>
-                {style}
-              </div>
-            ))}
-          </div>
-        </div>
-        {dossier.signaturePokemon.length > 0 && (
-          <div style={{ flex: 1, textAlign: 'center' }}>
-            <div style={{ fontSize: 9, letterSpacing: '0.2em', color: `${trainer.color}88`, textTransform: 'uppercase', marginBottom: 4 }}>
-              ── SIG. POKÉMON ──
+              width: 120, height: 120, borderRadius: '50%',
+              background: `${trainer.color}22`, border: `3px solid ${trainer.color}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 60, fontWeight: 900, color: trainer.color,
+            }}>
+              {trainer.name[0]}
             </div>
-            <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
-              {dossier.signaturePokemon.map(id => (
-                <div key={id} style={{
-                  width: 44, height: 44,
-                  background: `${trainer.color}11`,
-                  border: `1px solid ${trainer.color}33`,
-                  borderRadius: 6,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+          )}
+        </div>
+
+        {/* RIGHT — all info */}
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', padding: '10px 12px', gap: 8 }}>
+
+          {/* ABILITY */}
+          <div style={{
+            background: `${trainer.color}0d`,
+            border: `1px solid ${trainer.color}2a`,
+            borderRadius: 6,
+            padding: '7px 10px',
+          }}>
+            <div style={{ fontSize: 8, letterSpacing: '0.2em', color: `${trainer.color}77`, textTransform: 'uppercase', marginBottom: 4 }}>
+              ⚡ ABILITY
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 900, color: trainer.color, letterSpacing: '0.03em', marginBottom: 3 }}>
+              {trainer.ability.name}
+            </div>
+            <div style={{ fontSize: 10, color: '#94a3b8', lineHeight: 1.4, marginBottom: 5 }}>
+              {trainer.ability.description}
+            </div>
+            {/* Bonus bar */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <div style={{ fontSize: 8, color: '#475569', flexShrink: 0 }}>BONUS</div>
+              <div style={{ flex: 1, height: 5, background: 'rgba(255,255,255,0.05)', borderRadius: 3, overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%',
+                  width: `${abilityPct * 5}%`,
+                  maxWidth: '100%',
+                  background: `linear-gradient(90deg, ${trainer.color}99, ${trainer.color})`,
+                  borderRadius: 3,
+                  boxShadow: `0 0 6px ${trainer.color}88`,
+                }} />
+              </div>
+              <div style={{ fontSize: 10, color: trainer.color, fontWeight: 900, flexShrink: 0 }}>+{abilityPct}%</div>
+            </div>
+          </div>
+
+          {/* STYLE */}
+          <div>
+            <div style={{ fontSize: 8, letterSpacing: '0.2em', color: `${trainer.color}77`, textTransform: 'uppercase', marginBottom: 5 }}>
+              ── STYLE ──
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {dossier.battleStyles.map((style, i) => (
+                <div key={i} style={{
+                  fontSize: 11, color: '#94a3b8',
+                  display: 'flex', alignItems: 'center', gap: 5,
                 }}>
-                  <img
-                    src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`}
-                    alt={`#${id}`}
-                    onError={e => {
-                      const img = e.target as HTMLImageElement;
-                      if (!img.src.includes('official-artwork')) {
-                        img.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`;
-                        img.style.imageRendering = 'auto';
-                      }
-                    }}
-                    style={{ width: 36, height: 36, imageRendering: 'pixelated', objectFit: 'contain' }}
-                  />
+                  {style}
                 </div>
               ))}
             </div>
           </div>
-        )}
+
+          {/* SIG. POKÉMON */}
+          {dossier.signaturePokemon.length > 0 && (
+            <div style={{ marginTop: 'auto' }}>
+              <div style={{
+                fontSize: 8, letterSpacing: '0.2em', color: `${trainer.color}77`,
+                textTransform: 'uppercase', marginBottom: 5,
+              }}>
+                ── SIG. POKÉMON ──
+              </div>
+              <div style={{ display: 'flex', gap: 5 }}>
+                {dossier.signaturePokemon.map(id => (
+                  <div key={id} style={{
+                    width: 46, height: 46,
+                    background: `${trainer.color}0f`,
+                    border: `1px solid ${trainer.color}33`,
+                    borderRadius: 6,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <img
+                      src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`}
+                      alt={`#${id}`}
+                      onError={e => {
+                        const img = e.target as HTMLImageElement
+                        if (!img.src.includes('official-artwork')) {
+                          img.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`
+                          img.style.imageRendering = 'auto'
+                        }
+                      }}
+                      style={{ width: 38, height: 38, imageRendering: 'pixelated', objectFit: 'contain' }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+        </div>
       </div>
 
-      {/* Bottom bar */}
+      {/* Bottom accent bar */}
       <div style={{ height: 2, background: `linear-gradient(90deg, transparent, ${trainer.color}44, transparent)` }} />
     </div>
   )
