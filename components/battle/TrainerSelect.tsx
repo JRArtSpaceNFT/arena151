@@ -465,7 +465,7 @@ export default function TrainerSelect() {
           {isP1Turn ? 'PLAYER 1' : 'PLAYER 2'}: CHOOSE YOUR TRAINER
         </h1>
         <p style={{ color: '#475569', marginTop: 3, marginBottom: 0, fontSize: 12 }}>
-          {gameMode === 'vs_ai' && isP1Turn
+          {(gameMode === 'vs_ai') && isP1Turn
             ? 'AI will pick automatically after you choose'
             : 'Your trainer ability activates in battle'}
         </p>

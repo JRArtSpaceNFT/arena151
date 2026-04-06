@@ -16,7 +16,7 @@ export type Screen =
   | 'story_badge_reward' | 'story_hall_of_fame'
   | 'friend_battle_lobby'
 
-export type GameMode = 'local_2p' | 'vs_ai' | 'story' | 'practice' | 'friend_battle'
+export type GameMode = 'local_2p' | 'vs_ai' | 'story' | 'practice' | 'friend_battle' | 'paid_pvp'
 export type AIDifficulty = 'easy' | 'normal' | 'hard'
 export type CoinSide = 'red' | 'white'
 

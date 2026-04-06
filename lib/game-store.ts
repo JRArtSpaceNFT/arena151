@@ -166,12 +166,21 @@ export const useGameStore = create<GameState>((set, get) => ({
   selectTrainer: (trainer) => {
     const { trainerSelectPhase, gameMode } = get()
     if (trainerSelectPhase === 'p1') {
-      if (gameMode === 'friend_battle') {
-        // Friend battle: P1 picks their own trainer — P2 will be set when opponent team
-        // is fetched from server. Skip straight to draft for P1 only.
-        // A placeholder P2 trainer is set temporarily; it will be overwritten before battle starts.
-        const available = TRAINERS.filter(t => t.id !== trainer.id)
-        const placeholder = available[0] // overwritten at battle compute time
+      if (gameMode === 'paid_pvp') {
+        // Paid PvP: P1 picks their own trainer only. No AI. No random.
+        // P2 trainer is set by ArenaReveal from seed-derived TRAINERS index.
+        // Placeholder is the first trainer that isn't P1's — never used in battle.
+        const placeholder = TRAINERS.find(t => t.id !== trainer.id) ?? TRAINERS[0]
+        set({
+          p1Trainer: trainer,
+          p2Trainer: placeholder,
+          trainerSelectPhase: 'p2',
+          draftCurrentPicker: 'p1',
+          screen: 'draft',
+        })
+      } else if (gameMode === 'friend_battle') {
+        // Friend battle: same as paid_pvp — P2 trainer comes from server sync
+        const placeholder = TRAINERS.find(t => t.id !== trainer.id) ?? TRAINERS[0]
         console.log('[FriendBattle] P1 trainer selected:', trainer.id)
         set({
           p1Trainer: trainer,
@@ -181,7 +190,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           screen: 'draft',
         })
       } else if (gameMode === 'vs_ai' || gameMode === 'practice') {
-        // AI picks randomly for P2
+        // AI picks randomly for P2 — ONLY for practice/vs_ai modes
         const available = TRAINERS.filter(t => t.id !== trainer.id)
         const aiTrainer = available[Math.floor(Math.random() * available.length)]
         set({
@@ -213,9 +222,9 @@ export const useGameStore = create<GameState>((set, get) => ({
   draftCreature: (creature) => {
     const { draftTeamA, draftBudgetA, gameMode } = get()
 
-    // vs_ai/practice/friend_battle: P1 always picks freely, no turn blocking
-    // friend_battle: each player drafts their own team on their own device
-    if (gameMode === 'vs_ai' || gameMode === 'practice' || gameMode === 'friend_battle') {
+    // vs_ai/practice/friend_battle/paid_pvp: P1 always picks freely, no turn blocking
+    // In paid_pvp and friend_battle: each player drafts their own team on their own device
+    if (gameMode === 'vs_ai' || gameMode === 'practice' || gameMode === 'friend_battle' || gameMode === 'paid_pvp') {
       if (draftTeamA.length >= TEAM_SIZE) return
       if (creature.pointCost > draftBudgetA) return
       if (draftTeamA.find(c => c.id === creature.id)) return
@@ -280,6 +289,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   triggerAIDraftPick: () => {
     const state = get()
+    // Only fires for vs_ai and practice. Explicitly blocked for paid_pvp and friend_battle.
     if (state.gameMode !== 'vs_ai' && state.gameMode !== 'practice') return
     if (state.draftCurrentPicker !== 'p2') return
     if (state.draftTeamB.length >= TEAM_SIZE) return
@@ -344,11 +354,11 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (!p1Trainer || !p2Trainer) return
     const lineupA = draftTeamA.map(c => createActiveCreature(c.id))
 
-    if (gameMode === 'friend_battle') {
-      // Friend battle: P2's team comes from server — don't use local draftTeamB.
-      // Set lineupA and lineupB empty (lineupB will be filled by setOpponentTeamForFriendBattle).
-      // Move to lineup screen for P1 to order their team.
-      console.log('[FriendBattle] confirmVsAiDraft in friend_battle mode — P1 team:', draftTeamA.map(c => c.id))
+    if (gameMode === 'paid_pvp' || gameMode === 'friend_battle') {
+      // paid_pvp / friend_battle: P2's team comes from the server.
+      // Do NOT generate any AI team. lineupB stays empty until ArenaReveal fills it
+      // (paid_pvp) or FriendGameWrapper sync fills it (friend_battle).
+      // Move to lineup for P1 to order their own team only.
       set({ lineupA, lineupB: [], lineupPhase: 'p1', arena: getRandomArena(), battleState: null, screen: 'lineup' })
       return
     }
@@ -407,12 +417,10 @@ export const useGameStore = create<GameState>((set, get) => ({
   confirmLineup: (player) => {
     const { lineupPhase, gameMode } = get()
     if (player === 'p1') {
-      if (gameMode === 'friend_battle') {
-        // Friend battle: P1 confirms lineup → go to arena_reveal.
-        // FriendGameWrapper watches for screen='arena_reveal' and triggers lineup_locked sync.
-        // After sync, FriendGameWrapper computes battle directly and sets screen='battle'.
-        // proceedFromArenaReveal() is a no-op in friend_battle mode.
-        console.log('[FriendBattle] P1 lineup confirmed — triggering arena_reveal for sync')
+      if (gameMode === 'paid_pvp' || gameMode === 'friend_battle') {
+        // paid_pvp / friend_battle: P1 confirms lineup → arena_reveal.
+        // No AI lineup shuffle. lineupB is NOT touched here.
+        // ArenaReveal (paid_pvp) or FriendGameWrapper sync (friend_battle) fills lineupB.
         set({ lineupPhase: 'done' })
         const arena = getRandomArena()
         set({ arena, screen: 'arena_reveal' })
@@ -451,9 +459,11 @@ export const useGameStore = create<GameState>((set, get) => ({
     // ArenaReveal should not trigger battle computation — FriendGameWrapper sets
     // battleState directly and navigates to 'battle' screen.
     if (gameMode === 'friend_battle') {
-      console.log('[FriendBattle] proceedFromArenaReveal skipped — handled by FriendGameWrapper sync')
+      // friend_battle: FriendGameWrapper computes battle after lineup_locked sync
       return
     }
+    // paid_pvp: ArenaReveal itself calls proceedFromArenaReveal() AFTER setting battleState.
+    // If somehow called with no battleState yet (shouldn't happen), allow fallthrough.
 
     // Use pre-computed battleState if available; compute now for vs_human flow
     if (battleState) {

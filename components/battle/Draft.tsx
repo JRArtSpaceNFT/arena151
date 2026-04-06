@@ -165,13 +165,13 @@ export default function Draft() {
     playMusic('menu')
   }, [])
 
-  // vs_ai: AI picks its full team instantly at draft mount
-  // friend_battle: DO NOT pick AI team — P2 team comes from server (opponent's device)
+  // vs_ai / practice: AI picks full team instantly at draft mount.
+  // paid_pvp / friend_battle: NEVER. P2 team comes from server.
   useEffect(() => {
     if ((gameMode === 'vs_ai' || gameMode === 'practice') && draftTeamB.length === 0) {
       pickAITeamInstantly()
     }
-    // friend_battle: intentionally skip — no AI draft
+    // paid_pvp and friend_battle: intentionally skip — no AI draft
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -192,7 +192,7 @@ export default function Draft() {
   const [orderTimeLeft, setOrderTimeLeft] = useState(30)
   const [showBudgetTooltip, setShowBudgetTooltip] = useState(false)
 
-  const isP1Turn = (gameMode === 'vs_ai' || gameMode === 'practice' || gameMode === 'friend_battle') ? true : draftCurrentPicker === 'p1'
+  const isP1Turn = (gameMode === 'vs_ai' || gameMode === 'practice' || gameMode === 'friend_battle' || gameMode === 'paid_pvp') ? true : draftCurrentPicker === 'p1'
   const myDrafted = new Set(draftTeamA.map(c => c.id))
   const currentBudget = draftBudgetA
 
@@ -296,10 +296,9 @@ export default function Draft() {
     }
   }
 
-  // friend_battle behaves like vs_ai for draft purposes:
-  // P1 drafts their own team; P2 team comes from server (no local AI).
-  // confirmVsAiDraft advances to lineup after P1 team is complete.
-  const isAiMode = gameMode === 'vs_ai' || gameMode === 'practice' || gameMode === 'friend_battle'
+  // paid_pvp / friend_battle: single-player draft — P1 only, no AI team.
+  // confirmVsAiDraft handles this path (goes to lineup without generating P2 team).
+  const isAiMode = gameMode === 'vs_ai' || gameMode === 'practice' || gameMode === 'friend_battle' || gameMode === 'paid_pvp'
   const canLockIn = isOrdering
     ? true // can always lock in once ordering phase starts
     : isAiMode

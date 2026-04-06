@@ -202,9 +202,11 @@ export default function GameWrapper() {
   useEffect(() => {
     if (initialized.current) return
     initialized.current = true
-    // Reset game and start at trainer_select in vs_ai mode
+    // Paid PvP match — use paid_pvp mode, never vs_ai.
+    // paid_pvp mode blocks ALL AI paths: no random trainer, no AI draft, no AI lineup shuffle.
+    // Server provides canonical teams/arena/seed at ArenaReveal after both players join.
     playAgain()
-    setGameMode('vs_ai')
+    setGameMode('paid_pvp')
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

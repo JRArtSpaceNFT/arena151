@@ -77,7 +77,7 @@ export default function Lineup() {
         </p>
 
         {/* Timer */}
-        {(lineupPhase as string) !== 'done' && !(gameMode === 'vs_ai' && isP2Phase) && (
+        {(lineupPhase as string) !== 'done' && !(( gameMode === 'vs_ai' || gameMode === 'paid_pvp') && isP2Phase) && (
           <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
             {/* Big countdown number */}
             <motion.div
@@ -108,7 +108,7 @@ export default function Lineup() {
             </span>
           </div>
         )}
-        {gameMode === 'vs_ai' && isP2Phase && (
+        {(gameMode === 'vs_ai' || gameMode === 'paid_pvp') && isP2Phase && (
           <p style={{ color: '#fbbf24', fontWeight: 700 }}>AI is setting its lineup...</p>
         )}
       </motion.div>
@@ -216,7 +216,7 @@ export default function Lineup() {
               color: 'white', fontSize: 18, fontWeight: 700, cursor: 'pointer',
             }}
           >
-            ✅ Confirm Lineup {isP1Phase && gameMode !== 'vs_ai' ? '→ P2' : '→ Arena'}
+            ✅ Confirm Lineup {isP1Phase && gameMode !== 'vs_ai' && gameMode !== 'paid_pvp' ? '→ P2' : '→ Arena'}
           </motion.button>
         </div>
       )}
