@@ -1023,7 +1023,7 @@ export default function BattleScreen() {
         {/* Main battle area */}
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
           {/* Side A — team list + trainer below */}
-          <div style={{ width: 'clamp(80px, 12vw, 155px)', display: 'flex', flexDirection: 'column', padding: '8px 4px 0 8px', borderRight: '1px solid rgba(255,255,255,0.06)', minHeight: 0, overflow: 'hidden' }}>
+          <div style={{ width: 155, display: 'flex', flexDirection: 'column', padding: '10px 6px 0 10px', borderRight: '1px solid rgba(255,255,255,0.06)' }}>
             <div style={{ color: '#7c3aed', fontSize: 11, fontWeight: 700, marginBottom: 6, letterSpacing: '0.05em' }}>{p1Trainer?.name ?? 'P1'}</div>
             {teamA.map((ac, i) => {
               const isActive = i === activeA
@@ -1056,11 +1056,11 @@ export default function BattleScreen() {
           </div>
 
           {/* Center battle view */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '8px 0', position: 'relative', minHeight: 0 }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', padding: '40px 0 0', position: 'relative' }}>
             {/* Matchup display */}
             <div 
               data-battle-container 
-              style={{ display: 'flex', alignItems: 'flex-start', gap: 'clamp(4px, 2vw, 24px)', width: '100%', justifyContent: 'center', position: 'relative', zIndex: 1 }}
+              style={{ display: 'flex', alignItems: 'flex-start', gap: 24, width: '100%', justifyContent: 'center', position: 'relative', zIndex: 1 }}
             >
               {/* Creature A */}
               <CreatureDisplay
@@ -1090,10 +1090,9 @@ export default function BattleScreen() {
                 }}
                 transition={{ duration: 1.5, repeat: Infinity, repeatType: 'reverse', ease: 'easeInOut', type: 'tween' }}
                 style={{
-                  fontSize: 'clamp(18px, 3.5vw, 40px)', fontWeight: 900, color: '#fbbf24',
+                  fontSize: 40, fontWeight: 900, color: '#fbbf24',
                   textShadow: '0 0 20px rgba(251,191,36,0.6)',
                   userSelect: 'none',
-                  flexShrink: 0,
                 }}
               >
                 VS
@@ -1124,7 +1123,7 @@ export default function BattleScreen() {
           </div>
 
           {/* Side B — team list + trainer below */}
-          <div style={{ width: 'clamp(80px, 12vw, 155px)', display: 'flex', flexDirection: 'column', padding: '8px 8px 0 4px', borderLeft: '1px solid rgba(255,255,255,0.06)', minHeight: 0, overflow: 'hidden' }}>
+          <div style={{ width: 155, display: 'flex', flexDirection: 'column', padding: '10px 10px 0 6px', borderLeft: '1px solid rgba(255,255,255,0.06)' }}>
             <div style={{ color: '#ef4444', fontSize: 11, fontWeight: 700, marginBottom: 6, letterSpacing: '0.05em', textAlign: 'right' }}>{p2Trainer?.name ?? 'P2'}</div>
             {teamB.map((ac, i) => {
               const isActive = i === activeB
@@ -1339,7 +1338,7 @@ function CreatureDisplay({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isKO])
 
-  if (!ac) return <div style={{ width: 'clamp(140px, 28vw, 340px)' }} />
+  if (!ac) return <div style={{ width: 340 }} />
 
   const primaryType = ac.creature.types[0] as string
   const typeColor = TYPE_COLORS[primaryType] ?? '#9ca3af'
@@ -1364,7 +1363,7 @@ function CreatureDisplay({
     <div 
       data-creature-display 
       data-side={side}
-      style={{ textAlign: 'center', width: 'clamp(140px, 28vw, 340px)', position: 'relative' }}
+      style={{ textAlign: 'center', width: 340, position: 'relative' }}
     >
 
       {/* ── Name + HP bar ABOVE the sprite ── */}
@@ -1372,7 +1371,7 @@ function CreatureDisplay({
 
         {/* Name row */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 5 }}>
-          <span style={{ fontSize: 'clamp(11px, 1.5vw, 18px)', fontWeight: 800, color: '#f1f5f9', letterSpacing: '0.02em' }}>
+          <span style={{ fontSize: 18, fontWeight: 800, color: '#f1f5f9', letterSpacing: '0.02em' }}>
             {ac.creature.name}
           </span>
           {ac.shiny && (
@@ -1466,9 +1465,9 @@ function CreatureDisplay({
                   }
                 }}
                 style={{
-                  width: isIllustrated ? `clamp(80px, ${Math.round(illustratedSize * 0.08)}dvh, ${illustratedSize}px)` : 'clamp(120px, 28dvh, 340px)',
-                  height: isIllustrated ? `clamp(80px, ${Math.round(illustratedSize * 0.08)}dvh, ${illustratedSize}px)` : 'clamp(120px, 28dvh, 340px)',
-                  marginTop: isJessieJames ? 'clamp(-90px, -18dvh, -180px)' : isIllustrated ? 'clamp(20px, 6dvh, 60px)' : 0,
+                  width: isIllustrated ? illustratedSize : 340,
+                  height: isIllustrated ? illustratedSize : 340,
+                  marginTop: isJessieJames ? -180 : isIllustrated ? 60 : 0,
                   imageRendering: 'pixelated',
                   // Illustrated sprites face right by default — flip logic is inverted vs pixel art
                   transform: isIllustrated
