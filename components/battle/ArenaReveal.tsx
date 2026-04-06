@@ -25,7 +25,7 @@ const SCHEDULE = [
 
 export default function ArenaReveal() {
   const { arena, proceedFromArenaReveal, lineupA } = useGameStore()
-  const { currentMatch, currentTrainer, serverMatchId, setServerMatch, isMatchJoiner } = useArenaStore()
+  const { currentMatch, currentTrainer, serverMatchId, setServerMatch, isMatchJoiner, clearServerMatch } = useArenaStore()
   const [paidMatchError, setPaidMatchError] = useState<string | null>(null)
   const [isPaidMatchLoading, setIsPaidMatchLoading] = useState(false)
   const paidMatchCreated = useRef(false)
@@ -137,7 +137,47 @@ export default function ArenaReveal() {
       return null
     }
 
-    const createAndProceed = async () => {
+
+    // ── computeAndProceed: canonical battle compute + proceed ────
+    // Called from all resume paths and the fresh flow.
+    // matchData must contain: teamA, teamB, battleSeed (or these from outer scope)
+    const computeAndProceed = async (matchData: Record<string, unknown>, useSeed: string | undefined, _tok: string) => {
+      const tA = matchData.teamA
+      const tB = matchData.teamB
+      const effectiveSeed = useSeed ?? String(matchData.battleSeed ?? '')
+
+      if (effectiveSeed && tA && tB) {
+        const { resolveBattle, createActiveCreature } = await import('@/lib/engine/battle')
+        const { mulberry32, seedFromMatchId } = await import('@/lib/engine/prng')
+        const { ARENAS } = await import('@/lib/data/arenas')
+        const { TRAINERS } = await import('@/lib/data/trainers')
+        const gameStore = (await import('@/lib/game-store')).useGameStore
+
+        const teamAIds: number[] = tA as number[]
+        const teamBIds: number[] = tB as number[]
+        const teamA = teamAIds.map((id: number) => createActiveCreature(id))
+        const teamB = teamBIds.map((id: number) => createActiveCreature(id))
+
+        const seedNum = Math.abs(effectiveSeed.split('').reduce((h: number, c: string) => Math.imul(h, 31) + c.charCodeAt(0) | 0, 0))
+        const canonicalArena = ARENAS[seedNum % ARENAS.length]
+
+        const trainerSeedA = Math.abs((seedNum * 7 + 3) % TRAINERS.length)
+        const trainerSeedB = Math.abs((seedNum * 13 + 7) % TRAINERS.length)
+        const state = gameStore.getState()
+        const trainerA = TRAINERS[trainerSeedA] ?? state.p1Trainer ?? TRAINERS[0]
+        const trainerB = TRAINERS[trainerSeedB !== trainerSeedA ? trainerSeedB : (trainerSeedB + 1) % TRAINERS.length] ?? state.p2Trainer ?? TRAINERS[1]
+
+        const rng = mulberry32(seedFromMatchId(effectiveSeed))
+        const battleState = resolveBattle(teamA, teamB, canonicalArena, trainerA, trainerB, rng)
+
+        gameStore.setState({ lineupA: teamA, lineupB: teamB, arena: canonicalArena, battleState })
+        console.log('[ArenaReveal] Canonical battle computed. Winner:', battleState.winner, '| resuming from:', matchData.resumePhase ?? 'fresh')
+      }
+
+      setTimeout(() => proceedFromArenaReveal(), 1000)
+    }
+
+        const createAndProceed = async () => {
       try {
         const supabase = createClient(
           process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -151,112 +191,154 @@ export default function ArenaReveal() {
         }
 
         const myLineupIds = lineupA.map((ac: { creature: { id: number } }) => ac.creature.id)
+        const token = session.access_token
 
-        let res: Response
-        const isP2 = !!serverMatchId
+        // ── RESUME CHECK ──────────────────────────────────────────
+        // If serverMatchId is already set (restored from sessionStorage on refresh),
+        // call /resume to find out where we are WITHOUT calling join again.
+        // This covers all refresh scenarios for both P1 and P2.
+        if (serverMatchId) {
+          console.log('[ArenaReveal] serverMatchId present — checking resume state:', serverMatchId)
+          const resumeRes = await fetch(`/api/match/${serverMatchId}/resume`, {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+          if (resumeRes.ok) {
+            const resumeData = await resumeRes.json()
+            console.log('[ArenaReveal] Resume response:', resumeData.resumePhase, resumeData.status, 'role:', resumeData.myRole)
+            setIsPaidMatchLoading(false)
 
-        if (isP2) {
-          // P2 joining — sends their lineup; server computes winner immediately
-          res = await fetch(`/api/match/${serverMatchId}/join`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-            body: JSON.stringify({ teamB: myLineupIds }),
-          })
-        } else {
-          // P1 creating — sends their lineup; waits for P2 to join
-          res = await fetch('/api/match/create', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-            body: JSON.stringify({
-              roomId: currentMatch?.room?.id ?? 'pewter-city',
-              entryFeeSol: entryFee,
-              teamA: myLineupIds,
-            }),
-          })
+            if (resumeData.resumePhase === 'abandoned') {
+              sessionStorage.removeItem('arena_matchId')
+              sessionStorage.removeItem('arena_seed')
+              sessionStorage.removeItem('arena_isJoiner')
+              setPaidMatchError('Match was cancelled or refunded.')
+              return
+            }
+
+            if (resumeData.resumePhase === 'settled') {
+              // Already settled — go to result screen
+              sessionStorage.removeItem('arena_matchId')
+              sessionStorage.removeItem('arena_seed')
+              sessionStorage.removeItem('arena_isJoiner')
+              proceedFromArenaReveal()
+              return
+            }
+
+            if (resumeData.resumePhase === 'waiting_p2') {
+              // P1 refreshed while waiting — resume the poll
+              console.log('[ArenaReveal] Resuming P1 wait for P2...')
+              const finalData = await waitForP2(serverMatchId, token)
+              if (!finalData) {
+                try {
+                  await fetch(`/api/match/${serverMatchId}/abandon`, {
+                    method: 'POST', headers: { Authorization: `Bearer ${token}` },
+                  })
+                } catch (_) {}
+                sessionStorage.removeItem('arena_matchId')
+                sessionStorage.removeItem('arena_seed')
+                sessionStorage.removeItem('arena_isJoiner')
+                setPaidMatchError('NO_OPPONENT')
+                return
+              }
+              const seed = finalData.battleSeed ?? resumeData.battleSeed
+              if (seed) setServerMatch(serverMatchId, seed)
+              await computeAndProceed(finalData, seed, session.access_token)
+              return
+            }
+
+            if (resumeData.resumePhase === 'battle_ready') {
+              // Both players joined (either fresh or after refresh) — compute battle and go
+              console.log('[ArenaReveal] Battle ready — computing canonical battle (role:', resumeData.myRole, ')')
+              const seed = resumeData.battleSeed
+              if (seed) setServerMatch(serverMatchId, seed)
+              await computeAndProceed(resumeData, seed, session.access_token)
+              return
+            }
+          }
+          // Resume endpoint failed — fall through to normal flow
+          console.warn('[ArenaReveal] Resume check failed, falling through to normal flow')
         }
 
-        const data = await res.json()
-        setIsPaidMatchLoading(false)
+        // ── FRESH MATCH FLOW (no serverMatchId yet) ───────────────
+        const isP2 = isMatchJoiner // set by QueueScreen when P2 found open match
 
-        if (!res.ok) {
-          const msg = data.code === 'INSUFFICIENT_FUNDS'
-            ? 'Insufficient balance to enter this room.'
-            : (data.error ?? 'Failed to join/create match. Please try again.')
-          setPaidMatchError(msg)
+        let matchId: string
+        let seed: string
+
+        if (isP2) {
+          // P2: join the match, server computes winner
+          const res = await fetch(`/api/match/${serverMatchId}/join`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ teamB: myLineupIds }),
+          })
+          const data = await res.json()
+          setIsPaidMatchLoading(false)
+          if (!res.ok) {
+            // 409 = already joined (concurrent join or refresh handled above) — try resume
+            if (res.status === 409 && serverMatchId) {
+              const retryResume = await fetch(`/api/match/${serverMatchId}/resume`, {
+                headers: { Authorization: `Bearer ${token}` },
+              })
+              if (retryResume.ok) {
+                const rd = await retryResume.json()
+                if (rd.resumePhase === 'battle_ready') {
+                  await computeAndProceed(rd, rd.battleSeed, token)
+                  return
+                }
+              }
+            }
+            setPaidMatchError(data.code === 'INSUFFICIENT_FUNDS'
+              ? 'Insufficient balance to enter this room.'
+              : (data.error ?? 'Failed to join match. Please try again.'))
+            return
+          }
+          matchId = serverMatchId!
+          seed    = data.battleSeed
+          setServerMatch(matchId, seed)
+          await computeAndProceed(data, seed, token)
           return
         }
 
-        // Store match ID + seed
-        const matchId   = isP2 ? serverMatchId! : data.matchId
-        const seed      = data.battleSeed
-        if (!isP2 && data.matchId) setServerMatch(data.matchId, seed)
-        else if (isP2 && seed)     setServerMatch(serverMatchId!, seed)
+        // P1: create the match
+        const res = await fetch('/api/match/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            roomId: currentMatch?.room?.id ?? 'pewter-city',
+            entryFeeSol: entryFee,
+            teamA: myLineupIds,
+          }),
+        })
+        const data = await res.json()
+        setIsPaidMatchLoading(false)
+        if (!res.ok) {
+          setPaidMatchError(data.code === 'INSUFFICIENT_FUNDS'
+            ? 'Insufficient balance to enter this room.'
+            : (data.error ?? 'Failed to create match. Please try again.'))
+          return
+        }
+        matchId = data.matchId
+        seed    = data.battleSeed
+        setServerMatch(matchId, seed)
 
-        // P1: poll for P2 to join before computing canonical battle
-        // P2: server already computed winner — teamA + teamB both present in response
-        const finalData = isP2 ? data : await waitForP2(matchId, session.access_token)
+        // P1 waits for P2
+        const finalData = await waitForP2(matchId, token)
         if (!finalData) {
-          // P2 never joined within 5 min. Attempt immediate abandon so P1 gets funds back
-          // without waiting for cron. Cron is the fallback; this is the fast path.
           try {
             await fetch(`/api/match/${matchId}/abandon`, {
-              method: 'POST',
-              headers: { 'Authorization': `Bearer ${session.access_token}` },
+              method: 'POST', headers: { Authorization: `Bearer ${token}` },
             })
-            console.log('[ArenaReveal] Abandoned match after P2 timeout:', matchId)
-          } catch (_) {
-            // abandon failed — cron will clean up
-          }
-          // Clear session storage so refresh doesn't re-enter this match
+          } catch (_) {}
           sessionStorage.removeItem('arena_matchId')
           sessionStorage.removeItem('arena_seed')
           sessionStorage.removeItem('arena_isJoiner')
           setPaidMatchError('NO_OPPONENT')
           return
         }
-        const finalSeed  = finalData.battleSeed ?? seed
-        if (finalData.battleSeed) setServerMatch(matchId, finalData.battleSeed)
-
-        // ── Compute identical battle display on both devices ──────
-        if (finalSeed && finalData.teamA && finalData.teamB) {
-          const tA = finalData.teamA
-          const tB = finalData.teamB
-          const { resolveBattle, createActiveCreature } = await import('@/lib/engine/battle')
-          const { mulberry32, seedFromMatchId } = await import('@/lib/engine/prng')
-          const { ARENAS } = await import('@/lib/data/arenas')
-          const { TRAINERS } = await import('@/lib/data/trainers')
-          const gameStore = (await import('@/lib/game-store')).useGameStore
-
-          const teamAIds: number[] = tA as number[]
-          const teamBIds: number[] = tB as number[]
-          const teamA = teamAIds.map((id: number) => createActiveCreature(id))
-          const teamB = teamBIds.map((id: number) => createActiveCreature(id))
-
-          // Seed-based arena — use finalSeed (authoritative DB value) for consistency
-          const seedNum = Math.abs((finalSeed ?? seed).split('').reduce((h: number, c: string) => Math.imul(h, 31) + c.charCodeAt(0) | 0, 0))
-          const canonicalArena = ARENAS[seedNum % ARENAS.length]
-
-          // Canonical trainers: derive from seed so BOTH devices use the same trainers.
-          // Using state.p1Trainer/p2Trainer would give different random AI trainers per device.
-          // Seed-derived index ensures both clients pick identical trainers for the display battle.
-          // The settlement winner is determined server-side (doesn't depend on client trainer display).
-          const state = gameStore.getState()
-          const trainerSeedA = Math.abs((seedNum * 7 + 3) % TRAINERS.length)
-          const trainerSeedB = Math.abs((seedNum * 13 + 7) % TRAINERS.length)
-          const trainerA = TRAINERS[trainerSeedA] ?? state.p1Trainer ?? TRAINERS[0]
-          const trainerB = TRAINERS[trainerSeedB !== trainerSeedA ? trainerSeedB : (trainerSeedB + 1) % TRAINERS.length] ?? state.p2Trainer ?? TRAINERS[1]
-
-          const rng = mulberry32(seedFromMatchId(seed))
-          const battleState = resolveBattle(teamA, teamB, canonicalArena, trainerA, trainerB, rng)
-
-          gameStore.setState({ lineupA: teamA, lineupB: teamB, arena: canonicalArena, battleState })
-          console.log('[ArenaReveal] Canonical battle computed. Winner:', battleState.winner)
-        }
-
-        // Proceed to battle immediately
-        setTimeout(() => {
-          proceedFromArenaReveal()
-        }, 1000)
+        const finalSeed = (finalData.battleSeed as string | undefined) ?? seed
+        if (finalData.battleSeed) setServerMatch(matchId, finalData.battleSeed as string)
+        await computeAndProceed(finalData, finalSeed, token)
       } catch (err) {
         console.error('[ArenaReveal] Paid match error:', err)
         setPaidMatchError('Network error. Please check your connection.')
