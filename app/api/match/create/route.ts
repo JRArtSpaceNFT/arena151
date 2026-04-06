@@ -134,7 +134,7 @@ export async function POST(req: NextRequest) {
       metadata: { room_id: roomId, idempotency_key: idempotencyKey },
     })
 
-    return NextResponse.json({ matchId, idempotencyKey, battleSeed, status: 'forming' })
+    return NextResponse.json({ matchId, idempotencyKey, battleSeed, status: 'forming', teamA: teamA ?? null })
 
   } catch (err) {
     console.error('[Match Create] Unexpected error:', err)

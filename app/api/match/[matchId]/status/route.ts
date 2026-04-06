@@ -41,7 +41,7 @@ export async function GET(
     // ── Load match ───────────────────────────────────────────────
     const { data: matchRaw, error: matchError } = await supabaseAdmin
       .from('matches')
-      .select('id, player_a_id, player_b_id, entry_fee_sol, status, winner_id, settlement_tx, idempotency_key, error_message, result_claim_a, result_claim_b, result_submitted_at_a, result_submitted_at_b, room_id, created_at, updated_at')
+      .select('id, player_a_id, player_b_id, entry_fee_sol, status, winner_id, settlement_tx, idempotency_key, error_message, result_claim_a, result_claim_b, result_submitted_at_a, result_submitted_at_b, room_id, created_at, updated_at, team_a, team_b, battle_seed')
       .eq('id', matchId)
       .single()
 
@@ -51,7 +51,7 @@ export async function GET(
 
     const match = matchRaw as {
       id: string; player_a_id: string; player_b_id: string | null;
-      entry_fee_sol: number; status: string; winner_id: string | null;
+      entry_fee_sol: number; status: string; winner_id: string | null; team_a: unknown; team_b: unknown; battle_seed: string | null;
       settlement_tx: string | null; idempotency_key: string | null;
       error_message: string | null; result_claim_a: string | null;
       result_claim_b: string | null; result_submitted_at_a: string | null;
@@ -71,6 +71,9 @@ export async function GET(
       playerBId: match.player_b_id,
       entryFeeSol: match.entry_fee_sol,
       winnerId: match.winner_id ?? null,
+      teamA: match.team_a ?? null,
+      teamB: match.team_b ?? null,
+      battleSeed: match.battle_seed ?? null,
       settlementTx: match.settlement_tx ?? null,
       errorMessage: match.error_message ?? null,
       myClaimSubmitted: userId === match.player_a_id

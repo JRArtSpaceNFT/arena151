@@ -225,18 +225,18 @@ export default function GameWrapper() {
     prevScreen.current = gameScreen
   }, [gameScreen, setScreen, setLastMatchWinner, clearServerMatch])
 
-  // ── PAID MATCH: Submit result after battle resolves ───────────
-  // For paid matches (wager > 0), submit the winner to the server when done.
-  // For practice/AI (wager = 0), skip — no money movement.
+  // ── PAID MATCH: Auto-settle after battle animation completes ──
+  // Server computed winner when P2 joined — no client result submission needed.
+  // Just call /api/settle when battle finishes. Server already knows the winner.
   useEffect(() => {
     if (!battleState || battleState.phase !== 'finished') return
     if (!serverMatchId || resultSubmitted) return
-    if (!currentTrainer) return
 
     const entryFee = currentMatch?.room?.entryFee ?? 0
-    if (entryFee <= 0) return // practice — no result submission needed
+    if (entryFee <= 0) return // practice — no settlement
 
     setResultSubmitted(true)
+    console.log('[GameWrapper] Battle animation done — auto-settling match:', serverMatchId)
 
     ;(async () => {
       try {
@@ -248,23 +248,23 @@ export default function GameWrapper() {
         const { data: { session } } = await supabase.auth.getSession()
         if (!session?.access_token) return
 
-        // P1 (currentTrainer) is always player_a in the server match
-        const winnerId = battleState.winner === 'A'
-          ? currentTrainer.id
-          : (currentMatch?.player2?.id ?? currentTrainer.id)
-
-        await fetch(`/api/match/${serverMatchId}/result`, {
+        // Server already has winner_id — just trigger settlement
+        const res = await fetch('/api/settle', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${session.access_token}`,
           },
-          body: JSON.stringify({ winnerId }),
+          body: JSON.stringify({ matchId: serverMatchId }),
         })
-        // Result submitted — settlement is handled server-side after both players agree
-        // (or after the 30s timeout for single-player vs AI).
+        const data = await res.json()
+        if (!res.ok) {
+          console.error('[GameWrapper] Settlement failed:', data)
+        } else {
+          console.log('[GameWrapper] Settled successfully:', data)
+        }
       } catch (err) {
-        console.error('[GameWrapper] Result submission error:', err)
+        console.error('[GameWrapper] Auto-settle error:', err)
       }
     })()
   // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -109,6 +109,21 @@ export default function ArenaReveal() {
     paidMatchCreated.current = true
     setIsPaidMatchLoading(true)
 
+    // Poll for P2 joining (P1 waits here after creating match)
+    const waitForP2 = async (mId: string, token: string): Promise<Record<string, unknown> | null> => {
+      for (let i = 0; i < 150; i++) { // 5 min timeout (2s * 150)
+        await new Promise(r => setTimeout(r, 2000))
+        const r = await fetch(`/api/match/${mId}/status`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (!r.ok) continue
+        const d = await r.json()
+        if (d.status === 'settlement_pending' && d.teamA && d.teamB) return d
+        if (d.status === 'voided' || d.status === 'expired') return null
+      }
+      return null
+    }
+
     const createAndProceed = async () => {
       try {
         const supabase = createClient(
@@ -125,26 +140,20 @@ export default function ArenaReveal() {
         const myLineupIds = lineupA.map((ac: { creature: { id: number } }) => ac.creature.id)
 
         let res: Response
-        if (serverMatchId) {
-          // P2 joining an existing match — send our lineup as teamB
+        const isP2 = !!serverMatchId
+
+        if (isP2) {
+          // P2 joining — sends their lineup; server computes winner immediately
           res = await fetch(`/api/match/${serverMatchId}/join`, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${session.access_token}`,
-            },
-            body: JSON.stringify({
-              teamB: myLineupIds,
-            }),
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+            body: JSON.stringify({ teamB: myLineupIds }),
           })
         } else {
-          // P1 creating a new match — send our lineup as teamA
+          // P1 creating — sends their lineup; waits for P2 to join
           res = await fetch('/api/match/create', {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${session.access_token}`,
-            },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
             body: JSON.stringify({
               roomId: currentMatch?.room?.id ?? 'pewter-city',
               entryFeeSol: entryFee,
@@ -164,15 +173,54 @@ export default function ArenaReveal() {
           return
         }
 
-        // For P1 (create flow): store server matchId and battleSeed
-        // For P2 (join flow): serverMatchId already set — update battleSeed from join response
-        if (!serverMatchId && data.matchId) {
-          setServerMatch(data.matchId, data.battleSeed)
-        } else if (serverMatchId && data.battleSeed) {
-          setServerMatch(serverMatchId, data.battleSeed)
+        // Store match ID + seed
+        const matchId   = isP2 ? serverMatchId! : data.matchId
+        const seed      = data.battleSeed
+        if (!isP2 && data.matchId) setServerMatch(data.matchId, seed)
+        else if (isP2 && seed)     setServerMatch(serverMatchId!, seed)
+
+        // P1: poll for P2 to join before computing canonical battle
+        // P2: server already computed winner — teamA + teamB both present in response
+        const finalData = isP2 ? data : await waitForP2(matchId, session.access_token)
+        if (!finalData) {
+          setPaidMatchError('Opponent did not join in time. Funds returned.')
+          return
+        }
+        const finalSeed  = finalData.battleSeed ?? seed
+        if (finalData.battleSeed) setServerMatch(matchId, finalData.battleSeed)
+
+        // ── Compute identical battle display on both devices ──────
+        if (finalSeed && finalData.teamA && finalData.teamB) {
+          const tA = finalData.teamA
+          const tB = finalData.teamB
+          const { resolveBattle, createActiveCreature } = await import('@/lib/engine/battle')
+          const { mulberry32, seedFromMatchId } = await import('@/lib/engine/prng')
+          const { ARENAS } = await import('@/lib/data/arenas')
+          const { TRAINERS } = await import('@/lib/data/trainers')
+          const gameStore = (await import('@/lib/game-store')).useGameStore
+
+          const teamAIds: number[] = tA as number[]
+          const teamBIds: number[] = tB as number[]
+          const teamA = teamAIds.map((id: number) => createActiveCreature(id))
+          const teamB = teamBIds.map((id: number) => createActiveCreature(id))
+
+          // Seed-based arena — same on both devices
+          const seedNum = Math.abs(seed.split('').reduce((h: number, c: string) => Math.imul(h, 31) + c.charCodeAt(0) | 0, 0))
+          const canonicalArena = ARENAS[seedNum % ARENAS.length]
+
+          // Canonical trainers — use current store trainers (P1/P2 already selected)
+          const state = gameStore.getState()
+          const trainerA = state.p1Trainer ?? TRAINERS[0]
+          const trainerB = state.p2Trainer ?? TRAINERS[1]
+
+          const rng = mulberry32(seedFromMatchId(seed))
+          const battleState = resolveBattle(teamA, teamB, canonicalArena, trainerA, trainerB, rng)
+
+          gameStore.setState({ lineupA: teamA, lineupB: teamB, arena: canonicalArena, battleState })
+          console.log('[ArenaReveal] Canonical battle computed. Winner:', battleState.winner)
         }
 
-        // Now proceed to battle (with a small delay so arena info is readable)
+        // Proceed to battle immediately
         setTimeout(() => {
           proceedFromArenaReveal()
         }, 1000)

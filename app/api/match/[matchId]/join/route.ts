@@ -13,6 +13,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { runServerBattle } from '@/lib/engine/server-battle'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -47,7 +48,7 @@ export async function POST(
     // ── Load match ───────────────────────────────────────────────
     const { data: match, error: matchError } = await supabaseAdmin
       .from('matches')
-      .select('id, player_a_id, player_b_id, entry_fee_sol, status, battle_seed')
+      .select('id, player_a_id, player_b_id, entry_fee_sol, status, battle_seed, team_a')
       .eq('id', matchId)
       .single()
 
@@ -135,7 +136,67 @@ export async function POST(
       metadata: { role: 'player_b' },
     })
 
-    return NextResponse.json({ matchId, status: 'ready', battleSeed: (match as { battle_seed: string }).battle_seed })
+    // ── Server computes winner immediately when P2 joins ─────────
+    // No more player-submitted results. Server is authoritative.
+    // Both teams are now known; run battle with shared seed → winner determined.
+    const battleSeed = (match as { battle_seed: string }).battle_seed
+    let serverWinnerId: string | null = null
+
+    const teamAIds: number[] | null = Array.isArray(match.team_a)
+      ? (match.team_a as number[])
+      : null
+    const teamBIds: number[] | null = Array.isArray(teamB)
+      ? (teamB as number[])
+      : null
+
+    if (teamAIds && teamBIds && battleSeed) {
+      try {
+        const result = runServerBattle(
+          teamAIds, teamBIds,
+          match.player_a_id, userId,
+          battleSeed
+        )
+        serverWinnerId = result.winnerId
+        console.log('[Match Join] Server computed winner:', serverWinnerId)
+
+        // Store winner + transition to settlement_pending immediately
+        await supabaseAdmin.from('matches').update({
+          team_b: teamBIds,
+          winner_id: serverWinnerId,
+          status: 'settlement_pending',
+          updated_at: new Date().toISOString(),
+        }).eq('id', matchId)
+
+        await supabaseAdmin.from('audit_log').insert({
+          user_id: userId,
+          match_id: matchId,
+          event_type: 'server_battle_computed',
+          metadata: {
+            winner_id: serverWinnerId,
+            battle_seed: battleSeed,
+            team_a: teamAIds,
+            team_b: teamBIds,
+          },
+        })
+      } catch (err) {
+        console.error('[Match Join] Server battle computation failed:', err)
+        // Fall back to ready status — result can still be submitted manually
+        await supabaseAdmin.from('matches').update({
+          team_b: teamBIds,
+          status: 'ready',
+          updated_at: new Date().toISOString(),
+        }).eq('id', matchId)
+      }
+    }
+
+    return NextResponse.json({
+      matchId,
+      status: serverWinnerId ? 'settlement_pending' : 'ready',
+      battleSeed,
+      winnerId: serverWinnerId,
+      teamA: teamAIds,
+      teamB: teamBIds ?? teamB,
+    })
 
   } catch (err) {
     console.error('[Match Join] Unexpected error:', err)
