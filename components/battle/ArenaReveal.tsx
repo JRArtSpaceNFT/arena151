@@ -217,8 +217,8 @@ export default function ArenaReveal() {
           const teamA = teamAIds.map((id: number) => createActiveCreature(id))
           const teamB = teamBIds.map((id: number) => createActiveCreature(id))
 
-          // Seed-based arena — same on both devices
-          const seedNum = Math.abs(seed.split('').reduce((h: number, c: string) => Math.imul(h, 31) + c.charCodeAt(0) | 0, 0))
+          // Seed-based arena — use finalSeed (authoritative DB value) for consistency
+          const seedNum = Math.abs((finalSeed ?? seed).split('').reduce((h: number, c: string) => Math.imul(h, 31) + c.charCodeAt(0) | 0, 0))
           const canonicalArena = ARENAS[seedNum % ARENAS.length]
 
           // Canonical trainers: derive from seed so BOTH devices use the same trainers.

@@ -236,9 +236,15 @@ export default function GameWrapper() {
     if (entryFee <= 0) return // practice — no settlement
 
     setResultSubmitted(true)
-    console.log('[GameWrapper] Battle animation done — auto-settling match:', serverMatchId)
+    console.log('[GameWrapper] Battle finished — scheduling auto-settle for match:', serverMatchId)
 
     ;(async () => {
+      // Wait for battle animation to reach a reasonable point before settling.
+      // battleState.phase is 'finished' immediately on mount (pre-computed).
+      // Delay ensures we don't hit the API on the very first render before
+      // the player has seen a single move. Settle is safe at any time but
+      // this prevents confusing error toasts during the opening moves.
+      await new Promise(r => setTimeout(r, 8000)) // wait ~8s into animation
       try {
         const { createClient } = await import('@supabase/supabase-js')
         const supabase = createClient(
