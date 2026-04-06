@@ -500,7 +500,7 @@ export default function ArenaReveal() {
             </motion.div>
           )}
 
-          <div style={{ textAlign: 'center', zIndex: 1, padding: 24, maxWidth: 800, width: '100%' }}>
+          <div style={{ textAlign: 'center', zIndex: 1, padding: '12px 24px', maxWidth: 800, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', maxHeight: '100dvh', overflowY: 'auto' }}>
 
             {/* "TONIGHT'S ARENA" label */}
             {isLocked ? (
@@ -509,10 +509,10 @@ export default function ArenaReveal() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
                 style={{
-                  fontSize: 18,
+                  fontSize: 16,
                   letterSpacing: '0.35em',
                   color: '#fbbf24',
-                  marginBottom: 16,
+                  marginBottom: 8,
                   textTransform: 'uppercase',
                   fontWeight: 700,
                   textShadow: '0 0 20px rgba(251,191,36,0.6)',
@@ -522,10 +522,10 @@ export default function ArenaReveal() {
               </motion.div>
             ) : (
               <div style={{
-                fontSize: 14,
+                fontSize: 13,
                 letterSpacing: '0.3em',
                 color: '#64748b',
-                marginBottom: 16,
+                marginBottom: 8,
                 textTransform: 'uppercase',
               }}>
                 Selecting arena...
@@ -535,8 +535,9 @@ export default function ArenaReveal() {
             {/* Arena image card — the main visual during the slot machine spin */}
             <div style={{
               width: '100%',
-              maxWidth: 560,
-              margin: '0 auto 20px',
+              maxWidth: 520,
+              margin: '0 auto 12px',
+              flexShrink: 0,
               borderRadius: 16,
               overflow: 'hidden',
               border: isLocked
@@ -585,12 +586,16 @@ export default function ArenaReveal() {
             {/* Arena name */}
             <motion.h1
               style={{
-                fontSize: 72,
+                fontSize: 'clamp(22px, 5vw, 52px)',
                 fontWeight: 900,
                 margin: 0,
-                marginBottom: 20,
+                marginBottom: 10,
                 color: '#fff',
                 lineHeight: 1.1,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                maxWidth: '100%',
                 textShadow: isLocked
                   ? '0 0 60px rgba(251,191,36,0.5), 0 0 30px rgba(255,255,255,0.3)'
                   : '0 0 20px rgba(255,255,255,0.3)',
@@ -600,7 +605,7 @@ export default function ArenaReveal() {
             </motion.h1>
 
             {/* Type badge */}
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 20 }}>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 8 }}>
               <span style={{
                 fontSize: 15, padding: '5px 18px', borderRadius: 20,
                 background: `${TYPE_COLORS[displayArena.type] ?? '#9ca3af'}33`,
@@ -618,7 +623,7 @@ export default function ArenaReveal() {
                 initial={{ opacity: 1, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
-                style={{ marginBottom: 24 }}
+                style={{ marginBottom: 10 }}
               >
                 <div style={{ fontSize: 14, color: '#94a3b8', marginBottom: 10 }}>
                   Type Bonuses (+{displayArena.bonusAmount * 100}% damage)
@@ -662,7 +667,7 @@ export default function ArenaReveal() {
                 style={{
                   background: 'rgba(0,0,0,0.4)',
                   border: '1px solid rgba(255,255,255,0.15)',
-                  borderRadius: 12, padding: '12px 24px', marginBottom: 20,
+                  borderRadius: 12, padding: '10px 20px', marginBottom: 10,
                 }}
               >
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#fbbf24', marginBottom: 4 }}>
@@ -679,13 +684,13 @@ export default function ArenaReveal() {
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
                 style={{
-                  fontSize: 28,
+                  fontSize: 24,
                   fontWeight: 900,
                   color: '#fbbf24',
                   letterSpacing: '0.2em',
                   textTransform: 'uppercase',
                   textShadow: '0 0 30px rgba(251,191,36,0.7)',
-                  marginBottom: 24,
+                  marginBottom: 10,
                 }}
               >
                 🔒 LOCKED IN
@@ -698,7 +703,7 @@ export default function ArenaReveal() {
                 initial={{ opacity: 1 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.5 }}
-                style={{ marginTop: 8 }}
+                style={{ marginTop: 4 }}
               >
                 <div style={{ fontSize: 13, color: '#64748b', marginBottom: 8 }}>
                   Proceeding to battle...
