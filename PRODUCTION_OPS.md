@@ -89,6 +89,68 @@ Steps:
 
 ---
 
+## Supabase SQL Health Checks
+
+Run these on-demand when investigating incidents, or add to your daily reconciliation rotation.
+
+### Stuck Settlements
+
+Matches that have been in `settlement_pending` or `settling` for more than 10 minutes indicate a failed on-chain transfer, a cron miss, or a mutex leak — funds are locked and not moving.
+
+```sql
+SELECT id, status, player_a_id, player_b_id, entry_fee_sol, winner_id, error_message, updated_at
+FROM matches
+WHERE status IN ('settling', 'settlement_pending')
+  AND updated_at < now() - interval '10 minutes'
+ORDER BY updated_at ASC;
+```
+
+**Healthy:** 0 rows.  
+**If rows returned:** Trigger a manual settlement retry, then force-settle or refund via admin API if it still does not clear.
+
+```bash
+# Step 1: trigger retry worker
+curl https://arena151.xyz/api/admin/settlement-retry \
+  -H "x-admin-token: $ADMIN_SECRET"
+
+# Step 2: if still stuck after 2 min, refund both players
+curl -X POST https://arena151.xyz/api/admin/match/MATCH_ID/review \
+  -H "x-admin-token: $ADMIN_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"action":"refund_both","reason":"Stuck settlement > 10 min — manual refund"}'
+```
+
+---
+
+### Stuck Forming Matches
+
+Matches stuck in `forming` for more than 30 minutes means P2 never joined and the TTL cron did not clean them up — entry fee is still locked for P1.
+
+```sql
+SELECT id, player_a_id, entry_fee_sol, room_id, created_at, updated_at
+FROM matches
+WHERE status = 'forming'
+  AND created_at < now() - interval '30 minutes'
+ORDER BY created_at ASC;
+```
+
+**Healthy:** 0 rows.  
+**If rows returned:** The cron TTL job should have voided these automatically. Trigger the health cron manually, then void any remaining rows and verify P1's funds are returned.
+
+```bash
+# Step 1: trigger health cron
+curl https://arena151.xyz/api/cron/settlement-health \
+  -H "x-cron-secret: $CRON_SECRET"
+
+# Step 2: if match still forming, void it via admin API
+curl -X POST https://arena151.xyz/api/admin/match/MATCH_ID/review \
+  -H "x-admin-token: $ADMIN_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"action":"refund_both","reason":"Stuck forming > 30 min — cron miss, manual void"}'
+```
+
+---
+
 ## Daily Reconciliation Queries
 
 Run these in Supabase SQL Editor every day. All must return the "healthy" value.
