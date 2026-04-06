@@ -41,14 +41,20 @@ export default function DraftModeIntro() {
   return (
     <div className="h-screen flex flex-col relative overflow-hidden bg-black">
 
-      {/* Background image — left-anchored so Profile/Leaderboard signs stay visible */}
-      <div
-        className="absolute inset-0"
+      {/* Background image — centered so all signs stay visible at any viewport width */}
+      <img
+        src="/ttt.png"
+        alt=""
+        aria-hidden="true"
         style={{
-          backgroundImage: 'url(/ttt.png)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'left top',
-          backgroundRepeat: 'no-repeat',
+          position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          objectPosition: 'center top',
+          pointerEvents: 'none',
+          userSelect: 'none',
         }}
       />
 
@@ -84,37 +90,43 @@ export default function DraftModeIntro() {
           GUIDE:        x1330-1530,y345-445→ left≈77%   top≈31.9%
       */}
 
-      {/* ENTER THE ARENA — center */}
+      {/*
+        Hit zones recalculated for objectPosition: center top
+        Image: 2605×1080. Center X = 1302.5px.
+        Formula: left% = ((btnCenterX - 1302.5) / 2605 * 100) + 50
+        Y positions are % of image height (unchanged by center anchor).
+      */}
+
+      {/* ENTER THE ARENA — x600-920, y468-523 */}
       <button
         onClick={() => currentTrainer ? setScreen('room-select') : setScreen('signup')}
         aria-label="Enter the Arena"
         className="absolute cursor-pointer focus:outline-none"
-        style={{ left: '43%', top: '72%', width: '18.5%', height: '8%' }}
+        style={{ left: 'calc(50% - 9.3%)', top: '43.3%', width: '18.5%', height: '8%' }}
       />
 
-
-      {/* PROFILE — top left */}
+      {/* PROFILE — x22-177, y5-40 */}
       <button
         onClick={() => setScreen(currentTrainer ? 'profile' : 'signup')}
         aria-label="View Profile"
         className="absolute cursor-pointer focus:outline-none"
-        style={{ left: '4.5%', top: '0.5%', width: '9%', height: '5%' }}
+        style={{ left: 'calc(50% - 46.1%)', top: '0.5%', width: '7.6%', height: '5%' }}
       />
 
-      {/* LEADERBOARD — left side */}
+      {/* LEADERBOARD — x10-210, y338-403 */}
       <button
         onClick={() => setScreen('leaderboard')}
         aria-label="Leaderboard"
         className="absolute cursor-pointer focus:outline-none"
-        style={{ left: '3%', top: '55%', width: '11.6%', height: '8%' }}
+        style={{ left: 'calc(50% - 45.7%)', top: '31.3%', width: '7.7%', height: '6%' }}
       />
 
-      {/* BATTLE GUIDE — right side */}
+      {/* BATTLE GUIDE — x1330-1530, y345-445 */}
       <button
         onClick={() => setScreen('battle-guide')}
         aria-label="Battle Guide"
         className="absolute cursor-pointer focus:outline-none"
-        style={{ left: '86%', top: '54%', width: '11.6%', height: '9.3%' }}
+        style={{ left: 'calc(50% + 1.0%)', top: '31.9%', width: '7.7%', height: '9.3%' }}
       />
 
 
