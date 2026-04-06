@@ -118,6 +118,12 @@ html, body {
   50%      { box-shadow: 0 0 100px rgba(251,191,36,0.8), 0 0 200px rgba(251,191,36,0.4); }
 }
 
+@keyframes redImpactFlash {
+  0%   { opacity: 0.85; }
+  40%  { opacity: 0.6; }
+  100% { opacity: 0; }
+}
+
 /* ── pokeballPop (shared battle animation) ── */
 @keyframes pokeballPop {
   0%   { opacity: 0; transform: scale(0.5); }

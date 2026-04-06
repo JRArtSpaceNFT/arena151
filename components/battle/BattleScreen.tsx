@@ -102,6 +102,7 @@ export default function BattleScreen() {
   const [koSide, setKoSide] = useState<'A' | 'B' | null>(null)
   const [ultimateActive, setUltimateActive] = useState<{ side: 'A' | 'B'; name: string } | null>(null)
   const [specialFlash, setSpecialFlash] = useState<{ trainerId: string; moveName: string; creatureName: string } | null>(null)
+  const [redFlash, setRedFlash] = useState(0) // incremented each time — unique key for CSS animation
   const [crowdRoarActive, setCrowdRoarActive] = useState(false)
   const [sparkleA, setSparkleA] = useState(false)
   const [sparkleB, setSparkleB] = useState(false)
@@ -424,7 +425,10 @@ export default function BattleScreen() {
       if (attackingTrainer?.id) {
         setTimeout(() => {
           setSpecialFlash({ trainerId: attackingTrainer.id, moveName: entry.moveName ?? 'SPECIAL MOVE', creatureName: entry.creatureName ?? '' })
-          setTimeout(() => setSpecialFlash(null), Math.max(200, Math.round(4600 / spd)))
+          setTimeout(() => {
+            setSpecialFlash(null)
+            setRedFlash(n => n + 1) // trigger red flash as special image disappears
+          }, Math.max(200, Math.round(4600 / spd)))
         }, ATTACK_DELAY)
       }
     }
@@ -962,6 +966,18 @@ export default function BattleScreen() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── Red impact flash — fires as special attack image disappears ── */}
+      {redFlash > 0 && (
+        <div
+          key={redFlash}
+          style={{
+            position: 'absolute', inset: 0, zIndex: 49, pointerEvents: 'none',
+            background: 'radial-gradient(ellipse at center, rgba(220,30,30,0.95) 0%, rgba(180,0,0,0.85) 40%, rgba(120,0,0,0.6) 100%)',
+            animation: 'redImpactFlash 0.5s ease-out forwards',
+          }}
+        />
       )}
 
       {/* ── Comic Book MISS popup — plain CSS (framer-motion initial opacity:0 breaks this) ── */}
