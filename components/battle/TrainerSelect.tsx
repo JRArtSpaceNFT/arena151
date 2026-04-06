@@ -236,17 +236,17 @@ function DossierCard({ trainer, isTaken }: { trainer: Trainer; isTaken: boolean 
         </div>
         <div style={{
           fontFamily: 'Impact, Arial Black, sans-serif',
-          fontSize: 'clamp(26px, 3.6vh, 42px)',
+          fontSize: 'clamp(32px, 4.8vh, 54px)',
           fontWeight: 900, color: trainer.color,
           lineHeight: 1, letterSpacing: '0.06em',
-          textShadow: `0 0 28px ${trainer.color}99`,
+          textShadow: `0 0 32px ${trainer.color}aa`,
         }}>
           {trainer.name.toUpperCase()}
         </div>
-        <div style={{ fontSize: 13, color: '#94a3b8', marginTop: 4, fontStyle: 'italic' }}>
+        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 3, fontStyle: 'italic' }}>
           {dossier.title}
         </div>
-        <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>
+        <div style={{ fontSize: 9, color: '#475569', marginTop: 1 }}>
           📍 {dossier.location}
         </div>
       </div>
@@ -256,14 +256,14 @@ function DossierCard({ trainer, isTaken }: { trainer: Trainer; isTaken: boolean 
 
         {/* LEFT — big sprite */}
         <div style={{
-          width: 190,
+          width: 220,
           flexShrink: 0,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           background: `radial-gradient(ellipse at 50% 80%, ${trainer.color}33 0%, transparent 70%)`,
           borderRight: `1px solid ${trainer.color}22`,
-          padding: '12px 8px',
+          padding: '10px 6px',
           position: 'relative',
         }}>
           {/* Subtle corner accent */}
@@ -277,10 +277,10 @@ function DossierCard({ trainer, isTaken }: { trainer: Trainer; isTaken: boolean 
               animate={{ y: [0, -6, 0] }}
               transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
               style={{
-                width: 'clamp(140px, 22vh, 220px)',
-                height: 'clamp(140px, 22vh, 220px)',
+                width: 'clamp(180px, 28vh, 260px)',
+                height: 'clamp(180px, 28vh, 260px)',
                 objectFit: 'contain',
-                imageRendering: trainer.id === 'jessie-james' ? 'auto' : 'pixelated',
+                imageRendering: 'auto',  // auto for all — jessie-james needs it and it looks fine on all
                 filter: `drop-shadow(0 8px 20px ${trainer.color}88)`,
                 position: 'relative', zIndex: 1,
               }}
