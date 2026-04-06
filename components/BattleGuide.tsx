@@ -159,7 +159,7 @@ export default function BattleGuide() {
           </div>
 
           {/* Carousel row */}
-          <div className="flex items-center gap-4 w-full flex-1 min-h-0" style={{ maxWidth: 800 }}>
+          <div className="flex items-center gap-4 w-full flex-1 min-h-0" style={{ maxWidth: 860 }}>
 
             {/* PREV */}
             <motion.button
@@ -179,7 +179,7 @@ export default function BattleGuide() {
             >←</motion.button>
 
             {/* Step card */}
-            <div className="flex-1 min-w-0 min-h-0 relative" style={{ overflow: 'hidden' }}>
+            <div className="flex-1 min-w-0" style={{ overflow: 'hidden' }}>
               <AnimatePresence custom={direction} mode="wait">
                 <motion.div
                   key={step.num}
@@ -195,21 +195,17 @@ export default function BattleGuide() {
                     borderRadius: 16,
                     overflow: 'hidden',
                     boxShadow: '0 0 60px rgba(251,191,36,0.12), 0 24px 64px rgba(0,0,0,0.6)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    height: '100%',
                   }}
                 >
                   {/* Top accent bar */}
-                  <div style={{ height: 3, background: 'linear-gradient(90deg, transparent, #fbbf24, #f97316, transparent)', flexShrink: 0 }} />
+                  <div style={{ height: 3, background: 'linear-gradient(90deg, transparent, #fbbf24, #f97316, transparent)' }} />
 
-                  {/* Screenshot area */}
+                  {/* Screenshot area — fixed height so it always shows */}
                   <div style={{
-                    flex: '1 1 0',
-                    minHeight: 0,
                     position: 'relative',
+                    height: 'clamp(200px, 35vh, 380px)',
                     background: 'rgba(0,0,0,0.5)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    overflow: 'hidden',
                   }}>
                     {/* Step number pill */}
                     <div style={{
