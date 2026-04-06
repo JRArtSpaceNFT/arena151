@@ -23,15 +23,21 @@ function makeServerTrainer(id: string, name: string): Trainer {
     id,
     name,
     color: '#ffffff',
+    bgColor: '#000000',
+    flavorText: '',
+    // ability is required by the battle engine (checks ability.effectKey on every attack).
+    // 'none' effectKey means no ability bonus is applied — neutral for server computation.
+    ability: { name: 'none', description: '', effectKey: 'none', value: 0 },
     spriteUrl: '',
-    battleIntro: '',
     winQuote: '',
     loseQuote: '',
+    koPhrases: [],
+    talkLines: [],
+    battleReactions: {},
     type: 'normal',
     difficulty: 'medium',
     signature: [],
     passive: null,
-    battleReactions: {},
   } as unknown as Trainer
 }
 
