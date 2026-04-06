@@ -447,7 +447,8 @@ export default function ProfessorOak() {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setIsOpen(true)}
-            className="fixed bottom-6 right-[-12px] z-50 w-20 h-20 rounded-full bg-gradient-to-r from-red-600 to-orange-600 shadow-2xl shadow-red-500/50 flex items-center justify-center border-4 border-white overflow-hidden group"
+            className="w-20 h-20 rounded-full bg-gradient-to-r from-red-600 to-orange-600 shadow-2xl shadow-red-500/50 flex items-center justify-center border-4 border-white overflow-hidden group"
+            style={{ position: 'fixed', bottom: 24, right: 60, zIndex: 9999 }}
           >
             <img 
               src="/professor-oak.png" 
@@ -471,7 +472,8 @@ export default function ProfessorOak() {
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className="fixed bottom-6 right-[-12px] z-50 w-96 h-[600px] flex flex-col bg-slate-900/95 backdrop-blur-xl border-2 border-slate-700 rounded-2xl shadow-2xl overflow-hidden"
+            className="w-96 h-[600px] flex flex-col bg-slate-900/95 backdrop-blur-xl border-2 border-slate-700 rounded-2xl shadow-2xl overflow-hidden"
+            style={{ position: 'fixed', bottom: 24, right: 60, zIndex: 9999 }}
           >
             {/* Header */}
             <div className="bg-gradient-to-r from-red-600 to-orange-600 p-4 flex items-center gap-3 border-b-4 border-yellow-400">
