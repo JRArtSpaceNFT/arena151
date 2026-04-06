@@ -672,8 +672,10 @@ export default function BattleScreen() {
             position: 'absolute', inset: 0,
             width: '100%', height: '100%',
             objectFit: 'cover',
-            // Saffron City needs higher positioning so Pokémon land on the platform
-            objectPosition: arena.id === 'sabrinas_gym' ? 'center 5%' : 'center 75%',
+            // Per-arena vertical positioning so Pokémon appear to stand on the ground
+            objectPosition: arena.id === 'sabrinas_gym' ? 'center 5%'
+              : arena.id === 'giovannis_gym' ? 'center 90%'
+              : 'center 75%',
             imageRendering: 'pixelated',
             pointerEvents: 'none',
             zIndex: 0,
