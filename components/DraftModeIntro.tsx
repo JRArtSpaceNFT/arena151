@@ -1,8 +1,12 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useArenaStore } from '@/lib/store';
+
+// Design canvas — matches ttt.png dimensions exactly
+const DESIGN_W = 2605;
+const DESIGN_H = 1080;
 
 // Fixed sparkle positions to avoid hydration mismatch
 const SPARKLES = [
@@ -38,101 +42,116 @@ export default function DraftModeIntro() {
   const { currentTrainer, setScreen } = useArenaStore();
   // Crowd cheer is now managed at app level (page.tsx) to persist across screens
 
+  // ── Viewport-fit uniform scale (same pattern as HomePage) ─────────────────
+  const [scale, setScale] = useState(1);
+  const computeScale = useCallback(() => {
+    setScale(Math.min(window.innerWidth / DESIGN_W, window.innerHeight / DESIGN_H));
+  }, []);
+  useEffect(() => {
+    computeScale();
+    window.addEventListener('resize', computeScale);
+    return () => window.removeEventListener('resize', computeScale);
+  }, [computeScale]);
+
   return (
-    <div className="h-screen flex flex-col relative overflow-hidden bg-black">
+    // Outer shell: fixed viewport, black letterbox, centers the stage
+    <div style={{ position: 'fixed', inset: 0, overflow: 'hidden', background: '#000' }}>
 
-      {/* Background image — centered so all signs stay visible at any viewport width */}
-      <img
-        src="/ttt.png"
-        alt=""
-        aria-hidden="true"
-        style={{
-          position: 'absolute',
-          inset: 0,
-          width: '100%',
-          height: '100%',
-          objectFit: 'cover',
-          objectPosition: 'center top',
-          pointerEvents: 'none',
-          userSelect: 'none',
-        }}
-      />
+      {/* Inner stage: DESIGN_W×DESIGN_H, scaled uniformly to fit viewport */}
+      <div style={{
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        width: DESIGN_W,
+        height: DESIGN_H,
+        transform: `translate(-50%, -50%) scale(${scale})`,
+        transformOrigin: 'center center',
+      }}>
 
-      {/* Shimmer sweep — slow diagonal light pass */}
-      <motion.div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background: 'linear-gradient(105deg, transparent 20%, rgba(255,255,255,0.055) 50%, transparent 80%)',
-          backgroundSize: '300% 100%',
-        }}
-        animate={{ backgroundPosition: ['200% 0%', '-100% 0%'] }}
-        transition={{ duration: 5, repeat: Infinity, ease: 'linear', repeatDelay: 3 }}
-      />
+        {/* Background image fills the stage exactly — no cover/crop needed */}
+        <img
+          src="/ttt.png"
+          alt=""
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'fill',
+            pointerEvents: 'none',
+            userSelect: 'none',
+            display: 'block',
+          }}
+        />
 
-      {/* Floating sparkles */}
-      {SPARKLES.map((s, i) => (
+        {/* Shimmer sweep */}
         <motion.div
-          key={i}
-          className="absolute pointer-events-none"
-          style={{ left: s.x, top: s.y }}
-          animate={{ opacity: [0, 1, 0], scale: [0.3, 1, 0.3], rotate: [0, 35, 0] }}
-          transition={{ duration: s.duration, delay: s.delay, repeat: Infinity, ease: 'easeInOut', repeatDelay: s.duration }}
-        >
-          <SparkleIcon size={s.size} color="rgba(255,240,160,0.85)" />
-        </motion.div>
-      ))}
+          style={{
+            position: 'absolute', inset: 0, pointerEvents: 'none',
+            background: 'linear-gradient(105deg, transparent 20%, rgba(255,255,255,0.055) 50%, transparent 80%)',
+            backgroundSize: '300% 100%',
+          }}
+          animate={{ backgroundPosition: ['200% 0%', '-100% 0%'] }}
+          transition={{ duration: 5, repeat: Infinity, ease: 'linear', repeatDelay: 3 }}
+        />
 
-      {/* ── Hit zones — image 2605×1080, backgroundPosition: left top, cover ──
-          scale = screenH/1080, no left crop
-          ENTER:        x600-920, y468-523 → left≈34.7% top≈43.3%
-          PROFILE:      x22-177,  y5-40   → left≈1.3%  top≈0.5%
-          LEADERBOARD:  x10-210,  y338-403 → left≈0.6%  top≈31.3%
-          GUIDE:        x1330-1530,y345-445→ left≈77%   top≈31.9%
-      */}
+        {/* Floating sparkles */}
+        {SPARKLES.map((s, i) => (
+          <motion.div
+            key={i}
+            style={{ position: 'absolute', left: s.x, top: s.y, pointerEvents: 'none' }}
+            animate={{ opacity: [0, 1, 0], scale: [0.3, 1, 0.3], rotate: [0, 35, 0] }}
+            transition={{ duration: s.duration, delay: s.delay, repeat: Infinity, ease: 'easeInOut', repeatDelay: s.duration }}
+          >
+            <SparkleIcon size={s.size} color="rgba(255,240,160,0.85)" />
+          </motion.div>
+        ))}
 
-      {/*
-        Hit zones recalculated for objectPosition: center top
-        Image: 2605×1080. Center X = 1302.5px.
-        Formula: left% = ((btnCenterX - 1302.5) / 2605 * 100) + 50
-        Y positions are % of image height (unchanged by center anchor).
-      */}
+        {/*
+          Hit zones — all % coordinates are relative to the DESIGN canvas (2605×1080).
+          Because the stage is always DESIGN_W×DESIGN_H before scaling,
+          these percentages are pixel-perfect regardless of viewport size.
 
-      {/* ENTER THE ARENA — x600-920, y468-523 */}
-      <button
-        onClick={() => currentTrainer ? setScreen('room-select') : setScreen('signup')}
-        aria-label="Enter the Arena"
-        className="absolute cursor-pointer focus:outline-none"
-        style={{ left: 'calc(50% - 9.3%)', top: '43.3%', width: '18.5%', height: '8%' }}
-      />
+          ENTER THE ARENA:  x600-920,   y468-523
+          PROFILE:          x22-177,    y5-40
+          LEADERBOARD:      x10-210,    y338-403
+          BATTLE GUIDE:     x2395-2595, y338-445
+        */}
 
-      {/* PROFILE — x22-177, y5-40 */}
-      <button
-        onClick={() => setScreen(currentTrainer ? 'profile' : 'signup')}
-        aria-label="View Profile"
-        className="absolute cursor-pointer focus:outline-none"
-        style={{ left: 'calc(50% - 46.1%)', top: '0.5%', width: '7.6%', height: '5%' }}
-      />
+        {/* ENTER THE ARENA */}
+        <button
+          onClick={() => currentTrainer ? setScreen('room-select') : setScreen('signup')}
+          aria-label="Enter the Arena"
+          style={{ position: 'absolute', left: '23.0%', top: '43.3%', width: '12.3%', height: '5.1%',
+            background: 'transparent', border: 'none', cursor: 'pointer' }}
+        />
 
-      {/* LEADERBOARD — x10-210, y338-403 */}
-      <button
-        onClick={() => setScreen('leaderboard')}
-        aria-label="Leaderboard"
-        className="absolute cursor-pointer focus:outline-none"
-        style={{ left: 'calc(50% - 45.7%)', top: '31.3%', width: '7.7%', height: '6%' }}
-      />
+        {/* PROFILE */}
+        <button
+          onClick={() => setScreen(currentTrainer ? 'profile' : 'signup')}
+          aria-label="View Profile"
+          style={{ position: 'absolute', left: '0.8%', top: '0.5%', width: '5.9%', height: '3.2%',
+            background: 'transparent', border: 'none', cursor: 'pointer' }}
+        />
 
-      {/* BATTLE GUIDE — x1330-1530, y345-445 */}
-      <button
-        onClick={() => setScreen('battle-guide')}
-        aria-label="Battle Guide"
-        className="absolute cursor-pointer focus:outline-none"
-        style={{ left: 'calc(50% + 1.0%)', top: '31.9%', width: '7.7%', height: '9.3%' }}
-      />
+        {/* LEADERBOARD */}
+        <button
+          onClick={() => setScreen('leaderboard')}
+          aria-label="Leaderboard"
+          style={{ position: 'absolute', left: '0.4%', top: '31.3%', width: '8.1%', height: '6.0%',
+            background: 'transparent', border: 'none', cursor: 'pointer' }}
+        />
 
+        {/* BATTLE GUIDE */}
+        <button
+          onClick={() => setScreen('battle-guide')}
+          aria-label="Battle Guide"
+          style={{ position: 'absolute', left: '91.9%', top: '31.9%', width: '7.7%', height: '9.3%',
+            background: 'transparent', border: 'none', cursor: 'pointer' }}
+        />
 
-
-
-
+      </div>
     </div>
   );
 }
