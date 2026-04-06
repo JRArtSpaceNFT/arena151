@@ -306,7 +306,7 @@ const getOakResponse = (userMessage: string): string => {
 
   // ── PROFILE / SIGNUP ──────────────────────────────────────────────────────
   if (msg.match(/profile|signup|sign up|create.*account|account|username|bio|avatar|register/)) {
-    return "Creating your trainer profile is step one! Choose your email, display name, and username. Pick an avatar — we have Ash, Misty, Brock, Professor Oak, Pikachu, Squirtle, Eevee, and Snorlax. Then select your signature Pokémon — the one that defines your identity. Your win/loss record and P&L build on your profile over time. It's your legacy in the making!";
+    return "Step one: create your trainer profile. Choose your display name, avatar (Ash, Misty, Brock, Oak, Pikachu, Squirtle, Eevee, Snorlax), and your signature Pokémon. Your win/loss record and P&L build over time — it's your legacy in Arena 151.";
   }
 
   // ── GEN 2+ POKÉMON ────────────────────────────────────────────────────────
