@@ -101,7 +101,7 @@ export default function BattleScreen() {
   const [bigShake, setBigShake] = useState(false)
   const [koSide, setKoSide] = useState<'A' | 'B' | null>(null)
   const [ultimateActive, setUltimateActive] = useState<{ side: 'A' | 'B'; name: string } | null>(null)
-  const [specialFlash, setSpecialFlash] = useState<{ trainerId: string; moveName: string } | null>(null)
+  const [specialFlash, setSpecialFlash] = useState<{ trainerId: string; moveName: string; creatureName: string } | null>(null)
   const [crowdRoarActive, setCrowdRoarActive] = useState(false)
   const [sparkleA, setSparkleA] = useState(false)
   const [sparkleB, setSparkleB] = useState(false)
@@ -423,7 +423,7 @@ export default function BattleScreen() {
       const attackingTrainer = entry.side === 'A' ? p1Trainer : p2Trainer
       if (attackingTrainer?.id) {
         setTimeout(() => {
-          setSpecialFlash({ trainerId: attackingTrainer.id, moveName: entry.moveName ?? 'SPECIAL MOVE' })
+          setSpecialFlash({ trainerId: attackingTrainer.id, moveName: entry.moveName ?? 'SPECIAL MOVE', creatureName: entry.creatureName ?? '' })
           setTimeout(() => setSpecialFlash(null), Math.max(200, Math.round(4600 / spd)))
         }, ATTACK_DELAY)
       }
@@ -872,6 +872,14 @@ export default function BattleScreen() {
         </div>
       )}
 
+      {/* ── Preload ALL trainer special images so they're cached before the flash fires ── */}
+      <div style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden', pointerEvents: 'none' }} aria-hidden="true">
+        {[p1Trainer, p2Trainer].filter(Boolean).map(t => {
+          const capitalized = t!.id.charAt(0).toUpperCase() + t!.id.slice(1)
+          return <img key={t!.id} src={`/trainer-specials/${capitalized}.png`} alt="" />
+        })}
+      </div>
+
       {/* ── Trainer Special Flash — anime image fullscreen dramatic overlay ── */}
       {specialFlash && (
         <div style={{
@@ -950,7 +958,7 @@ export default function BattleScreen() {
               animation: 'specialMoveNameIn 0.4s 1.38s cubic-bezier(0.34,1.56,0.64,1) both',
               WebkitTextStroke: '1px rgba(0,0,0,0.5)',
             }}>
-              {specialFlash.moveName}!
+              {specialFlash.creatureName ? `${specialFlash.creatureName.toUpperCase()}, USE ${specialFlash.moveName.toUpperCase()}!` : `${specialFlash.moveName.toUpperCase()}!`}
             </div>
           </div>
         </div>
