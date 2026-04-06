@@ -138,7 +138,7 @@ export default function RoomSelect() {
         </div>
 
         {/* ── Top row: Practice + Play a Friend (2 wide cards) ── */}
-        <div className="grid grid-cols-2 gap-2.5 shrink-0" style={{ height: '22%', minHeight: 100, maxHeight: 140 }}>
+        <div className="grid grid-cols-2 gap-2.5 shrink-0" style={{ height: '18%', minHeight: 80, maxHeight: 120 }}>
 
           {/* Practice Arena */}
           <motion.div
@@ -198,7 +198,7 @@ export default function RoomSelect() {
         </div>
 
         {/* ── 8 Gym Arenas — 4×2 grid fills remaining space ── */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 flex-1 min-h-0">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 flex-1 min-h-0 overflow-hidden">
           {rooms.map((room, i) => {
             const id = room.id as string;
             const identity = ARENA_IDENTITY[id] ?? { flavor: '', bgImage: '', accent: '#6366f1', accentDark: '#1e1b4b', stakeTier: 'mid' as const, btnLabel: 'Enter Arena →' };
@@ -284,14 +284,14 @@ export default function RoomSelect() {
                 <div className="absolute top-0 left-0 right-0 h-0.5 pointer-events-none"
                   style={{ background: `linear-gradient(90deg, transparent, ${identity.accent}, transparent)` }} />
 
-                <div className="relative z-10 flex flex-col h-full px-3.5 pt-3 pb-3">
+                <div className="relative z-10 flex flex-col h-full px-2.5 pt-2 pb-2">
 
                   {/* ── TOP ROW: badge icon + city name + stake pill ── */}
-                  <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="flex items-start justify-between gap-1.5 mb-1.5">
                     <div className="flex items-center gap-2.5 min-w-0">
                       {/* Gym badge */}
                       {badge && (
-                        <div className="relative shrink-0 flex items-center justify-center w-9 h-9">
+                        <div className="relative shrink-0 flex items-center justify-center w-7 h-7">
                           {hasBadge && (
                             <motion.div className="absolute inset-0 rounded-full blur-md"
                               style={{ background: badge.color }}
@@ -302,7 +302,7 @@ export default function RoomSelect() {
                           <img
                             src={badge.file}
                             alt={badge.name}
-                            className="w-8 h-8 object-contain relative z-10"
+                            className="w-6 h-6 object-contain relative z-10"
                             style={{
                               imageRendering: 'pixelated',
                               filter: hasBadge
@@ -343,12 +343,12 @@ export default function RoomSelect() {
                   </div>
 
                   {/* Divider */}
-                  <div className="h-px mb-2.5" style={{ background: `linear-gradient(90deg, transparent, ${identity.accent}44, transparent)` }} />
+                  <div className="h-px mb-1.5" style={{ background: `linear-gradient(90deg, transparent, ${identity.accent}44, transparent)` }} />
 
                   {/* ── STAT PANELS: stacked vertically ── */}
-                  <div className="flex flex-col gap-1.5 mb-3 flex-1">
+                  <div className="flex flex-col gap-1 mb-1.5 flex-1 min-h-0">
                     {/* Entry — slightly muted */}
-                    <motion.div className="flex items-center justify-between rounded-lg px-3 py-2 flex-1"
+                    <motion.div className="flex items-center justify-between rounded-lg px-2.5 py-1.5 flex-1"
                       whileHover={{ scale: 1.03, boxShadow: `0 0 16px ${identity.accent}55` }}
                       transition={{ duration: 0.15 }}
                       style={{
@@ -362,7 +362,7 @@ export default function RoomSelect() {
                       </div>
                     </motion.div>
                     {/* You Win — more saturated + outer glow */}
-                    <motion.div className="flex items-center justify-between rounded-lg px-3 py-2 flex-1 relative overflow-hidden"
+                    <motion.div className="flex items-center justify-between rounded-lg px-2.5 py-1.5 flex-1 relative overflow-hidden"
                       whileHover={{ scale: 1.03, boxShadow: `0 0 24px ${identity.accent}88, 0 0 8px ${identity.accent}55 inset` }}
                       transition={{ duration: 0.15 }}
                       style={{
@@ -385,10 +385,10 @@ export default function RoomSelect() {
                   </div>
 
                   {/* CTA button — pinned to bottom */}
-                  <div className="mt-auto">
+                  <div className="mt-auto shrink-0">
                     {canAfford ? (
                       <motion.div
-                        className="relative flex items-center justify-center py-2.5 rounded-xl font-black overflow-hidden"
+                        className="relative flex items-center justify-center py-2 rounded-xl font-black overflow-hidden"
                         style={{
                           background: `linear-gradient(135deg, ${identity.accent}44 0%, ${identity.accent}28 100%)`,
                           border: `1px solid ${identity.accent}66`,
@@ -414,7 +414,7 @@ export default function RoomSelect() {
                         <span className="relative z-10">{identity.btnLabel}</span>
                       </motion.div>
                     ) : (
-                      <div className="flex items-center justify-center py-2.5 rounded-xl text-xs font-bold"
+                      <div className="flex items-center justify-center py-2 rounded-xl text-xs font-bold"
                         style={{ background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.06)' }}>
                         Insufficient Funds
                       </div>
