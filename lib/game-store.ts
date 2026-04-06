@@ -408,9 +408,11 @@ export const useGameStore = create<GameState>((set, get) => ({
     const { lineupPhase, gameMode } = get()
     if (player === 'p1') {
       if (gameMode === 'friend_battle') {
-        // Friend battle: P1 confirms their lineup, go to arena reveal.
-        // P2's lineup will be fetched from server and set before battle computes.
-        console.log('[FriendBattle] P1 lineup confirmed, proceeding to arena reveal')
+        // Friend battle: P1 confirms lineup → go to arena_reveal.
+        // FriendGameWrapper watches for screen='arena_reveal' and triggers lineup_locked sync.
+        // After sync, FriendGameWrapper computes battle directly and sets screen='battle'.
+        // proceedFromArenaReveal() is a no-op in friend_battle mode.
+        console.log('[FriendBattle] P1 lineup confirmed — triggering arena_reveal for sync')
         set({ lineupPhase: 'done' })
         const arena = getRandomArena()
         set({ arena, screen: 'arena_reveal' })
@@ -445,11 +447,11 @@ export const useGameStore = create<GameState>((set, get) => ({
     const { battleState, lineupA, lineupB, arena, p1Trainer, p2Trainer, gameMode } = get()
     if (!arena || !p1Trainer || !p2Trainer) return
 
-    // Friend battle: block proceeding until opponent team is loaded from server.
-    // lineupB starts as a placeholder; setOpponentTeamForFriendBattle() updates it.
-    // FriendGameWrapper calls proceedFromArenaReveal() again once opponent team is ready.
-    if (gameMode === 'friend_battle' && lineupB.length === 0) {
-      console.log('[FriendBattle] proceedFromArenaReveal blocked — opponent team not loaded yet')
+    // Friend battle: battle is computed in FriendGameWrapper after lineup_locked sync.
+    // ArenaReveal should not trigger battle computation — FriendGameWrapper sets
+    // battleState directly and navigates to 'battle' screen.
+    if (gameMode === 'friend_battle') {
+      console.log('[FriendBattle] proceedFromArenaReveal skipped — handled by FriendGameWrapper sync')
       return
     }
 

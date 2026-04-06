@@ -337,6 +337,67 @@ export async function POST(req: NextRequest) {
       })
     }
 
+    // ── SYNC_STATE ───────────────────────────────────────────────
+    // Players report their current step and data.
+    // Returns both players' states so client knows when to advance.
+    //
+    // step values: 'trainer_selected' | 'draft_locked' | 'lineup_locked'
+    // Each step stores the player's data in metadata_a or metadata_b columns.
+    // When both players share the same step, the client advances.
+    if (action === 'sync_state') {
+      const user = await getAuthUser(req)
+      if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+      const { matchId, step, data: stepData } = body as {
+        matchId: string
+        step: string
+        data: Record<string, unknown>
+      }
+      if (!matchId || !step) return NextResponse.json({ error: 'matchId and step required' }, { status: 400 })
+
+      const { data: match } = await supabaseAdmin
+        .from('matches')
+        .select('id, player_a_id, player_b_id, metadata_a, metadata_b, status')
+        .eq('id', matchId)
+        .single()
+
+      if (!match) return NextResponse.json({ error: 'Match not found' }, { status: 404 })
+      if (match.player_a_id !== user.id && match.player_b_id !== user.id) {
+        return NextResponse.json({ error: 'Not a player in this match' }, { status: 403 })
+      }
+
+      const isA = match.player_a_id === user.id
+      const myKey   = isA ? 'metadata_a' : 'metadata_b'
+      const myMeta  = ((isA ? match.metadata_a : match.metadata_b) ?? {}) as Record<string, unknown>
+      const newMeta = { ...myMeta, [step]: stepData, [`${step}_at`]: new Date().toISOString() }
+
+      await supabaseAdmin
+        .from('matches')
+        .update({ [myKey]: newMeta, updated_at: new Date().toISOString() })
+        .eq('id', matchId)
+
+      // Re-fetch to get both sides
+      const { data: updated } = await supabaseAdmin
+        .from('matches')
+        .select('metadata_a, metadata_b, battle_seed, player_a_id, player_b_id')
+        .eq('id', matchId)
+        .single()
+
+      const metaA = (updated?.metadata_a ?? {}) as Record<string, unknown>
+      const metaB = (updated?.metadata_b ?? {}) as Record<string, unknown>
+      const bothReady = !!(metaA[step] && metaB[step])
+
+      return NextResponse.json({
+        bothReady,
+        myData:       newMeta[step],
+        opponentData: isA ? metaB[step] : metaA[step],
+        battleSeed:   updated?.battle_seed,
+        playerAId:    updated?.player_a_id,
+        playerBId:    updated?.player_b_id,
+        myRole:       isA ? 'a' : 'b',
+      })
+    }
+
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
 
   } catch (err) {
