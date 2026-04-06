@@ -134,19 +134,19 @@ export default function DraftModeIntro() {
             background: 'transparent', border: 'none', cursor: 'pointer' }}
         />
 
-        {/* ENTER THE ARENA — wide centered button, nudged up+right per feedback */}
+        {/* ENTER THE ARENA — moved down quite a lot */}
         <button
           onClick={() => currentTrainer ? setScreen('room-select') : setScreen('signup')}
           aria-label="Enter the Arena"
-          style={{ position: 'absolute', left: '31.5%', top: '42.1%', width: '34.6%', height: '5.1%',
+          style={{ position: 'absolute', left: '31.5%', top: '62%', width: '34.6%', height: '5.1%',
             background: 'transparent', border: 'none', cursor: 'pointer' }}
         />
 
-        {/* BATTLE GUIDE — full right-tab height, nudged up+left per feedback */}
+        {/* BATTLE GUIDE — lower and more to the left */}
         <button
           onClick={() => setScreen('battle-guide')}
           aria-label="Battle Guide"
-          style={{ position: 'absolute', left: '89.8%', top: '35.2%', width: '10.2%', height: '25.9%',
+          style={{ position: 'absolute', left: '87.0%', top: '48%', width: '10.2%', height: '25.9%',
             background: 'transparent', border: 'none', cursor: 'pointer' }}
         />
 
