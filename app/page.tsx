@@ -24,7 +24,25 @@ const CROWD_SCREENS = new Set(['draft-mode-intro', 'profile', 'leaderboard']);
 
 export default function ArenaApp() {
   const currentScreen = useArenaStore((state) => state.currentScreen);
+  const setServerMatch = useArenaStore((state) => state.setServerMatch);
+  const setIsMatchJoiner = useArenaStore((state) => state.setIsMatchJoiner);
+  const serverMatchId = useArenaStore((state) => state.serverMatchId);
   const crowdRef = useRef<HTMLAudioElement | null>(null);
+
+  // Restore active paid match from sessionStorage on page load.
+  // Prevents refresh from creating a duplicate match and locking funds twice.
+  useEffect(() => {
+    if (serverMatchId) return // already set (no-op)
+    const savedMatchId = sessionStorage.getItem('arena_matchId')
+    const savedSeed    = sessionStorage.getItem('arena_seed')
+    const savedJoiner  = sessionStorage.getItem('arena_isJoiner') === '1'
+    if (savedMatchId && savedSeed) {
+      console.log('[App] Restoring active paid match from sessionStorage:', savedMatchId)
+      setServerMatch(savedMatchId, savedSeed)
+      setIsMatchJoiner(savedJoiner)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     // Create the audio element once

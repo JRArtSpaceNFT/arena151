@@ -196,7 +196,22 @@ export default function ArenaReveal() {
         // P2: server already computed winner — teamA + teamB both present in response
         const finalData = isP2 ? data : await waitForP2(matchId, session.access_token)
         if (!finalData) {
-          setPaidMatchError('Opponent did not join. Your funds will be unlocked automatically within the hour.')
+          // P2 never joined within 5 min. Attempt immediate abandon so P1 gets funds back
+          // without waiting for cron. Cron is the fallback; this is the fast path.
+          try {
+            await fetch(`/api/match/${matchId}/abandon`, {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${session.access_token}` },
+            })
+            console.log('[ArenaReveal] Abandoned match after P2 timeout:', matchId)
+          } catch (_) {
+            // abandon failed — cron will clean up
+          }
+          // Clear session storage so refresh doesn't re-enter this match
+          sessionStorage.removeItem('arena_matchId')
+          sessionStorage.removeItem('arena_seed')
+          sessionStorage.removeItem('arena_isJoiner')
+          setPaidMatchError('NO_OPPONENT')
           return
         }
         const finalSeed  = finalData.battleSeed ?? seed
@@ -260,6 +275,7 @@ export default function ArenaReveal() {
 
   // Show error if paid match creation failed
   if (paidMatchError) {
+    const isTimeout = paidMatchError === 'NO_OPPONENT'
     return (
       <div style={{
         minHeight: '100vh', background: '#0a0a0f',
@@ -267,19 +283,42 @@ export default function ArenaReveal() {
         flexDirection: 'column', gap: 16, color: '#fff',
         fontFamily: '"Courier New", monospace', padding: 32, textAlign: 'center',
       }}>
-        <div style={{ fontSize: 48 }}>⚠️</div>
-        <div style={{ fontSize: 22, fontWeight: 700, color: '#ef4444' }}>Match Creation Failed</div>
-        <div style={{ fontSize: 15, color: '#94a3b8', maxWidth: 360 }}>{paidMatchError}</div>
-        <button
-          onClick={() => { window.location.href = '/' }}
-          style={{
-            marginTop: 16, padding: '12px 32px', background: '#7c3aed',
-            border: 'none', borderRadius: 8, color: '#fff',
-            fontSize: 16, fontWeight: 700, cursor: 'pointer',
-          }}
-        >
-          Return Home
-        </button>
+        <div style={{ fontSize: 48 }}>{isTimeout ? '⏱' : '⚠️'}</div>
+        <div style={{ fontSize: 22, fontWeight: 700, color: isTimeout ? '#fbbf24' : '#ef4444' }}>
+          {isTimeout ? 'No opponent joined' : 'Match Creation Failed'}
+        </div>
+        <div style={{ fontSize: 15, color: '#94a3b8', maxWidth: 360 }}>
+          {isTimeout
+            ? 'Nobody joined your match in time. Your entry fee has been returned to your balance.'
+            : paidMatchError}
+        </div>
+        <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
+          <button
+            onClick={() => { window.location.href = '/' }}
+            style={{
+              padding: '12px 32px', background: '#7c3aed',
+              border: 'none', borderRadius: 8, color: '#fff',
+              fontSize: 16, fontWeight: 700, cursor: 'pointer',
+            }}
+          >
+            Return Home
+          </button>
+          {isTimeout && (
+            <button
+              onClick={() => {
+                setPaidMatchError(null)
+                window.location.reload()
+              }}
+              style={{
+                padding: '12px 32px', background: 'rgba(255,255,255,0.08)',
+                border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, color: '#e2e8f0',
+                fontSize: 16, fontWeight: 700, cursor: 'pointer',
+              }}
+            >
+              Try Again
+            </button>
+          )}
+        </div>
       </div>
     )
   }

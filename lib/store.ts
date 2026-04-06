@@ -94,13 +94,33 @@ export const useArenaStore = create<ArenaState>((set) => ({
 
   serverMatchId: null,
   battleSeed: null,
-  setServerMatch: (matchId, seed) => set({ serverMatchId: matchId, battleSeed: seed }),
-  clearServerMatch: () => set({ serverMatchId: null, battleSeed: null }),
+  setServerMatch: (matchId, seed) => {
+    // Persist to sessionStorage so refresh doesn't lose the active paid match
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('arena_matchId', matchId)
+      sessionStorage.setItem('arena_seed', seed)
+    }
+    set({ serverMatchId: matchId, battleSeed: seed })
+  },
+  clearServerMatch: () => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('arena_matchId')
+      sessionStorage.removeItem('arena_seed')
+      sessionStorage.removeItem('arena_isJoiner')
+    }
+    set({ serverMatchId: null, battleSeed: null })
+  },
 
   queueMatchId: null,
   setQueueMatchId: (id) => set({ queueMatchId: id }),
   isMatchJoiner: false,
-  setIsMatchJoiner: (v) => set({ isMatchJoiner: v }),
+  setIsMatchJoiner: (v) => {
+    if (typeof window !== 'undefined') {
+      if (v) sessionStorage.setItem('arena_isJoiner', '1')
+      else sessionStorage.removeItem('arena_isJoiner')
+    }
+    set({ isMatchJoiner: v })
+  },
 
   chatMessages: [],
   addChatMessage: (message) =>

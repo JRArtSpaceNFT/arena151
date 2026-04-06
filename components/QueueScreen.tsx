@@ -272,6 +272,22 @@ export default function QueueScreen() {
         });
         if (!queueRes.ok) return;
         const queueData = await queueRes.json();
+
+        // Handle resumed match (idempotency: user had an active match already)
+        if (queueData.resumed) {
+          console.log('[Queue] Resuming existing match:', queueData.matchId, 'status:', queueData.status)
+          setServerMatch(queueData.matchId, queueData.battleSeed ?? '')
+          if (queueData.status === 'settlement_pending') {
+            // P2 already joined — go straight to versus/game
+            if (trainer) {
+              setMatch({ player1: trainer, player2: GENERIC_RIVAL, room: roomTier, matchId: queueData.matchId })
+            }
+            setScreen('versus')
+            return
+          }
+          // Still forming — fall through to poll as normal
+        }
+
         setQueueMatchId(queueData.matchId);
 
         // Step 3: Poll for P2 to join (every 4s, up to 5 minutes)

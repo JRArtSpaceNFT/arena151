@@ -112,7 +112,60 @@ export async function POST(req: NextRequest) {
 
     const userId = authUser.id
 
-    // Atomic fund lock (TOCTOU-safe: single SQL statement with WHERE guard)
+    // ── Idempotency: return existing active match if one exists ──
+    // If the user already has a forming match in this room (e.g. from a refresh),
+    // return it immediately instead of creating a duplicate and locking funds again.
+    // This prevents double-lock on page refresh or remount.
+    const { data: existingMatch } = await supabaseAdmin
+      .from('matches')
+      .select('id, battle_seed, entry_fee_sol, team_a')
+      .eq('player_a_id', userId)
+      .eq('room_id', roomId)
+      .eq('status', 'forming')
+      .is('player_b_id', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (existingMatch) {
+      console.log('[Queue POST] Returning existing forming match for user:', userId, 'matchId:', existingMatch.id)
+      return NextResponse.json({
+        matchId: existingMatch.id,
+        idempotencyKey: existingMatch.id, // reuse matchId as key
+        battleSeed: existingMatch.battle_seed,
+        status: 'forming',
+        teamA: existingMatch.team_a,
+        resumed: true,  // flag so client knows this is a resumed match
+      })
+    }
+
+    // ── Also check for settlement_pending matches (P2 already joined) ──
+    // If user refreshed after P2 joined, resume settlement instead of creating new match.
+    const { data: pendingMatch } = await supabaseAdmin
+      .from('matches')
+      .select('id, battle_seed, entry_fee_sol, team_a, team_b, winner_id, player_b_id')
+      .eq('player_a_id', userId)
+      .eq('room_id', roomId)
+      .eq('status', 'settlement_pending')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (pendingMatch) {
+      console.log('[Queue POST] Resuming settlement_pending match:', pendingMatch.id)
+      return NextResponse.json({
+        matchId: pendingMatch.id,
+        idempotencyKey: pendingMatch.id,
+        battleSeed: pendingMatch.battle_seed,
+        status: 'settlement_pending',
+        teamA: pendingMatch.team_a,
+        teamB: pendingMatch.team_b,
+        winnerId: pendingMatch.winner_id,
+        resumed: true,
+      })
+    }
+
+    // ── Atomic fund lock (TOCTOU-safe: single SQL statement with WHERE guard)
     const { data: lockData, error: lockError } = await supabaseAdmin.rpc('lock_player_funds', {
       p_user_id: userId,
       p_amount: entryFeeSol,
