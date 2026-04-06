@@ -54,7 +54,7 @@ export default function FriendBattle() {
     console.log('[FriendBattle] Starting friend game. matchId:', mid, 'seed:', seed)
     setServerMatch(mid, seed)
     // CRITICAL: Route to 'friend-game', NOT 'game' or 'practice-game'.
-    // 'game' = GameWrapper which uses vs_ai mode.
+    // 'game' = GameWrapper which uses paid_pvp mode (paid PvP).
     // 'practice-game' = PracticeGameWrapper which also uses practice mode (AI opponent).
     // 'friend-game' = FriendGameWrapper which uses friend_battle mode (real PvP).
     setScreen('friend-game')
