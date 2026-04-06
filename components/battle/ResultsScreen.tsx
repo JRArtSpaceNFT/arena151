@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useGameStore } from '@/lib/game-store'
 import { useArenaStore } from '@/lib/store'
-import { stopMusic } from '@/lib/audio/musicEngine'
+// music continues playing — victory theme persists through results screen
 
 export default function ResultsScreen() {
   const {
@@ -190,7 +190,6 @@ export default function ResultsScreen() {
           whileHover={{ scale: 1.05, boxShadow: '0 0 30px rgba(124,58,237,0.5)' }}
           whileTap={{ scale: 0.95 }}
           onClick={() => {
-            stopMusic()
             // Capture winner BEFORE playAgain() wipes matchResults to null
             setLastMatchWinner(matchResults?.winner ?? null)
             playAgain()

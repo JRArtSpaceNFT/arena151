@@ -144,6 +144,10 @@ let _muted = false
 
 export function isMusicMuted(): boolean { return _muted }
 
+export function getCurrentTrack(): 'menu' | 'battle' | 'victory' | null { return currentTrack }
+
+export function getCurrentAudio(): HTMLAudioElement | null { return currentAudio }
+
 export function setMusicMuted(muted: boolean) {
   _muted = muted
   if (typeof window === 'undefined') return

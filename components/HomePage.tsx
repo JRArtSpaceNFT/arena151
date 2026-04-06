@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useArenaStore } from '@/lib/store';
-import { playMusic, resumeAudioContext } from '@/lib/audio/musicEngine';
+import { playMusic, resumeAudioContext, getCurrentTrack, getCurrentAudio } from '@/lib/audio/musicEngine';
 import { getSession } from '@/lib/auth';
 import type { PokemonType } from '@/types';
 import { trackSession } from '@/lib/battleStats';
@@ -69,8 +69,23 @@ export default function HomePage() {
     trackSession();
   }, []);
 
-  // Start intro music on first interaction
+  // Start intro music on first interaction.
+  // If victory music is already playing (returning from a battle), let it finish naturally
+  // then auto-transition to menu music. Don’t cut it short.
   useEffect(() => {
+    if (getCurrentTrack() === 'victory') {
+      const audio = getCurrentAudio()
+      const switchToMenu = () => { playMusic('menu') }
+      if (audio) {
+        // Let the victory theme play out, then seamlessly switch to menu music
+        audio.addEventListener('ended', switchToMenu, { once: true })
+        return () => { audio.removeEventListener('ended', switchToMenu) }
+      }
+      // Fallback: no audio element accessible, switch on next click
+      document.addEventListener('click', switchToMenu, { once: true })
+      return () => { document.removeEventListener('click', switchToMenu) }
+    }
+
     const startMusic = () => {
       resumeAudioContext();
       playMusic('menu');

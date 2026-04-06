@@ -6,6 +6,7 @@ import { Trophy, TrendingUp, Home, RotateCcw } from 'lucide-react';
 import { useArenaStore } from '@/lib/store';
 import type { SettledMatchResult } from '@/lib/store';
 import { updateUser } from '@/lib/auth';
+import { playMusic, isMusicMuted } from '@/lib/audio/musicEngine';
 import { supabase } from '@/lib/supabase';
 import { ARENA_BADGES, ROOM_TIERS } from '@/lib/constants';
 
@@ -221,6 +222,12 @@ export default function ResultScreen() {
   const effectiveMatch    = currentMatch ?? syntheticMatch as typeof currentMatch;
   const effectiveTrainer  = currentTrainer ?? syntheticTrainer as typeof currentTrainer;
   const effectiveVictory  = resolvedFromServer ? (settledMatchResult?.iWon ?? false) : isVictory;
+
+  // Play victory music on mount — continues from BattleScreen/VictoryScreen/DefeatScreen
+  // Only start it if nothing is already playing (e.g. coming from VictoryScreen which already set it)
+  useEffect(() => {
+    playMusic('victory')
+  }, [])
 
   useEffect(() => {
     if (!effectiveMatch || !effectiveTrainer) return;

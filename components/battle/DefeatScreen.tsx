@@ -25,7 +25,7 @@ export default function DefeatScreen() {
   const { navigateTo, gameMode, storyProgress, battleState, p1Trainer, p2Trainer, arena, matchResults } = useGameStore()
   const [defeatLine] = useState(() => DEFEAT_LINES[Math.floor(Math.random() * DEFEAT_LINES.length)])
 
-  useEffect(() => { playMusic('battle') }, [])
+  useEffect(() => { playMusic('victory') }, [])
 
   const handleContinue = () => {
     if (gameMode === 'story') navigateTo('story_journey')
