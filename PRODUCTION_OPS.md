@@ -1,5 +1,58 @@
 # Arena 151 — Production Operations Manual
 
+---
+
+## Launch Checklist
+
+### Pre-Launch
+
+1. **Helius webhook** — switch to HMAC signing mode in dashboard; remove any `?secret=` query param from the webhook URL; confirm `HELIUS_WEBHOOK_SECRET` in Vercel matches the dashboard signing secret
+2. **Vercel cron** — confirm `/api/cron/settlement-health` is listed and has run recently in Vercel dashboard → Cron tab; must be on Pro plan (Hobby = 2/day max)
+3. **Env vars** — all set in Vercel: `SUPABASE_SERVICE_KEY`, `WALLET_ENCRYPTION_SECRET`, `ADMIN_SECRET`, `HELIUS_API_KEY`, `HELIUS_WEBHOOK_SECRET`, RPC URL
+4. **End-to-end test** — run 5 complete matches with 2 real accounts; verify DB balances match on-chain after each
+5. **unlock_player_funds** — grep Vercel logs to confirm return values are logged and not silently failing
+6. **Reconciliation SQL** — run the daily reconciliation queries below; all must return healthy (0 rows / 0 drift)
+7. **Resume endpoint — settled path** — for a completed test match, call `GET /api/match/:id/resume` as both the winner and loser account; confirm response includes `resumePhase: 'settled'` and a populated `resultPayload` with `iWon`, `myProfile`, `opponentProfile`, and `payoutDelta`
+8. **Cancel / timeout path** — trigger a match where P1 creates and then cancels (or the forming TTL expires); confirm the match status becomes `voided` and P1's funds are returned immediately (check `profiles.balance` and `audit_log`)
+9. **ArenaReveal refresh safety** — while P1 is waiting at ArenaReveal (match in `forming` state), hard-refresh the page; confirm only one `forming` match exists for that user in the DB (no duplicate created)
+
+### Two-Browser Smoke Test
+
+1. **Happy path** — P1 creates match → P2 joins → both battle → auto-settle fires → result screen shows correct SOL delta for both players → hard-refresh result screen on both browsers → confirm it hydrates from server with no blank screen
+2. **Disconnect / resume path** — P1 joins match → P2 hard-refreshes mid-battle → confirm P2 resumes at the correct phase (`battle_ready`) → battle completes → settlement fires exactly once (check `audit_log` for single `settlement_winner` event)
+
+### Post-Launch Monitoring
+
+1. **Vercel logs** — watch for `[settle]` errors or `settlement_failed` status in DB
+2. **Stuck matches** — Supabase matches table: no rows in `forming` > 30 min or `settling` > 5 min
+3. **Helius deposits** — confirm webhook delivery is hitting `/api/webhook/deposit` (check Vercel function logs after any deposit)
+4. **Manual review queue** — `GET /api/admin/matches?status=manual_review` should return 0
+5. **Duplicate forming matches** — watch for multiple `forming` rows with the same `player_a_id`; indicates ArenaReveal refresh is creating extra matches (run: `SELECT player_a_id, COUNT(*) FROM matches WHERE status = 'forming' GROUP BY player_a_id HAVING COUNT(*) > 1`)
+6. **Settlement double-fire** — watch for spikes in `alreadySettled: true` in Vercel logs; each match should settle once; repeated hits may indicate a client-side retry loop
+7. **Abandoned matches** — track daily: `SELECT DATE(created_at), COUNT(*) FROM matches WHERE status IN ('voided','abandoned') GROUP BY 1 ORDER BY 1 DESC`; spikes signal UX friction in the match flow
+
+### Emergency Rollback
+
+```bash
+# Roll back to last good Vercel deploy
+npx vercel rollback --yes
+
+# Stuck funds mid-settlement — find and act
+SELECT * FROM matches
+WHERE status IN ('settling', 'settlement_pending')
+AND updated_at < now() - interval '10 minutes';
+-- Resolve via admin API:
+curl -X POST https://arena151.xyz/api/admin/match/MATCH_ID/review \
+  -H "x-admin-token: $ADMIN_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"action":"refund_both","reason":"Rollback — settlement did not complete"}'
+
+# Client-side support reset (give to player if their session is stuck)
+sessionStorage.clear()   # run in browser console — clears matchId/seed/joiner state
+```
+
+---
+
 ## Pre-Launch Checklist (run before first real wager)
 
 ### 1. Helius Webhook Verification (FIX 1)
