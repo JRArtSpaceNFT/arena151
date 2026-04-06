@@ -202,6 +202,98 @@ export default function GameWrapper() {
   useEffect(() => {
     if (initialized.current) return
     initialized.current = true
+
+    // ── Refresh-during-battle resume ──────────────────────────────
+    // If serverMatchId is already set (restored from sessionStorage) and the match
+    // is already in a battle-ready or settled state, skip the entire draft/lineup flow
+    // and jump directly to the battle screen. This handles the case where a player
+    // refreshes mid-battle-animation without having to redo their draft.
+    if (serverMatchId) {
+      ;(async () => {
+        try {
+          const { createClient } = await import('@supabase/supabase-js')
+          const sb = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+          )
+          const { data: { session } } = await sb.auth.getSession()
+          if (!session?.access_token) {
+            playAgain(); setGameMode('paid_pvp'); return
+          }
+          const res = await fetch(`/api/match/${serverMatchId}/resume`, {
+            headers: { Authorization: `Bearer ${session.access_token}` }
+          })
+          if (!res.ok) {
+            playAgain(); setGameMode('paid_pvp'); return
+          }
+          const rd = await res.json()
+          console.log('[GameWrapper] Refresh resume check:', rd.resumePhase, rd.status)
+
+          if (rd.resumePhase === 'battle_ready' && rd.teamA && rd.teamB && rd.battleSeed) {
+            // Both players joined — compute battle and jump to battle screen directly.
+            // Skip trainer_select, draft, lineup entirely.
+            const { resolveBattle, createActiveCreature } = await import('@/lib/engine/battle')
+            const { mulberry32, seedFromMatchId } = await import('@/lib/engine/prng')
+            const { ARENAS } = await import('@/lib/data/arenas')
+            const { TRAINERS } = await import('@/lib/data/trainers')
+
+            const seed = rd.battleSeed as string
+            const teamA = (rd.teamA as number[]).map((id: number) => createActiveCreature(id))
+            const teamB = (rd.teamB as number[]).map((id: number) => createActiveCreature(id))
+            const seedNum = Math.abs(seed.split('').reduce((h: number, c: string) => Math.imul(h, 31) + c.charCodeAt(0) | 0, 0))
+            const arena = ARENAS[seedNum % ARENAS.length]
+            const tSeedA = Math.abs((seedNum * 7 + 3) % TRAINERS.length)
+            const tSeedB_raw = Math.abs((seedNum * 13 + 7) % TRAINERS.length)
+            const tSeedB = tSeedB_raw !== tSeedA ? tSeedB_raw : (tSeedB_raw + 1) % TRAINERS.length
+            const trainerA = TRAINERS[tSeedA]
+            const trainerB = TRAINERS[tSeedB]
+            const rng = mulberry32(seedFromMatchId(seed))
+            const battleState = resolveBattle(teamA, teamB, arena, trainerA, trainerB, rng)
+
+            // Set server match seed in case it changed
+            setServerMatch(serverMatchId, seed)
+
+            // Apply state and jump to battle — no need to go through trainer_select
+            const gameStore = (await import('@/lib/game-store')).useGameStore
+            gameStore.setState({
+              gameMode: 'paid_pvp',
+              p1Trainer: trainerA,
+              p2Trainer: trainerB,
+              lineupA: teamA,
+              lineupB: teamB,
+              arena,
+              battleState,
+              screen: 'battle',
+            })
+            console.log('[GameWrapper] Resumed battle directly after refresh. Winner:', battleState.winner)
+            return
+          }
+
+          if (rd.resumePhase === 'settled') {
+            // Already settled — clear sessionStorage and go to result
+            sessionStorage.removeItem('arena_matchId')
+            sessionStorage.removeItem('arena_seed')
+            sessionStorage.removeItem('arena_isJoiner')
+            setScreen('result')
+            return
+          }
+
+          if (rd.resumePhase === 'abandoned') {
+            sessionStorage.removeItem('arena_matchId')
+            sessionStorage.removeItem('arena_seed')
+            sessionStorage.removeItem('arena_isJoiner')
+          }
+
+          // waiting_p2 or abandoned — fall through to normal paid_pvp flow
+          playAgain(); setGameMode('paid_pvp')
+        } catch {
+          playAgain(); setGameMode('paid_pvp')
+        }
+      })()
+      return
+    }
+
+    // ── Fresh match (no serverMatchId restored) ───────────────────
     // Paid PvP match — use paid_pvp mode, never vs_ai.
     // paid_pvp mode blocks ALL AI paths: no random trainer, no AI draft, no AI lineup shuffle.
     // Server provides canonical teams/arena/seed at ArenaReveal after both players join.
