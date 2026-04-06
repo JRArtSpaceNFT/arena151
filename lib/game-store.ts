@@ -103,6 +103,9 @@ export interface GameState {
   clearBattleDialogue: () => void
   moveAnim: { animKey: string; side: 'A' | 'B'; id: string } | null
   setMoveAnim: (anim: { animKey: string; side: 'A' | 'B'; id: string } | null) => void
+  // Friend Battle Actions
+  setOpponentTeamForFriendBattle: (trainerIdB: string, teamIds: number[]) => void
+
   // Story Mode Actions
   startStoryMode: () => void
   selectStoryTeam: (pokemonIds: number[]) => void
@@ -163,7 +166,21 @@ export const useGameStore = create<GameState>((set, get) => ({
   selectTrainer: (trainer) => {
     const { trainerSelectPhase, gameMode } = get()
     if (trainerSelectPhase === 'p1') {
-      if (gameMode === 'vs_ai' || gameMode === 'practice') {
+      if (gameMode === 'friend_battle') {
+        // Friend battle: P1 picks their own trainer — P2 will be set when opponent team
+        // is fetched from server. Skip straight to draft for P1 only.
+        // A placeholder P2 trainer is set temporarily; it will be overwritten before battle starts.
+        const available = TRAINERS.filter(t => t.id !== trainer.id)
+        const placeholder = available[0] // overwritten at battle compute time
+        console.log('[FriendBattle] P1 trainer selected:', trainer.id)
+        set({
+          p1Trainer: trainer,
+          p2Trainer: placeholder,
+          trainerSelectPhase: 'p2',
+          draftCurrentPicker: 'p1',
+          screen: 'draft',
+        })
+      } else if (gameMode === 'vs_ai' || gameMode === 'practice') {
         // AI picks randomly for P2
         const available = TRAINERS.filter(t => t.id !== trainer.id)
         const aiTrainer = available[Math.floor(Math.random() * available.length)]
@@ -196,8 +213,9 @@ export const useGameStore = create<GameState>((set, get) => ({
   draftCreature: (creature) => {
     const { draftTeamA, draftBudgetA, gameMode } = get()
 
-    // vs_ai/practice: P1 always picks freely, no turn blocking
-    if (gameMode === 'vs_ai' || gameMode === 'practice') {
+    // vs_ai/practice/friend_battle: P1 always picks freely, no turn blocking
+    // friend_battle: each player drafts their own team on their own device
+    if (gameMode === 'vs_ai' || gameMode === 'practice' || gameMode === 'friend_battle') {
       if (draftTeamA.length >= TEAM_SIZE) return
       if (creature.pointCost > draftBudgetA) return
       if (draftTeamA.find(c => c.id === creature.id)) return
@@ -322,9 +340,19 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   confirmVsAiDraft: () => {
-    const { draftTeamA, draftTeamB, p1Trainer, p2Trainer } = get()
+    const { draftTeamA, draftTeamB, p1Trainer, p2Trainer, gameMode } = get()
     if (!p1Trainer || !p2Trainer) return
     const lineupA = draftTeamA.map(c => createActiveCreature(c.id))
+
+    if (gameMode === 'friend_battle') {
+      // Friend battle: P2's team comes from server — don't use local draftTeamB.
+      // Set lineupA and lineupB empty (lineupB will be filled by setOpponentTeamForFriendBattle).
+      // Move to lineup screen for P1 to order their team.
+      console.log('[FriendBattle] confirmVsAiDraft in friend_battle mode — P1 team:', draftTeamA.map(c => c.id))
+      set({ lineupA, lineupB: [], lineupPhase: 'p1', arena: getRandomArena(), battleState: null, screen: 'lineup' })
+      return
+    }
+
     const lineupB = draftTeamB.map(c => createActiveCreature(c.id))
     const shuffledB = [...lineupB].sort(() => Math.random() - 0.5)
     const arena = getRandomArena()
@@ -379,7 +407,14 @@ export const useGameStore = create<GameState>((set, get) => ({
   confirmLineup: (player) => {
     const { lineupPhase, gameMode } = get()
     if (player === 'p1') {
-      if (gameMode === 'vs_ai' || gameMode === 'practice') {
+      if (gameMode === 'friend_battle') {
+        // Friend battle: P1 confirms their lineup, go to arena reveal.
+        // P2's lineup will be fetched from server and set before battle computes.
+        console.log('[FriendBattle] P1 lineup confirmed, proceeding to arena reveal')
+        set({ lineupPhase: 'done' })
+        const arena = getRandomArena()
+        set({ arena, screen: 'arena_reveal' })
+      } else if (gameMode === 'vs_ai' || gameMode === 'practice') {
         // AI randomizes its lineup
         const { lineupB } = get()
         const shuffled = [...lineupB].sort(() => Math.random() - 0.5)
@@ -397,9 +432,27 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
   },
 
+  // ── Friend Battle: set opponent team fetched from server ──────────────────
+  setOpponentTeamForFriendBattle: (trainerIdB, teamIds) => {
+    const { TRAINERS: _ } = { TRAINERS }
+    const trainerB = TRAINERS.find(t => t.id === trainerIdB) ?? TRAINERS[0]
+    const lineupB = teamIds.map(id => createActiveCreature(id))
+    console.log('[FriendBattle] Opponent team loaded from server. TrainerB:', trainerIdB, 'Team:', teamIds)
+    set({ p2Trainer: trainerB, lineupB })
+  },
+
   proceedFromArenaReveal: () => {
-    const { battleState, lineupA, lineupB, arena, p1Trainer, p2Trainer } = get()
+    const { battleState, lineupA, lineupB, arena, p1Trainer, p2Trainer, gameMode } = get()
     if (!arena || !p1Trainer || !p2Trainer) return
+
+    // Friend battle: block proceeding until opponent team is loaded from server.
+    // lineupB starts as a placeholder; setOpponentTeamForFriendBattle() updates it.
+    // FriendGameWrapper calls proceedFromArenaReveal() again once opponent team is ready.
+    if (gameMode === 'friend_battle' && lineupB.length === 0) {
+      console.log('[FriendBattle] proceedFromArenaReveal blocked — opponent team not loaded yet')
+      return
+    }
+
     // Use pre-computed battleState if available; compute now for vs_human flow
     if (battleState) {
       set({ battleState, screen: 'battle' })
@@ -411,6 +464,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       ? mulberry32(seedFromMatchId(battleSeed))
       : undefined
     const resolvedState = resolveBattle(lineupA, lineupB, arena, p1Trainer, p2Trainer, rng)
+    console.log('[FriendBattle] Battle computed. Winner:', resolvedState.winner, 'P1 team size:', lineupA.length, 'P2 team size:', lineupB.length)
     set({ battleState: resolvedState, screen: 'battle' })
   },
 

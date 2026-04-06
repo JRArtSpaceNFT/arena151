@@ -248,6 +248,95 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, cancelled: true })
     }
 
+    // ── SUBMIT_TEAM ──────────────────────────────────────────────
+    // Player submits their trainer + team to the server match record.
+    // This is called after draft + lineup is confirmed, before arena reveal.
+    // Stored in team_a (for player_a) or team_b (for player_b).
+    if (action === 'submit_team') {
+      const user = await getAuthUser(req)
+      if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+      const { matchId, trainerId, teamIds } = body as { matchId: string; trainerId: string; teamIds: number[] }
+      if (!matchId || !trainerId || !Array.isArray(teamIds) || teamIds.length === 0) {
+        return NextResponse.json({ error: 'matchId, trainerId, and teamIds required' }, { status: 400 })
+      }
+
+      // Verify this user is in the match
+      const { data: match } = await supabaseAdmin
+        .from('matches')
+        .select('id, player_a_id, player_b_id, status')
+        .eq('id', matchId)
+        .single()
+
+      if (!match) return NextResponse.json({ error: 'Match not found' }, { status: 404 })
+      if (match.player_a_id !== user.id && match.player_b_id !== user.id) {
+        return NextResponse.json({ error: 'You are not in this match' }, { status: 403 })
+      }
+      if (!['ready', 'forming', 'battling'].includes(match.status)) {
+        return NextResponse.json({ error: `Match is not in a joinable state: ${match.status}` }, { status: 409 })
+      }
+
+      const isPlayerA = match.player_a_id === user.id
+      const teamPayload = { trainerId, teamIds }
+
+      const { error: updateError } = await supabaseAdmin
+        .from('matches')
+        .update({
+          ...(isPlayerA ? { team_a: teamPayload } : { team_b: teamPayload }),
+          // Move to battling once the first team is submitted;
+          // status stays 'battling' when second submits (already set)
+          status: match.status === 'ready' ? 'battling' : match.status,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', matchId)
+
+      if (updateError) {
+        console.error('[FriendMatch submit_team] error:', updateError)
+        return NextResponse.json({ error: 'Failed to submit team' }, { status: 500 })
+      }
+
+      console.log(`[FriendMatch] ${isPlayerA ? 'player_a' : 'player_b'} submitted team for match ${matchId}`)
+      return NextResponse.json({ ok: true, role: isPlayerA ? 'player_a' : 'player_b' })
+    }
+
+    // ── GET_OPPONENT_TEAM ─────────────────────────────────────────
+    // Poll for opponent's submitted team. Called by each player after
+    // submitting their own team. Returns once both teams are present.
+    if (action === 'get_opponent_team') {
+      const user = await getAuthUser(req)
+      if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+      const { matchId } = body as { matchId: string }
+      if (!matchId) return NextResponse.json({ error: 'matchId required' }, { status: 400 })
+
+      const { data: match } = await supabaseAdmin
+        .from('matches')
+        .select('id, player_a_id, player_b_id, team_a, team_b, status, battle_seed')
+        .eq('id', matchId)
+        .single()
+
+      if (!match) return NextResponse.json({ error: 'Match not found' }, { status: 404 })
+      if (match.player_a_id !== user.id && match.player_b_id !== user.id) {
+        return NextResponse.json({ error: 'You are not in this match' }, { status: 403 })
+      }
+
+      const isPlayerA = match.player_a_id === user.id
+      // Return the OPPONENT's team (not the caller's own team)
+      const opponentTeam = isPlayerA ? match.team_b : match.team_a
+
+      if (!opponentTeam) {
+        // Opponent hasn't submitted yet
+        return NextResponse.json({ ready: false, message: 'Waiting for opponent to draft their team' })
+      }
+
+      return NextResponse.json({
+        ready: true,
+        opponentTrainerId: (opponentTeam as { trainerId: string; teamIds: number[] }).trainerId,
+        opponentTeamIds: (opponentTeam as { trainerId: string; teamIds: number[] }).teamIds,
+        battleSeed: match.battle_seed,
+      })
+    }
+
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
 
   } catch (err) {

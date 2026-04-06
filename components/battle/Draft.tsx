@@ -166,10 +166,12 @@ export default function Draft() {
   }, [])
 
   // vs_ai: AI picks its full team instantly at draft mount
+  // friend_battle: DO NOT pick AI team — P2 team comes from server (opponent's device)
   useEffect(() => {
     if ((gameMode === 'vs_ai' || gameMode === 'practice') && draftTeamB.length === 0) {
       pickAITeamInstantly()
     }
+    // friend_battle: intentionally skip — no AI draft
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -190,7 +192,7 @@ export default function Draft() {
   const [orderTimeLeft, setOrderTimeLeft] = useState(30)
   const [showBudgetTooltip, setShowBudgetTooltip] = useState(false)
 
-  const isP1Turn = (gameMode === 'vs_ai' || gameMode === 'practice') ? true : draftCurrentPicker === 'p1'
+  const isP1Turn = (gameMode === 'vs_ai' || gameMode === 'practice' || gameMode === 'friend_battle') ? true : draftCurrentPicker === 'p1'
   const myDrafted = new Set(draftTeamA.map(c => c.id))
   const currentBudget = draftBudgetA
 
@@ -294,7 +296,10 @@ export default function Draft() {
     }
   }
 
-  const isAiMode = gameMode === 'vs_ai' || gameMode === 'practice'
+  // friend_battle behaves like vs_ai for draft purposes:
+  // P1 drafts their own team; P2 team comes from server (no local AI).
+  // confirmVsAiDraft advances to lineup after P1 team is complete.
+  const isAiMode = gameMode === 'vs_ai' || gameMode === 'practice' || gameMode === 'friend_battle'
   const canLockIn = isOrdering
     ? true // can always lock in once ordering phase starts
     : isAiMode

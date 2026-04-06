@@ -100,6 +100,7 @@ export type AppScreen =
   | 'battle-guide'
   | 'practice-game'
   | 'friend-battle'
+  | 'friend-game'
   | 'fair-gaming';
 
 export interface ChatMessage {
@@ -111,3 +112,4 @@ export interface ChatMessage {
   timestamp: Date;
   room?: BattleRoom;
 }
+// AppScreen addition handled in place

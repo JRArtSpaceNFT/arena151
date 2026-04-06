@@ -51,8 +51,13 @@ export default function FriendBattle() {
 
   const startGame = useCallback((seed: string, mid: string) => {
     stopPolling()
+    console.log('[FriendBattle] Starting friend game. matchId:', mid, 'seed:', seed)
     setServerMatch(mid, seed)
-    setScreen('game')
+    // CRITICAL: Route to 'friend-game', NOT 'game' or 'practice-game'.
+    // 'game' = GameWrapper which uses vs_ai mode.
+    // 'practice-game' = PracticeGameWrapper which also uses practice mode (AI opponent).
+    // 'friend-game' = FriendGameWrapper which uses friend_battle mode (real PvP).
+    setScreen('friend-game')
   }, [stopPolling, setServerMatch, setScreen])
 
   // Cleanup on unmount
