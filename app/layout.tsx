@@ -15,7 +15,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body 
-        className="min-h-screen bg-slate-950 text-white antialiased"
+        className="bg-slate-950 text-white antialiased"
         style={{
           background: `
             radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
@@ -26,7 +26,9 @@ export default function RootLayout({
         }}
       >
         <MusicToggle />
-        {children}
+        <main style={{height:'100%',overflow:'hidden'}}>
+          {children}
+        </main>
       </body>
     </html>
   );

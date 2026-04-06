@@ -221,9 +221,11 @@ export default function FriendBattle() {
 
   return (
     <div style={{
-      minHeight: '100vh',
+      height: '100dvh',
+      maxHeight: '100dvh',
       background: 'linear-gradient(160deg, #08060f 0%, #0d0a1e 40%, #0a0d18 80%, #060608 100%)',
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      overflow: 'hidden',
       fontFamily: 'system-ui, -apple-system, sans-serif',
       color: '#e2e8f0', padding: 24, position: 'relative',
     }}>

@@ -36,7 +36,7 @@ export default function DefeatScreen() {
   const arenaImage = arena?.image ?? null
 
   return (
-    <div style={{ minHeight: '100vh', position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '28px 20px 40px', overflow: 'auto' }}>
+    <div style={{ height: '100dvh', maxHeight: '100dvh', position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '28px 20px 40px', overflow: 'hidden' }}>
 
       {/* ── Battlefield at 8% opacity — loser stood here ── */}
       {arenaImage && (

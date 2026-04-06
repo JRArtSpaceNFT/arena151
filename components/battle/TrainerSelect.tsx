@@ -437,7 +437,8 @@ export default function TrainerSelect() {
 
   return (
     <div style={{
-      height: '100vh',
+      height: '100dvh',
+      maxHeight: '100dvh',
       background: '#050510',
       padding: '12px 24px 12px',
       display: 'flex',

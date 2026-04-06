@@ -310,7 +310,8 @@ export default function Draft() {
     <>
       {/* ── Root container ── */}
       <div style={{
-        height: '100vh',
+        height: '100dvh',
+        maxHeight: '100dvh',
         background: '#06060a',
         display: 'flex',
         flexDirection: 'column',

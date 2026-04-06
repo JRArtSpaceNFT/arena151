@@ -57,7 +57,8 @@ export default function Lineup() {
 
   return (
     <div style={{
-      minHeight: '100vh',
+      height: '100dvh',
+      maxHeight: '100dvh',
       background: '#0a0a0f',
       padding: 32,
       display: 'flex',

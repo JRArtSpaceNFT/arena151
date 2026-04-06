@@ -122,12 +122,14 @@ export default function CoinToss() {
 
   return (
     <div style={{
-      minHeight: '100vh',
+      height: '100dvh',
+      maxHeight: '100dvh',
       background: '#0a0a0f',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
+      overflow: 'hidden',
       padding: 24,
       gap: 0,
     }}>

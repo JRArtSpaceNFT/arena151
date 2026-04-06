@@ -379,7 +379,7 @@ export default function FriendGameWrapper() {
   if (syncError) {
     return (
       <div style={{
-        minHeight: '100vh', background: '#0a0a0f', color: '#fff',
+        height: '100dvh', maxHeight: '100dvh', background: '#0a0a0f', color: '#fff', overflow: 'hidden',
         display: 'flex', flexDirection: 'column', alignItems: 'center',
         justifyContent: 'center', gap: 16, padding: 32, textAlign: 'center',
       }}>
@@ -394,7 +394,7 @@ export default function FriendGameWrapper() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0a0f', position: 'relative' }}>
+    <div style={{ height: '100dvh', maxHeight: '100dvh', background: '#0a0a0f', position: 'relative', overflow: 'hidden' }}>
       {/* Banner */}
       <div style={{
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9990,

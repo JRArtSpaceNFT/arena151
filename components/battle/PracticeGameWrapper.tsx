@@ -114,7 +114,7 @@ export default function PracticeGameWrapper() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0a0f', position: 'relative' }}>
+    <div style={{ height: '100dvh', maxHeight: '100dvh', background: '#0a0a0f', position: 'relative', overflow: 'hidden' }}>
       {/* PRACTICE MODE banner */}
       <div style={{
         position: 'fixed',

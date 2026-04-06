@@ -404,11 +404,13 @@ export default function GameWrapper() {
   if (matchCreateError) {
     return (
       <div style={{
-        minHeight: '100vh',
+        height: '100dvh',
+        maxHeight: '100dvh',
         background: '#0a0a0f',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        overflow: 'hidden',
         flexDirection: 'column',
         gap: 16,
         color: '#fff',
@@ -456,7 +458,7 @@ export default function GameWrapper() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0a0f', position: 'relative' }}>
+    <div style={{ height: '100dvh', maxHeight: '100dvh', background: '#0a0a0f', position: 'relative', overflow: 'hidden' }}>
       {screens[gameScreen] ?? <TrainerSelect />}
       {gameScreen === 'battle' && <BattleDialogueBubble />}
       {gameScreen === 'battle' && <BattleTrainerBusts />}

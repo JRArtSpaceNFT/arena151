@@ -105,7 +105,7 @@ export default function VictoryScreen() {
 
   return (
     <div style={{
-      width: '100vw', height: '100vh',
+      width: '100vw', height: '100dvh', maxHeight: '100dvh',
       overflow: 'hidden', position: 'relative',
       background: '#000',
     }}>

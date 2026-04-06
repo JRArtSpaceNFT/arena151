@@ -20,8 +20,8 @@ export default function ResultsScreen() {
   if (!matchResults || !battleState) {
     return (
       <div style={{
-        minHeight: '100vh', background: '#0a0a0f',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        height: '100dvh', maxHeight: '100dvh', background: '#0a0a0f',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
         color: '#94a3b8', fontSize: 20,
       }}>
         Loading results...
@@ -74,12 +74,12 @@ export default function ResultsScreen() {
 
   return (
     <div style={{
-      minHeight: '100vh',
+      height: '100dvh',
+      maxHeight: '100dvh',
       background: '#0a0a0f',
       padding: '20px 24px',
       display: 'flex',
       flexDirection: 'column',
-      maxHeight: '100vh',
       overflow: 'hidden',
     }}>
       {/* Winner announcement */}

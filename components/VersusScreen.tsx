@@ -19,7 +19,7 @@ export default function VersusScreen() {
   if (!currentMatch) return null;
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-black">
+    <div className="h-screen flex items-center justify-center relative overflow-hidden bg-black">
       {/* Split screen effect */}
       <motion.div
         initial={{ scaleX: 0 }}

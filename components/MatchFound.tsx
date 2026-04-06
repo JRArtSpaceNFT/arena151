@@ -121,7 +121,7 @@ export default function MatchFound() {
   if (!currentTrainer) return null;
 
   return (
-    <div className="min-h-screen flex items-center justify-center pokeball-pattern relative overflow-hidden">
+    <div className="h-screen flex items-center justify-center pokeball-pattern relative overflow-hidden">
       {/* Energy flash effect */}
       <motion.div
         initial={{ scale: 0, opacity: 1 }}

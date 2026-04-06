@@ -385,7 +385,7 @@ export default function ResultScreen() {
   // Show loading state while hydrating from server (e.g. settledMatchResult not yet populated)
   if (!effectiveMatch || !effectiveTrainer) {
     return (
-      <div className="h-screen flex items-center justify-center bg-slate-950">
+      <div className="h-screen flex items-center justify-center bg-slate-950 overflow-hidden">
         <div className="text-center">
           <div className="text-4xl mb-4">⏳</div>
           <p className="text-slate-400 font-mono">Loading match result...</p>

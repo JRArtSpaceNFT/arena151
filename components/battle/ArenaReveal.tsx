@@ -360,7 +360,7 @@ export default function ArenaReveal() {
     const isTimeout = paidMatchError === 'NO_OPPONENT'
     return (
       <div style={{
-        minHeight: '100vh', background: '#0a0a0f',
+        height: '100dvh', maxHeight: '100dvh', background: '#0a0a0f',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         flexDirection: 'column', gap: 16, color: '#fff',
         fontFamily: '"Courier New", monospace', padding: 32, textAlign: 'center',
@@ -407,13 +407,15 @@ export default function ArenaReveal() {
 
   return (
     <div style={{
-      minHeight: '100vh',
+      height: '100dvh',
+      maxHeight: '100dvh',
       position: 'relative',
       overflow: 'hidden',
     }}>
         <div
           style={{
-            minHeight: '100vh',
+            height: '100dvh',
+            maxHeight: '100dvh',
             background: displayArena.bgGradient,
             display: 'flex',
             flexDirection: 'column',

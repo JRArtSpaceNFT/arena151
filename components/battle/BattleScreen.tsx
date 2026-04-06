@@ -610,8 +610,8 @@ export default function BattleScreen() {
   if (!battleState) {
     return (
       <div style={{
-        minHeight: '100vh', background: '#0a0a0f',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        height: '100dvh', maxHeight: '100dvh', background: '#0a0a0f',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
       }}>
         <motion.div
           animate={{ opacity: [0.5, 1, 0.5] }}
@@ -636,7 +636,8 @@ export default function BattleScreen() {
 
   return (
     <div key={battleState?.teamA[0]?.creature.id} style={{
-      minHeight: '100vh',
+      height: '100dvh',
+      maxHeight: '100dvh',
       background: arena?.bgGradient ?? '#0a0a0f',
       display: 'flex',
       flexDirection: 'column',

@@ -71,7 +71,8 @@ export default function PreBattleTalk() {
 
   return (
     <div style={{
-      minHeight: '100vh',
+      height: '100dvh',
+      maxHeight: '100dvh',
       background: '#06060a',
       position: 'relative',
       overflow: 'hidden',
