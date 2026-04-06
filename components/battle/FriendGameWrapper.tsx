@@ -85,9 +85,17 @@ function WaitingOverlay({ message, onCancel }: { message: string; onCancel: () =
     }}>
       <motion.div
         animate={{ rotate: 360 }}
-        transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-        style={{ fontSize: 48 }}
-      >⚔️</motion.div>
+        transition={{ duration: 1.4, repeat: Infinity, ease: 'linear' }}
+        style={{ width: 64, height: 64 }}
+      >
+        <svg width="64" height="64" viewBox="0 0 56 56" fill="none">
+          <circle cx="28" cy="28" r="27" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="2"/>
+          <path d="M1 28 Q1 1 28 1 Q55 1 55 28" fill="#ef4444"/>
+          <rect x="0" y="25" width="56" height="6" fill="#1e293b"/>
+          <circle cx="28" cy="28" r="8" fill="#1e293b" stroke="#1e293b" strokeWidth="2"/>
+          <circle cx="28" cy="28" r="5" fill="#f8fafc"/>
+        </svg>
+      </motion.div>
       <div style={{
         fontSize: 20, fontWeight: 900, color: '#818cf8',
         fontFamily: '"Impact","Arial Black",sans-serif', letterSpacing: '0.05em',
@@ -159,9 +167,10 @@ export default function FriendGameWrapper() {
 
   const initialized     = useRef(false)
   const pollRef         = useRef<ReturnType<typeof setInterval> | null>(null)
-  const trainerSynced   = useRef(false)
-  const draftSynced     = useRef(false)
-  const lineupSynced    = useRef(false)
+  // useState guards so they reset correctly if component remounts
+  const [trainerSynced, setTrainerSynced] = useState(false)
+  const [draftSynced,   setDraftSynced]   = useState(false)
+  const [lineupSynced,  setLineupSynced]  = useState(false)
 
   const stopPoll = useCallback(() => {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
@@ -234,9 +243,9 @@ export default function FriendGameWrapper() {
   // ── Step 1: Trainer picked → screen becomes 'draft' ──────────────────────
   useEffect(() => {
     if (gameScreen !== 'draft') return
-    if (trainerSynced.current) return
-    if (!p1Trainer) { console.warn('[FriendBattle] draft screen but no p1Trainer'); return }
-    trainerSynced.current = true
+    if (trainerSynced) return
+    if (!p1Trainer) { console.warn('[FriendBattle] draft screen but no p1Trainer — retrying'); return }
+    setTrainerSynced(true)
 
     console.log('[FriendBattle] 🧑 Trainer picked:', p1Trainer.id, p1Trainer.name)
     waitForOpponent('trainer_select', { trainerId: p1Trainer.id }, (oppData) => {
@@ -251,9 +260,9 @@ export default function FriendGameWrapper() {
   // ── Step 2: Draft locked → screen becomes 'lineup' ───────────────────────
   useEffect(() => {
     if (gameScreen !== 'lineup') return
-    if (draftSynced.current) return
+    if (draftSynced) return
     if (draftTeamA.length === 0) { console.warn('[FriendBattle] lineup screen but draftTeamA empty'); return }
-    draftSynced.current = true
+    setDraftSynced(true)
 
     const teamIds = draftTeamA.map(c => c.id)
     const trainerId = p1Trainer?.id ?? ''
@@ -273,9 +282,9 @@ export default function FriendGameWrapper() {
   // ── Step 3: Lineup locked → screen becomes 'arena_reveal' ────────────────
   useEffect(() => {
     if (gameScreen !== 'arena_reveal') return
-    if (lineupSynced.current) return
+    if (lineupSynced) return
     if (lineupA.length === 0) { console.warn('[FriendBattle] arena_reveal but lineupA empty'); return }
-    lineupSynced.current = true
+    setLineupSynced(true)
 
     const lineupIds = lineupA.map(ac => ac.creature.id)
     const trainerId = p1Trainer?.id ?? ''
