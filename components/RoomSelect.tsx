@@ -91,6 +91,8 @@ export default function RoomSelect() {
           .roomselect-inner { height: auto !important; max-height: none !important; overflow: visible !important; }
           .roomselect-grid { overflow: visible !important; max-height: none !important; height: auto !important; }
           .roomselect-toprow { height: auto !important; min-height: 80px !important; max-height: none !important; }
+          .arena-name { font-size: 11px !important; letter-spacing: 0.02em !important; }
+          .arena-badge-name { font-size: 8px !important; }
         }
       `}</style>
       <div className="relative z-10 flex flex-col h-full max-w-6xl mx-auto w-full px-4 pt-3 pb-3 roomselect-inner">
@@ -321,7 +323,7 @@ export default function RoomSelect() {
                         </div>
                       )}
                       <div className="min-w-0">
-                        <h2 className="font-black leading-none truncate" style={{
+                        <h2 className="font-black leading-none truncate arena-name" style={{
                           fontFamily: '"Impact", "Arial Black", sans-serif',
                           fontSize: ['cerulean-city','vermilion-city','cinnabar-island'].includes(id) ? 13 : 17,
                           letterSpacing: '0.04em',
@@ -331,7 +333,7 @@ export default function RoomSelect() {
                           {room.name.toUpperCase()}
                         </h2>
                         {badge && (
-                          <p className="leading-none mt-0.5 font-semibold truncate" style={{ color: `${identity.accent}cc`, fontSize: 10 }}>
+                          <p className="leading-none mt-0.5 font-semibold truncate arena-badge-name" style={{ color: `${identity.accent}cc`, fontSize: 10 }}>
                             {badge.name}
                           </p>
                         )}
