@@ -1,6 +1,15 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import MusicToggle from "@/components/MusicToggle";
+import RotatePrompt from "@/components/RotatePrompt";
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
+};
 
 export const metadata: Metadata = {
   title: "Arena 151 - Build Your Legend",
@@ -14,6 +23,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+      </head>
       <body 
         className="bg-slate-950 text-white antialiased"
         style={{
@@ -25,6 +38,7 @@ export default function RootLayout({
           `
         }}
       >
+        <RotatePrompt />
         <MusicToggle />
         <main style={{height:'100%',overflow:'hidden'}}>
           {children}

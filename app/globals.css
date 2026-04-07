@@ -37,6 +37,19 @@ html, body {
   .screen-pad-reduce { padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
 }
 
+/* ── Mobile touch optimizations ── */
+@media screen and (max-width: 1024px) {
+  * { -webkit-tap-highlight-color: transparent; }
+}
+
+/* ── Landscape mobile: compact battle UI ── */
+@media screen and (max-height: 500px) and (orientation: landscape) {
+  [data-side-panel] { display: none !important; }
+  [data-battle-log] { max-height: 80px !important; font-size: 10px !important; }
+  [data-creature-name] { font-size: 11px !important; }
+  [data-hp-bar] { height: 6px !important; }
+}
+
 /* Normalize Tailwind h-screen to 100dvh so it behaves correctly
    on mobile browsers where the URL bar changes the viewport height */
 .h-screen {
