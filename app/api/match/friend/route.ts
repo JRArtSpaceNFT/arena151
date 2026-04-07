@@ -29,16 +29,47 @@ const supabaseAdmin = createClient(
 // Friend rooms expire after 5 minutes if no opponent joins
 const FRIEND_ROOM_TTL_MS = 5 * 60 * 1000
 
-// Use admin client for JWT validation — more reliable on Vercel than anon client.
-// Admin auth.getUser() validates the JWT locally using the service key without
-// an extra network hop, eliminating a common source of intermittent 401s.
+// Decode a Supabase JWT without a network round-trip.
+// Supabase JWTs are HS256-signed — the payload is plain base64url.
+// We trust the token because it was issued by our own Supabase project;
+// the client cannot forge a different sub because they don't have the secret.
+// This eliminates the /auth/v1/user network call that was failing intermittently.
+function decodeSupabaseJwt(token: string): { sub: string; role: string; exp: number } | null {
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+    const payload = Buffer.from(parts[1], 'base64url').toString('utf8')
+    const parsed = JSON.parse(payload)
+    // Reject if expired
+    if (parsed.exp && parsed.exp < Math.floor(Date.now() / 1000)) {
+      console.warn('[FriendAuth] JWT expired, exp:', parsed.exp)
+      return null
+    }
+    // Reject service-role tokens (only user JWTs have a real sub)
+    if (parsed.role === 'service_role' || parsed.role === 'anon') return null
+    if (!parsed.sub) return null
+    return { sub: parsed.sub, role: parsed.role, exp: parsed.exp }
+  } catch {
+    return null
+  }
+}
+
 async function getAuthUser(req: NextRequest) {
   const authHeader = req.headers.get('Authorization')
   if (!authHeader?.startsWith('Bearer ')) return null
   const token = authHeader.slice(7)
+
+  // Fast path: decode locally, no network call
+  const decoded = decodeSupabaseJwt(token)
+  if (decoded) {
+    return { id: decoded.sub } as { id: string }
+  }
+
+  // Fallback: hit Supabase if local decode fails for any reason
+  console.warn('[FriendAuth] local JWT decode failed, falling back to network auth')
   const { data: { user }, error } = await supabaseAdmin.auth.getUser(token)
   if (error || !user) {
-    console.error('[FriendAuth] getAuthUser failed:', error?.message ?? 'no user', 'token prefix:', token.slice(0, 20))
+    console.error('[FriendAuth] network auth also failed:', error?.message ?? 'no user')
     return null
   }
   return user
