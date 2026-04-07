@@ -44,12 +44,51 @@ const GLOBAL_CSS = `
     max-height: calc(100dvh - 180px) !important;
   }
   .draft-mobile-team { display: flex !important; }
-  .draft-order-overlay { overflow-y: auto !important; padding: 12px 8px !important; justify-content: flex-start !important; padding-top: 16px !important; }
-  .draft-order-slots { flex-wrap: wrap !important; gap: 8px !important; justify-content: center !important; padding: 0 4px !important; }
-  .draft-order-card { width: 80px !important; }
-  .draft-order-card-sprite { width: 70px !important; height: 70px !important; }
-  .draft-order-card-num { font-size: 20px !important; }
-  .draft-order-confirm { margin-top: 12px !important; padding: 12px 24px !important; font-size: 14px !important; }
+  /* Order overlay: left = pokemon slots, right = confirm button */
+  .draft-order-overlay {
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 8px 12px !important;
+    gap: 12px !important;
+    overflow: hidden !important;
+  }
+  .draft-order-header { display: none !important; }
+  .draft-order-body {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 12px !important;
+    width: 100% !important;
+    justify-content: center !important;
+  }
+  .draft-order-slots {
+    flex-wrap: nowrap !important;
+    gap: 6px !important;
+    justify-content: flex-start !important;
+    padding: 0 !important;
+    flex: 1 !important;
+    overflow-x: auto !important;
+  }
+  .draft-order-card { width: 60px !important; height: 60px !important; border-radius: 10px !important; }
+  .draft-order-card-sprite { width: 50px !important; height: 50px !important; }
+  .draft-order-card-num { font-size: 14px !important; margin-bottom: 2px !important; }
+  .draft-order-right {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 8px !important;
+    flex-shrink: 0 !important;
+  }
+  .draft-order-confirm {
+    margin-top: 0 !important;
+    padding: 14px 12px !important;
+    font-size: 12px !important;
+    white-space: normal !important;
+    max-width: 90px !important;
+    text-align: center !important;
+    line-height: 1.3 !important;
+  }
   .draft-order-hint { display: none !important; }
 }
 @media (max-width: 640px) {
@@ -1082,7 +1121,7 @@ export default function Draft() {
 
 
           {/* Header */}
-          <div style={{
+          <div className="draft-order-header" style={{
             textAlign: 'center',
             marginBottom: 12,
             animation: 'orderCardIn 0.4s cubic-bezier(0.22,1,0.36,1) 0.05s both',
@@ -1135,6 +1174,8 @@ export default function Draft() {
             </div>
           </div>
 
+          {/* Body: slots left + confirm right on mobile */}
+          <div className="draft-order-body" style={{ display: 'contents' }}>
           {/* Pokemon order slots */}
           <div className="draft-order-slots" style={{
             display: 'flex',
@@ -1306,6 +1347,8 @@ export default function Draft() {
               )
             })}
           </div>
+
+          </div>{/* end draft-order-body */}
 
           {/* Direction hint */}
           <div className="draft-order-hint" style={{

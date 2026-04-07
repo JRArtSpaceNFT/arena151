@@ -467,6 +467,11 @@ export default function ResultScreen() {
 
   return (
     <>
+      {/* Override global overflow:hidden so this page can scroll */}
+      <style>{`
+        html, body { overflow-y: auto !important; height: auto !important; }
+      `}</style>
+
       {/* Badge ceremony overlay */}
       <AnimatePresence>
         {newBadgeArena && (
@@ -483,7 +488,7 @@ export default function ResultScreen() {
         flexDirection: 'column',
         alignItems: 'center',
         padding: 'clamp(12px, 2vh, 24px) clamp(12px, 3vw, 24px)',
-        overflowY: 'auto',
+        overflowY: 'visible',
         position: 'relative',
       }}>
         {/* Background glow */}

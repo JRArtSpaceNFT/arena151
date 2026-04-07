@@ -88,9 +88,23 @@ export default function RoomSelect() {
       <style>{`
         @media (max-width: 1024px) {
           .roomselect-outer { height: 100dvh !important; overflow-y: auto !important; }
-          .roomselect-inner { height: auto !important; max-height: none !important; overflow: visible !important; }
-          .roomselect-grid { overflow: visible !important; max-height: none !important; height: auto !important; }
+          .roomselect-inner { height: auto !important; max-height: none !important; overflow: visible !important; padding-bottom: 16px !important; }
+          /* Arena grid: 2 columns, auto height so cards never clip */
+          .roomselect-grid {
+            overflow: visible !important;
+            max-height: none !important;
+            height: auto !important;
+            grid-template-columns: repeat(2, 1fr) !important;
+          }
+          /* Each arena card: enough height for all content */
+          .roomselect-grid > * {
+            min-height: 160px !important;
+            height: auto !important;
+          }
           .roomselect-toprow { height: auto !important; min-height: 80px !important; max-height: none !important; }
+          /* Arena card stat panels: don't clip */
+          .arena-name { font-size: 11px !important; }
+          .arena-badge-name { font-size: 8px !important; }
           .arena-name { font-size: 11px !important; letter-spacing: 0.02em !important; }
           .arena-badge-name { font-size: 8px !important; }
         }

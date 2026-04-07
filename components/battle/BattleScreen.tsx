@@ -56,8 +56,13 @@ export default function BattleScreen() {
   useEffect(() => {
     // Music + crowd already started in ArenaReveal when arena locks in
     // On mobile, audio context may be suspended — resume it on mount
+    // Try immediately, then again after short delays to beat mobile suspension
     resumeAudioContext()
+    const t1 = setTimeout(() => resumeAudioContext(), 100)
+    const t2 = setTimeout(() => resumeAudioContext(), 500)
     return () => {
+      clearTimeout(t1)
+      clearTimeout(t2)
       setMoveAnim(null) // safety: always clear animation on unmount
       stopCrowdAmbient()
       // Flush dialogue queue — prevents callbacks from running after unmount

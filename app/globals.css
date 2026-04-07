@@ -120,15 +120,18 @@ html, body {
     gap: 8px !important;
   }
   
-  /* CreatureDisplay: narrower */
+  /* CreatureDisplay: fits landscape viewport */
   [data-creature-display] {
-    width: clamp(180px, 35vw, 280px) !important;
+    width: clamp(140px, 30vw, 240px) !important;
+    overflow: hidden !important;
   }
   
-  /* Sprites: scale to fit landscape */
+  /* Sprites: half of desktop size on mobile — desktop is 340px so target ~140-160px */
   [data-battle-sprite] {
-    width: clamp(110px, 24dvh, 180px) !important;
-    height: clamp(110px, 24dvh, 180px) !important;
+    width: clamp(100px, 20dvh, 155px) !important;
+    height: clamp(100px, 20dvh, 155px) !important;
+    margin-top: 0 !important;
+    max-width: 100% !important;
   }
   
   /* Creature name */

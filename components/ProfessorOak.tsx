@@ -440,13 +440,14 @@ export default function ProfessorOak() {
       <style>{`
         @media (max-width: 1024px) {
           .oak-chat-window {
-            width: calc(100vw - 16px) !important;
+            width: 100vw !important;
             max-width: 100vw !important;
-            height: 70dvh !important;
-            max-height: 70dvh !important;
-            bottom: 80px !important;
-            right: 8px !important;
-            left: 8px !important;
+            height: 100dvh !important;
+            max-height: 100dvh !important;
+            bottom: 0 !important;
+            right: 0 !important;
+            left: 0 !important;
+            border-radius: 0 !important;
           }
           .oak-fab-btn {
             bottom: 12px !important;

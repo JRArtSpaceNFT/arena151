@@ -474,48 +474,58 @@ export default function TrainerSelect() {
       <style>{`
         @media (max-width: 1024px) {
           .ts-side-card { display: none !important; }
-          .ts-root { padding: 4px 8px !important; }
+          /* Hide top banner (SELECT YOUR TRAINER heading + timer) on mobile — gives full space to card */
+          .ts-header { display: none !important; }
+          .ts-root { padding: 4px 8px 4px !important; }
           .ts-select-btn { padding: 9px 16px !important; font-size: 12px !important; }
+          .ts-hint { display: none !important; }
           
-          /* Dossier card: wide landscape rectangle */
+          /* Dossier card: wide landscape rectangle, max height */
           .ts-dossier-card {
             width: 100% !important;
-            max-width: 520px !important;
+            max-width: 100% !important;
             display: flex !important;
             flex-direction: row !important;
             height: auto !important;
+            min-height: 0 !important;
           }
           
-          /* Sprite column: narrower */
+          /* Sprite column: wider so sprite is actually visible */
           .ts-dossier-sprite-col {
-            width: 100px !important;
-            min-width: 100px !important;
+            width: 140px !important;
+            min-width: 140px !important;
             flex-shrink: 0 !important;
           }
           
-          /* Sprite itself: smaller */
+          /* Sprite: proper size */
           .ts-dossier-sprite {
-            width: clamp(70px, 14dvh, 110px) !important;
-            height: clamp(70px, 14dvh, 110px) !important;
+            width: clamp(100px, 22dvh, 160px) !important;
+            height: clamp(100px, 22dvh, 160px) !important;
           }
           
-          /* Trainer name: smaller */
+          /* Trainer name */
           .ts-dossier-name {
-            font-size: clamp(18px, 4dvh, 28px) !important;
+            font-size: clamp(20px, 4dvh, 32px) !important;
           }
           
-          /* Info right column: compress */
+          /* Info right column */
           .ts-dossier-info {
-            padding: 8px 8px !important;
-            gap: 6px !important;
+            padding: 6px 8px !important;
+            gap: 5px !important;
+            overflow-y: auto !important;
+            max-height: calc(100dvh - 80px) !important;
           }
           
-          /* Carousel: no padding needed */
-          .ts-carousel { gap: 2px !important; overflow: visible !important; }
+          /* Carousel fits full remaining height */
+          .ts-carousel { gap: 2px !important; overflow: visible !important; flex: 1 !important; align-items: stretch !important; }
+          
+          /* Bottom area: keep compact */
+          .ts-bottom { margin-top: 4px !important; gap: 3px !important; }
         }
       `}</style>
       {/* Header */}
       <motion.div
+        className="ts-header"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         style={{ textAlign: 'center', marginBottom: 6, width: '100%', maxWidth: 800, flexShrink: 0 }}
@@ -701,7 +711,7 @@ export default function TrainerSelect() {
       </div>
 
       {/* SELECT button + hints */}
-      <div style={{
+      <div className="ts-bottom" style={{
         marginTop: 6, width: '100%', flexShrink: 0,
         display: 'flex', flexDirection: 'column',
         alignItems: 'center', gap: 5,
