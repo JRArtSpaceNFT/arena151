@@ -9,8 +9,13 @@ export default function FairGaming() {
 
   return (
     <div
-      className="min-h-screen text-white overflow-y-auto"
-      style={{ background: 'linear-gradient(160deg, #0f0c24 0%, #151030 40%, #0d1a2e 80%, #0a0a1a 100%)' }}
+      className="text-white"
+      style={{
+        position: 'fixed', inset: 0,
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        background: 'linear-gradient(160deg, #0f0c24 0%, #151030 40%, #0d1a2e 80%, #0a0a1a 100%)'
+      }}
     >
       {/* Header */}
       <div className="sticky top-0 z-10 px-4 py-3 flex items-center gap-3 border-b"
