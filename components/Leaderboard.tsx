@@ -3,6 +3,14 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Trophy, X, Target, TrendingUp, TrendingDown } from 'lucide-react';
+
+function XLogo({ size = 13, color = '#1da1f2' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.736-8.86L1.254 2.25H8.08l4.259 5.63zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+    </svg>
+  );
+}
 import { useArenaStore } from '@/lib/store';
 import { getAllUsers } from '@/lib/auth';
 import { TYPE_COLORS } from '@/lib/constants';
@@ -24,6 +32,7 @@ type LeaderboardEntry = {
   earnings: number;
   joinedDate: string;
   badges: string[];
+  twitterHandle?: string | null;
 };
 
 const GYM_BADGES = [
@@ -121,6 +130,18 @@ function TrainerModal({ entry, onClose }: { entry: LeaderboardEntry; onClose: ()
               <p className="text-xs font-bold mb-0.5" style={{ color: typeColor }}>{title}</p>
               <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>@{entry.username}</p>
               {entry.bio && <p className="text-xs mt-1 line-clamp-2" style={{ color: 'rgba(255,255,255,0.45)' }}>{entry.bio}</p>}
+              {entry.twitterHandle && (
+                <a
+                  href={`https://x.com/${entry.twitterHandle}`}
+                  target="_blank" rel="noopener noreferrer"
+                  onClick={e => e.stopPropagation()}
+                  className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-lg transition-opacity hover:opacity-80"
+                  style={{ background: 'rgba(29,161,242,0.12)', border: '1px solid rgba(29,161,242,0.3)' }}
+                >
+                  <XLogo size={11} color="#1da1f2" />
+                  <span className="text-xs font-bold" style={{ color: '#1da1f2' }}>@{entry.twitterHandle}</span>
+                </a>
+              )}
             </div>
             <div className="flex flex-col items-center shrink-0">
               <motion.img src={getPokemonSpriteUrl(entry.favoritePokemonId)} alt={entry.favoritePokemonName}
@@ -220,6 +241,7 @@ export default function Leaderboard() {
         favoritePokemonId: u.favoritePokemonId, favoritePokemonName: u.favoritePokemonName,
         favoritePokemonTypes: u.favoritePokemonTypes, balance: u.balance, earnings: u.earnings ?? 0,
         badges: u.badges ?? [],
+        twitterHandle: u.twitterHandle ?? null,
         winRate: u.wins + u.losses > 0 ? (u.wins / (u.wins + u.losses)) * 100 : 0,
       }));
       setAllUsers(mapped.map((u, i) => ({ ...u, rank: i + 1 })));
