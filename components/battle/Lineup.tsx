@@ -58,7 +58,7 @@ export default function Lineup() {
   const lineup = isP1Phase ? lineupA : lineupB
 
   return (
-    <div style={{
+    <div className="lineup-outer" style={{
       height: '100dvh',
       maxHeight: '100dvh',
       background: '#0a0a0f',
@@ -68,6 +68,13 @@ export default function Lineup() {
       alignItems: 'center',
       overflow: 'hidden',
     }}>
+      <style>{`
+        @media (max-width: 1024px) {
+          .lineup-outer { overflow-y: auto !important; }
+          .lineup-list { overflow-y: visible !important; flex: none !important; }
+          .lineup-confirm { position: sticky; bottom: 0; background: #0a0a0f; padding-bottom: env(safe-area-inset-bottom, 8px); }
+        }
+      `}</style>
 
       {/* ── Header ── */}
       <motion.div
@@ -119,7 +126,7 @@ export default function Lineup() {
         <div style={{ width: '100%', maxWidth: 480, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
 
           {/* Scrollable list — but sized so it never needs to scroll at normal heights */}
-          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 'clamp(4px, 0.8vh, 8px)' }}>
+          <div className="lineup-list" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 'clamp(4px, 0.8vh, 8px)' }}>
             {lineup.map((ac, i) => (
               <motion.div
                 key={ac.creature.id}
@@ -205,6 +212,7 @@ export default function Lineup() {
           </div>
 
           {/* Confirm button — pinned below list */}
+          <div className="lineup-confirm">
           <motion.button
             whileHover={{ scale: 1.02, boxShadow: `0 0 20px ${currentColor}66` }}
             whileTap={{ scale: 0.97 }}
@@ -220,6 +228,7 @@ export default function Lineup() {
           >
             ✅ Lock In Order {isP1Phase && gameMode !== 'vs_ai' && gameMode !== 'paid_pvp' ? '→ P2' : '→ Arena'}
           </motion.button>
+          </div>
         </div>
       )}
     </div>

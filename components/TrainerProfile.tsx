@@ -298,7 +298,14 @@ export default function TrainerProfile() {
   const nextBadgeProgress = nextBadge ? Math.min(100, Math.round((earnedBadges / GYM_BADGES.length) * 100)) : 100;
 
   return (
-    <div className="h-screen overflow-hidden flex flex-col" style={{ background: 'linear-gradient(160deg, #0f0c24 0%, #151030 40%, #0d1a2e 80%, #0a0a1a 100%)' }}>
+    <div className="h-screen overflow-hidden flex flex-col profile-outer" style={{ background: 'linear-gradient(160deg, #0f0c24 0%, #151030 40%, #0d1a2e 80%, #0a0a1a 100%)' }}>
+      <style>{`
+        @media (max-width: 1024px) {
+          .profile-outer { overflow-y: auto !important; height: 100dvh !important; }
+          .profile-body { grid-template-columns: 1fr !important; overflow: visible !important; height: auto !important; }
+          .profile-left, .profile-right { min-height: auto !important; }
+        }
+      `}</style>
 
       {/* ── Badge Announcement ── */}
       <AnimatePresence>
@@ -470,10 +477,10 @@ export default function TrainerProfile() {
       </div>
 
       {/* ── Body ── */}
-      <div className="flex-1 overflow-hidden px-4 pb-4 grid grid-cols-5 gap-3 min-h-0">
+      <div className="flex-1 overflow-hidden px-4 pb-4 grid grid-cols-5 gap-3 min-h-0 profile-body">
 
         {/* ═══ LEFT COLUMN ═══ */}
-        <div className="col-span-2 flex flex-col gap-3 min-h-0">
+        <div className="col-span-2 flex flex-col gap-3 min-h-0 profile-left">
 
           {/* ── Trainer Hero Card ── */}
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
@@ -679,7 +686,7 @@ export default function TrainerProfile() {
         </div>
 
         {/* ═══ RIGHT COLUMN ═══ */}
-        <div className="col-span-3 flex flex-col gap-3 min-h-0">
+        <div className="col-span-3 flex flex-col gap-3 min-h-0 profile-right">
 
           {/* ── Battle Funds ── */}
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}

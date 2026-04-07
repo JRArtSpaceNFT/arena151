@@ -30,6 +30,12 @@ const TOTAL_DRAFT_TIME = 120
 // ─── CSS keyframes injected once ─────────────────────────────────────────────
 
 const GLOBAL_CSS = `
+@media (max-width: 1024px) {
+  .draft-root { height: 100dvh !important; overflow-y: auto !important; flex-direction: column !important; }
+  .draft-zone2 { overflow-y: auto !important; max-height: 45dvh !important; }
+  .draft-grid { overflow-y: auto !important; max-height: none !important; }
+  .draft-zone3 { overflow-y: auto !important; max-height: 35dvh !important; }
+}
 @media (max-width: 640px) {
   .draft-root { flex-direction: column !important; }
   .draft-header { flex-wrap: wrap !important; height: auto !important; min-height: 56px !important; padding: 8px 10px !important; gap: 6px !important; }
@@ -309,7 +315,7 @@ export default function Draft() {
   return (
     <>
       {/* ── Root container ── */}
-      <div style={{
+      <div className="draft-root" style={{
         height: '100dvh',
         maxHeight: '100dvh',
         background: '#06060a',
@@ -591,7 +597,7 @@ export default function Draft() {
         }}>
 
           {/* ══ ZONE 2 — ROSTER (55%) ══ */}
-          <div style={{
+          <div className="draft-zone2" style={{
             flex: '0 0 55%',
             minHeight: 0,
             display: 'flex',
@@ -679,7 +685,7 @@ export default function Draft() {
             {/* No inline ordering overlay — handled by full-screen overlay below */}
 
             {/* Card grid — scrollable */}
-            <div style={{
+            <div className="draft-grid" style={{
               flex: 1,
               overflow: 'auto',
               padding: '12px 16px',
@@ -896,7 +902,7 @@ export default function Draft() {
           </div>
 
           {/* ══ ZONE 3 — BATTLEFIELD (45%) ══ */}
-          <div style={{
+          <div className="draft-zone3" style={{
             flex: '0 0 45%',
             minHeight: 0,
             position: 'relative',

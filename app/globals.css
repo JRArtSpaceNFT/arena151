@@ -87,6 +87,29 @@ html, body {
   background: rgb(71 85 105);
 }
 
+/* ── Mobile landscape: Battle screen fixes ── */
+@media (max-width: 1024px) and (orientation: landscape) {
+  [data-battle-container] {
+    flex-direction: row !important;
+    gap: 8px !important;
+    align-items: center !important;
+  }
+  [data-battle-sprite] {
+    width: clamp(70px, 18dvh, 140px) !important;
+    height: clamp(70px, 18dvh, 140px) !important;
+  }
+  [data-battle-log] {
+    max-height: 90px !important;
+    font-size: 10px !important;
+  }
+  [data-creature-name] {
+    font-size: 11px !important;
+  }
+  [data-hp-bar] {
+    height: 6px !important;
+  }
+}
+
 /* ── Trainer Special Flash animations ── */
 @keyframes specialFlashWhite {
   0%   { opacity: 1; }

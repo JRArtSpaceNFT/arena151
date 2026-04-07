@@ -55,6 +55,8 @@ export default function BattleScreen() {
 
   useEffect(() => {
     // Music + crowd already started in ArenaReveal when arena locks in
+    // On mobile, audio context may be suspended — resume it on mount
+    resumeAudioContext()
     return () => {
       setMoveAnim(null) // safety: always clear animation on unmount
       stopCrowdAmbient()

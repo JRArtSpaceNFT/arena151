@@ -73,6 +73,7 @@ function SideCard({ trainer }: { trainer: Trainer }) {
   const abilityPct = Math.min(100, Math.round(trainer.ability.value * 100))
   return (
     <div
+      className="ts-side-card"
       style={{ position: 'relative' }}
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
@@ -193,7 +194,7 @@ function DossierCard({ trainer, isTaken }: { trainer: Trainer; isTaken: boolean 
   const abilityPct = Math.min(20, Math.round(trainer.ability.value * 100))
 
   return (
-    <div style={{
+    <div className="ts-dossier-card" style={{
       background: '#0a0a1a',
       border: `2px solid ${trainer.color}66`,
       borderRadius: 6,
@@ -234,7 +235,7 @@ function DossierCard({ trainer, isTaken }: { trainer: Trainer; isTaken: boolean 
         <div style={{ fontSize: 8, letterSpacing: '0.3em', color: `${trainer.color}66`, textTransform: 'uppercase', marginBottom: 3 }}>
           ── TRAINER DOSSIER ──
         </div>
-        <div style={{
+        <div className="ts-dossier-name" style={{
           fontFamily: 'Impact, Arial Black, sans-serif',
           fontSize: 'clamp(32px, 4.8vh, 54px)',
           fontWeight: 900, color: trainer.color,
@@ -255,7 +256,7 @@ function DossierCard({ trainer, isTaken }: { trainer: Trainer; isTaken: boolean 
       <div style={{ display: 'flex', minHeight: 0 }}>
 
         {/* LEFT — big sprite */}
-        <div style={{
+        <div className="ts-dossier-sprite-col" style={{
           width: 220,
           flexShrink: 0,
           display: 'flex',
@@ -276,6 +277,7 @@ function DossierCard({ trainer, isTaken }: { trainer: Trainer; isTaken: boolean 
               onError={() => setImgError(true)}
               animate={{ y: [0, -6, 0] }}
               transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+              className="ts-dossier-sprite"
               style={{
                 width: ['ash','jessie-james'].includes(trainer.id) ? 'clamp(220px, 34vh, 310px)' : 'clamp(180px, 28vh, 260px)',
                 height: ['ash','jessie-james'].includes(trainer.id) ? 'clamp(220px, 34vh, 310px)' : 'clamp(180px, 28vh, 260px)',
@@ -459,7 +461,7 @@ export default function TrainerSelect() {
   }
 
   return (
-    <div style={{
+    <div className="ts-root" style={{
       height: '100dvh',
       maxHeight: '100dvh',
       background: '#050510',
@@ -469,6 +471,18 @@ export default function TrainerSelect() {
       alignItems: 'center',
       overflow: 'hidden',
     }}>
+      <style>{`
+        @media (max-width: 1024px) {
+          .ts-side-card { display: none !important; }
+          .ts-dossier-card { width: 100% !important; max-width: 340px !important; font-size: 12px !important; }
+          .ts-carousel { gap: 4px !important; }
+          .ts-dossier-sprite-col { width: 120px !important; }
+          .ts-dossier-sprite { width: clamp(80px, 18dvh, 140px) !important; height: clamp(80px, 18dvh, 140px) !important; }
+          .ts-dossier-name { font-size: clamp(20px, 5dvh, 36px) !important; }
+          .ts-root { padding: 6px 12px !important; }
+          .ts-select-btn { padding: 10px 20px !important; font-size: 13px !important; }
+        }
+      `}</style>
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
@@ -560,7 +574,7 @@ export default function TrainerSelect() {
           flex: 1, display: 'flex', alignItems: 'center',
           justifyContent: 'center', gap: 12,
           overflow: 'hidden', padding: '0 4px',
-        }}>
+        }} className="ts-carousel">
           {[-2, -1, 0, 1, 2].map(offset => {
             const idx = (currentIndex + offset + TRAINERS.length) % TRAINERS.length
             const t = TRAINERS[idx]
@@ -674,6 +688,7 @@ export default function TrainerSelect() {
           transition={{ type: 'tween', duration: 0.4, ease: 'easeOut' }}
           onClick={handleSelect}
           disabled={isTaken || !!lockedIn}
+          className="ts-select-btn"
           style={{
             padding: '13px 56px',
             background: lockedIn ? '#22c55e' : isTaken ? '#0d0d20' : trainer.color,

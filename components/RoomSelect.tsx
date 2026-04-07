@@ -62,7 +62,7 @@ export default function RoomSelect() {
     : null;
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden relative"
+    <div className="h-screen flex flex-col overflow-hidden relative roomselect-outer"
       style={{ background: 'linear-gradient(160deg,#08060f 0%,#0d0a1e 40%,#0a0d18 80%,#060608 100%)' }}>
 
       {/* Kanto map background — very low opacity */}
@@ -85,7 +85,15 @@ export default function RoomSelect() {
           style={{ background: 'radial-gradient(ellipse, #3b82f6, transparent 70%)' }} />
       </div>
 
-      <div className="relative z-10 flex flex-col h-full max-w-6xl mx-auto w-full px-4 pt-3 pb-3">
+      <style>{`
+        @media (max-width: 1024px) {
+          .roomselect-outer { height: 100dvh !important; overflow-y: auto !important; }
+          .roomselect-inner { height: auto !important; max-height: none !important; overflow: visible !important; }
+          .roomselect-grid { overflow: visible !important; max-height: none !important; height: auto !important; }
+          .roomselect-toprow { height: auto !important; min-height: 80px !important; max-height: none !important; }
+        }
+      `}</style>
+      <div className="relative z-10 flex flex-col h-full max-w-6xl mx-auto w-full px-4 pt-3 pb-3 roomselect-inner">
 
         {/* ── Header ── */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 shrink-0 gap-2">
@@ -138,7 +146,7 @@ export default function RoomSelect() {
         </div>
 
         {/* ── Top row: Practice + Play a Friend (2 wide cards) ── */}
-        <div className="grid grid-cols-2 gap-2.5 shrink-0" style={{ height: '18%', minHeight: 80, maxHeight: 120 }}>
+        <div className="grid grid-cols-2 gap-2.5 shrink-0 roomselect-toprow" style={{ minHeight: 80 }}>
 
           {/* Practice Arena */}
           <motion.div
@@ -198,7 +206,7 @@ export default function RoomSelect() {
         </div>
 
         {/* ── 8 Gym Arenas — 4×2 grid fills remaining space ── */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 flex-1 min-h-0 overflow-hidden">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 flex-1 min-h-0 overflow-hidden roomselect-grid">
           {rooms.map((room, i) => {
             const id = room.id as string;
             const identity = ARENA_IDENTITY[id] ?? { flavor: '', bgImage: '', accent: '#6366f1', accentDark: '#1e1b4b', stakeTier: 'mid' as const, btnLabel: 'Enter Arena →' };
