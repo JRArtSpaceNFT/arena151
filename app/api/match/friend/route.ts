@@ -26,20 +26,21 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_KEY!
 )
 
-const supabaseAnon = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
-
 // Friend rooms expire after 5 minutes if no opponent joins
 const FRIEND_ROOM_TTL_MS = 5 * 60 * 1000
 
+// Use admin client for JWT validation — more reliable on Vercel than anon client.
+// Admin auth.getUser() validates the JWT locally using the service key without
+// an extra network hop, eliminating a common source of intermittent 401s.
 async function getAuthUser(req: NextRequest) {
   const authHeader = req.headers.get('Authorization')
   if (!authHeader?.startsWith('Bearer ')) return null
   const token = authHeader.slice(7)
-  const { data: { user }, error } = await supabaseAnon.auth.getUser(token)
-  if (error || !user) return null
+  const { data: { user }, error } = await supabaseAdmin.auth.getUser(token)
+  if (error || !user) {
+    console.error('[FriendAuth] getAuthUser failed:', error?.message ?? 'no user', 'token prefix:', token.slice(0, 20))
+    return null
+  }
   return user
 }
 

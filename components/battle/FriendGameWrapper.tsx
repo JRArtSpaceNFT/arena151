@@ -117,19 +117,23 @@ function WaitingOverlay({ message, onCancel }: { message: string; onCancel: () =
 
 // ── Sync helper ───────────────────────────────────────────────────────────────
 
-async function syncStep(
-  matchId: string,
-  token: string,
-  step: string,
-  data: Record<string, unknown>
-): Promise<{
+// Return type includes an optional fatal flag so auth errors surface immediately
+type SyncResult = {
   bothReady: boolean
   opponentData: Record<string, unknown> | null
   battleSeed: string | null
   myRole: 'a' | 'b'
   playerAId: string
   playerBId: string
-} | null> {
+} | null
+
+async function syncStep(
+  matchId: string,
+  token: string,
+  step: string,
+  data: Record<string, unknown>,
+  onFatal?: (msg: string) => void
+): Promise<SyncResult> {
   try {
     const res = await fetch('/api/match/friend', {
       method: 'POST',
@@ -138,12 +142,16 @@ async function syncStep(
     })
     if (!res.ok) {
       const err = await res.json().catch(() => ({}))
-      console.error('[FriendBattle] syncStep HTTP error:', res.status, err)
+      console.error(`[FriendBattle] syncStep HTTP ${res.status} step=${step} matchId=${matchId}:`, err)
+      // 401/403 = auth problem — retrying will never fix it, surface to user
+      if ((res.status === 401 || res.status === 403) && onFatal) {
+        onFatal(`Auth error (${res.status}) — please refresh and rejoin the battle`)
+      }
       return null
     }
     return await res.json()
   } catch (e) {
-    console.error('[FriendBattle] syncStep exception:', e)
+    console.error(`[FriendBattle] syncStep exception step=${step} matchId=${matchId}:`, e)
     return null
   }
 }
@@ -231,7 +239,10 @@ export default function FriendGameWrapper() {
     console.log(`[FriendBattle] 📤 Step "${step}" matchId=${matchId} submitting:`, myData)
 
     const trySync = async (): Promise<boolean> => {
-      const result = await syncStep(matchId, token, step!, myData)
+      const result = await syncStep(matchId, token, step!, myData, (msg) => {
+        stopPoll()
+        setSyncError(msg)
+      })
       if (!result) {
         console.warn(`[FriendBattle] ⚠️ syncStep null step="${step}" matchId=${matchId} — retrying`)
         return false
