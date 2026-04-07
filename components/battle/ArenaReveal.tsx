@@ -91,6 +91,7 @@ export default function ArenaReveal() {
   useEffect(() => {
     if (!isLocked) return
     resumeAudioContext()
+    setTimeout(() => resumeAudioContext(), 100)
     playMusic('battle')
     startCrowdAmbient() // very quiet crowd murmur under the battle music
 
@@ -409,12 +410,14 @@ export default function ArenaReveal() {
   }
 
   return (
-    <div style={{
-      height: '100dvh',
-      maxHeight: '100dvh',
-      position: 'relative',
-      overflow: 'hidden',
-    }}>
+    <div
+      onClick={() => resumeAudioContext()}
+      style={{
+        height: '100dvh',
+        maxHeight: '100dvh',
+        position: 'relative',
+        overflow: 'hidden',
+      }}>
       {/* Preload ALL arena images so browser caches them before the spin starts */}
       <div style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden', pointerEvents: 'none' }} aria-hidden="true">
         {allArenaImages.map(src => (

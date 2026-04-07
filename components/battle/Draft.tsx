@@ -31,10 +31,26 @@ const TOTAL_DRAFT_TIME = 120
 
 const GLOBAL_CSS = `
 @media (max-width: 1024px) {
-  .draft-root { height: 100dvh !important; overflow-y: auto !important; flex-direction: column !important; }
-  .draft-zone2 { overflow-y: auto !important; max-height: 45dvh !important; }
-  .draft-grid { overflow-y: auto !important; max-height: none !important; }
-  .draft-zone3 { overflow-y: auto !important; max-height: 35dvh !important; }
+  .draft-root { overflow-y: visible !important; }
+  .draft-zone2 { 
+    flex: 1 1 auto !important; 
+    max-height: none !important;
+    overflow: visible !important;
+    min-height: 0 !important;
+  }
+  .draft-zone3 { display: none !important; }
+  .draft-grid { 
+    overflow-y: auto !important;
+    max-height: calc(100dvh - 180px) !important;
+  }
+  .draft-mobile-team { display: flex !important; }
+  .draft-order-overlay { overflow-y: auto !important; padding: 12px 8px !important; justify-content: flex-start !important; padding-top: 16px !important; }
+  .draft-order-slots { flex-wrap: wrap !important; gap: 8px !important; justify-content: center !important; padding: 0 4px !important; }
+  .draft-order-card { width: 80px !important; }
+  .draft-order-card-sprite { width: 70px !important; height: 70px !important; }
+  .draft-order-card-num { font-size: 20px !important; }
+  .draft-order-confirm { margin-top: 12px !important; padding: 12px 24px !important; font-size: 14px !important; }
+  .draft-order-hint { display: none !important; }
 }
 @media (max-width: 640px) {
   .draft-root { flex-direction: column !important; }
@@ -587,6 +603,42 @@ export default function Draft() {
           </div>
         </div>
 
+        {/* Mobile team bar — hidden on desktop, visible on mobile */}
+        <div className="draft-mobile-team" style={{
+          display: 'none',
+          alignItems: 'center',
+          gap: 6,
+          padding: '4px 12px',
+          background: '#0a0a14',
+          borderBottom: '1px solid #1a1a2e',
+          flexShrink: 0,
+          overflowX: 'auto',
+          minHeight: 52,
+        }}>
+          <span style={{ fontSize: 9, color: '#475569', letterSpacing: '0.1em', flexShrink: 0, textTransform: 'uppercase' }}>
+            TEAM ({draftTeamA.length}/{TEAM_SIZE}):
+          </span>
+          {draftTeamA.map((c) => (
+            <div key={c.id} style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0,
+            }}>
+              <img
+                src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${c.id}.png`}
+                alt={c.name}
+                style={{ width: 32, height: 32, imageRendering: 'pixelated' as const }}
+              />
+            </div>
+          ))}
+          {Array.from({ length: TEAM_SIZE - draftTeamA.length }).map((_, i) => (
+            <div key={`empty-${i}`} style={{
+              width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+              border: '1px dashed rgba(255,255,255,0.12)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'rgba(255,255,255,0.15)', fontSize: 14,
+            }}>?</div>
+          ))}
+        </div>
+
         {/* ══════════════ ZONES 2+3 — BODY ══════════════ */}
         <div style={{
           flex: 1,
@@ -1007,7 +1059,7 @@ export default function Draft() {
 
       {/* ── FULL-SCREEN BATTLE ORDER OVERLAY ── */}
       {isOrdering && (
-        <div style={{
+        <div className="draft-order-overlay" style={{
           position: 'fixed',
           inset: 0,
           zIndex: 200,
@@ -1101,7 +1153,7 @@ export default function Draft() {
           </div>
 
           {/* Pokemon order slots */}
-          <div style={{
+          <div className="draft-order-slots" style={{
             display: 'flex',
             alignItems: 'flex-start',
             gap: 16,
@@ -1127,7 +1179,7 @@ export default function Draft() {
                   }}
                 >
                   {/* Position number — big */}
-                  <div style={{
+                  <div className="draft-order-card-num" style={{
                     fontFamily: 'Impact, Arial Black, sans-serif',
                     fontSize: 32,
                     lineHeight: 1,
@@ -1138,7 +1190,7 @@ export default function Draft() {
                   }}>{i + 1}</div>
 
                   {/* Sprite card */}
-                  <div style={{
+                  <div className="draft-order-card" style={{
                     position: 'relative',
                     width: 140,
                     height: 140,
@@ -1158,6 +1210,7 @@ export default function Draft() {
                       : '0 4px 16px rgba(0,0,0,0.4)',
                   }}>
                     <img
+                      className="draft-order-card-sprite"
                       src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${c.id}.png`}
                       alt={c.name}
                       style={{
@@ -1272,7 +1325,7 @@ export default function Draft() {
           </div>
 
           {/* Direction hint */}
-          <div style={{
+          <div className="draft-order-hint" style={{
             display: 'flex',
             alignItems: 'center',
             gap: 12,
@@ -1291,6 +1344,7 @@ export default function Draft() {
 
           {/* Confirm button */}
           <button
+            className="draft-order-confirm"
             onClick={lockInAction}
             style={{
               marginTop: 28,

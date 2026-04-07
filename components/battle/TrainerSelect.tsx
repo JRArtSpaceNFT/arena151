@@ -302,7 +302,7 @@ function DossierCard({ trainer, isTaken }: { trainer: Trainer; isTaken: boolean 
         </div>
 
         {/* RIGHT — all info */}
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', padding: '10px 12px', gap: 8 }}>
+        <div className="ts-dossier-info" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', padding: '10px 12px', gap: 8 }}>
 
           {/* ABILITY */}
           <div style={{
@@ -474,13 +474,44 @@ export default function TrainerSelect() {
       <style>{`
         @media (max-width: 1024px) {
           .ts-side-card { display: none !important; }
-          .ts-dossier-card { width: 100% !important; max-width: 340px !important; font-size: 12px !important; }
-          .ts-carousel { gap: 4px !important; }
-          .ts-dossier-sprite-col { width: 120px !important; }
-          .ts-dossier-sprite { width: clamp(80px, 18dvh, 140px) !important; height: clamp(80px, 18dvh, 140px) !important; }
-          .ts-dossier-name { font-size: clamp(20px, 5dvh, 36px) !important; }
-          .ts-root { padding: 6px 12px !important; }
-          .ts-select-btn { padding: 10px 20px !important; font-size: 13px !important; }
+          .ts-root { padding: 4px 8px !important; }
+          .ts-select-btn { padding: 9px 16px !important; font-size: 12px !important; }
+          
+          /* Dossier card: wide landscape rectangle */
+          .ts-dossier-card {
+            width: 100% !important;
+            max-width: 520px !important;
+            display: flex !important;
+            flex-direction: row !important;
+            height: auto !important;
+          }
+          
+          /* Sprite column: narrower */
+          .ts-dossier-sprite-col {
+            width: 100px !important;
+            min-width: 100px !important;
+            flex-shrink: 0 !important;
+          }
+          
+          /* Sprite itself: smaller */
+          .ts-dossier-sprite {
+            width: clamp(70px, 14dvh, 110px) !important;
+            height: clamp(70px, 14dvh, 110px) !important;
+          }
+          
+          /* Trainer name: smaller */
+          .ts-dossier-name {
+            font-size: clamp(18px, 4dvh, 28px) !important;
+          }
+          
+          /* Info right column: compress */
+          .ts-dossier-info {
+            padding: 8px 8px !important;
+            gap: 6px !important;
+          }
+          
+          /* Carousel: no padding needed */
+          .ts-carousel { gap: 2px !important; overflow: visible !important; }
         }
       `}</style>
       {/* Header */}

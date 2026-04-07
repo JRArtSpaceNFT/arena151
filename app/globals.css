@@ -87,26 +87,93 @@ html, body {
   background: rgb(71 85 105);
 }
 
-/* ── Mobile landscape: Battle screen fixes ── */
+/* ── Mobile landscape: Battle screen — mirror desktop layout ── */
 @media (max-width: 1024px) and (orientation: landscape) {
+  /* Side panels: narrow them but keep them */
+  [data-side-panel-a], [data-side-panel-b] {
+    width: 90px !important;
+    padding: 6px 4px 0 6px !important;
+    font-size: 9px !important;
+  }
+  [data-side-panel-b] {
+    padding: 6px 6px 0 4px !important;
+  }
+  /* Creature name in side panels */
+  [data-side-panel-a] [style*="font-size: 10px"],
+  [data-side-panel-b] [style*="font-size: 10px"] {
+    font-size: 8px !important;
+  }
+  /* Side panel pokemon sprites */
+  [data-side-panel-a] img,
+  [data-side-panel-b] img {
+    width: 20px !important;
+    height: 20px !important;
+  }
+  /* HP bars in side panels */
+  [data-side-panel-a] [style*="width: 55px"],
+  [data-side-panel-b] [style*="width: 55px"] {
+    width: 38px !important;
+  }
+  
+  /* Center battle area: full battle view */
   [data-battle-container] {
-    flex-direction: row !important;
     gap: 8px !important;
-    align-items: center !important;
   }
+  
+  /* CreatureDisplay: narrower */
+  [data-creature-display] {
+    width: clamp(140px, 28vw, 240px) !important;
+  }
+  
+  /* Sprites: scale to fit landscape */
   [data-battle-sprite] {
-    width: clamp(70px, 18dvh, 140px) !important;
-    height: clamp(70px, 18dvh, 140px) !important;
+    width: clamp(80px, 20dvh, 150px) !important;
+    height: clamp(80px, 20dvh, 150px) !important;
   }
-  [data-battle-log] {
-    max-height: 90px !important;
-    font-size: 10px !important;
-  }
+  
+  /* Creature name */
   [data-creature-name] {
-    font-size: 11px !important;
+    font-size: 13px !important;
   }
+  
+  /* HP bar */
   [data-hp-bar] {
     height: 6px !important;
+  }
+  
+  /* HP numbers */
+  [data-hp-numbers] {
+    font-size: 9px !important;
+  }
+  
+  /* Battle log */
+  [data-battle-log] {
+    max-height: 70px !important;
+    font-size: 9px !important;
+  }
+  
+  /* Top bar: compact */
+  [data-battle-top-bar] {
+    padding: 4px 10px !important;
+    font-size: 10px !important;
+  }
+  
+  /* VS divider: smaller */
+  [data-battle-vs] {
+    font-size: 20px !important;
+  }
+  
+  /* Center column padding: less top padding */
+  [data-battle-center] {
+    padding-top: 12px !important;
+  }
+  
+  /* Speed button: smaller on mobile */
+  [data-speed-btn] {
+    padding: 6px 10px !important;
+    font-size: 11px !important;
+    bottom: 8px !important;
+    right: 8px !important;
   }
 }
 

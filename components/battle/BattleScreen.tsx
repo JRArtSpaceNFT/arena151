@@ -1042,7 +1042,7 @@ export default function BattleScreen() {
         style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', flex: 1 }}
       >
         {/* Top bar */}
-        <div style={{ padding: '10px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.08)', background: 'rgba(0,0,0,0.35)' }}>
+        <div data-battle-top-bar style={{ padding: '10px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.08)', background: 'rgba(0,0,0,0.35)' }}>
           <div style={{ color: '#94a3b8', fontSize: 13, fontWeight: 600 }}>⚔️ {arena?.name ?? 'Arena'}</div>
           <div style={{ color: '#334155', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 700 }}>{arena?.name ?? 'BATTLE ARENA'}</div>
           <div style={{ color: '#64748b', fontSize: 13 }}>Turn {visibleLog.filter(e => e.type === 'move' || e.type === 'damage' || e.type === 'critical').length}</div>
@@ -1051,7 +1051,7 @@ export default function BattleScreen() {
         {/* Main battle area */}
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
           {/* Side A — team list + trainer below */}
-          <div style={{ width: 155, display: 'flex', flexDirection: 'column', padding: '10px 6px 0 10px', borderRight: '1px solid rgba(255,255,255,0.06)' }}>
+          <div data-side-panel-a style={{ width: 155, display: 'flex', flexDirection: 'column', padding: '10px 6px 0 10px', borderRight: '1px solid rgba(255,255,255,0.06)' }}>
             <div style={{ color: '#7c3aed', fontSize: 11, fontWeight: 700, marginBottom: 6, letterSpacing: '0.05em' }}>{p1Trainer?.name ?? 'P1'}</div>
             {teamA.map((ac, i) => {
               const isActive = i === activeA
@@ -1084,7 +1084,7 @@ export default function BattleScreen() {
           </div>
 
           {/* Center battle view */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', padding: '40px 0 0', position: 'relative' }}>
+          <div data-battle-center style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', padding: '40px 0 0', position: 'relative' }}>
             {/* Matchup display */}
             <div 
               data-battle-container 
@@ -1112,6 +1112,7 @@ export default function BattleScreen() {
 
               {/* VS divider */}
               <motion.div
+                data-battle-vs
                 animate={{
                   rotate: [0, 5, -5, 0],
                   scale: [1, 1.1],
@@ -1151,7 +1152,7 @@ export default function BattleScreen() {
           </div>
 
           {/* Side B — team list + trainer below */}
-          <div style={{ width: 155, display: 'flex', flexDirection: 'column', padding: '10px 10px 0 6px', borderLeft: '1px solid rgba(255,255,255,0.06)' }}>
+          <div data-side-panel-b style={{ width: 155, display: 'flex', flexDirection: 'column', padding: '10px 10px 0 6px', borderLeft: '1px solid rgba(255,255,255,0.06)' }}>
             <div style={{ color: '#ef4444', fontSize: 11, fontWeight: 700, marginBottom: 6, letterSpacing: '0.05em', textAlign: 'right' }}>{p2Trainer?.name ?? 'P2'}</div>
             {teamB.map((ac, i) => {
               const isActive = i === activeB
@@ -1196,6 +1197,7 @@ export default function BattleScreen() {
       {/* ── SPEED TOGGLE — fixed floating button, always visible during battle ── */}
       {!isDone && (
         <button
+          data-speed-btn
           onClick={() => setPlaybackSpeed(s => s === 1 ? 3 : 1)}
           title={playbackSpeed === 1 ? 'Switch to 3× speed' : 'Switch to normal speed'}
           style={{
@@ -1399,7 +1401,7 @@ function CreatureDisplay({
 
         {/* Name row */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 5 }}>
-          <span style={{ fontSize: 18, fontWeight: 800, color: '#f1f5f9', letterSpacing: '0.02em' }}>
+          <span data-creature-name style={{ fontSize: 18, fontWeight: 800, color: '#f1f5f9', letterSpacing: '0.02em' }}>
             {ac.creature.name}
           </span>
           {ac.shiny && (
@@ -1421,7 +1423,7 @@ function CreatureDisplay({
         </div>
 
         {/* HP bar — plain CSS transition (guaranteed smooth drain) */}
-        <div style={{ position: 'relative', height: 10, background: 'rgba(255,255,255,0.1)', borderRadius: 5, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.15)' }}>
+        <div data-hp-bar style={{ position: 'relative', height: 10, background: 'rgba(255,255,255,0.1)', borderRadius: 5, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.15)' }}>
           <div
             style={{
               height: '100%',
@@ -1449,7 +1451,7 @@ function CreatureDisplay({
         )}
 
         {/* HP numbers */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3 }}>
+        <div data-hp-numbers style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3 }}>
           <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>HP</span>
           <motion.span
             animate={{ x: hpPct < 20 ? [0, -2, 2, -1, 1, 0] : 0 }}
@@ -1478,6 +1480,7 @@ function CreatureDisplay({
             const illustratedSize = src.includes('Psyduck_Special') ? 220 : isJessieJames ? 260 : 155
             return (
               <img
+                data-battle-sprite
                 src={src}
                 alt={`${ac.creature.name} sprite`}
                 onError={e => {
