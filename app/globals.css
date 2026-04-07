@@ -91,12 +91,12 @@ html, body {
 @media (max-width: 1024px) and (orientation: landscape) {
   /* Side panels: narrow them but keep them */
   [data-side-panel-a], [data-side-panel-b] {
-    width: 90px !important;
-    padding: 6px 4px 0 6px !important;
-    font-size: 9px !important;
+    width: 72px !important;
+    padding: 6px 3px 0 4px !important;
+    font-size: 8px !important;
   }
   [data-side-panel-b] {
-    padding: 6px 6px 0 4px !important;
+    padding: 6px 4px 0 3px !important;
   }
   /* Creature name in side panels */
   [data-side-panel-a] [style*="font-size: 10px"],
@@ -122,13 +122,13 @@ html, body {
   
   /* CreatureDisplay: narrower */
   [data-creature-display] {
-    width: clamp(140px, 28vw, 240px) !important;
+    width: clamp(180px, 35vw, 280px) !important;
   }
   
   /* Sprites: scale to fit landscape */
   [data-battle-sprite] {
-    width: clamp(80px, 20dvh, 150px) !important;
-    height: clamp(80px, 20dvh, 150px) !important;
+    width: clamp(110px, 24dvh, 180px) !important;
+    height: clamp(110px, 24dvh, 180px) !important;
   }
   
   /* Creature name */
@@ -174,6 +174,12 @@ html, body {
     font-size: 11px !important;
     bottom: 8px !important;
     right: 8px !important;
+  }
+
+  /* Special flash move text */
+  [data-special-text] {
+    font-size: clamp(14px, 3dvh, 22px) !important;
+    letter-spacing: 0.04em !important;
   }
 }
 

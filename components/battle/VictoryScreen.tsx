@@ -65,8 +65,10 @@ export default function VictoryScreen() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   useEffect(() => {
-    const t1 = setTimeout(() => setShowQuote(true), 800)
-    return () => clearTimeout(t1)
+    // Show button immediately after quote starts (don't wait for full typewriter)
+    const t1 = setTimeout(() => setShowQuote(true), 400)
+    const t2 = setTimeout(() => setShowButton(true), 800)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
   }, [])
   useEffect(() => {
     if (!showQuote) return
@@ -77,7 +79,6 @@ export default function VictoryScreen() {
       setDisplayed(quote.slice(0, i))
       if (i >= quote.length) {
         clearInterval(iv)
-        setTimeout(() => setShowButton(true), 400)
       }
     }, 28)
     return () => clearInterval(iv)
@@ -104,6 +105,16 @@ export default function VictoryScreen() {
   const trainerBottom = ov.bottom ?? '28%'
 
   return (
+    <>
+    <style>{`
+      @media (max-width: 1024px) {
+        .victory-trainer-img { height: 35dvh !important; }
+        .victory-name { font-size: clamp(28px, 7dvh, 52px) !important; }
+        .victory-speech { max-width: 55% !important; top: 18% !important; left: 55% !important; }
+        .victory-speech-text { font-size: 12px !important; padding: 10px 12px !important; }
+        .victory-btns { bottom: 2% !important; }
+      }
+    `}</style>
     <div style={{
       width: '100vw', height: '100dvh', maxHeight: '100dvh',
       overflow: 'hidden', position: 'relative',
@@ -144,7 +155,7 @@ export default function VictoryScreen() {
           zIndex: 10,
         }}
       >
-        <div style={{
+        <div className="victory-name" style={{
           fontFamily: '"Impact", "Arial Black", sans-serif',
           fontSize: 64, fontWeight: 900, lineHeight: 0.95,
           color: wColor,
@@ -197,6 +208,7 @@ export default function VictoryScreen() {
 
         {winnerTrainer.spriteUrl ? (
           <img
+            className="victory-trainer-img"
             src={winnerTrainer.spriteUrl}
             alt={winnerTrainer.name}
             style={{
@@ -230,6 +242,7 @@ export default function VictoryScreen() {
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0 }}
             transition={{ type: 'spring', stiffness: 280, damping: 26 }}
+            className="victory-speech"
             style={{
               position: 'absolute',
               top: '26%',
@@ -269,7 +282,7 @@ export default function VictoryScreen() {
                 padding: '16px 20px',
                 boxShadow: '5px 5px 0 #181818',
               }}>
-                <div style={{
+                <div className="victory-speech-text" style={{
                   fontFamily: '"Courier New", monospace',
                   fontSize: 15, fontWeight: 700, color: '#181818',
                   letterSpacing: '0.02em', lineHeight: 1.6,
@@ -296,6 +309,7 @@ export default function VictoryScreen() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
+            className="victory-btns"
             style={{
               position: 'absolute',
               bottom: '3%',
@@ -369,5 +383,6 @@ export default function VictoryScreen() {
       </AnimatePresence>
 
     </div>
+    </>
   )
 }

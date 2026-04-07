@@ -950,7 +950,7 @@ export default function BattleScreen() {
             </div>
 
             {/* Move name — slides up from below */}
-            <div style={{
+            <div data-special-text style={{
               marginTop: 16,
               fontFamily: '"Impact","Arial Black",sans-serif',
               fontSize: 42, fontWeight: 900,

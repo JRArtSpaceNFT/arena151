@@ -23,6 +23,14 @@ const SCHEDULE = [
   420, 520, 640, 780,
 ]
 
+// Mobile gets a slower schedule so the animation is visible
+const MOBILE_SCHEDULE = [180, 200, 230, 270, 320, 380, 460, 560, 680, 820, 980, 1160, 1400]
+
+function isMobileDevice() {
+  if (typeof window === 'undefined') return false
+  return window.innerWidth <= 1024 && ('ontouchstart' in window || navigator.maxTouchPoints > 0)
+}
+
 export default function ArenaReveal() {
   const { arena, proceedFromArenaReveal, lineupA } = useGameStore()
   const { currentMatch, currentTrainer, serverMatchId, setServerMatch, isMatchJoiner, clearServerMatch } = useArenaStore()
@@ -63,6 +71,7 @@ export default function ArenaReveal() {
     setCurrentIndex(seq[0])
 
     function startSpin() {
+      const sched = isMobileDevice() ? MOBILE_SCHEDULE : SCHEDULE
       let step = 0
       function advance() {
         if (step >= seq.length - 1) {
@@ -73,9 +82,9 @@ export default function ArenaReveal() {
         step += 1
         stepRef.current = step
         setCurrentIndex(seq[step])
-        timeoutRef.current = setTimeout(advance, SCHEDULE[step] ?? 1050)
+        timeoutRef.current = setTimeout(advance, sched[step] ?? 1050)
       }
-      timeoutRef.current = setTimeout(advance, SCHEDULE[0])
+      timeoutRef.current = setTimeout(advance, sched[0])
     }
 
     // Start spin immediately — images cache naturally in the browser

@@ -1079,24 +1079,7 @@ export default function Draft() {
             pointerEvents: 'none',
           }} />
 
-          {/* Gold accent line top */}
-          <div style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 3,
-            background: 'linear-gradient(90deg, transparent, #fbbf24, transparent)',
-          }} />
-          {/* Gold accent line bottom */}
-          <div style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: 3,
-            background: 'linear-gradient(90deg, transparent, #fbbf24, transparent)',
-          }} />
+
 
           {/* Header */}
           <div style={{

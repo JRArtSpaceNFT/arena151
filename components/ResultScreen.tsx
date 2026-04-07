@@ -8,6 +8,7 @@ import type { SettledMatchResult } from '@/lib/store';
 import { updateUser } from '@/lib/auth';
 import { playMusic, isMusicMuted } from '@/lib/audio/musicEngine';
 import { supabase } from '@/lib/supabase';
+import { useGameStore } from '@/lib/game-store';
 import { ARENA_BADGES, ROOM_TIERS } from '@/lib/constants';
 
 // ── Badge Ceremony Overlay ──────────────────────────────────────────────────
@@ -150,6 +151,69 @@ function BadgeCeremony({ arenaId, onDismiss }: { arenaId: string; onDismiss: () 
       </motion.div>
     </motion.div>
   );
+}
+
+function BattleStatsSection() {
+  const { battleState } = useGameStore()
+  if (!battleState) return null
+
+  const teamA = battleState.teamA
+  const teamB = battleState.teamB
+  const allCreatures = [...teamA, ...teamB]
+
+  // MVP = most KOs, tiebreak by damage
+  const mvp = allCreatures.reduce((best, ac) => {
+    if (!best) return ac
+    const bestKos = (best as any).kos ?? 0
+    const acKos = (ac as any).kos ?? 0
+    if (acKos > bestKos) return ac
+    if (acKos === bestKos && ((ac as any).totalDamage ?? 0) > ((best as any).totalDamage ?? 0)) return ac
+    return best
+  }, null as typeof allCreatures[0] | null)
+
+  const topDamage = allCreatures.reduce((best, ac) =>
+    ((ac as any).totalDamage ?? 0) > ((best as any).totalDamage ?? 0) ? ac : best
+  , allCreatures[0])
+
+  const totalTurns = battleState.turn ?? 0
+  const totalKos = allCreatures.reduce((s, ac) => s + ((ac as any).kos ?? 0), 0)
+
+  const stats = [
+    { label: 'Turns', value: totalTurns, emoji: '⚔️' },
+    { label: 'Total KOs', value: totalKos, emoji: '💀' },
+    { label: 'MVP', value: mvp?.creature.name ?? '—', emoji: '⭐' },
+    { label: 'Top Damage', value: topDamage?.creature.name ?? '—', emoji: '💥' },
+  ]
+
+  return (
+    <div style={{
+      background: 'rgba(255,255,255,0.04)',
+      border: '1px solid rgba(255,255,255,0.08)',
+      borderRadius: 10,
+      padding: 'clamp(10px,1.5vh,16px)',
+      marginBottom: 0,
+    }}>
+      <div style={{
+        fontSize: 'clamp(9px,1.2vh,11px)', color: 'rgba(255,255,255,0.35)',
+        textTransform: 'uppercase' as const, letterSpacing: '0.12em', marginBottom: 10, textAlign: 'center' as const,
+      }}>Battle Stats</div>
+      <div style={{
+        display: 'grid', gridTemplateColumns: '1fr 1fr',
+        gap: 8,
+      }}>
+        {stats.map(s => (
+          <div key={s.label} style={{
+            background: 'rgba(255,255,255,0.04)', borderRadius: 8,
+            padding: 'clamp(6px,1vh,10px)', textAlign: 'center' as const,
+          }}>
+            <div style={{ fontSize: 'clamp(14px,2.2vh,18px)', marginBottom: 3 }}>{s.emoji}</div>
+            <div style={{ fontSize: 'clamp(12px,1.8vh,16px)', fontWeight: 800, color: '#f1f5f9' }}>{s.value}</div>
+            <div style={{ fontSize: 'clamp(9px,1.2vh,11px)', color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 export default function ResultScreen() {
@@ -403,198 +467,184 @@ export default function ResultScreen() {
 
   return (
     <>
-    {/* ── Badge ceremony overlay (first-time badge earn) ── */}
-    <AnimatePresence>
-      {newBadgeArena && (
-        <BadgeCeremony arenaId={newBadgeArena} onDismiss={() => setNewBadgeArena(null)} />
-      )}
-    </AnimatePresence>
+      {/* Badge ceremony overlay */}
+      <AnimatePresence>
+        {newBadgeArena && (
+          <BadgeCeremony arenaId={newBadgeArena} onDismiss={() => setNewBadgeArena(null)} />
+        )}
+      </AnimatePresence>
 
-    <div className={`h-screen flex items-center justify-center relative overflow-hidden ${
-      effectiveVictory ? 'bg-gradient-to-br from-amber-950 via-slate-950 to-slate-950' : 'bg-gradient-to-br from-slate-950 via-blue-950 to-slate-950'
-    }`}>
-      {/* Ambient effects */}
-      {effectiveVictory ? (
-        <>
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-amber-500/20 rounded-full blur-3xl" />
-          <motion.div
-            animate={{
-              scale: [1, 1.3, 1],
-              opacity: [0.1, 0.2, 0.1],
-            }}
-            transition={{
-              duration: 3,
-              repeat: Infinity,
-              ease: 'easeInOut',
-            }}
-            className="absolute inset-0 bg-gradient-to-r from-yellow-500/10 via-amber-500/10 to-orange-500/10"
-          />
-        </>
-      ) : (
-        <div className="absolute inset-0 bg-gradient-to-b from-blue-950/30 to-transparent" />
-      )}
+      <div style={{
+        minHeight: '100dvh',
+        background: effectiveVictory
+          ? 'linear-gradient(160deg, #1a0f00 0%, #0f0a00 40%, #0a0a0f 100%)'
+          : 'linear-gradient(160deg, #0a000f 0%, #050010 40%, #0a0a0f 100%)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        padding: 'clamp(12px, 2vh, 24px) clamp(12px, 3vw, 24px)',
+        overflowY: 'auto',
+        position: 'relative',
+      }}>
+        {/* Background glow */}
+        <div style={{
+          position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0,
+          background: effectiveVictory
+            ? 'radial-gradient(ellipse at 50% 0%, rgba(251,191,36,0.15) 0%, transparent 60%)'
+            : 'radial-gradient(ellipse at 50% 0%, rgba(124,58,237,0.12) 0%, transparent 60%)',
+        }} />
 
-      {/* Confetti particles for victory */}
-      {effectiveVictory && (
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {[...Array(30)].map((_, i) => (
-            <motion.div
-              key={i}
-              initial={{ y: -100, x: Math.random() * window.innerWidth, opacity: 1 }}
-              animate={{
-                y: window.innerHeight + 100,
-                rotate: Math.random() * 360,
-              }}
-              transition={{
-                duration: Math.random() * 3 + 2,
-                delay: Math.random() * 2,
-                repeat: Infinity,
-              }}
-              className="absolute w-3 h-3 rounded-sm"
-              style={{
-                backgroundColor: ['#fbbf24', '#f59e0b', '#ef4444', '#3b82f6', '#8b5cf6'][Math.floor(Math.random() * 5)],
-              }}
-            />
-          ))}
-        </div>
-      )}
+        <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 680 }}>
 
-      <div className="relative z-10 max-w-4xl w-full px-6">
-        {/* Result announcement */}
-        <motion.div
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: 'spring', stiffness: 150, damping: 15 }}
-          className="text-center mb-4"
-        >
-          {effectiveVictory ? (
-            <>
-              {(() => {
-                const badge = ARENA_BADGES[effectiveMatch.room.id as string];
-                return badge ? (
-                  <motion.div
-                    animate={{ rotate: [0, 10, -10, 10, 0], scale: [1, 1.1, 1] }}
-                    transition={{ duration: 0.8, repeat: Infinity, repeatDelay: 2 }}
-                    className="relative mx-auto mb-2 w-16 h-16 flex items-center justify-center"
-                  >
-                    <motion.div
-                      className="absolute inset-0 rounded-full blur-xl"
-                      style={{ background: badge.color }}
-                      animate={{ opacity: [0.4, 0.9, 0.4] }}
-                      transition={{ duration: 1.8, repeat: Infinity }}
-                    />
-                    <img
-                      src={badge.file}
-                      alt={badge.name}
-                      style={{
-                        width: 64, height: 64, objectFit: 'contain',
-                        imageRendering: 'pixelated',
-                        filter: `drop-shadow(0 0 12px ${badge.color}) drop-shadow(0 0 24px ${badge.color}88)`,
-                        position: 'relative', zIndex: 1,
-                      }}
-                    />
-                  </motion.div>
-                ) : (
-                  <motion.div animate={{ rotate: [0, 10, -10, 10, 0], scale: [1, 1.1, 1] }} transition={{ duration: 0.8, repeat: Infinity, repeatDelay: 2 }}>
-                    <Trophy className="w-16 h-16 mx-auto mb-2 text-amber-400 drop-shadow-[0_0_40px_rgba(251,191,36,0.8)]" />
-                  </motion.div>
-                );
-              })()}
-              <h1 className="text-6xl font-black mb-1 arena-glow bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-400 bg-clip-text text-transparent">VICTORY!</h1>
-              <p className="text-lg text-amber-300 font-bold">Triumphant in the {effectiveMatch.room.name}</p>
-            </>
-          ) : (
-            <>
-              <div className="w-16 h-16 mx-auto mb-2 rounded-full bg-slate-800 flex items-center justify-center border-4 border-blue-500">
-                <span className="text-3xl">💫</span>
-              </div>
-              <h1 className="text-5xl font-black mb-1 text-blue-300">Defeat</h1>
-              <p className="text-base text-slate-400 font-bold">Every loss is a lesson. You'll come back stronger.</p>
-            </>
-          )}
-        </motion.div>
+          {/* ── RESULT HEADER ── */}
+          <div style={{ textAlign: 'center', marginBottom: 'clamp(12px,2vh,20px)' }}>
+            <div style={{ fontSize: 'clamp(36px,7vh,64px)', marginBottom: 6 }}>
+              {effectiveVictory ? '🏆' : '💀'}
+            </div>
+            <div style={{
+              fontFamily: '"Impact","Arial Black",sans-serif',
+              fontSize: 'clamp(28px,5vh,52px)',
+              fontWeight: 900,
+              letterSpacing: '0.06em',
+              color: effectiveVictory ? '#fbbf24' : '#a855f7',
+              textShadow: effectiveVictory
+                ? '0 0 30px rgba(251,191,36,0.8), 3px 3px 0 rgba(0,0,0,0.8)'
+                : '0 0 30px rgba(168,85,247,0.8), 3px 3px 0 rgba(0,0,0,0.8)',
+              lineHeight: 1,
+            }}>
+              {effectiveVictory ? 'VICTORY!' : 'DEFEAT'}
+            </div>
+            <div style={{ fontSize: 'clamp(11px,1.6vh,14px)', color: 'rgba(255,255,255,0.5)', marginTop: 6, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+              {effectiveMatch.room.name}
+            </div>
+          </div>
 
-        {/* Match summary */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.5 }} className="glass-panel rounded-xl p-4 mb-3">
-          <div className="grid grid-cols-3 gap-4 mb-3">
-            {/* Player */}
-            <div className={`text-center p-3 rounded-xl ${effectiveVictory ? 'bg-green-950/30 border-2 border-green-500' : 'bg-slate-900/50'}`}>
-              <div className="w-14 h-14 mx-auto mb-2 rounded-xl bg-slate-800 overflow-hidden border-2 border-blue-500 flex items-center justify-center text-3xl">
+          {/* ── PLAYERS ROW ── */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: 14, padding: 'clamp(10px,1.5vh,16px)',
+            marginBottom: 'clamp(10px,1.5vh,16px)',
+          }}>
+            {/* Player 1 */}
+            <div style={{ flex: 1, textAlign: 'center' }}>
+              <div style={{
+                width: 'clamp(40px,6vh,56px)', height: 'clamp(40px,6vh,56px)',
+                borderRadius: 10, overflow: 'hidden',
+                border: `2px solid ${effectiveVictory ? '#22c55e' : '#475569'}`,
+                margin: '0 auto 6px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 24, background: 'rgba(255,255,255,0.06)',
+              }}>
                 {effectiveTrainer?.avatar?.startsWith('data:') || effectiveTrainer?.avatar?.startsWith('/')
-                  ? <img src={effectiveTrainer.avatar} alt="avatar" className="w-full h-full object-cover" />
+                  ? <img src={effectiveTrainer.avatar} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   : <span>{effectiveTrainer?.avatar || '🧑'}</span>}
               </div>
-              <p className="font-bold text-sm mb-0.5">{effectiveMatch.player1.displayName}</p>
-              <p className="text-xs text-slate-400">@{effectiveMatch.player1.username}</p>
-              {effectiveVictory && <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 bg-green-500/20 rounded-full border border-green-500"><Trophy className="w-3 h-3 text-green-400" /><span className="text-xs font-bold text-green-400">WINNER</span></div>}
+              <div style={{ fontSize: 'clamp(11px,1.5vh,14px)', fontWeight: 800, color: '#f1f5f9' }}>{effectiveMatch.player1.displayName}</div>
+              {effectiveVictory && <div style={{ fontSize: 10, color: '#22c55e', fontWeight: 700, marginTop: 2 }}>✓ WINNER</div>}
             </div>
 
             {/* VS */}
-            <div className="flex items-center justify-center">
-              <div className={`w-14 h-14 rounded-full bg-gradient-to-r ${effectiveMatch.room.color} flex items-center justify-center`}>
-                <span className="text-xl font-black text-white">VS</span>
-              </div>
+            <div style={{ textAlign: 'center', flexShrink: 0 }}>
+              <div style={{
+                width: 'clamp(32px,5vh,44px)', height: 'clamp(32px,5vh,44px)', borderRadius: '50%',
+                background: 'linear-gradient(135deg, #7c3aed, #ef4444)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontFamily: '"Impact",sans-serif', fontWeight: 900, color: '#fff',
+                fontSize: 'clamp(11px,2vh,15px)', margin: '0 auto 4px',
+              }}>VS</div>
             </div>
 
-            {/* Opponent */}
-            <div className={`text-center p-3 rounded-xl ${!effectiveVictory ? 'bg-green-950/30 border-2 border-green-500' : 'bg-slate-900/50'}`}>
-              <div className="w-14 h-14 mx-auto mb-2 rounded-xl bg-slate-800 flex items-center justify-center text-3xl border-2 border-red-500">😎</div>
-              <p className="font-bold text-sm mb-0.5">{effectiveMatch.player2.displayName}</p>
-              <p className="text-xs text-slate-400">@{effectiveMatch.player2.username}</p>
-              {!effectiveVictory && <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 bg-green-500/20 rounded-full border border-green-500"><Trophy className="w-3 h-3 text-green-400" /><span className="text-xs font-bold text-green-400">WINNER</span></div>}
+            {/* Player 2 */}
+            <div style={{ flex: 1, textAlign: 'center' }}>
+              <div style={{
+                width: 'clamp(40px,6vh,56px)', height: 'clamp(40px,6vh,56px)',
+                borderRadius: 10, overflow: 'hidden',
+                border: `2px solid ${!effectiveVictory ? '#22c55e' : '#475569'}`,
+                margin: '0 auto 6px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 24, background: 'rgba(255,255,255,0.06)',
+              }}>
+                <span>😎</span>
+              </div>
+              <div style={{ fontSize: 'clamp(11px,1.5vh,14px)', fontWeight: 800, color: '#f1f5f9' }}>{effectiveMatch.player2.displayName}</div>
+              {!effectiveVictory && <div style={{ fontSize: 10, color: '#22c55e', fontWeight: 700, marginTop: 2 }}>✓ WINNER</div>}
             </div>
           </div>
 
-          {/* Rewards/Losses */}
-          <div className="pt-3 border-t border-slate-800 grid grid-cols-2 gap-3">
-            <div className="glass-panel p-3 rounded-lg text-center">
-              <p className="text-xs text-slate-400 mb-0.5">Arena</p>
-              <p className="font-bold text-sm">{effectiveMatch.room.name}</p>
-            </div>
-            <div className={`glass-panel p-3 rounded-lg text-center ${effectiveVictory ? 'border-2 border-green-500' : 'border-2 border-red-500'}`}>
-              <p className="text-xs text-slate-400 mb-0.5">{effectiveVictory ? 'Prize Won' : 'Entry Fee'}</p>
-              <p className={`font-bold text-xl ${effectiveVictory ? 'text-green-400' : 'text-red-400'}`}>
+          {/* ── SOL RESULT + RECORD ── */}
+          <div style={{
+            display: 'grid', gridTemplateColumns: '1fr 1fr',
+            gap: 10, marginBottom: 'clamp(10px,1.5vh,16px)',
+          }}>
+            <div style={{
+              background: effectiveVictory ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
+              border: `1px solid ${effectiveVictory ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`,
+              borderRadius: 10, padding: 'clamp(8px,1.2vh,14px)', textAlign: 'center',
+            }}>
+              <div style={{ fontSize: 'clamp(9px,1.2vh,11px)', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>
+                {effectiveVictory ? 'Prize Won' : 'Entry Fee'}
+              </div>
+              <div style={{
+                fontSize: 'clamp(20px,3.5vh,30px)', fontWeight: 900,
+                color: effectiveVictory ? '#22c55e' : '#ef4444',
+                fontFamily: '"Impact",sans-serif',
+              }}>
                 {effectiveVictory ? '+' : '-'}{effectiveVictory ? effectiveMatch.room.prizePool : effectiveMatch.room.entryFee} SOL
-              </p>
+              </div>
             </div>
-          </div>
-        </motion.div>
-
-        {/* Updated record */}
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5, duration: 0.5 }} className="glass-panel rounded-xl p-4 mb-3">
-          <div className="flex items-center justify-center gap-8">
-            <div className="text-center">
-              <p className="text-xs text-slate-400 mb-1">Your New Record</p>
-              <p className="font-mono text-2xl font-black">
-                <span className="text-green-400">{effectiveTrainer.record.wins + (effectiveVictory ? 1 : 0)}W</span>
-                {' - '}
-                <span className="text-red-400">{effectiveTrainer.record.losses + (!effectiveVictory ? 1 : 0)}L</span>
-              </p>
-            </div>
-            <div className="h-8 w-px bg-slate-700" />
-            <div className="text-center">
-              <p className="text-xs text-slate-400 mb-1">Win Rate</p>
-              <div className="flex items-center gap-1.5">
-                <TrendingUp className="w-4 h-4 text-blue-400" />
-                <p className="font-bold text-xl">
-                  {(((effectiveTrainer.record.wins + (effectiveVictory ? 1 : 0)) / (effectiveTrainer.record.wins + effectiveTrainer.record.losses + 1)) * 100).toFixed(0)}%
-                </p>
+            <div style={{
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: 10, padding: 'clamp(8px,1.2vh,14px)', textAlign: 'center',
+            }}>
+              <div style={{ fontSize: 'clamp(9px,1.2vh,11px)', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Record</div>
+              <div style={{ fontSize: 'clamp(16px,2.8vh,24px)', fontWeight: 900, fontFamily: 'monospace' }}>
+                <span style={{ color: '#22c55e' }}>{effectiveTrainer.record.wins + (effectiveVictory ? 1 : 0)}W</span>
+                <span style={{ color: 'rgba(255,255,255,0.3)' }}> – </span>
+                <span style={{ color: '#ef4444' }}>{effectiveTrainer.record.losses + (!effectiveVictory ? 1 : 0)}L</span>
               </div>
             </div>
           </div>
-        </motion.div>
 
-        {/* Actions */}
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7, duration: 0.5 }} className="flex gap-4 justify-center">
-          <button onClick={handleRematch} className={effectiveVictory ? 'arena-button-gold flex items-center gap-2' : 'arena-button-primary flex items-center gap-2'}>
-            <RotateCcw className="w-4 h-4" />Battle Again
-          </button>
-          <button onClick={handleReturnHome} className="glass-panel px-6 py-3 rounded-lg font-bold tracking-wide uppercase hover:border-blue-500/50 transition-all flex items-center gap-2 text-sm">
-            <Home className="w-4 h-4" />Arena Home
-          </button>
-        </motion.div>
+          {/* ── BATTLE STATS ── */}
+          <BattleStatsSection />
+
+          {/* ── ACTION BUTTONS ── */}
+          <div style={{
+            display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap',
+            marginTop: 'clamp(10px,1.5vh,18px)',
+          }}>
+            <button
+              onClick={handleRematch}
+              style={{
+                padding: 'clamp(10px,1.5vh,14px) clamp(20px,3vw,36px)',
+                background: effectiveVictory
+                  ? 'linear-gradient(135deg, #d97706, #92400e)'
+                  : 'linear-gradient(135deg, #7c3aed, #5b21b6)',
+                border: 'none', borderRadius: 10, color: '#fff',
+                fontSize: 'clamp(12px,1.8vh,15px)', fontWeight: 900, cursor: 'pointer',
+                fontFamily: '"Impact","Arial Black",sans-serif', letterSpacing: '0.08em',
+                boxShadow: effectiveVictory ? '0 0 20px rgba(217,119,6,0.5)' : '0 0 20px rgba(124,58,237,0.5)',
+              }}
+            >
+              ⚔️ BATTLE AGAIN
+            </button>
+            <button
+              onClick={handleReturnHome}
+              style={{
+                padding: 'clamp(10px,1.5vh,14px) clamp(20px,3vw,36px)',
+                background: 'rgba(255,255,255,0.06)',
+                border: '1px solid rgba(255,255,255,0.15)', borderRadius: 10, color: 'rgba(255,255,255,0.8)',
+                fontSize: 'clamp(12px,1.8vh,15px)', fontWeight: 700, cursor: 'pointer',
+              }}
+            >
+              🏠 Arena Home
+            </button>
+          </div>
+        </div>
       </div>
-    </div>
     </>
   );
 }

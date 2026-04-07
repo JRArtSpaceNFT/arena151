@@ -437,6 +437,25 @@ export default function ProfessorOak() {
 
   return (
     <>
+      <style>{`
+        @media (max-width: 1024px) {
+          .oak-chat-window {
+            width: calc(100vw - 16px) !important;
+            max-width: 100vw !important;
+            height: 70dvh !important;
+            max-height: 70dvh !important;
+            bottom: 80px !important;
+            right: 8px !important;
+            left: 8px !important;
+          }
+          .oak-fab-btn {
+            bottom: 12px !important;
+            right: 12px !important;
+            width: 56px !important;
+            height: 56px !important;
+          }
+        }
+      `}</style>
       {/* Floating button */}
       <AnimatePresence>
         {!isOpen && (
@@ -447,7 +466,7 @@ export default function ProfessorOak() {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setIsOpen(true)}
-            className="w-20 h-20 rounded-full bg-gradient-to-r from-red-600 to-orange-600 shadow-2xl shadow-red-500/50 flex items-center justify-center border-4 border-white overflow-hidden group"
+            className="oak-fab-btn w-20 h-20 rounded-full bg-gradient-to-r from-red-600 to-orange-600 shadow-2xl shadow-red-500/50 flex items-center justify-center border-4 border-white overflow-hidden group"
             style={{ position: 'fixed', bottom: 24, right: 60, zIndex: 9999 }}
           >
             <img 
@@ -472,7 +491,7 @@ export default function ProfessorOak() {
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className="w-96 h-[600px] flex flex-col bg-slate-900/95 backdrop-blur-xl border-2 border-slate-700 rounded-2xl shadow-2xl overflow-hidden"
+            className="oak-chat-window w-96 h-[600px] flex flex-col bg-slate-900/95 backdrop-blur-xl border-2 border-slate-700 rounded-2xl shadow-2xl overflow-hidden"
             style={{ position: 'fixed', bottom: 24, right: 60, zIndex: 9999 }}
           >
             {/* Header */}
