@@ -190,7 +190,7 @@ export const CREATURES: Creature[] = [
   { id: 129, name: 'Magikarp',  types: ['water'], pointCost: 7, baseHp: 85, baseAtk: 10, baseDef: 55, baseSpe: 80, passive: P('swift_swim_mk','Swift Swim','Speed +5%.','spd_boost',0.05), movePool: ['swift','tackle'], spriteUrl: S(129) },
   { id: 130, name: 'Gyarados',  types: ['water','flying'], pointCost: 21, baseHp: 155, baseAtk: 100, baseDef: 79, baseSpe: 81, passive: P('moxie','Moxie','Atk +10% for each KO scored.','moxie',0.10), movePool: ['hydro_pump', 'crunch', 'body_slam', 'hyper_beam', 'ice_beam', 'dragon_rage'], spriteUrl: S(130) },
   // 131 Lapras
-  { id: 131, name: 'Lapras',    types: ['water','ice'], pointCost: 21, baseHp: 165, baseAtk: 85, baseDef: 80, baseSpe: 60, passive: P('water_absorb2','Water Absorb','Heals +10% when hit by Water moves.','water_absorb',0.10), movePool: ['surf','ice_beam','blizzard','body_slam','thunder','hydro_pump'], spriteUrl: S(131) },
+  { id: 131, name: 'Lapras',    types: ['water','ice'], pointCost: 21, baseHp: 165, baseAtk: 85, baseDef: 80, baseSpe: 60, passive: P('water_absorb2','Water Absorb','Heals +10% when hit by Water moves.','water_absorb',0.10), movePool: ['surf','ice_beam','blizzard','body_slam','aurora_beam','hydro_pump'], spriteUrl: S(131) },
   // 132 Ditto
   { id: 132, name: 'Ditto',     types: ['normal'], pointCost: 14, baseHp: 105, baseAtk: 48, baseDef: 48, baseSpe: 48, passive: P('imposter','Imposter','Transforms into a random Pokémon before battle!','imposter',0.0), movePool: ['transform'], spriteUrl: S(132) },
   // 133-136 Eevee evos
@@ -208,7 +208,7 @@ export const CREATURES: Creature[] = [
   // 142 Aerodactyl
   { id: 142, name: 'Aerodactyl', types: ['rock','flying'], pointCost: 19, baseHp: 140, baseAtk: 105, baseDef: 65, baseSpe: 130, passive: P('pressure_a','Pressure','Enemy PP drains faster (each move costs double).','pp_drain',0.0), movePool: ['wing_attack', 'ancient_power', 'bite', 'crunch', 'sky_attack', 'stone_edge'], spriteUrl: S(142) },
   // 143 Snorlax
-  { id: 143, name: 'Snorlax',   types: ['normal'], pointCost: 21, baseHp: 155, baseAtk: 100, baseDef: 65, baseSpe: 30, passive: P('thick_fat_sl','Thick Fat','Reduces Fire and Ice damage by 8%.','thick_fat_strong',0.08), movePool: ['body_slam','hyper_beam','earthquake','crunch','rest','self_destruct'], spriteUrl: S(143) },
+  { id: 143, name: 'Snorlax',   types: ['normal'], pointCost: 21, baseHp: 155, baseAtk: 100, baseDef: 65, baseSpe: 30, passive: P('thick_fat_sl','Thick Fat','Reduces Fire and Ice damage by 8%.','thick_fat_strong',0.08), movePool: ['body_slam','hyper_beam','earthquake','crunch','rest','amnesia'], spriteUrl: S(143) },
   // 144-146 Legendaries
   { id: 144, name: 'Articuno',  types: ['ice','flying'], pointCost: 23, baseHp: 175, baseAtk: 85, baseDef: 100, baseSpe: 85, passive: P('pressure_ar','Pressure','Enemy costs double per move.','pp_drain',0.0), movePool: ['blizzard','ice_beam','hurricane','sky_attack','freeze_dry','calm_mind'], spriteUrl: S(144) },
   { id: 145, name: 'Zapdos',    types: ['electric','flying'], pointCost: 23, baseHp: 165, baseAtk: 90, baseDef: 85, baseSpe: 100, passive: P('static3','Static','10% paralyze on contact, +5% speed.','static_spd',0.10), movePool: ['thunderbolt','thunder','discharge','sky_attack','hurricane','thunder_surge'], spriteUrl: S(145) },
@@ -218,8 +218,8 @@ export const CREATURES: Creature[] = [
   { id: 148, name: 'Dragonair', types: ['dragon'], pointCost: 17, baseHp: 135, baseAtk: 84, baseDef: 65, baseSpe: 70, passive: P('shed_skin_da','Shed Skin','Recover 5% HP per turn.','shed_skin',0.05), movePool: ['dragon_rage','dragonbreath','thunder_wave','aqua_tail','surf'], spriteUrl: S(148) },
   { id: 149, name: 'Dragonite', types: ['dragon','flying'], pointCost: 23, baseHp: 175, baseAtk: 110, baseDef: 95, baseSpe: 80, passive: P('multiscale','Multiscale','Takes 25% less damage at full HP.','multiscale',0.25), movePool: ['dragon_claw', 'hurricane', 'fire_punch', 'thunder_punch', 'sky_wrath', 'hyper_beam'], spriteUrl: S(149) },
   // 150-151 Mythical
-  { id: 150, name: 'Mewtwo',    types: ['psychic'], pointCost: 25, baseHp: 175, baseAtk: 90, baseDef: 70, baseSpe: 105, passive: P('pressure_mw','Pressure','Enormous pressure reduces all enemy effects.','mega_pressure',0.05), movePool: ['psystrike','mind_break','aura_sphere','ice_beam','shadow_ball','recover'], spriteUrl: S(150) },
-  { id: 151, name: 'Mew',       types: ['psychic'], pointCost: 25, baseHp: 175, baseAtk: 78, baseDef: 78, baseSpe: 80, passive: P('synchronize','Synchronize','Reflects status conditions back to attacker.','synchronize',0.0), movePool: ['psychic_move','flamethrower','thunderbolt','ice_beam','ancient_power','aura_sphere'], spriteUrl: S(151) },
+  { id: 150, name: 'Mewtwo',    types: ['psychic'], pointCost: 25, baseHp: 175, baseAtk: 90, baseDef: 70, baseSpe: 105, passive: P('pressure_mw','Pressure','Enormous pressure reduces all enemy effects.','mega_pressure',0.05), movePool: ['psystrike','mind_break','aura_sphere','future_sight','shadow_ball','recover'], spriteUrl: S(150) },
+  { id: 151, name: 'Mew',       types: ['psychic'], pointCost: 25, baseHp: 175, baseAtk: 78, baseDef: 78, baseSpe: 80, passive: P('synchronize','Synchronize','Reflects status conditions back to attacker.','synchronize',0.0), movePool: ['psychic_move','mind_break','future_sight','psybeam','ancient_power','aura_sphere'], spriteUrl: S(151) },
 ]
 
 export const CREATURE_MAP = Object.fromEntries(CREATURES.map(c => [c.id, c]))
