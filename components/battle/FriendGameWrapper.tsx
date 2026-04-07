@@ -203,10 +203,12 @@ export default function FriendGameWrapper() {
   useEffect(() => () => stopPoll(), [stopPoll])
 
   // ── Generic wait-for-opponent ─────────────────────────────────────────────
-  // Before submitting sync_state, we ensure P2 has joined (player_b_id is set).
-  // If P1 reaches 'draft' before P2 enters the room code, sync_state would
-  // write metadata_a but bothReady can never be true — P2 doesn't exist yet.
-  // The waitForP2 check polls match status first, then proceeds to sync once joined.
+  // Both players enter FriendGameWrapper AFTER P2 has already joined (P1 waits
+  // for status='ready' before navigating; P2 navigates right after join succeeds).
+  // So we can skip the P2-joined check and go straight to sync_state.
+  //
+  // Each poll re-submits myData — idempotent, safe to retry.
+  // Server returns bothReady=true as soon as both metadata_a and metadata_b have the step key.
   const waitForOpponent = useCallback(async (
     step: WaitStep,
     myData: Record<string, unknown>,
@@ -217,34 +219,14 @@ export default function FriendGameWrapper() {
     if (!serverMatchId) { setSyncError('Match ID missing — go back and reconnect'); return }
 
     setWaitStep(step)
-    console.log(`[FriendBattle] 📤 Step "${step}" — submitting:`, myData)
-
-    const checkP2Joined = async (): Promise<boolean> => {
-      try {
-        const res = await fetch('/api/match/friend', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ action: 'status', matchId: serverMatchId }),
-        })
-        const data = await res.json()
-        if (data.status === 'expired' || data.status === 'not_found' || data.status === 'voided') {
-          setSyncError('Room expired or cancelled — go back and try again.')
-          return false
-        }
-        return !!(data.playerBId)
-      } catch { return false }
-    }
+    console.log(`[FriendBattle] 📤 Step "${step}" — submitting:`, myData, 'matchId:', serverMatchId)
 
     const trySync = async (): Promise<boolean> => {
-      // Ensure P2 has joined before writing sync state
-      const p2Joined = await checkP2Joined()
-      if (!p2Joined) {
-        console.log('[FriendBattle] ⏳ P2 not yet in match — waiting...')
+      const result = await syncStep(serverMatchId, token, step!, myData)
+      if (!result) {
+        console.warn(`[FriendBattle] ⚠️ syncStep returned null for step "${step}" — will retry`)
         return false
       }
-
-      const result = await syncStep(serverMatchId, token, step!, myData)
-      if (!result) return false
       console.log(`[FriendBattle] 🔄 Sync "${step}": bothReady=${result.bothReady}`, result.opponentData ? '✅ opponent data received' : '⏳ waiting')
       if (result.bothReady && result.opponentData) {
         stopPoll()

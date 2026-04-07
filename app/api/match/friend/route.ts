@@ -159,14 +159,14 @@ export async function POST(req: NextRequest) {
       }
 
       // Atomic join — .eq('status', 'forming') + .is('player_b_id', null) prevents race condition.
-      // Also clear metadata_a/b to reset any stale sync state from prior failed sessions.
+      // NOTE: Do NOT reset metadata_a/b here. P1 may have already written trainer_select data
+      // to metadata_a while waiting for P2. Wiping it would break the sync — P1's trainerSynced
+      // flag is already true so Step 1 would never re-fire, causing a permanent stuck state.
       const { data: updated, error: updateError } = await supabaseAdmin
         .from('matches')
         .update({
           player_b_id: user.id,
           status: 'ready',
-          metadata_a: {},
-          metadata_b: {},
           updated_at: new Date().toISOString(),
         })
         .eq('id', match.id)
@@ -360,14 +360,18 @@ export async function POST(req: NextRequest) {
       }
       if (!matchId || !step) return NextResponse.json({ error: 'matchId and step required' }, { status: 400 })
 
-      const { data: match } = await supabaseAdmin
+      const { data: match, error: matchFetchError } = await supabaseAdmin
         .from('matches')
         .select('id, player_a_id, player_b_id, metadata_a, metadata_b, status')
         .eq('id', matchId)
         .single()
 
-      if (!match) return NextResponse.json({ error: 'Match not found' }, { status: 404 })
+      if (matchFetchError || !match) {
+        console.error('[FriendSync] sync_state match fetch failed:', matchFetchError, 'matchId:', matchId)
+        return NextResponse.json({ error: 'Match not found' }, { status: 404 })
+      }
       if (match.player_a_id !== user.id && match.player_b_id !== user.id) {
+        console.error('[FriendSync] sync_state auth fail: user', user.id, 'not in match', matchId, 'playerA:', match.player_a_id, 'playerB:', match.player_b_id)
         return NextResponse.json({ error: 'Not a player in this match' }, { status: 403 })
       }
 
@@ -376,21 +380,42 @@ export async function POST(req: NextRequest) {
       const myMeta  = ((isA ? match.metadata_a : match.metadata_b) ?? {}) as Record<string, unknown>
       const newMeta = { ...myMeta, [step]: stepData, [`${step}_at`]: new Date().toISOString() }
 
-      await supabaseAdmin
+      const { error: writeError } = await supabaseAdmin
         .from('matches')
         .update({ [myKey]: newMeta, updated_at: new Date().toISOString() })
         .eq('id', matchId)
 
+      if (writeError) {
+        console.error('[FriendSync] sync_state write failed:', writeError, 'key:', myKey, 'matchId:', matchId)
+        return NextResponse.json({ error: 'Failed to write sync state' }, { status: 500 })
+      }
+
       // Re-fetch to get both sides
-      const { data: updated } = await supabaseAdmin
+      const { data: updated, error: refetchError } = await supabaseAdmin
         .from('matches')
         .select('metadata_a, metadata_b, battle_seed, player_a_id, player_b_id')
         .eq('id', matchId)
         .single()
 
+      if (refetchError || !updated) {
+        console.error('[FriendSync] sync_state re-fetch failed:', refetchError, 'matchId:', matchId)
+        // Return partial success — client will retry and see bothReady on next poll
+        return NextResponse.json({
+          bothReady: false,
+          myData: newMeta[step],
+          opponentData: null,
+          battleSeed: null,
+          playerAId: match.player_a_id,
+          playerBId: match.player_b_id,
+          myRole: isA ? 'a' : 'b',
+        })
+      }
+
       const metaA = (updated?.metadata_a ?? {}) as Record<string, unknown>
       const metaB = (updated?.metadata_b ?? {}) as Record<string, unknown>
       const bothReady = !!(metaA[step] && metaB[step])
+
+      console.log(`[FriendSync] sync_state step=${step} matchId=${matchId} role=${isA?'a':'b'} bothReady=${bothReady} metaA_has=${!!metaA[step]} metaB_has=${!!metaB[step]}`)
 
       return NextResponse.json({
         bothReady,
