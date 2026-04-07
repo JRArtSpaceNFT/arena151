@@ -22,6 +22,7 @@ export interface StoredUser {
   losses: number
   badges: string[]
   joinedDate: string
+  twitterHandle: string | null
 }
 
 
@@ -45,6 +46,7 @@ function profileToUser(profile: Record<string, any>): StoredUser {
     losses: (profile.losses as number) || 0,
     badges: (profile.badges as string[]) || [],
     joinedDate: (profile.joined_date as string) || new Date().toISOString(),
+    twitterHandle: (profile.twitter_handle as string) || null,
   }
 }
 
@@ -147,6 +149,7 @@ export async function updateUser(id: string, updates: Partial<StoredUser>): Prom
   if (updates.wins !== undefined) dbUpdates.wins = updates.wins
   if (updates.losses !== undefined) dbUpdates.losses = updates.losses
   if (updates.badges !== undefined) dbUpdates.badges = updates.badges
+  if (updates.twitterHandle !== undefined) dbUpdates.twitter_handle = updates.twitterHandle || null
 
   await supabase.from('profiles').update(dbUpdates).eq('id', id)
 }

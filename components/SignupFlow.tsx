@@ -83,6 +83,7 @@ export default function SignupFlow() {
       balance: session.balance,
       earnings: session.earnings ?? 0,
       badges: session.badges ?? [],
+      twitterHandle: session.twitterHandle ?? null,
     });
     setScreen('profile');
   }
