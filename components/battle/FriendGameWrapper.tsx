@@ -167,6 +167,11 @@ export default function FriendGameWrapper() {
 
   const initialized     = useRef(false)
   const pollRef         = useRef<ReturnType<typeof setInterval> | null>(null)
+  // Ref mirrors of Zustand values — read inside callbacks to avoid stale closures
+  const serverMatchIdRef = useRef(serverMatchId)
+  const storeSeedRef     = useRef(storeSeed)
+  useEffect(() => { serverMatchIdRef.current = serverMatchId }, [serverMatchId])
+  useEffect(() => { storeSeedRef.current = storeSeed }, [storeSeed])
   // useState guards so they reset correctly if component remounts
   const [trainerSynced, setTrainerSynced] = useState(false)
   const [draftSynced,   setDraftSynced]   = useState(false)
@@ -209,29 +214,38 @@ export default function FriendGameWrapper() {
   //
   // Each poll re-submits myData — idempotent, safe to retry.
   // Server returns bothReady=true as soon as both metadata_a and metadata_b have the step key.
+  //
+  // Uses serverMatchIdRef/storeSeedRef (not the closure-captured values) so that even if
+  // this callback was created before the store hydrated, it always reads the live value.
   const waitForOpponent = useCallback(async (
     step: WaitStep,
     myData: Record<string, unknown>,
     onReady: (opponentData: Record<string, unknown>, seed: string, role: 'a'|'b', pAId: string, pBId: string) => void
   ) => {
-    const token = await getToken()
-    if (!token)         { setSyncError('Not logged in'); return }
-    if (!serverMatchId) { setSyncError('Match ID missing — go back and reconnect'); return }
+    const token   = await getToken()
+    const matchId = serverMatchIdRef.current   // always fresh — never stale
+    if (!token)   { setSyncError('Not logged in'); return }
+    if (!matchId) { setSyncError('Match ID missing — go back and reconnect'); return }
 
     setWaitStep(step)
-    console.log(`[FriendBattle] 📤 Step "${step}" — submitting:`, myData, 'matchId:', serverMatchId)
+    console.log(`[FriendBattle] 📤 Step "${step}" matchId=${matchId} submitting:`, myData)
 
     const trySync = async (): Promise<boolean> => {
-      const result = await syncStep(serverMatchId, token, step!, myData)
+      const result = await syncStep(matchId, token, step!, myData)
       if (!result) {
-        console.warn(`[FriendBattle] ⚠️ syncStep returned null for step "${step}" — will retry`)
+        console.warn(`[FriendBattle] ⚠️ syncStep null step="${step}" matchId=${matchId} — retrying`)
         return false
       }
-      console.log(`[FriendBattle] 🔄 Sync "${step}": bothReady=${result.bothReady}`, result.opponentData ? '✅ opponent data received' : '⏳ waiting')
-      if (result.bothReady && result.opponentData) {
+      const { bothReady, opponentData, myRole, battleSeed } = result
+      console.log(
+        `[FriendBattle] 🔄 step=${step} matchId=${matchId} role=${myRole}`,
+        `bothReady=${bothReady} metaA=${myRole==='a'?'✅mine':'⬜opp'} metaB=${myRole==='b'?'✅mine':'⬜opp'}`,
+        opponentData ? '✅ opp data present' : '⏳ opp data missing',
+      )
+      if (bothReady && opponentData) {
         stopPoll()
         setWaitStep(null)
-        onReady(result.opponentData, result.battleSeed ?? storeSeed ?? '', result.myRole, result.playerAId, result.playerBId)
+        onReady(opponentData, battleSeed ?? storeSeedRef.current ?? '', myRole, result.playerAId, result.playerBId)
         return true
       }
       return false
@@ -243,7 +257,7 @@ export default function FriendGameWrapper() {
     pollRef.current = setInterval(async () => {
       await trySync()
     }, 2000)
-  }, [getToken, serverMatchId, storeSeed, stopPoll])
+  }, [getToken, stopPoll])  // intentionally excludes serverMatchId/storeSeed — read via refs above
 
   const handleCancel = useCallback(() => {
     stopPoll(); clearServerMatch(); setScreen('friend-battle')
@@ -253,14 +267,14 @@ export default function FriendGameWrapper() {
   useEffect(() => {
     if (gameScreen !== 'draft') return
     if (trainerSynced) return
-    if (!p1Trainer) { console.warn('[FriendBattle] draft screen but no p1Trainer — retrying'); return }
+    if (!p1Trainer) { console.warn('[FriendBattle] ⚠️ draft screen but p1Trainer null — retrying'); return }
     setTrainerSynced(true)
 
-    console.log('[FriendBattle] 🧑 Trainer picked:', p1Trainer.id, p1Trainer.name)
+    console.log('[FriendBattle] 🧑 Step1 trainer picked:', p1Trainer.id, p1Trainer.name, 'matchId:', serverMatchIdRef.current)
     waitForOpponent('trainer_select', { trainerId: p1Trainer.id }, (oppData) => {
       const oppId = (oppData as { trainerId: string }).trainerId
       const oppTrainer = TRAINERS.find(t => t.id === oppId) ?? TRAINERS[0]
-      console.log('[FriendBattle] 🧑 Opponent trainer set:', oppId)
+      console.log('[FriendBattle] 🧑 Step1 done — opponent trainer:', oppId)
       useGameStore.setState({ p2Trainer: oppTrainer })
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -270,12 +284,12 @@ export default function FriendGameWrapper() {
   useEffect(() => {
     if (gameScreen !== 'lineup') return
     if (draftSynced) return
-    if (draftTeamA.length === 0) { console.warn('[FriendBattle] lineup screen but draftTeamA empty'); return }
+    if (draftTeamA.length === 0) { console.warn('[FriendBattle] ⚠️ Step2 lineup screen but draftTeamA empty'); return }
     setDraftSynced(true)
 
     const teamIds = draftTeamA.map(c => c.id)
     const trainerId = p1Trainer?.id ?? ''
-    console.log('[FriendBattle] 📋 Draft locked. Team:', teamIds)
+    console.log('[FriendBattle] 📋 Step2 draft locked. Team:', teamIds, 'matchId:', serverMatchIdRef.current)
 
     waitForOpponent('draft_locked', { teamIds, trainerId }, (oppData) => {
       const oppTeamIds = (oppData as { teamIds: number[] }).teamIds ?? []
@@ -292,12 +306,12 @@ export default function FriendGameWrapper() {
   useEffect(() => {
     if (gameScreen !== 'arena_reveal') return
     if (lineupSynced) return
-    if (lineupA.length === 0) { console.warn('[FriendBattle] arena_reveal but lineupA empty'); return }
+    if (lineupA.length === 0) { console.warn('[FriendBattle] ⚠️ Step3 arena_reveal but lineupA empty'); return }
     setLineupSynced(true)
 
     const lineupIds = lineupA.map(ac => ac.creature.id)
     const trainerId = p1Trainer?.id ?? ''
-    console.log('[FriendBattle] 🗂️ Lineup locked. Order:', lineupIds)
+    console.log('[FriendBattle] 🗂️ Step3 lineup locked. Order:', lineupIds, 'matchId:', serverMatchIdRef.current)
 
     waitForOpponent('lineup_locked', { lineupIds, trainerId }, (oppData, seed, myRole, playerAId, playerBId) => {
       const oppLineupIds = (oppData as { lineupIds: number[] }).lineupIds ?? []
