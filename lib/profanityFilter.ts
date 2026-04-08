@@ -1,20 +1,63 @@
 // Chat content filter for Arena 151
 // Filters profanity, slurs, spam, and links
 
-// Profanity and derogatory terms (will be replaced with asterisks)
-const FILTERED_WORDS = [
-  // Common profanity
-  'fuck', 'shit', 'bitch', 'ass', 'damn', 'hell', 'bastard', 'piss',
-  'dick', 'pussy', 'cock', 'whore', 'slut', 'twat', 'wank',
+// Profanity patterns (will be replaced with asterisks)
+// Using regex patterns to catch plurals, verb forms, and variations
+const FILTERED_PATTERNS = [
+  // F-word variations
+  /\bf+u+c+k+(s|ing|ed|er|ing)?\b/gi,
+  /\bf+u+k+(s|ing|ed|er)?\b/gi,
+  /\bph+u+c+k+(s|ing|ed)?\b/gi,
+  /\bf+[*@!]+c+k+(s|ing|ed)?\b/gi,
   
-  // Slurs and derogatory terms
-  'nigger', 'nigga', 'faggot', 'fag', 'dyke', 'tranny', 'retard',
-  'retarded', 'cunt', 'chink', 'spic', 'kike', 'beaner', 'wetback',
-  'towelhead', 'raghead', 'gook', 'jap', 'kyke',
+  // S-word variations
+  /\bs+h+i+t+(s|ting|ted|ty)?\b/gi,
+  /\bs+h+1+t+(s|ting)?\b/gi,
+  /\bcr+a+p+(s|py)?\b/gi,
   
-  // Common substitutions/bypasses
-  'fuk', 'fck', 'sh1t', 'b1tch', 'azz', 'phuck', 'phuk',
-  'n1gger', 'n1gga', 'f4ggot', 'c0ck', 'p0rn',
+  // B-word variations
+  /\bb+i+t+c+h+(es|ing|y)?\b/gi,
+  /\bb+1+t+c+h+(es)?\b/gi,
+  /\bb+[*@!]+t+c+h+(es)?\b/gi,
+  
+  // A-word variations
+  /\ba+s+s+(es|hole|holes)?\b/gi,
+  /\ba+z+z+(es)?\b/gi,
+  
+  // Other common profanity
+  /\bd+a+m+n+(ed|ing)?\b/gi,
+  /\bh+e+l+l+\b/gi,
+  /\bb+a+s+t+a+r+d+(s)?\b/gi,
+  /\bp+i+s+s+(ed|ing)?\b/gi,
+  /\bd+i+c+k+(s|head)?\b/gi,
+  /\bp+u+s+s+y+(ies)?\b/gi,
+  /\bc+o+c+k+(s)?\b/gi,
+  /\bc+0+c+k+(s)?\b/gi,
+  /\bw+h+o+r+e+(s)?\b/gi,
+  /\bs+l+u+t+(s|ty)?\b/gi,
+  /\bt+w+a+t+(s)?\b/gi,
+  /\bw+a+n+k+(er|ing)?\b/gi,
+  
+  // Severe slurs (will be caught separately for instant ban consideration)
+  /\bn+i+g+g+(er|a|ers|as)\b/gi,
+  /\bn+1+g+g+(er|a)\b/gi,
+  /\bf+a+g+g+o+t+(s)?\b/gi,
+  /\bf+a+g+(s)?\b/gi,
+  /\bf+4+g+g+o+t+(s)?\b/gi,
+  /\bd+y+k+e+(s)?\b/gi,
+  /\bt+r+a+n+n+y+(ies)?\b/gi,
+  /\br+e+t+a+r+d+(s|ed)?\b/gi,
+  /\bc+u+n+t+(s)?\b/gi,
+  /\bc+h+i+n+k+(s)?\b/gi,
+  /\bs+p+i+c+(s)?\b/gi,
+  /\bk+i+k+e+(s)?\b/gi,
+  /\bk+y+k+e+(s)?\b/gi,
+  /\bb+e+a+n+e+r+(s)?\b/gi,
+  /\bw+e+t+b+a+c+k+(s)?\b/gi,
+  /\bt+o+w+e+l+h+e+a+d+(s)?\b/gi,
+  /\br+a+g+h+e+a+d+(s)?\b/gi,
+  /\bg+o+o+k+(s)?\b/gi,
+  /\bj+a+p+(s)?\b/gi,
 ]
 
 // URL patterns to detect
@@ -33,10 +76,9 @@ const URL_PATTERNS = [
 export function filterMessage(text: string): string {
   let filtered = text
   
-  // Replace filtered words with asterisks (preserve first letter)
-  for (const word of FILTERED_WORDS) {
-    const regex = new RegExp(`\\b${word}\\b`, 'gi')
-    filtered = filtered.replace(regex, (match) => {
+  // Replace filtered patterns with asterisks (preserve first letter)
+  for (const pattern of FILTERED_PATTERNS) {
+    filtered = filtered.replace(pattern, (match) => {
       return match[0] + '*'.repeat(Math.max(match.length - 1, 1))
     })
   }
