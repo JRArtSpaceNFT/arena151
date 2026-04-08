@@ -11,6 +11,7 @@ import QueueScreen from '@/components/QueueScreen';
 import MatchFound from '@/components/MatchFound';
 import VersusScreen from '@/components/VersusScreen';
 import ResultScreen from '@/components/ResultScreen';
+import GlobalChat from '@/components/GlobalChat';
 import ProfessorOak from '@/components/ProfessorOak';
 import GameWrapper from '@/components/battle/GameWrapper';
 import PracticeGameWrapper from '@/components/battle/PracticeGameWrapper'
@@ -100,6 +101,9 @@ export default function ArenaApp() {
       
       {/* Professor Oak AI Assistant - Always available except during game */}
       {currentScreen !== 'game' && currentScreen !== 'practice-game' && currentScreen !== 'friend-game' && <ProfessorOak />}
+
+      {/* Global chat - only show on draft-mode-intro (Road to Victory) */}
+      {currentScreen === 'draft-mode-intro' && <GlobalChat />}
     </main>
   );
 }
