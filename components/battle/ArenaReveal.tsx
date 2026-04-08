@@ -16,11 +16,11 @@ const TYPE_COLORS: Record<string, string> = {
   rock: '#78716c', ghost: '#6d28d9', dragon: '#7c3aed', dark: '#374151', steel: '#94a3b8',
 }
 
-// Slowdown schedule in ms — starts fast, decelerates into the final pick
+// Slowdown schedule in ms — starts slower so all arenas are visible, then decelerates into the final pick
 const SCHEDULE = [
-  80, 90, 105, 125, 150,
-  185, 225, 275, 340,
-  420, 520, 640, 780,
+  200, 220, 240, 260, 280,
+  310, 350, 400, 460,
+  530, 620, 730, 860,
 ]
 
 // Mobile gets a slower schedule so the animation is visible

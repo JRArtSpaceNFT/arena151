@@ -99,13 +99,15 @@ export default function BattleScreen() {
   const logRef = useRef<HTMLDivElement>(null)
   const currentAnimId = useRef<string | null>(null)  // tracks active anim so stale timeouts don't clobber newer ones
 
-  // Auto-advance to results screen 2 seconds after battle ends
+  // Auto-advance to results screen 3 seconds after battle ends
+  const hasAdvanced = useRef(false)
   useEffect(() => {
-    if (isDone && battleState?.winner) {
+    if (isDone && battleState?.winner && !hasAdvanced.current) {
+      hasAdvanced.current = true
       const timer = setTimeout(() => {
         if (battleState.winner === 'A') showVictoryScreen()
         else showDefeatScreen()
-      }, 2000)
+      }, 3000) // 3 seconds to see final battle state
       return () => clearTimeout(timer)
     }
   }, [isDone, battleState?.winner, showVictoryScreen, showDefeatScreen])
