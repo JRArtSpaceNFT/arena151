@@ -99,6 +99,17 @@ export default function BattleScreen() {
   const logRef = useRef<HTMLDivElement>(null)
   const currentAnimId = useRef<string | null>(null)  // tracks active anim so stale timeouts don't clobber newer ones
 
+  // Auto-advance to results screen 2 seconds after battle ends
+  useEffect(() => {
+    if (isDone && battleState?.winner) {
+      const timer = setTimeout(() => {
+        if (battleState.winner === 'A') showVictoryScreen()
+        else showDefeatScreen()
+      }, 2000)
+      return () => clearTimeout(timer)
+    }
+  }, [isDone, battleState?.winner, showVictoryScreen, showDefeatScreen])
+
   // ── Animation state ─────────────────────────────────────────
   const [attackingSide, setAttackingSide] = useState<'A' | 'B' | null>(null)
   const lastAttackSideRef = useRef<'A' | 'B' | null>(null) // display-layer double-attack guard
@@ -1238,45 +1249,7 @@ export default function BattleScreen() {
         </button>
       )}
 
-      {isDone && battleState.winner && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 50,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'rgba(0,0,0,0.85)',
-          animation: 'fadeIn 0.4s ease forwards',
-        }}>
-          <div style={{ textAlign: 'center', padding: 40 }}>
-            <div style={{ fontSize: 80, marginBottom: 16, animation: 'pokeballPop 0.5s ease-out forwards' }}>
-              🏆
-            </div>
-            <div style={{
-              fontSize: 52, fontWeight: 900,
-              color: battleState.winner === 'A' ? '#7c3aed' : '#ef4444',
-              textShadow: `0 0 30px ${battleState.winner === 'A' ? 'rgba(124,58,237,0.8)' : 'rgba(239,68,68,0.8)'}`,
-              marginBottom: 8,
-            }}>
-              {battleState.winner === 'A' ? p1Trainer?.name : p2Trainer?.name} WINS!
-            </div>
-            <div style={{ color: '#94a3b8', fontSize: 18, marginBottom: 32 }}>
-              A legendary battle has concluded!
-            </div>
-            <button
-              onClick={() => battleState.winner === 'A' ? showVictoryScreen() : showDefeatScreen()}
-              style={{
-                padding: '16px 48px',
-                background: battleState.winner === 'A' 
-                  ? 'linear-gradient(135deg, #7c3aed, #5b21b6)' 
-                  : 'linear-gradient(135deg, #dc2626, #991b1b)',
-                border: 'none', borderRadius: 12,
-                color: 'white', fontSize: 20, fontWeight: 700, cursor: 'pointer',
-                boxShadow: '0 0 20px rgba(124,58,237,0.5)',
-              }}
-            >
-              View Results →
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Removed intermediate overlay - auto-advances to results screen */}
     </div>
   )
 }
