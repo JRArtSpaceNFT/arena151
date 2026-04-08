@@ -327,6 +327,9 @@ export default function FinalResultsScreen() {
   const trainerSlug = winnerTrainer?.id.toLowerCase().replace(/\s+/g, '-') ?? 'default'
   const outcomeSlug = effectiveVictory ? 'win' : 'loss'
   const trainerBg = `/trainer-results/${trainerSlug}-${outcomeSlug}.png`
+  const fallbackBg = effectiveVictory
+    ? 'linear-gradient(160deg, #1a0f00 0%, #0f0a00 40%, #0a0a0f 100%)'
+    : 'linear-gradient(160deg, #0a000f 0%, #050010 40%, #0a0a0f 100%)'
 
   useEffect(() => {
     playMusic('victory')
@@ -507,12 +510,24 @@ export default function FinalResultsScreen() {
         {/* Background image — trainer-specific win/loss */}
         <div style={{
           position: 'fixed', inset: 0,
-          backgroundImage: `url(${trainerBg})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
+          background: fallbackBg,
           zIndex: 0,
-        }} />
+        }}>
+          <img
+            src={trainerBg}
+            alt="trainer background"
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              objectPosition: 'center',
+            }}
+            onError={(e) => {
+              // Hide image on error, fallback gradient shows through
+              e.currentTarget.style.display = 'none'
+            }}
+          />
+        </div>
 
         {/* Dark overlay for legibility */}
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1 }} />
