@@ -11,7 +11,7 @@ export type MoveCategory = 'physical' | 'special' | 'status'
 
 export type Screen =
   | 'home' | 'trainer_select' | 'coin_toss' | 'draft'
-  | 'lineup' | 'arena_reveal' | 'pretalk' | 'bet' | 'battle' | 'victory' | 'defeat' | 'results' | 'rules'
+  | 'lineup' | 'arena_reveal' | 'pretalk' | 'bet' | 'battle' | 'victory' | 'defeat' | 'results' | 'battle_results' | 'rules'
   | 'story_intro' | 'story_team_select' | 'story_journey' | 'story_trainer_intro' 
   | 'story_badge_reward' | 'story_hall_of_fame'
   | 'friend_battle_lobby'
@@ -54,6 +54,8 @@ export interface Trainer {
   location?: string     // e.g. "Cerulean City"
   battleStyles?: string[]  // e.g. ["💧 Water Specialist", "⚡ Speed Trainer", "🧠 Tactical"]
   signaturePokemon?: number[]  // Pokémon IDs (for sprites)
+  winBg?: string   // path to win background image (e.g. '/trainer-bgs/red-win.jpg')
+  lossBg?: string  // path to loss background image
 }
 
 // ── MOVE ──────────────────────────────────────────────────────
