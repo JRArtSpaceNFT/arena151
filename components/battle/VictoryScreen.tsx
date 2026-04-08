@@ -350,7 +350,7 @@ export default function VictoryScreen() {
                 whileTap={{ scale: 0.97 }}
                 onClick={() => {
                   const text = encodeURIComponent(
-                    `Just won a battle on Arena 151! 🏆 My trainer ${winnerTrainer.name} crushed it! Play at https://jonathan-foley-og6b.vercel.app/ #Arena151 #Pokemon`
+                    `Just won a battle on Arena 151! 🏆 My trainer ${winnerTrainer.name} crushed it! Play at https://arena151.xyz #Arena151 #Pokemon`
                   )
                   window.open(`https://twitter.com/intent/tweet?text=${text}`, '_blank', 'noopener,noreferrer')
                 }}
