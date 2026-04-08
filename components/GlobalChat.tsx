@@ -365,14 +365,43 @@ export default function GlobalChat() {
       return
     }
 
-    const { error } = await supabase
+    // Optimistic UI: show message immediately
+    const tempId = `temp-${Date.now()}`
+    const optimisticMessage: ChatMessage = {
+      id: tempId,
+      user_id: currentUser.id,
+      message: sanitized,
+      created_at: new Date().toISOString(),
+      user: {
+        id: currentUser.id,
+        username: currentUser.username,
+        displayName: currentUser.displayName,
+        avatar: currentUser.avatar,
+        favorite_creature_id: (currentUser as any).favoritePokemon?.toString() || undefined,
+      }
+    }
+
+    setMessages(prev => [...prev, optimisticMessage])
+    setInputText('')
+
+    // Scroll to bottom immediately
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }, 50)
+
+    // Send to server
+    const { error, data } = await supabase
       .from('chat_messages')
       .insert({
         user_id: currentUser.id,
         message: sanitized,
       })
+      .select()
+      .single()
 
     if (error) {
+      // Remove optimistic message on error
+      setMessages(prev => prev.filter(m => m.id !== tempId))
       console.error('Chat send error:', error)
       if (error.message.includes('rate') || error.code === '23514') {
         alert('Slow down! You can only send 1 message every 3 seconds.')
@@ -384,7 +413,13 @@ export default function GlobalChat() {
       return
     }
 
-    setInputText('')
+    // Replace temp message with real one
+    if (data) {
+      setMessages(prev => prev.map(m => m.id === tempId ? {
+        ...data,
+        user: optimisticMessage.user
+      } : m))
+    }
   }
 
   const filteredMessages = messages.filter(m => !mutedUsers.has(m.user_id))
