@@ -18,11 +18,16 @@ function ProfileModal({ userId, onClose }: { userId: string; onClose: () => void
     async function fetchProfile() {
       const { data } = await supabase
         .from('profiles')
-        .select('id, username, displayName, avatar, wins, losses, rank, badges, favorite_creature_id')
+        .select('id, username, display_name, avatar, wins, losses, rank, badges, favorite_creature_id')
         .eq('id', userId)
         .single()
       
-      setProfile(data)
+      if (data) {
+        setProfile({
+          ...data,
+          displayName: data.display_name
+        })
+      }
       setLoading(false)
     }
     fetchProfile()
@@ -218,10 +223,19 @@ export default function GlobalChat() {
           data.map(async (msg) => {
             const { data: userData } = await supabase
               .from('profiles')
-              .select('id, username, avatar, favorite_creature_id')
+              .select('id, username, display_name, avatar, favorite_creature_id')
               .eq('id', msg.user_id)
               .single()
-            return { ...msg, user: userData || undefined }
+            return { 
+              ...msg, 
+              user: userData ? {
+                id: userData.id,
+                username: userData.username,
+                displayName: userData.display_name,
+                avatar: userData.avatar,
+                favorite_creature_id: userData.favorite_creature_id
+              } : undefined 
+            }
           })
         )
         setMessages(messagesWithUsers.reverse())
@@ -245,13 +259,19 @@ export default function GlobalChat() {
         // Fetch user data for the new message
         const { data: userData } = await supabase
           .from('profiles')
-          .select('id, username, avatar, favorite_creature_id')
+          .select('id, username, display_name, avatar, favorite_creature_id')
           .eq('id', payload.new.user_id)
           .single()
 
         const newMessage: ChatMessage = {
           ...payload.new as any,
-          user: userData || undefined,
+          user: userData ? {
+            id: userData.id,
+            username: userData.username,
+            displayName: userData.display_name,
+            avatar: userData.avatar,
+            favorite_creature_id: userData.favorite_creature_id
+          } : undefined,
         }
 
         setMessages(prev => [...prev, newMessage])
@@ -440,7 +460,7 @@ export default function GlobalChat() {
                           onClick={() => setSelectedUserId(msg.user_id)}
                           className="font-bold text-white hover:underline"
                         >
-                          {msg.user?.username || 'Unknown'}
+                          {msg.user?.displayName || msg.user?.username || 'Unknown'}
                         </button>
                         {favCreature && (
                           <img

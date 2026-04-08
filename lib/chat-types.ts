@@ -8,6 +8,7 @@ export interface ChatMessage {
   user?: {
     id: string
     username: string
+    displayName?: string
     avatar: string
     favorite_creature_id?: string
   }
