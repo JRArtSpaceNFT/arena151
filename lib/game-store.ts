@@ -505,7 +505,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   showVictoryScreen: () => {
     // Compute matchResults for the unified results page
     const { battleState, p1Bet, p2Bet, p1Coins, p2Coins } = get()
-    if (!battleState) { set({ screen: 'battle_results' }); return }
+    if (!battleState) { set({ screen: 'result' }); return }
     const allCreatures = [...battleState.teamA, ...battleState.teamB]
     const mvp = allCreatures.reduce((b, c) => (c.kos*100+c.damageDealt) > (b.kos*100+b.damageDealt) ? c : b)
     const mostDamage = allCreatures.reduce((b, c) => c.damageDealt > b.damageDealt ? c : b)
@@ -599,7 +599,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       p2BetResult,
     }
 
-    set({ matchResults: results, p1Coins: newP1Coins, p2Coins: newP2Coins, screen: 'battle_results' })
+    set({ matchResults: results, p1Coins: newP1Coins, p2Coins: newP2Coins, screen: 'result' })
   },
 
   playAgain: () => {

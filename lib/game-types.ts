@@ -11,7 +11,7 @@ export type MoveCategory = 'physical' | 'special' | 'status'
 
 export type Screen =
   | 'home' | 'trainer_select' | 'coin_toss' | 'draft'
-  | 'lineup' | 'arena_reveal' | 'pretalk' | 'bet' | 'battle' | 'victory' | 'defeat' | 'results' | 'battle_results' | 'rules'
+  | 'lineup' | 'arena_reveal' | 'pretalk' | 'bet' | 'battle' | 'result' | 'rules'
   | 'story_intro' | 'story_team_select' | 'story_journey' | 'story_trainer_intro' 
   | 'story_badge_reward' | 'story_hall_of_fame'
   | 'friend_battle_lobby'
