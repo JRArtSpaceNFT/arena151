@@ -60,7 +60,7 @@ function ProfileModal({ userId, onClose }: { userId: string; onClose: () => void
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
+        className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/80"
         onClick={onClose}
       >
         <div className="text-white">Loading...</div>
@@ -83,7 +83,7 @@ function ProfileModal({ userId, onClose }: { userId: string; onClose: () => void
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+      className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/80 backdrop-blur-sm"
       onClick={onClose}
     >
       <motion.div
@@ -353,10 +353,13 @@ export default function GlobalChat() {
       })
 
     if (error) {
-      if (error.message.includes('rate')) {
+      console.error('Chat send error:', error)
+      if (error.message.includes('rate') || error.code === '23514') {
         alert('Slow down! You can only send 1 message every 3 seconds.')
+      } else if (error.code === '42501') {
+        alert('Chat is not set up yet. Database migration needs to be run.')
       } else {
-        console.error('Chat send error:', error)
+        alert(`Failed to send message: ${error.message}`)
       }
       return
     }
@@ -376,7 +379,7 @@ export default function GlobalChat() {
           setIsOpen(!isOpen)
           if (!isOpen) setUnreadCount(0)
         }}
-        className="fixed right-6 top-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-purple-600 to-purple-800 text-2xl shadow-lg transition hover:scale-110 hover:shadow-purple-500/50"
+        className="fixed right-6 top-6 z-[10000] flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-purple-600 to-purple-800 text-2xl shadow-lg transition hover:scale-110 hover:shadow-purple-500/50"
       >
         💬
         {unreadCount > 0 && (
@@ -394,7 +397,7 @@ export default function GlobalChat() {
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="fixed right-0 top-0 z-50 flex h-screen w-96 flex-col border-l border-white/10 bg-gradient-to-b from-slate-900 to-slate-950 shadow-2xl"
+            className="fixed right-0 top-0 z-[10000] flex h-screen w-96 flex-col border-l border-white/10 bg-gradient-to-b from-slate-900/95 to-slate-950/95 shadow-2xl backdrop-blur-sm"
           >
             {/* Header */}
             <div className="flex items-center justify-between border-b border-white/10 bg-black/40 px-4 py-3">
