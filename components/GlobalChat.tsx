@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '@/lib/supabase'
 import { useArenaStore } from '@/lib/store'
 import type { ChatMessage } from '@/lib/chat-types'
-import { containsProfanity, sanitizeMessage } from '@/lib/profanityFilter'
+import { validateMessage } from '@/lib/profanityFilter'
 import { CREATURES } from '@/lib/data/creatures'
 
 // Profile modal component
@@ -358,19 +358,22 @@ export default function GlobalChat() {
   const handleSend = async () => {
     if (!currentUser || !inputText.trim()) return
 
-    const sanitized = sanitizeMessage(inputText)
+    // Validate and filter message
+    const validation = validateMessage(inputText)
     
-    if (containsProfanity(sanitized)) {
-      alert('Message contains inappropriate language')
+    if (!validation.valid) {
+      alert(validation.error)
       return
     }
+    
+    const filtered = validation.filtered!
 
-    // Optimistic UI: show message immediately
+    // Optimistic UI: show message immediately (with filtered content)
     const tempId = `temp-${Date.now()}`
     const optimisticMessage: ChatMessage = {
       id: tempId,
       user_id: currentUser.id,
-      message: sanitized,
+      message: filtered,
       created_at: new Date().toISOString(),
       user: {
         id: currentUser.id,
@@ -389,12 +392,12 @@ export default function GlobalChat() {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }, 50)
 
-    // Send to server
+    // Send to server (with filtered content)
     const { error, data } = await supabase
       .from('chat_messages')
       .insert({
         user_id: currentUser.id,
-        message: sanitized,
+        message: filtered,
       })
       .select()
 
