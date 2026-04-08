@@ -56,6 +56,13 @@ export interface Trainer {
   signaturePokemon?: number[]  // Pokémon IDs (for sprites)
   winBg?: string   // path to win background image (e.g. '/trainer-bgs/red-win.jpg')
   lossBg?: string  // path to loss background image
+  
+  // X (Twitter) account linking (verified OAuth)
+  x_user_id?: string | null
+  x_username?: string | null
+  x_name?: string | null
+  x_profile_image_url?: string | null
+  x_verified_at?: string | null
 }
 
 // ── MOVE ──────────────────────────────────────────────────────

@@ -38,6 +38,13 @@ export interface Trainer {
   earnings: number; // net SOL won/lost from battles (positive = profit, negative = loss)
   badges: string[]; // arena IDs for which the trainer has earned the gym badge
   twitterHandle?: string | null;
+  
+  // X (Twitter) account linking (verified OAuth)
+  x_user_id?: string | null;
+  x_username?: string | null;
+  x_name?: string | null;
+  x_profile_image_url?: string | null;
+  x_verified_at?: string | null;
 }
 
 export type BattleRoom =
