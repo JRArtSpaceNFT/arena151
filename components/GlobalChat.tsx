@@ -397,7 +397,6 @@ export default function GlobalChat() {
         message: sanitized,
       })
       .select()
-      .single()
 
     if (error) {
       // Remove optimistic message on error
@@ -414,9 +413,9 @@ export default function GlobalChat() {
     }
 
     // Replace temp message with real one
-    if (data) {
+    if (data && data[0]) {
       setMessages(prev => prev.map(m => m.id === tempId ? {
-        ...data,
+        ...data[0],
         user: optimisticMessage.user
       } : m))
     }
@@ -434,7 +433,7 @@ export default function GlobalChat() {
           setIsOpen(!isOpen)
           if (!isOpen) setUnreadCount(0)
         }}
-        className="fixed right-6 top-6 z-[10000] flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-purple-600 to-purple-800 text-2xl shadow-lg transition hover:scale-110 hover:shadow-purple-500/50"
+        className="fixed right-6 top-6 z-[10000] flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-yellow-500 to-yellow-600 text-2xl shadow-lg transition hover:scale-110 hover:shadow-yellow-500/50"
       >
         💬
         {unreadCount > 0 && (
@@ -530,12 +529,12 @@ export default function GlobalChat() {
                   onKeyDown={e => e.key === 'Enter' && handleSend()}
                   placeholder="Say something..."
                   maxLength={200}
-                  className="flex-1 rounded-lg border border-white/20 bg-white/5 px-4 py-2 text-sm text-white placeholder-white/40 outline-none transition focus:border-purple-500 focus:bg-white/10"
+                  className="flex-1 rounded-lg border border-white/20 bg-white/5 px-4 py-2 text-sm text-white placeholder-white/40 outline-none transition focus:border-yellow-500 focus:bg-white/10"
                 />
                 <button
                   onClick={handleSend}
                   disabled={!inputText.trim()}
-                  className="rounded-lg bg-purple-600 px-6 py-2 font-bold text-white transition hover:bg-purple-700 disabled:opacity-50"
+                  className="rounded-lg bg-yellow-500 px-6 py-2 font-bold text-white transition hover:bg-yellow-600 disabled:opacity-50"
                 >
                   Send
                 </button>
