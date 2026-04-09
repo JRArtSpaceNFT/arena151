@@ -208,8 +208,8 @@ export default function MomentumMeter({
           letterSpacing: '0.08em',
         }}
       >
-        <span style={{ color: '#3b82f6', textShadow: '0 0 6px rgba(59,130,246,0.6)', fontSize: 8, letterSpacing: '0.05em' }}>{usernameB}</span>
         <span style={{ color: '#ef4444', textShadow: '0 0 6px rgba(239,68,68,0.6)', fontSize: 8, letterSpacing: '0.05em' }}>{usernameA}</span>
+        <span style={{ color: '#3b82f6', textShadow: '0 0 6px rgba(59,130,246,0.6)', fontSize: 8, letterSpacing: '0.05em' }}>{usernameB}</span>
       </div>
     </div>
   )

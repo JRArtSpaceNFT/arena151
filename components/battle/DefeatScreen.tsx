@@ -32,6 +32,9 @@ export default function DefeatScreen() {
     else navigateTo('result')
   }
 
+  // FIXED: Show the loser's background, not the winner's!
+  // If winner is A → loser is P2 → show P2's (opponent's) sprite
+  // If winner is B → loser is P1 → show P1's (player's) sprite
   const loserTrainer = battleState?.winner === 'A' ? p2Trainer : p1Trainer
   const arenaImage = arena?.image ?? null
 

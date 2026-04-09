@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
     })
 
     // 5. Store temporary OAuth data in secure cookies (expires in 10 minutes)
-    const response = NextResponse.redirect(authUrl)
+    const response = NextResponse.json({ authUrl })
     
     const cookieOptions = {
       httpOnly: true,

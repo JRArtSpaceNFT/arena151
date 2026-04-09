@@ -37,7 +37,7 @@ export function XConnectionCard({ onConnectionChange }: XConnectionCardProps) {
   const xProfileImage = currentUser?.x_profile_image_url
   const xVerifiedAt = currentUser?.x_verified_at
 
-  const handleConnect = () => {
+  const handleConnect = async () => {
     console.log('[XConnectionCard] handleConnect clicked')
     console.log('[XConnectionCard] currentUser:', currentUser)
     console.log('[XConnectionCard] currentUser.id:', currentUser?.id)
@@ -47,11 +47,32 @@ export function XConnectionCard({ onConnectionChange }: XConnectionCardProps) {
       return
     }
     
-    console.log('[XConnectionCard] Navigating to /api/x/connect (same-origin, cookies will be sent)...')
-    
-    // Direct navigation - browser will send all cookies (including httpOnly)
-    // This is the only reliable way to send httpOnly cookies in Next.js
-    window.location.href = '/api/x/connect'
+    try {
+      // Step 1: Fetch the OAuth URL from our backend
+      const response = await fetch('/api/x/connect', {
+        method: 'GET',
+        credentials: 'same-origin', // Send cookies
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+        throw new Error(errorData.error || `HTTP ${response.status}`)
+      }
+
+      const data = await response.json()
+      
+      if (!data.authUrl) {
+        throw new Error('No authorization URL received from server')
+      }
+
+      console.log('[XConnectionCard] Redirecting to X OAuth:', data.authUrl)
+      
+      // Step 2: Redirect to X OAuth
+      window.location.href = data.authUrl
+    } catch (error) {
+      console.error('[XConnectionCard] Connect error:', error)
+      alert(`Failed to connect: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
   }
 
   const handleUnlink = async () => {

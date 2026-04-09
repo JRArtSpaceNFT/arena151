@@ -279,8 +279,8 @@ function DossierCard({ trainer, isTaken }: { trainer: Trainer; isTaken: boolean 
               transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
               className="ts-dossier-sprite"
               style={{
-                width: ['ash','jessie-james'].includes(trainer.id) ? 'clamp(220px, 34vh, 310px)' : 'clamp(180px, 28vh, 260px)',
-                height: ['ash','jessie-james'].includes(trainer.id) ? 'clamp(220px, 34vh, 310px)' : 'clamp(180px, 28vh, 260px)',
+                width: ['ash','jessie-james'].includes(trainer.id) ? 'clamp(260px, 38vh, 360px)' : 'clamp(220px, 32vh, 300px)',
+                height: ['ash','jessie-james'].includes(trainer.id) ? 'clamp(260px, 38vh, 360px)' : 'clamp(220px, 32vh, 300px)',
                 objectFit: 'contain',
                 // all trainers are pixel art — pixelated keeps them crisp at large sizes
                 // only misty + jessie-james are hi-res photos so they get auto

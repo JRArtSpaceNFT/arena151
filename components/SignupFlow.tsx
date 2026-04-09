@@ -38,8 +38,7 @@ export default function SignupFlow() {
     email: '',
     password: '',
     confirmPassword: '',
-    displayName: '',
-    username: '',
+    displayName: '', // This is now the ONLY name field - used as both display name AND username
     bio: '',
     avatar: DEFAULT_AVATARS[0],
     customAvatarPreview: '',
@@ -111,7 +110,7 @@ export default function SignupFlow() {
   const canProceed = () => {
     switch (step) {
       case 1: return formData.email && formData.email.includes('@') && formData.password.length >= 6 && formData.password === formData.confirmPassword;
-      case 2: return formData.displayName.trim().length >= 2 && formData.username.trim().length >= 3 && !error;
+      case 2: return formData.displayName.trim().length >= 2 && !error;
       case 3: return !!formData.avatar;
       case 4: return !!formData.favoritePokemon;
       case 5: return tosAccepted;
@@ -120,10 +119,14 @@ export default function SignupFlow() {
     }
   };
 
-  const handleUsernameChange = (val: string) => {
-    setFormData(f => ({ ...f, username: val.toLowerCase() }));
-    if (val.length >= 3) {
-      const result = validateUsername(val);
+  const handleDisplayNameChange = (val: string) => {
+    setFormData(f => ({ ...f, displayName: val }));
+    if (val.trim().length >= 2 && val.trim().length < 3) {
+      setError('Display name must be at least 3 characters');
+    } else if (val.trim().length >= 3) {
+      // Validate as username format
+      const usernameVersion = val.toLowerCase().replace(/\s+/g, '_');
+      const result = validateUsername(usernameVersion);
       setError(result.valid ? '' : result.error || '');
     } else {
       setError('');
@@ -141,10 +144,12 @@ export default function SignupFlow() {
 
   const handleCreateAccount = async () => {
     setIsLoading(true);
+    // Generate username from displayName (lowercase, replace spaces with underscores)
+    const generatedUsername = formData.displayName.toLowerCase().replace(/\s+/g, '_');
     const result = await registerUser({
       email: formData.email,
       password: formData.password,
-      username: formData.username,
+      username: generatedUsername, // Auto-generated from display name
       displayName: formData.displayName,
       bio: formData.bio,
       avatar: formData.avatar,
@@ -428,17 +433,11 @@ export default function SignupFlow() {
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-semibold mb-2 flex items-center gap-2"><User className="w-4 h-4 text-blue-400" />Display Name <span className="text-red-400">*</span></label>
-                    <input type="text" placeholder="Ash Ketchum" value={formData.displayName}
-                      onChange={e => setFormData(f => ({ ...f, displayName: e.target.value }))}
-                      className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:border-blue-500 transition-colors" />
-                    <p className="text-xs text-slate-500 mt-1">Required • Public</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold mb-2 flex items-center gap-2"><AtSign className="w-4 h-4 text-blue-400" />Username <span className="text-red-400">*</span></label>
-                    <input type="text" placeholder="champion_ash" value={formData.username}
-                      onChange={e => handleUsernameChange(e.target.value)}
+                    <input type="text" placeholder="JR_Arena151" value={formData.displayName}
+                      onChange={e => handleDisplayNameChange(e.target.value)}
                       className={`w-full px-4 py-3 bg-slate-800 border rounded-lg focus:outline-none transition-colors ${error ? 'border-red-500' : 'border-slate-700 focus:border-blue-500'}`} />
-                    <p className="text-xs text-slate-500 mt-1">Required • Public • Letters, numbers, _ and - only</p>
+                    <p className="text-xs text-slate-500 mt-1">Required • Public • This is your username</p>
+                    <p className="text-xs text-slate-400 mt-2">Your username will be: <span className="font-mono font-bold">@{formData.displayName.toLowerCase().replace(/\s+/g, '_') || '...'}</span></p>
                   </div>
                   <div>
                     <label className="block text-sm font-semibold mb-2">Bio <span className="text-slate-500 font-normal">(optional)</span></label>
