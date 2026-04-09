@@ -6,6 +6,7 @@
 'use client'
 
 import { useState } from 'react'
+import { motion } from 'framer-motion'
 import { useArenaStore } from '@/lib/store'
 
 interface XConnectionCardProps {
@@ -82,7 +83,7 @@ export function XConnectionCard({ onConnectionChange }: XConnectionCardProps) {
   }
 
   return (
-    <div className="rounded-lg border border-white/10 bg-gradient-to-br from-slate-800/50 to-slate-900/50 p-6">
+    <div className="rounded-2xl border shadow-xl relative overflow-hidden" style={{ background: 'linear-gradient(160deg, #0a1929 0%, #1a0a2e 100%)', borderColor: 'rgba(29,161,242,0.2)', padding: '1.5rem' }}>
       <div className="flex items-start justify-between">
         <div>
           <h3 className="text-lg font-bold text-white">X (Twitter) Account</h3>
@@ -117,26 +118,35 @@ export function XConnectionCard({ onConnectionChange }: XConnectionCardProps) {
         {!isConnected ? (
           // Not connected state
           <div>
-            <button
+            <motion.button
               onClick={handleConnect}
               disabled={!currentUser}
-              className="flex w-full items-center justify-center gap-3 rounded-xl px-8 py-4 font-black text-lg text-white transition-all duration-200 hover:scale-[1.05] hover:shadow-2xl hover:shadow-blue-500/50 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none relative overflow-hidden group"
+              whileHover={currentUser ? { scale: 1.03, y: -2 } : {}}
+              whileTap={currentUser ? { scale: 0.98, y: 0 } : {}}
+              className="flex w-full items-center justify-center gap-3 rounded-xl px-8 py-5 font-black text-lg text-white transition-all duration-200 disabled:cursor-not-allowed relative overflow-hidden group"
               style={{
                 background: currentUser 
                   ? 'linear-gradient(135deg, #1DA1F2 0%, #0d8bd9 100%)'
-                  : 'linear-gradient(135deg, #64748b 0%, #475569 100%)',
+                  : 'linear-gradient(135deg, #475569 0%, #334155 100%)',
                 boxShadow: currentUser
-                  ? '0 4px 20px rgba(29, 161, 242, 0.4), inset 0 1px 0 rgba(255,255,255,0.2)'
-                  : '0 4px 12px rgba(0,0,0,0.3)',
+                  ? '0 6px 0 0 #0d8bd9, 0 8px 24px rgba(29,161,242,0.5), inset 0 1px 0 rgba(255,255,255,0.25)'
+                  : '0 4px 0 0 #1e293b, 0 6px 12px rgba(0,0,0,0.3)',
+                opacity: currentUser ? 1 : 0.5,
+                transform: 'translateZ(0)', // Enable 3D transforms
               }}
             >
               {/* Animated shine effect on hover */}
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
-              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">
+              <motion.div 
+                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent"
+                initial={{ x: '-100%' }}
+                whileHover={{ x: '200%' }}
+                transition={{ duration: 0.6 }}
+              />
+              <svg viewBox="0 0 24 24" className="h-6 w-6 relative z-10" fill="currentColor">
                 <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
               </svg>
-              Connect X Account
-            </button>
+              <span className="relative z-10">Connect X Account</span>
+            </motion.button>
             {!currentUser ? (
               <p className="mt-2 text-center text-xs text-red-400">
                 ⚠️ You must be logged in to connect your X account

@@ -474,21 +474,21 @@ export default function TrainerProfile() {
             <div className="absolute inset-0 pointer-events-none"
               style={{ background: `radial-gradient(ellipse at 50% 0%, ${typeColor}22 0%, transparent 65%)` }} />
 
-            {/* Avatar - MUCH BIGGER */}
-            <div className="relative mb-4 z-10">
-              {/* Outer ring glow - bigger and more intense */}
-              <motion.div className="absolute -inset-4 rounded-full blur-2xl"
-                style={{ background: typeColor, opacity: 0.35 }}
-                animate={{ opacity: [0.25, 0.5, 0.25] }}
+            {/* Avatar - MASSIVE */}
+            <div className="relative mb-6 z-10">
+              {/* Outer ring glow - massive and intense */}
+              <motion.div className="absolute -inset-8 rounded-full blur-3xl"
+                style={{ background: typeColor, opacity: 0.4 }}
+                animate={{ opacity: [0.3, 0.6, 0.3] }}
                 transition={{ duration: 2.5, repeat: Infinity }}
               />
-              {/* Hexagon-inspired border frame - thicker */}
-              <div className="absolute -inset-2 rounded-full" style={{ background: `conic-gradient(${typeColor}, #7c3aed, ${typeColor})`, padding: 3, borderRadius: '50%' }}>
+              {/* Hexagon-inspired border frame - thicker and bigger */}
+              <div className="absolute -inset-3 rounded-full" style={{ background: `conic-gradient(${typeColor}, #7c3aed, ${typeColor})`, padding: 4, borderRadius: '50%' }}>
                 <div className="w-full h-full rounded-full" style={{ background: '#0d1a3e' }} />
               </div>
               <motion.div whileHover={{ scale: 1.05 }} onClick={() => setShowAvatarPicker(true)}
-                className="w-40 h-40 rounded-full overflow-hidden cursor-pointer relative group z-10"
-                style={{ boxShadow: `0 0 32px ${typeColor}88, 0 0 64px ${typeColor}44` }}>
+                className="w-56 h-56 rounded-full overflow-hidden cursor-pointer relative group z-10"
+                style={{ boxShadow: `0 0 48px ${typeColor}AA, 0 0 96px ${typeColor}66` }}>
                 {currentTrainer.avatar?.startsWith('data:') || currentTrainer.avatar?.startsWith('/') ? (
                   <img src={currentTrainer.avatar} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
@@ -498,7 +498,7 @@ export default function TrainerProfile() {
                   </div>
                 )}
                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-full">
-                  <Camera className="w-8 h-8 text-white" />
+                  <Camera className="w-12 h-12 text-white" />
                 </div>
               </motion.div>
             </div>

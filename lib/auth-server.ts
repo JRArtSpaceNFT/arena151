@@ -35,16 +35,32 @@ async function getSupabaseServer() {
 }
 
 /**
- * Decode JWT payload from base64url (no signature verification)
- * For read-only access to user ID from session token
+ * Extract user ID from Supabase session cookie
+ * Supabase stores session as base64-encoded JSON: {access_token, refresh_token, user, ...}
  */
-function decodeJWT(token: string): { sub?: string } | null {
+function extractUserIdFromSession(cookieValue: string): string | null {
   try {
-    const parts = token.split('.')
-    if (parts.length !== 3) return null
-    const payload = parts[1]
-    const decoded = Buffer.from(payload.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8')
-    return JSON.parse(decoded)
+    // Supabase cookie is base64-encoded JSON
+    const decoded = Buffer.from(cookieValue, 'base64').toString('utf8')
+    const session = JSON.parse(decoded)
+    
+    // User ID can be in session.user.id or we can decode the access_token JWT
+    if (session.user?.id) {
+      return session.user.id
+    }
+    
+    // Fallback: decode access_token JWT
+    if (session.access_token) {
+      const parts = session.access_token.split('.')
+      if (parts.length === 3) {
+        const payload = parts[1]
+        const jwtPayload = Buffer.from(payload.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8')
+        const parsed = JSON.parse(jwtPayload)
+        if (parsed.sub) return parsed.sub
+      }
+    }
+    
+    return null
   } catch {
     return null
   }
@@ -83,15 +99,15 @@ export async function getCurrentUserIdOrThrow(): Promise<string> {
   console.log('[auth-server] Cookie value length:', authCookie.value.length)
   console.log('[auth-server] Cookie value preview:', authCookie.value.substring(0, 50) + '...')
 
-  // Try to decode JWT directly (fastest, no network call)
-  const decoded = decodeJWT(authCookie.value)
-  if (decoded?.sub) {
-    console.log('[auth-server] ✅ JWT decoded successfully, user ID:', decoded.sub)
-    return decoded.sub
+  // Try to extract user ID from session cookie (fastest, no network call)
+  const userId = extractUserIdFromSession(authCookie.value)
+  if (userId) {
+    console.log('[auth-server] ✅ User ID extracted from session cookie:', userId)
+    return userId
   }
 
-  // Fallback to Supabase client if JWT decode failed
-  console.log('[auth-server] ⚠️ JWT decode failed, falling back to Supabase getUser()')
+  // Fallback to Supabase client if session extraction failed
+  console.log('[auth-server] ⚠️ Session extraction failed, falling back to Supabase getUser()')
   const supabase = await getSupabaseServer()
   const { data: { user }, error } = await supabase.auth.getUser()
 
@@ -111,7 +127,7 @@ export async function getCurrentUserId(): Promise<string | null> {
   try {
     return await getCurrentUserIdOrThrow()
   } catch (err) {
-    console.error('[auth-server] getCurrentUserId failed:', err instanceof Error ? err.message : err)
+    console.error('[auth-server] getCurrentUserId failed:', err instanceof Error ? err.message : String(err))
     return null
   }
 }
