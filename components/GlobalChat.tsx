@@ -498,7 +498,7 @@ export default function GlobalChat() {
             <div className="flex items-center justify-between border-b border-white/10 bg-black/40 px-4 py-3">
               <div>
                 <h2 className="text-lg font-black text-white">Arena Lobby</h2>
-                <p className="text-xs text-white/50">👤 {onlineCount} online</p>
+                <p className="text-xs text-white/50">👤 {onlineCount} online | 💬 {messages.length} msgs</p>
               </div>
               <button
                 onClick={() => setIsOpen(false)}
@@ -509,7 +509,7 @@ export default function GlobalChat() {
             </div>
 
             {/* Messages */}
-            <div className="flex-1 space-y-3 overflow-y-auto p-4">
+            <div className="flex-1 space-y-3 overflow-y-auto p-4" key={messages.length}>
               {filteredMessages.map(msg => {
                 const favCreature = msg.user?.favorite_creature_id
                   ? CREATURES.find(c => c.id === parseInt(msg.user!.favorite_creature_id!))
