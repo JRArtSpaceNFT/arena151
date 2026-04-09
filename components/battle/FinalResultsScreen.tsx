@@ -287,9 +287,27 @@ function ComparisonRow({ label, value, align }: { label: string; value: number; 
 }
 
 export default function FinalResultsScreen() {
-  const { currentMatch, currentTrainer, setTrainer, setScreen, clearMatch, lastMatchWinner, settledMatchResult, setSettledMatchResult } = useArenaStore()
-  const { p1Trainer, p2Trainer, arena, gameMode } = useGameStore()
-  const [isVictory] = useState(() => lastMatchWinner !== null ? lastMatchWinner === 1 : false)
+  const { currentMatch, currentTrainer, setTrainer, setScreen, clearMatch, lastMatchWinner, settledMatchResult, setSettledMatchResult, setLastMatchWinner } = useArenaStore()
+  const { p1Trainer, p2Trainer, arena, gameMode, battleState } = useGameStore()
+  
+  // CRITICAL FIX: Read winner from battleState, not lastMatchWinner (which is never set)
+  const actualWinner = battleState?.winner === 'A' ? 1 : battleState?.winner === 'B' ? 2 : null
+  
+  console.log('[FinalResultsScreen] Winner detection:', {
+    battleStateWinner: battleState?.winner,
+    actualWinner,
+    settledMatchResult: settledMatchResult?.iWon,
+    lastMatchWinner,
+  })
+  
+  const [isVictory] = useState(() => {
+    // For real-money matches with settled results
+    if (settledMatchResult) return settledMatchResult.iWon
+    // For all other matches (practice, friend, quick), read from battleState
+    const victory = actualWinner === 1
+    console.log('[FinalResultsScreen] Calculated isVictory:', victory)
+    return victory
+  })
   const [newBadgeArena, setNewBadgeArena] = useState<string | null>(null)
 
   // ── Practice mode synthetic match ──
@@ -408,7 +426,12 @@ export default function FinalResultsScreen() {
 
   useEffect(() => {
     playMusic('victory')
-  }, [])
+    
+    // CRITICAL: Set lastMatchWinner so other screens know the result
+    if (actualWinner) {
+      setLastMatchWinner(actualWinner as 1 | 2)
+    }
+  }, [actualWinner, setLastMatchWinner])
 
   useEffect(() => {
     if (!effectiveMatch || !effectiveTrainer) return
