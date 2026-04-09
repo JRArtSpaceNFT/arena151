@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useGameStore } from '@/lib/game-store'
+import { useArenaStore } from '@/lib/store'
 import { playMusic } from '@/lib/audio/musicEngine'
 import { incrementBattlesTotal, addBattleToLog } from '@/lib/battleStats'
 
@@ -33,6 +34,7 @@ function SpeedLines({ color }: { color: string }) {
 
 export default function VictoryScreen() {
   const { battleState, p1Trainer, p2Trainer, proceedToResults, gameMode, completeStoryBattle, arena } = useGameStore()
+  const { currentTrainer } = useArenaStore()
   const [showQuote, setShowQuote] = useState(false)
   const [displayed, setDisplayed] = useState('')
   const [showButton, setShowButton] = useState(false)
@@ -60,6 +62,7 @@ export default function VictoryScreen() {
         arena: arena?.name ?? 'Unknown Arena',
         arenaEmoji,
         timestamp: Date.now(),
+        userId: currentTrainer?.id, // Associate battle with current user
       })
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps

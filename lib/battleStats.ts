@@ -6,6 +6,7 @@ export interface BattleLogEntry {
   arena: string
   arenaEmoji?: string
   timestamp: number
+  userId?: string // ID of the user this battle belongs to
 }
 
 const KEYS = {
@@ -27,10 +28,15 @@ export function getSessionsToday(): number {
   return parseInt(localStorage.getItem(KEYS.sessionsToday) ?? '0', 10) || 0
 }
 
-export function getBattleLog(): BattleLogEntry[] {
+export function getBattleLog(userId?: string): BattleLogEntry[] {
   if (typeof window === 'undefined') return []
   try {
-    return JSON.parse(localStorage.getItem(KEYS.battleLog) ?? '[]') as BattleLogEntry[]
+    const allBattles = JSON.parse(localStorage.getItem(KEYS.battleLog) ?? '[]') as BattleLogEntry[]
+    // If userId provided, filter to only that user's battles
+    if (userId) {
+      return allBattles.filter(b => b.userId === userId)
+    }
+    return allBattles
   } catch {
     return []
   }
@@ -69,9 +75,10 @@ export function trackSession(): void {
 
 export function addBattleToLog(entry: BattleLogEntry): void {
   if (typeof window === 'undefined') return
-  const log = getBattleLog()
+  const log = getBattleLog() // Get all battles (no filter)
   log.unshift(entry)
-  if (log.length > 20) log.length = 20
+  // Keep last 100 battles total (across all users on this device)
+  if (log.length > 100) log.length = 100
   localStorage.setItem(KEYS.battleLog, JSON.stringify(log))
 }
 

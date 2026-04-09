@@ -151,8 +151,11 @@ export default function TrainerProfile() {
 
   const [recentBattles, setRecentBattles] = useState<BattleLogEntry[]>([]);
   useEffect(() => {
-    setRecentBattles(getBattleLog().slice(0, 10));
-  }, []);
+    // Only show battles for the current logged-in user
+    if (currentTrainer) {
+      setRecentBattles(getBattleLog(currentTrainer.id).slice(0, 10));
+    }
+  }, [currentTrainer]);
 
   // Twitter/X is now handled via OAuth (XConnectionCard component)
 

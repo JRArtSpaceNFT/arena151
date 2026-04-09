@@ -444,7 +444,7 @@ export default function SignupFlow() {
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-semibold mb-2 flex items-center gap-2"><User className="w-4 h-4 text-blue-400" />Display Name <span className="text-red-400">*</span></label>
-                    <input type="text" placeholder="JR_Arena151" value={formData.displayName}
+                    <input type="text" placeholder="Pokemon_Trainer" value={formData.displayName}
                       onChange={e => handleDisplayNameChange(e.target.value)}
                       className={`w-full px-4 py-3 bg-slate-800 border rounded-lg focus:outline-none transition-colors ${error ? 'border-red-500' : 'border-slate-700 focus:border-blue-500'}`} />
                     <p className="text-xs text-slate-500 mt-1">Required • Public • This is your username</p>
@@ -464,13 +464,13 @@ export default function SignupFlow() {
             {/* STEP 3 — Avatar */}
             {step === 3 && (
               <motion.div key="s3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-                <div className="flex items-center gap-3 mb-6"><Upload className="w-8 h-8 text-blue-400" /><h2 className="text-3xl font-bold">Your Avatar</h2></div>
-                <p className="text-slate-400 mb-6">Upload your own photo or choose a default trainer portrait.</p>
+                <div className="flex items-center gap-3 mb-4"><Upload className="w-6 h-6 text-blue-400" /><h2 className="text-2xl font-bold">Your Avatar</h2></div>
+                <p className="text-slate-400 text-sm mb-4">Upload your own photo or choose a default trainer portrait.</p>
 
                 {/* Upload section */}
                 <div
                   onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-slate-600 hover:border-blue-500 rounded-xl p-6 text-center cursor-pointer transition-all mb-6 group"
+                  className="border-2 border-dashed border-slate-600 hover:border-blue-500 rounded-xl p-4 text-center cursor-pointer transition-all mb-4 group"
                 >
                   {formData.customAvatarPreview ? (
                     <div className="flex items-center gap-4 justify-center">
@@ -490,12 +490,12 @@ export default function SignupFlow() {
                 </div>
                 <input ref={fileInputRef} type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
 
-                <div className="relative mb-4">
+                <div className="relative mb-3">
                   <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-700" /></div>
-                  <div className="relative flex justify-center"><span className="bg-slate-900 px-4 text-xs text-slate-500">OR CHOOSE A DEFAULT</span></div>
+                  <div className="relative flex justify-center"><span className="bg-slate-900 px-3 text-xs text-slate-500">OR CHOOSE A DEFAULT</span></div>
                 </div>
 
-                <div className="grid grid-cols-6 gap-3">
+                <div className="grid grid-cols-6 gap-2 max-h-[240px] overflow-y-auto pr-2">
                   {getAvatarOptions().map((opt) => (
                     <motion.div key={opt.value} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                       onClick={() => setFormData(f => ({ ...f, avatar: opt.value, customAvatarPreview: '' }))}
@@ -508,7 +508,7 @@ export default function SignupFlow() {
                     </motion.div>
                   ))}
                 </div>
-                <p className="text-xs text-slate-500 mt-4">Public • Can be changed later in profile settings</p>
+                <p className="text-xs text-slate-500 mt-3">Public • Can be changed later in profile settings</p>
               </motion.div>
             )}
 
