@@ -182,7 +182,7 @@ export default function SignupFlow() {
   // ── LOGIN MODE ──────────────────────────────────────────────
   if (mode === 'login') {
     return (
-      <div className="min-h-screen flex items-center justify-center p-8 relative overflow-hidden">
+      <div className="min-h-screen flex items-center justify-center p-4 md:p-8 relative overflow-y-auto">
         {/* Background image */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/SICK.jpg" alt="" className="absolute inset-0 w-full h-full object-cover" aria-hidden="true" />
@@ -252,7 +252,7 @@ export default function SignupFlow() {
   // ── FORGOT PASSWORD MODE ────────────────────────────────────
   if (mode === 'forgot') {
     return (
-      <div className="min-h-screen flex items-center justify-center p-8 relative overflow-hidden">
+      <div className="min-h-screen flex items-center justify-center p-4 md:p-8 relative overflow-y-auto">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/SICK.jpg" alt="" className="absolute inset-0 w-full h-full object-cover" aria-hidden="true" />
         <div className="absolute inset-0 bg-black/50" />
@@ -297,7 +297,7 @@ export default function SignupFlow() {
   // ── AGE VERIFICATION GATE ──────────────────────────────────
   if (ageVerified === null || ageDenied) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-8 relative overflow-hidden">
+      <div className="min-h-screen flex items-center justify-center p-4 md:p-8 relative overflow-y-auto">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/SICK.jpg" alt="" className="absolute inset-0 w-full h-full object-cover" aria-hidden="true" />
         <div className="absolute inset-0 bg-black/70" />
@@ -357,7 +357,7 @@ export default function SignupFlow() {
 
   // ── SIGNUP MODE ─────────────────────────────────────────────
   return (
-    <div className="min-h-screen flex items-center justify-center p-8 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center p-4 md:p-8 relative overflow-y-auto">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src="/SICK.jpg" alt="" className="absolute inset-0 w-full h-full object-cover" aria-hidden="true" />
       <div className="absolute inset-0 bg-black/50" />
@@ -380,7 +380,7 @@ export default function SignupFlow() {
           </div>
         </motion.div>
 
-        <motion.div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800/50 rounded-2xl p-8 mb-6">
+        <motion.div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800/50 rounded-2xl p-4 md:p-8 mb-6 max-h-[80vh] overflow-y-auto">
           {error && <div className="flex items-center gap-3 bg-red-950/50 border border-red-500/50 rounded-lg p-3 mb-6 text-red-300 text-sm"><AlertCircle className="w-4 h-4 flex-shrink-0" />{error}</div>}
 
           <AnimatePresence mode="wait">
