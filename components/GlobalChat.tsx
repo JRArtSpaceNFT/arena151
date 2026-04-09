@@ -198,7 +198,13 @@ export default function GlobalChat() {
   const [mutedUsers, setMutedUsers] = useState<Set<string>>(new Set())
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const lastReadTimestamp = useRef<string | null>(null)
+  const isOpenRef = useRef(isOpen) // Track isOpen with ref to avoid stale closures
   const currentUser = useArenaStore(s => s.currentTrainer)
+
+  // Keep isOpenRef in sync with isOpen state
+  useEffect(() => {
+    isOpenRef.current = isOpen
+  }, [isOpen])
 
   // Fetch initial messages on mount (always, not just when chat opens)
   useEffect(() => {
@@ -303,13 +309,13 @@ export default function GlobalChat() {
           return updated
         })
 
-        // Increment unread if panel closed
-        if (!isOpen && payload.new.user_id !== currentUser?.id) {
+        // Increment unread if panel closed (use ref to avoid stale closure)
+        if (!isOpenRef.current && payload.new.user_id !== currentUser?.id) {
           setUnreadCount(prev => prev + 1)
         }
 
-        // Auto-scroll if near bottom and chat is open
-        if (isOpen) {
+        // Auto-scroll if near bottom and chat is open (use ref)
+        if (isOpenRef.current) {
           setTimeout(() => {
             if (messagesEndRef.current) {
               const container = messagesEndRef.current.parentElement
@@ -331,7 +337,7 @@ export default function GlobalChat() {
       console.log('[GlobalChat] Cleaning up subscription')
       supabase.removeChannel(channel)
     }
-  }, [currentUser?.id, isOpen])
+  }, [currentUser?.id]) // Removed isOpen - subscription stays active always
 
   // Heartbeat presence
   useEffect(() => {
