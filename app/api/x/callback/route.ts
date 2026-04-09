@@ -1,153 +1,220 @@
 /**
- * X OAuth Callback Route
- * Handles OAuth 2.0 callback from X
+ * X OAuth Callback Route - Step 2
+ * Handles OAuth 1.0a callback from X
  * 
  * Flow:
- * 1. Validate state parameter (CSRF protection)
- * 2. Validate initiating user session
- * 3. Exchange authorization code for access token
- * 4. Get authenticated X user info
- * 5. Check if X account already linked to another Arena 151 profile
- * 6. Store verified X account info in user profile
- * 7. Clear temporary OAuth cookies
- * 8. Redirect to profile with success/error
+ * 1. X redirects here with oauth_token + oauth_verifier
+ * 2. Verify current user session exists
+ * 3. Load pending OAuth attempt from database by oauth_token
+ * 4. Verify attempt is not expired
+ * 5. Verify oauth_token matches stored request token
+ * 6. Exchange request token + verifier for access token
+ * 7. Get authenticated X user details
+ * 8. Check if X account already linked to different Arena 151 user
+ * 9. Link X account to current user profile
+ * 10. Mark OAuth attempt as completed
+ * 11. Log success audit event
+ * 12. Redirect to profile page with success
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { exchangeCodeForToken, getXUserInfo } from '@/lib/x-oauth'
-import { encrypt } from '@/lib/crypto'
 import { getCurrentUserId } from '@/lib/auth-server'
+import { getAccessToken, verifyCredentials } from '@/lib/x-oauth-1-0a'
 import {
-  getProfileByXUserId,
-  updateProfileXAccount,
-  logXConnectionAudit,
-} from '@/lib/db-server'
+  getOAuthAttemptByToken,
+  completeOAuthAttempt,
+  failOAuthAttempt,
+  logOAuthEvent,
+  linkXAccountToProfile,
+  isXAccountLinked,
+} from '@/lib/x-oauth-db'
 
 export async function GET(request: NextRequest) {
+  const startTime = Date.now()
   const baseUrl = process.env.APP_BASE_URL || 'http://localhost:3002'
   
   try {
-    // 1. Extract OAuth callback parameters
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+    console.log('[CONNECT_X_CALLBACK_HIT] OAuth callback received')
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+
+    // 1. Extract callback parameters from X
     const searchParams = request.nextUrl.searchParams
-    const code = searchParams.get('code')
-    const state = searchParams.get('state')
-    const error = searchParams.get('error')
+    const oauth_token = searchParams.get('oauth_token')
+    const oauth_verifier = searchParams.get('oauth_verifier')
+    const denied = searchParams.get('denied')
+
+    console.log('[CONNECT_X_CALLBACK] oauth_token:', oauth_token?.substring(0, 10) + '...')
+    console.log('[CONNECT_X_CALLBACK] oauth_verifier:', oauth_verifier?.substring(0, 10) + '...')
+    console.log('[CONNECT_X_CALLBACK] denied:', denied)
 
     // Handle user denied authorization
-    if (error) {
+    if (denied) {
+      console.log('[CONNECT_X_ERROR] User denied authorization')
       return NextResponse.redirect(`${baseUrl}/?x_error=authorization_denied`)
     }
 
-    if (!code || !state) {
-      throw new Error('Missing code or state parameter')
+    if (!oauth_token || !oauth_verifier) {
+      console.error('[CONNECT_X_ERROR] Missing oauth_token or oauth_verifier')
+      throw new Error('Missing callback parameters')
     }
 
-    // 2. Retrieve stored OAuth data from cookies
-    const storedState = request.cookies.get('x_oauth_state')?.value
-    const storedVerifier = request.cookies.get('x_oauth_verifier')?.value
-    const storedUserId = request.cookies.get('x_oauth_user_id')?.value
-
-    if (!storedState || !storedVerifier || !storedUserId) {
-      throw new Error('OAuth session expired or invalid')
-    }
-
-    // 3. Validate state (CSRF protection)
-    if (state !== storedState) {
-      throw new Error('Invalid state parameter (CSRF check failed)')
-    }
-
-    // 4. Validate current user session matches OAuth initiator
+    // 2. Verify current user is logged in
     const currentUserId = await getCurrentUserId()
-    if (!currentUserId || currentUserId !== storedUserId) {
-      throw new Error('Session mismatch (OAuth initiated by different user)')
+    
+    if (!currentUserId) {
+      console.error('[CONNECT_X_ERROR] No authenticated session on callback')
+      throw new Error('Session expired. Please log in and try again.')
     }
 
-    // 5. Exchange authorization code for access token
-    const clientId = process.env.X_CLIENT_ID!
-    const clientSecret = process.env.X_CLIENT_SECRET!
-    const redirectUri = process.env.X_REDIRECT_URI!
+    console.log('[CONNECT_X_AUTH_OK] Current user:', currentUserId)
 
-    const tokenResponse = await exchangeCodeForToken({
-      code,
-      codeVerifier: storedVerifier,
-      clientId,
-      clientSecret,
-      redirectUri,
-    })
-
-    // 6. Get authenticated X user info
-    const xUser = await getXUserInfo(tokenResponse.access_token)
-
-    // 7. Check if X account already linked to another Arena 151 profile
-    const existingProfile = await getProfileByXUserId(xUser.id)
+    // 3. Load pending OAuth attempt from database
+    console.log('[CONNECT_X_DB_LOOKUP] Loading attempt by token...')
     
-    if (existingProfile && existingProfile.id !== currentUserId) {
-      await logXConnectionAudit({
-        user_id: currentUserId,
-        action: 'link_failed',
-        x_user_id: xUser.id,
-        x_username: xUser.username,
-        error: 'X account already linked to another profile',
+    const attempt = await getOAuthAttemptByToken(oauth_token)
+    
+    if (!attempt) {
+      console.error('[CONNECT_X_ERROR] No pending OAuth attempt found')
+      throw new Error('OAuth session expired or invalid. Please try connecting again.')
+    }
+
+    console.log('[CONNECT_X_DB_FOUND] Attempt ID:', attempt.id)
+    console.log('[CONNECT_X_DB_FOUND] User ID:', attempt.user_id)
+    console.log('[CONNECT_X_DB_FOUND] Status:', attempt.status)
+    console.log('[CONNECT_X_DB_FOUND] Expires at:', attempt.expires_at)
+
+    // 4. Verify oauth attempt belongs to current user
+    if (attempt.user_id !== currentUserId) {
+      console.error('[CONNECT_X_ERROR] OAuth user mismatch')
+      console.error('Attempt user:', attempt.user_id)
+      console.error('Current user:', currentUserId)
+      await failOAuthAttempt(attempt.id)
+      throw new Error('Session mismatch. Please try connecting again.')
+    }
+
+    console.log('[CONNECT_X_TOKEN_MATCH_OK] Token ownership verified')
+
+    // 5. Get OAuth credentials
+    const consumerKey = process.env.X_CONSUMER_KEY || process.env.X_CLIENT_ID
+    const consumerSecret = process.env.X_CONSUMER_SECRET || process.env.X_CLIENT_SECRET
+
+    if (!consumerKey || !consumerSecret) {
+      throw new Error('X OAuth not configured on server')
+    }
+
+    // 6. Exchange request token + verifier for access token (OAuth 1.0a Step 2)
+    console.log('[CONNECT_X_TOKEN_EXCHANGE] Exchanging for access token...')
+    
+    const accessTokenData = await getAccessToken(
+      consumerKey,
+      consumerSecret,
+      oauth_token,
+      attempt.request_token_secret,
+      oauth_verifier
+    )
+
+    console.log('[CONNECT_X_ACCESS_TOKEN_SUCCESS] Got access token')
+    console.log('[CONNECT_X_ACCESS_TOKEN_SUCCESS] X User ID:', accessTokenData.user_id)
+    console.log('[CONNECT_X_ACCESS_TOKEN_SUCCESS] X Username:', accessTokenData.screen_name)
+
+    // 7. Verify credentials and get full user details
+    console.log('[CONNECT_X_IDENTITY] Fetching user details...')
+    
+    const xUser = await verifyCredentials(
+      consumerKey,
+      consumerSecret,
+      accessTokenData.oauth_token,
+      accessTokenData.oauth_token_secret
+    )
+
+    console.log('[CONNECT_X_IDENTITY_SUCCESS] Verified user:', xUser.screen_name)
+    console.log('[CONNECT_X_IDENTITY_SUCCESS] Display name:', xUser.name)
+    console.log('[CONNECT_X_IDENTITY_SUCCESS] Profile image:', xUser.profile_image_url_https)
+
+    // 8. Check if X account already linked to another Arena 151 user
+    console.log('[CONNECT_X_UNIQUENESS] Checking if X account already linked...')
+    
+    const { isLinked, linkedUserId } = await isXAccountLinked(
+      xUser.id_str,
+      currentUserId
+    )
+
+    if (isLinked) {
+      console.error('[CONNECT_X_ERROR] X account already linked to another user')
+      console.error('X User ID:', xUser.id_str)
+      console.error('Linked to:', linkedUserId)
+      
+      await failOAuthAttempt(attempt.id)
+      await logOAuthEvent({
+        userId: currentUserId,
+        action: 'connect_failed',
+        xUserId: xUser.id_str,
+        xUsername: xUser.screen_name,
+        errorCode: 'account_already_linked',
+        errorMessage: 'This X account is already linked to another Arena 151 profile',
       })
       
       throw new Error('This X account is already linked to another Arena 151 profile')
     }
 
-    // 8. Encrypt tokens (optional - can be omitted if not needed long-term)
-    const encryptionKey = process.env.TOKEN_ENCRYPTION_KEY
-    const accessTokenEncrypted = encryptionKey 
-      ? encrypt(tokenResponse.access_token, encryptionKey)
-      : undefined
-    const refreshTokenEncrypted = encryptionKey && tokenResponse.refresh_token
-      ? encrypt(tokenResponse.refresh_token, encryptionKey)
-      : undefined
+    console.log('[CONNECT_X_UNIQUENESS_OK] X account not linked elsewhere')
 
-    // 9. Calculate token expiration
-    const tokenExpiresAt = tokenResponse.expires_in
-      ? new Date(Date.now() + tokenResponse.expires_in * 1000).toISOString()
-      : undefined
-
-    // 10. Store verified X account info in profile
-    await updateProfileXAccount(currentUserId, {
-      x_user_id: xUser.id,
-      x_username: xUser.username,
-      x_name: xUser.name,
-      x_profile_image_url: xUser.profile_image_url,
-      x_verified_at: new Date().toISOString(),
-      x_access_token_encrypted: accessTokenEncrypted,
-      x_refresh_token_encrypted: refreshTokenEncrypted,
-      x_token_expires_at: tokenExpiresAt,
-    })
-
-    // 11. Log successful connection
-    await logXConnectionAudit({
-      user_id: currentUserId,
-      action: 'linked',
-      x_user_id: xUser.id,
-      x_username: xUser.username,
-    })
-
-    // 12. Clear temporary OAuth cookies and redirect to success
-    const response = NextResponse.redirect(`${baseUrl}/?x_success=true`)
+    // 9. Link X account to current user profile
+    console.log('[CONNECT_X_DB_LINK] Linking X account to profile...')
     
-    response.cookies.delete('x_oauth_state')
-    response.cookies.delete('x_oauth_verifier')
-    response.cookies.delete('x_oauth_user_id')
+    await linkXAccountToProfile({
+      userId: currentUserId,
+      xUserId: xUser.id_str,
+      xUsername: xUser.screen_name,
+      xName: xUser.name,
+      xProfileImageUrl: xUser.profile_image_url_https,
+    })
 
-    return response
+    console.log('[CONNECT_X_DB_LINK_SUCCESS] X account linked to profile')
+
+    // 10. Mark OAuth attempt as completed
+    await completeOAuthAttempt(attempt.id)
+    
+    console.log('[CONNECT_X_DB_COMPLETE] Attempt marked as completed')
+
+    // 11. Log success audit event
+    await logOAuthEvent({
+      userId: currentUserId,
+      action: 'connect_success',
+      xUserId: xUser.id_str,
+      xUsername: xUser.screen_name,
+    })
+
+    const elapsed = Date.now() - startTime
+    console.log('[CONNECT_X_DONE] Full flow completed in', elapsed, 'ms')
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+
+    // 12. Redirect to profile page with success
+    return NextResponse.redirect(`${baseUrl}/?x_success=true`)
 
   } catch (error) {
-    console.error('X OAuth callback error:', error)
+    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+    console.error('[CONNECT_X_ERROR] Callback failed')
+    console.error('Error:', error instanceof Error ? error.message : error)
+    console.error('Stack:', error instanceof Error ? error.stack : 'No stack')
+    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
     
-    const errorMessage = error instanceof Error ? error.message : 'Failed to link X account'
+    const errorMessage = error instanceof Error 
+      ? error.message 
+      : 'Failed to link X account'
     
-    // Clear OAuth cookies on error
-    const response = NextResponse.redirect(`${baseUrl}/?x_error=${encodeURIComponent(errorMessage)}`)
-    
-    response.cookies.delete('x_oauth_state')
-    response.cookies.delete('x_oauth_verifier')
-    response.cookies.delete('x_oauth_user_id')
+    const errorCode = errorMessage.includes('already linked')
+      ? 'account_already_linked'
+      : errorMessage.includes('expired')
+      ? 'session_expired'
+      : errorMessage.includes('mismatch')
+      ? 'session_mismatch'
+      : 'unknown_error'
 
-    return response
+    // Redirect to homepage with error
+    return NextResponse.redirect(
+      `${baseUrl}/?x_error=${encodeURIComponent(errorCode)}&x_error_message=${encodeURIComponent(errorMessage)}`
+    )
   }
 }
