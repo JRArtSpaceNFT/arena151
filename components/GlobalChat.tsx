@@ -200,10 +200,8 @@ export default function GlobalChat() {
   const lastReadTimestamp = useRef<string | null>(null)
   const currentUser = useArenaStore(s => s.currentTrainer)
 
-  // Fetch initial messages
+  // Fetch initial messages on mount (always, not just when chat opens)
   useEffect(() => {
-    if (!isOpen) return
-
     async function fetchMessages() {
       const { data } = await supabase
         .from('chat_messages')
@@ -245,6 +243,14 @@ export default function GlobalChat() {
     }
 
     fetchMessages()
+  }, []) // Run once on mount
+
+  // Reset unread count when chat opens
+  useEffect(() => {
+    if (isOpen) {
+      setUnreadCount(0)
+      lastReadTimestamp.current = new Date().toISOString()
+    }
   }, [isOpen])
 
   // Subscribe to new messages (always active, not just when chat is open)
