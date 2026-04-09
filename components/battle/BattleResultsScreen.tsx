@@ -86,7 +86,7 @@ export default function BattleResultsScreen() {
     // After playAgain resets to 'home', GameWrapper will re-init paid_pvp/practice flow
   }
 
-  const resultLabel = p1Won ? '🏆 VICTORY' : '💀 DEFEAT'
+  const resultLabel = p1Won ? 'VICTORY' : 'DEFEAT'
   const resultColor = p1Won ? accentColor : '#ef4444'
 
   return (
@@ -132,8 +132,8 @@ export default function BattleResultsScreen() {
         flex: 1,
         display: 'flex',
         flexDirection: 'column',
-        padding: 'clamp(10px,1.5vh,18px) clamp(14px,2vw,28px)',
-        gap: 'clamp(8px,1.2vh,14px)',
+        padding: 'clamp(8px,1vh,12px) clamp(12px,1.5vw,20px)',
+        gap: 'clamp(6px,0.8vh,10px)',
         minHeight: 0,
       }}>
 
@@ -146,7 +146,7 @@ export default function BattleResultsScreen() {
         >
           <div style={{
             fontFamily: '"Impact", "Arial Black", sans-serif',
-            fontSize: 'clamp(26px, 5.5vh, 52px)',
+            fontSize: 'clamp(48px, 9vh, 80px)',
             fontWeight: 900,
             color: resultColor,
             textShadow: `0 0 30px ${resultColor}99, 3px 3px 0 rgba(0,0,0,0.9)`,
@@ -236,7 +236,7 @@ export default function BattleResultsScreen() {
             />
           </div>
 
-          {/* CENTER: Battle stats */}
+          {/* CENTER: Winner trainer sprite */}
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -246,32 +246,10 @@ export default function BattleResultsScreen() {
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: 'clamp(8px,1.2vh,14px)',
               flexShrink: 0,
               minWidth: 'clamp(120px,18vw,200px)',
             }}
           >
-            <div style={{
-              background: 'rgba(0,0,0,0.55)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: 10,
-              padding: 'clamp(10px,1.5vh,18px) clamp(14px,2vw,24px)',
-              textAlign: 'center',
-              width: '100%',
-            }}>
-              <div style={{
-                fontSize: 'clamp(9px,1.3vh,12px)',
-                color: 'rgba(255,255,255,0.4)',
-                letterSpacing: '0.15em',
-                textTransform: 'uppercase',
-                marginBottom: 10,
-              }}>Battle Stats</div>
-              <BattleStat label="Turns" value={battleState.turn} color={accentColor} />
-              <BattleStat label="P1 KOs" value={battleState.teamA.reduce((s, c) => s + c.kos, 0)} color={p1Trainer?.color ?? '#7c3aed'} />
-              <BattleStat label="P2 KOs" value={battleState.teamB.reduce((s, c) => s + c.kos, 0)} color={p2Trainer?.color ?? '#ef4444'} />
-            </div>
-
-            {/* Winner trainer sprite */}
             {winnerTrainer?.spriteUrl && (
               <motion.img
                 src={winnerTrainer.spriteUrl}
@@ -280,7 +258,7 @@ export default function BattleResultsScreen() {
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ delay: 0.3, type: 'spring', stiffness: 200, damping: 20 }}
                 style={{
-                  height: 'clamp(80px,16vh,150px)',
+                  height: 'clamp(120px,24vh,220px)',
                   width: 'auto',
                   imageRendering: 'pixelated',
                   filter: `drop-shadow(0 0 20px ${accentColor}88)`,
@@ -435,19 +413,38 @@ function MVPCard({
         <div style={{ fontSize: 'clamp(14px,2.2vh,20px)' }}>👑</div>
       )}
 
-      <motion.img
-        src={creature.creature.spriteUrl}
-        alt={creature.creature.name}
-        animate={{ y: [0, -5, 0] }}
-        transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
-        style={{
-          width: 'clamp(56px,10vh,90px)',
-          height: 'clamp(56px,10vh,90px)',
-          imageRendering: 'pixelated',
-          objectFit: 'contain',
-          filter: `drop-shadow(0 0 12px ${color}88)`,
-        }}
-      />
+      {creature?.creature?.spriteUrl ? (
+        <motion.img
+          src={creature.creature.spriteUrl}
+          alt={creature.creature.name}
+          animate={{ y: [0, -5, 0] }}
+          transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
+          style={{
+            width: 'clamp(70px,14vh,110px)',
+            height: 'clamp(70px,14vh,110px)',
+            imageRendering: 'pixelated',
+            objectFit: 'contain',
+            filter: `drop-shadow(0 0 12px ${color}88)`,
+          }}
+          onError={(e) => {
+            console.error('MVP sprite failed to load:', creature.creature.spriteUrl)
+            const img = e.target as HTMLImageElement
+            img.style.display = 'none'
+          }}
+        />
+      ) : (
+        <div style={{
+          width: 'clamp(70px,14vh,110px)',
+          height: 'clamp(70px,14vh,110px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: 'clamp(28px,5vh,42px)',
+          color: 'rgba(255,255,255,0.2)',
+        }}>
+          ?
+        </div>
+      )}
 
       <div style={{
         fontSize: 'clamp(13px,2vh,18px)',

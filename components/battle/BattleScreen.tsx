@@ -771,16 +771,6 @@ export default function BattleScreen() {
       {/* ── Live Hype Reactions ── */}
       <LiveHypeReactions onMount={handleMount} />
 
-      {/* ── Hype Control Panels ── */}
-      <HypeControlPanel
-        side="A"
-        onTrigger={(side, type, content) => triggerFn?.(side, type, content)}
-      />
-      <HypeControlPanel
-        side="B"
-        onTrigger={(side, type, content) => triggerFn?.(side, type, content)}
-      />
-
       {/* ── Type advantage burst ── */}
       <AnimatePresence>
         {typeBurst && (
@@ -1143,7 +1133,13 @@ export default function BattleScreen() {
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
           {/* Side A — team list + trainer below */}
           <div data-side-panel-a style={{ width: 155, display: 'flex', flexDirection: 'column', padding: '10px 6px 0 10px', borderRight: '1px solid rgba(255,255,255,0.06)' }}>
-            <div style={{ color: '#7c3aed', fontSize: 11, fontWeight: 700, marginBottom: 6, letterSpacing: '0.05em' }}>{p1Trainer?.name ?? 'P1'}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+              <div style={{ color: '#7c3aed', fontSize: 11, fontWeight: 700, letterSpacing: '0.05em' }}>{p1Trainer?.name ?? 'P1'}</div>
+              <HypeControlPanel
+                side="A"
+                onTrigger={(side, type, content) => triggerFn?.(side, type, content)}
+              />
+            </div>
             {teamA.map((ac, i) => {
               const isActive = i === activeA
               const isKOd = koSetA.has(i)

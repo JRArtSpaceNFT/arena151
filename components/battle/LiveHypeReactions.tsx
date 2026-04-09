@@ -97,14 +97,16 @@ export default function LiveHypeReactions({ onMount }: LiveHypeReactionsProps) {
 }
 
 function Reaction({ reaction }: { reaction: HypeReaction }) {
-  // Position based on side
+  // Position based on side - spawn near trainer name area (left side panel)
   const isLeft = reaction.side === 'A'
   
-  const startX = isLeft ? '15%' : '85%'
-  const endY = -100
+  // Start from trainer name area (left: ~10%, right would be ~90% but only A is enabled)
+  const startX = isLeft ? '10%' : '90%'
+  const startY = '15%'  // Near top where trainer names are
+  const endY = -50
   
   // Random horizontal drift
-  const driftX = (Math.random() - 0.5) * 100
+  const driftX = (Math.random() - 0.5) * 60
 
   return (
     <motion.div
@@ -112,7 +114,7 @@ function Reaction({ reaction }: { reaction: HypeReaction }) {
         opacity: 0,
         scale: 0.3,
         x: startX,
-        y: '70%',
+        y: startY,
       }}
       animate={{
         opacity: [0, 1, 1, 0.8, 0],

@@ -45,16 +45,16 @@ export default function MomentumMeter({
     const aliveA = teamSizeA - koSetA.size
     const aliveB = teamSizeB - koSetB.size
 
-    // HP difference contribution (-50 to +50)
-    const hpDiff = (hpPctA - hpPctB) / 2
+    // Team alive count is PRIMARY driver (-60 to +60)
+    const aliveDiff = (aliveA - aliveB) * 30
 
-    // Alive count difference (-30 to +30)
-    const aliveDiff = (aliveA - aliveB) * 15
+    // HP difference contribution (-30 to +30)
+    const hpDiff = (hpPctA - hpPctB) * 0.3
 
     // Attacker bonus (±10)
     const attackBonus = attackingSide === 'A' ? 10 : attackingSide === 'B' ? -10 : 0
 
-    let total = hpDiff + aliveDiff + attackBonus
+    let total = aliveDiff + hpDiff + attackBonus
 
     // Clamp to -100 to +100
     total = Math.max(-100, Math.min(100, total))
@@ -114,7 +114,7 @@ export default function MomentumMeter({
     <div
       style={{
         position: 'absolute',
-        top: '12%',
+        top: '4%',
         left: '50%',
         transform: 'translateX(-50%)',
         width: 320,

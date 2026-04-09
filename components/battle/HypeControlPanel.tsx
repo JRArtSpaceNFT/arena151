@@ -53,25 +53,23 @@ export default function HypeControlPanel({ side, onTrigger }: HypeControlPanelPr
   return (
     <div
       style={{
-        position: 'fixed',
-        bottom: 20,
-        [side === 'A' ? 'left' : 'right']: 20,
-        zIndex: 50,
+        position: 'relative',
+        display: 'inline-block',
       }}
     >
-      {/* Main toggle button */}
+      {/* Main toggle button - Pokéball icon */}
       <motion.button
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
+        whileHover={{ scale: 1.08 }}
+        whileTap={{ scale: 0.92 }}
         onClick={() => setExpanded(!expanded)}
         style={{
-          width: 56,
-          height: 56,
+          width: 32,
+          height: 32,
           borderRadius: '50%',
-          background: `linear-gradient(135deg, ${sideColor}, ${side === 'A' ? '#dc2626' : '#2563eb'})`,
-          border: '3px solid rgba(255,255,255,0.3)',
-          boxShadow: `0 4px 16px ${sideColor}66, inset 0 1px 0 rgba(255,255,255,0.2)`,
-          fontSize: 24,
+          background: expanded ? `linear-gradient(135deg, ${sideColor}, ${side === 'A' ? '#dc2626' : '#2563eb'})` : 'rgba(255,255,255,0.15)',
+          border: '2px solid rgba(255,255,255,0.3)',
+          boxShadow: expanded ? `0 2px 8px ${sideColor}66, inset 0 1px 0 rgba(255,255,255,0.2)` : 'none',
+          fontSize: 16,
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
@@ -79,7 +77,7 @@ export default function HypeControlPanel({ side, onTrigger }: HypeControlPanelPr
           transition: 'all 0.2s ease',
         }}
       >
-        {expanded ? '✕' : '🎉'}
+        {expanded ? '✕' : '⚾'}
       </motion.button>
 
       {/* Expanded panel */}
@@ -91,9 +89,9 @@ export default function HypeControlPanel({ side, onTrigger }: HypeControlPanelPr
           transition={{ duration: 0.2 }}
           style={{
             position: 'absolute',
-            bottom: 70,
-            [side === 'A' ? 'left' : 'right']: 0,
-            width: 280,
+            top: 40,
+            left: -10,
+            width: 240,
             background: 'rgba(15, 23, 42, 0.95)',
             backdropFilter: 'blur(12px)',
             border: '2px solid rgba(255,255,255,0.15)',
