@@ -142,7 +142,7 @@ function Reaction({ reaction }: { reaction: HypeReaction }) {
         zIndex: 35,
       }}
     >
-      {reaction.type === 'emote' ? (
+      {reaction.type === 'emote' && reaction.content.startsWith('/hype-emojis/') ? (
         <img
           src={reaction.content}
           alt="hype"
