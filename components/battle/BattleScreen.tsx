@@ -1189,7 +1189,7 @@ export default function BattleScreen() {
                 isLastStand={false}
                 status={statusA}
                 spriteOverride={spriteOverrideA}
-                triggerHype={triggerFn ?? undefined}
+                triggerHype={triggerFn ?? undefined}  // Only player A (you) can trigger
               />
 
               {/* VS divider */}
@@ -1227,7 +1227,7 @@ export default function BattleScreen() {
                 isLastStand={false}
                 status={statusB}
                 spriteOverride={spriteOverrideB}
-                triggerHype={triggerFn ?? undefined}
+                triggerHype={undefined}  // Player B (opponent) cannot trigger - view only
               />
             </div>
 
@@ -1278,10 +1278,10 @@ export default function BattleScreen() {
 
       {/* Winner banner — plain CSS to guarantee visibility */}
       
-      {/* ── SPEED TOGGLE + ARENA NAME — centered at bottom ── */}
+      {/* ── SPEED TOGGLE + ARENA NAME — centered at bottom, moved up to prevent cutoff ── */}
       <div style={{
         position: 'fixed',
-        bottom: 16,
+        bottom: 32,
         left: '50%',
         transform: 'translateX(-50%)',
         zIndex: 9999,
@@ -1591,31 +1591,20 @@ function CreatureDisplay({
         </div>
       </div>
 
-      {/* ── TRAINER NAME + HYPE CONTROL (below sprite) ── */}
-      <div style={{
-        marginTop: 12,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-      }}>
-        <span style={{
-          fontSize: 14,
-          fontWeight: 800,
-          color: trainerColor,
-          textTransform: 'uppercase',
-          letterSpacing: '0.08em',
-          textShadow: `0 2px 6px ${trainerColor}66`,
+      {/* ── HYPE CONTROL (below sprite, positioned to left of existing trainer name) ── */}
+      {triggerHype && (
+        <div style={{
+          position: 'absolute',
+          bottom: -45,
+          left: isLeft ? 15 : 'auto',
+          right: isLeft ? 'auto' : 15,
         }}>
-          {trainerName}
-        </span>
-        {triggerHype && (
           <HypeControlPanel
             side={side}
             onTrigger={triggerHype}
           />
-        )}
-      </div>
+        </div>
+      )}
 
     </div>
   )
