@@ -8,14 +8,14 @@ interface HypeControlPanelProps {
 }
 
 const EMOTES = [
-  { emoji: '🔥', label: 'Fire' },
-  { emoji: '💀', label: 'Skull' },
-  { emoji: '😤', label: 'Hype' },
-  { emoji: '👑', label: 'King' },
-  { emoji: '⚡', label: 'Shock' },
-  { emoji: '💪', label: 'Flex' },
-  { emoji: '😱', label: 'Wow' },
-  { emoji: '💯', label: '100' },
+  { image: '/hype-emojis/Emoji1.png', label: 'Emoji1' },
+  { image: '/hype-emojis/Emoji2.png', label: 'Emoji2' },
+  { image: '/hype-emojis/Emoji3.png', label: 'Emoji3' },
+  { image: '/hype-emojis/Emoji4.png', label: 'Emoji4' },
+  { image: '/hype-emojis/Emoji5.png', label: 'Emoji5' },
+  { image: '/hype-emojis/Emoji6.png', label: 'Emoji6' },
+  { image: '/hype-emojis/Emoji7.png', label: 'Emoji7' },
+  { image: '/hype-emojis/Emoji8.png', label: 'Emoji8' },
 ]
 
 const QUICK_PHRASES_A = [
@@ -134,28 +134,30 @@ export default function HypeControlPanel({ side, onTrigger }: HypeControlPanelPr
               marginBottom: 12,
             }}
           >
-            {EMOTES.map(({ emoji, label }) => (
+            {EMOTES.map(({ image, label }) => (
               <motion.button
-                key={emoji}
+                key={image}
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
-                onClick={() => handleTrigger('emote', emoji)}
+                onClick={() => handleTrigger('emote', image)}
                 disabled={cooldown}
                 style={{
-                  padding: 6,  // Smaller
+                  padding: 4,
                   background: cooldown 
                     ? 'rgba(100,116,139,0.3)' 
                     : 'rgba(255,255,255,0.1)',
                   border: '1px solid rgba(255,255,255,0.2)',
                   borderRadius: 6,
-                  fontSize: 20,  // Smaller emojis
                   cursor: cooldown ? 'not-allowed' : 'pointer',
                   transition: 'all 0.2s ease',
                   opacity: cooldown ? 0.5 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
                 title={label}
               >
-                {emoji}
+                <img src={image} alt={label} style={{ width: 28, height: 28 }} />
               </motion.button>
             ))}
           </div>

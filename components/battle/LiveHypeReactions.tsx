@@ -15,7 +15,16 @@ interface LiveHypeReactionsProps {
   onMount?: (triggerFn: (side: 'A' | 'B', type: 'emote' | 'phrase' | 'gg', content?: string) => void) => void
 }
 
-const EMOTES = ['🔥', '💀', '😤', '👑', '⚡', '💪', '😱', '🎯', '💥', '🌟', '😎', '🤯', '👊', '🙌', '💯']
+const EMOTES = [
+  '/hype-emojis/Emoji1.png',
+  '/hype-emojis/Emoji2.png',
+  '/hype-emojis/Emoji3.png',
+  '/hype-emojis/Emoji4.png',
+  '/hype-emojis/Emoji5.png',
+  '/hype-emojis/Emoji6.png',
+  '/hype-emojis/Emoji7.png',
+  '/hype-emojis/Emoji8.png',
+]
 
 const TRAINER_PHRASES = {
   A: [
@@ -53,7 +62,7 @@ export default function LiveHypeReactions({ onMount }: LiveHypeReactionsProps) {
         const phrases = TRAINER_PHRASES[side]
         finalContent = phrases[Math.floor(Math.random() * phrases.length)]
       } else if (type === 'gg') {
-        finalContent = 'GG! 🎮'
+        finalContent = 'GG'
       }
     }
 
@@ -134,14 +143,15 @@ function Reaction({ reaction }: { reaction: HypeReaction }) {
       }}
     >
       {reaction.type === 'emote' ? (
-        <div
+        <img
+          src={reaction.content}
+          alt="hype"
           style={{
-            fontSize: 48,
+            width: 56,
+            height: 56,
             filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.5))',
           }}
-        >
-          {reaction.content}
-        </div>
+        />
       ) : (
         <div
           style={{
