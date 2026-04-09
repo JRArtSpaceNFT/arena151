@@ -13,6 +13,7 @@ import ArenaReveal from '@/components/battle/ArenaReveal'
 import Lineup from '@/components/battle/Lineup'
 import BattleScreen from '@/components/battle/BattleScreen'
 import EnhancedBattleWrapper from '@/components/battle/EnhancedBattleWrapper'
+import FinalResultsScreen from '@/components/battle/FinalResultsScreen'
 import VictoryScreen from '@/components/battle/VictoryScreen'
 import DefeatScreen from '@/components/battle/DefeatScreen'
 import ResultsScreen from '@/components/battle/ResultsScreen'
@@ -109,6 +110,7 @@ export default function PracticeGameWrapper() {
     arena_reveal: <ArenaReveal />,
     pretalk: <PreBattleTalk />,
     battle: <EnhancedBattleWrapper><BattleScreen /></EnhancedBattleWrapper>,
+    result: <FinalResultsScreen />,
     victory: <VictoryScreen />,
     defeat: <DefeatScreen />,
     results: <ResultsScreen />,

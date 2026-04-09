@@ -38,6 +38,8 @@ export default function EnhancedBattleWrapper({ children }: EnhancedBattleWrappe
     const latestEntry = battleState.log[battleState.log.length - 1]
     lastLogLengthRef.current = battleState.log.length
     
+    console.log('[VFX] New battle log entry:', latestEntry.text)
+    
     // Detect attack impacts
     if (latestEntry.text?.includes('used') && latestEntry.text?.includes('!')) {
       const moveName = latestEntry.text.split('used ')[1]?.split('!')[0]
@@ -63,6 +65,7 @@ export default function EnhancedBattleWrapper({ children }: EnhancedBattleWrappe
         
         // Trigger impact VFX
         setTimeout(() => {
+          console.log('[VFX] Triggering impact:', move.name, move.type, move.power)
           vfx.triggerVFX({
             type: 'impact',
             element: move.type,

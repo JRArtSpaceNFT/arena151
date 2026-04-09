@@ -60,6 +60,8 @@ export function useBattleVFX() {
   }, [])
 
   const triggerVFX = useCallback(({ type, element = 'normal', power = 50, isCritical = false, isSuperEffective = false, position }: VFXTrigger) => {
+    console.log('[useBattleVFX] triggerVFX called:', { type, element, power, isCritical, isSuperEffective })
+    
     // Determine impact tier based on power and modifiers
     let tier: 'light' | 'medium' | 'heavy' | 'special' = 'light'
     if (type === 'finisher' || type === 'ko') {
