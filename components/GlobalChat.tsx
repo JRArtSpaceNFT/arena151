@@ -278,6 +278,12 @@ export default function GlobalChat() {
       }, async (payload) => {
         console.log('[GlobalChat] New message received:', payload)
         
+        // Skip if this is our own message (already added optimistically)
+        if (payload.new.user_id === currentUser?.id) {
+          console.log('[GlobalChat] Skipping own message (already in optimistic UI)')
+          return
+        }
+        
         // Fetch user data for the new message
         const { data: userData, error: userError } = await supabase
           .from('profiles')
