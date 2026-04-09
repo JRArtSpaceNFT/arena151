@@ -23,6 +23,7 @@ import { supabase } from '@/lib/supabase';
 import { getAvatarOptions } from '@/lib/trainer-avatars';
 import { getBattleLog, timeAgo } from '@/lib/battleStats';
 import type { BattleLogEntry } from '@/lib/battleStats';
+import { XConnectionCard } from '@/components/XConnectionCard';
 
 const SOL_PRICE_USD = 150;
 const WITHDRAWAL_FEE_PCT = 0.005; // 0.5% processing fee
@@ -153,25 +154,7 @@ export default function TrainerProfile() {
     setRecentBattles(getBattleLog().slice(0, 10));
   }, []);
 
-  // ── Twitter handle state ──
-  const [twitterInput, setTwitterInput]   = useState(currentTrainer?.twitterHandle ?? '');
-  const [twitterSaving, setTwitterSaving] = useState(false);
-  const [twitterSaved,  setTwitterSaved]  = useState(false);
-  const [twitterEditing, setTwitterEditing] = useState(!currentTrainer?.twitterHandle);
-
-  const handleTwitterSave = async () => {
-    if (!currentTrainer) return;
-    setTwitterSaving(true);
-    // Strip leading @ and whitespace
-    const handle = twitterInput.trim().replace(/^@/, '');
-    const updated = { ...currentTrainer, twitterHandle: handle || null };
-    setTrainer(updated);
-    await updateUser(currentTrainer.id, { twitterHandle: handle || null });
-    setTwitterSaving(false);
-    setTwitterSaved(true);
-    setTwitterEditing(false);
-    setTimeout(() => setTwitterSaved(false), 2000);
-  };
+  // Twitter/X is now handled via OAuth (XConnectionCard component)
 
   const [walletView, setWalletView] = useState<WalletView>(null);
   const [copied, setCopied] = useState(false);
@@ -557,59 +540,12 @@ export default function TrainerProfile() {
             </div>
           </motion.div>
 
-          {/* ── Twitter Connect ── */}
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.04 }}
-            className="rounded-2xl px-4 py-3 shrink-0 relative overflow-hidden"
-            style={{ background: 'linear-gradient(160deg, #0d1520 0%, #0a0f1a 100%)', border: '1px solid rgba(29,161,242,0.25)' }}>
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <XLogo size={13} color="#1da1f2" />
-                <span className="text-xs font-black uppercase tracking-wider" style={{ color: '#1da1f2' }}>Twitter / X</span>
-              </div>
-              {currentTrainer.twitterHandle && !twitterEditing && (
-                <button onClick={() => setTwitterEditing(true)}
-                  className="text-xs font-bold px-2 py-0.5 rounded-lg transition-colors"
-                  style={{ color: 'rgba(255,255,255,0.35)', background: 'rgba(255,255,255,0.06)' }}>
-                  Edit
-                </button>
-              )}
-            </div>
-
-            {!twitterEditing && currentTrainer.twitterHandle ? (
-              // Saved state — show the linked handle
-              <motion.a
-                href={`https://x.com/${currentTrainer.twitterHandle}`}
-                target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-2 px-3 py-2 rounded-xl transition-all group"
-                style={{ background: 'rgba(29,161,242,0.1)', border: '1px solid rgba(29,161,242,0.25)' }}
-                whileHover={{ borderColor: 'rgba(29,161,242,0.6)', background: 'rgba(29,161,242,0.15)' }}
-              >
-                <span className="text-sm font-black" style={{ color: '#1da1f2' }}>@{currentTrainer.twitterHandle}</span>
-                <span className="text-xs ml-auto opacity-0 group-hover:opacity-60 transition-opacity" style={{ color: '#1da1f2' }}>↗</span>
-              </motion.a>
-            ) : (
-              // Edit state
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={twitterInput}
-                  onChange={e => setTwitterInput(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleTwitterSave()}
-                  placeholder="@yourhandle"
-                  className="flex-1 rounded-xl px-3 py-2 text-sm outline-none placeholder:text-white/20"
-                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(29,161,242,0.3)', color: 'rgba(255,255,255,0.85)' }}
-                />
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleTwitterSave}
-                  disabled={twitterSaving}
-                  className="px-4 py-2 rounded-xl font-black text-sm text-white shrink-0 disabled:opacity-50"
-                  style={{ background: twitterSaved ? 'linear-gradient(135deg,#16a34a,#15803d)' : 'linear-gradient(135deg,#1da1f2,#0d8fd8)' }}
-                >
-                  {twitterSaved ? '✓' : twitterSaving ? '…' : 'Save'}
-                </motion.button>
-              </div>
-            )}
+          {/* ── X / Twitter OAuth ── */}
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.04 }}>
+            <XConnectionCard onConnectionChange={() => {
+              // Refresh trainer data after connection change
+              window.location.reload()
+            }} />
           </motion.div>
 
           {/* ── Stat Cards ── */}

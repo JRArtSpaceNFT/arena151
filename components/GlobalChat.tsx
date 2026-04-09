@@ -481,6 +481,7 @@ export default function GlobalChat() {
           if (!isOpen) setUnreadCount(0)
         }}
         className="fixed right-6 top-6 z-[10000] flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-yellow-500 to-yellow-600 text-2xl shadow-lg transition hover:scale-110 hover:shadow-yellow-500/50"
+        style={{ border: '3px solid #3b82f6', boxShadow: '0 0 20px rgba(59,130,246,0.5), 0 4px 16px rgba(0,0,0,0.4)' }}
       >
         💬
         {unreadCount > 0 && (
