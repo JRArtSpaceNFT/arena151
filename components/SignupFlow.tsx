@@ -34,7 +34,7 @@ export default function SignupFlow() {
   
   // Play Pokemon intro music when signup flow mounts
   useEffect(() => {
-    playMusic('intro');
+    playMusic('menu');
     return () => {
       // Music will naturally transition when user moves to next screen
     };

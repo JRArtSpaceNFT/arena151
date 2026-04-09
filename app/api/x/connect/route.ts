@@ -37,16 +37,18 @@ export async function GET(request: NextRequest) {
     console.log('[CONNECT_X_AUTH_OK] User authenticated:', userId)
 
     // 2. Get OAuth credentials from environment
-    const consumerKey = process.env.X_CONSUMER_KEY || process.env.X_CLIENT_ID
-    const consumerSecret = process.env.X_CONSUMER_SECRET || process.env.X_CLIENT_SECRET
+    // X uses OAuth 1.0a for account linking (needs consumer keys)
+    const consumerKey = process.env.X_CONSUMER_KEY
+    const consumerSecret = process.env.X_CONSUMER_SECRET
     const callbackUrl = process.env.X_CALLBACK_URL || process.env.X_REDIRECT_URI
 
     if (!consumerKey || !consumerSecret || !callbackUrl) {
-      console.error('[CONNECT_X_ERROR] Missing OAuth configuration')
+      console.error('[CONNECT_X_ERROR] Missing OAuth 1.0a configuration')
+      console.error('Need X_CONSUMER_KEY (OAuth 1.0a) not X_CLIENT_ID (OAuth 2.0)')
       console.error('X_CONSUMER_KEY:', !!consumerKey)
       console.error('X_CONSUMER_SECRET:', !!consumerSecret)
       console.error('X_CALLBACK_URL:', !!callbackUrl)
-      throw new Error('X OAuth not configured on server')
+      throw new Error('X OAuth 1.0a not configured (need consumer keys, not client keys)')
     }
 
     console.log('[CONNECT_X_CONFIG_OK] OAuth config loaded')

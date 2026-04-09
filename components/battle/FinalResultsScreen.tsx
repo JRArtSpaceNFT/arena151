@@ -473,7 +473,7 @@ export default function FinalResultsScreen() {
   const myTrainer = isPlayerP1 ? p1Trainer : isPlayerP2 ? p2Trainer : effectiveTrainer
   
   // Use MY trainer for background, not the winner
-  const trainerSlug = myTrainer?.username?.toLowerCase().replace(/\s+/g, '-') ?? 'default'
+  const trainerSlug = (myTrainer && 'username' in myTrainer) ? myTrainer.username?.toLowerCase().replace(/\s+/g, '-') : 'default'
   const outcomeSlug = effectiveVictory ? 'win' : 'loss'
   const trainerBg = `/trainer-results/${trainerSlug}-${outcomeSlug}.png`
   // Use the generic victory background as fallback instead of dark gradients

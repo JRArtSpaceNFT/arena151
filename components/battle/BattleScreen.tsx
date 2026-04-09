@@ -13,6 +13,13 @@ import { playKOSound, playRandomCrowdReaction, playRealCrowdCheer, playAttackSou
 import MomentumMeter from '@/components/battle/MomentumMeter'
 import LiveHypeReactions, { useHypeReactions } from '@/components/battle/LiveHypeReactions'
 import HypeControlPanel from '@/components/battle/HypeControlPanel'
+import { 
+  ElectricAttack, WaterAttack, FireAttack, IceAttack, 
+  GrassAttack, PsychicAttack, FightingAttack, DarkAttack,
+  PoisonAttack, GroundAttack, FlyingAttack, BugAttack,
+  RockAttack, GhostAttack, DragonAttack, SteelAttack,
+  FairyAttack, NormalAttack
+} from '@/components/battle/attack-animations'
 
 
 // ── TYPE STYLING ────────────────────────────────────────────────
@@ -94,6 +101,9 @@ export default function BattleScreen() {
   // Unmount guard — prevents state updates from fire-and-forget animation timeouts firing after unmount
   const isMountedRef = useRef(true)
   useEffect(() => { isMountedRef.current = true; return () => { isMountedRef.current = false } }, [])
+
+  // ── Type-based attack animations ────────────────────────────
+  const [activeTypeAttack, setActiveTypeAttack] = useState<{ type: string; from: 'left' | 'right'; key: number } | null>(null)
 
   // ── Core playback state ─────────────────────────────────────
   const [visibleLog, setVisibleLog] = useState<BattleLogEntry[]>([])
@@ -479,39 +489,30 @@ export default function BattleScreen() {
       }
     }
 
-    // Move animation particles — skip for ultimates (flash IS the visual) and same-side blocks
+    // Type-based attack animations — full screen, element-specific VFX
     if ((entry.type === 'damage' || entry.type === 'critical') && entry.moveName && entry.side && !sameAsLast) {
       const move = MOVES.find(m => m.name === entry.moveName)
       if (move) {
-        const isExplosion = move.animationKey === 'explosion'
-        const isUltimateAnim = false
+        const moveType = move.type.toLowerCase()
+        const attackFrom = entry.side === 'A' ? 'left' : 'right'
         const particleDelay = ATTACK_DELAY
+        
         setTimeout(() => {
-          const animId = String(Date.now()) + String(Math.floor(Math.random() * 10000))
-          currentAnimId.current = animId
-          setMoveAnim({
-            animKey: move.animationKey,
-            side: entry.side as 'A' | 'B',
-            id: animId,
-          })
+          // Trigger full-screen type-based animation
+          setActiveTypeAttack({ type: moveType, from: attackFrom, key: Date.now() })
           playAttackSound(move.animationKey)
-          const longAnims = new Set([
-            'fire','fire_stream','fire_blast','fire_spin','fire_small','mega_fire',
-            'thunder','lightning','electric','mega_thunder',
-            'ice','blizzard','ice_beam',
-            'psychic','psychic_pulse','mind_break',
-            'dragon','dragon_breath',
-            'dark','ghost','ghost_ball','ghost_wave','nightmare',
-            'quake','tsunami','waterfall','surf_wave',
-          ])
-          const clearDelay = Math.max(40, Math.round((isExplosion ? 2200 : isUltimateAnim ? 2000 : longAnims.has(move.animationKey) ? 1800 : 1400) / spd))
+          
+          // Clear animation after duration (varies by type)
+          const animDuration = Math.max(400, Math.round(1000 / spd))
           setTimeout(() => {
-            if (currentAnimId.current === animId) {
-              setMoveAnim(null)
-              currentAnimId.current = null
+            if (isMountedRef.current) {
+              setActiveTypeAttack(null)
             }
-          }, clearDelay)
-          if (isExplosion) {
+          }, animDuration)
+          
+          // Big shake for explosive moves
+          const explosiveMoves = new Set(['explosion', 'fire_blast', 'mega_fire', 'quake', 'surf_wave'])
+          if (explosiveMoves.has(move.animationKey)) {
             setBigShake(true)
             setTimeout(() => setBigShake(false), Math.max(40, Math.round(850 / spd)))
           }
@@ -782,6 +783,55 @@ export default function BattleScreen() {
 
       {/* ── Live Hype Reactions ── */}
       <LiveHypeReactions onMount={handleMount} />
+
+      {/* ── Full-Screen Type-Based Attack Animations ── */}
+      <AnimatePresence>
+        {activeTypeAttack && (() => {
+          const { type, from, key } = activeTypeAttack
+          const direction = from === 'left' ? 'left-to-right' : 'right-to-left'
+          const handleComplete = () => setActiveTypeAttack(null)
+          
+          // Map types to components with proper props
+          switch (type) {
+            case 'fire':
+              return <FireAttack key={key} from={from} onComplete={handleComplete} />
+            case 'water':
+              return <WaterAttack key={key} from={from} onComplete={handleComplete} />
+            case 'electric':
+              return <ElectricAttack key={key} from={from} onComplete={handleComplete} />
+            case 'ice':
+              return <IceAttack key={key} from={from} onComplete={handleComplete} />
+            case 'grass':
+              return <GrassAttack key={key} from={from} onComplete={handleComplete} />
+            case 'psychic':
+              return <PsychicAttack key={key} from={from} onComplete={handleComplete} />
+            case 'fighting':
+              return <FightingAttack key={key} from={from} onComplete={handleComplete} />
+            case 'dark':
+              return <DarkAttack key={key} from={from} onComplete={handleComplete} />
+            case 'poison':
+              return <PoisonAttack key={key} direction={direction} onComplete={handleComplete} />
+            case 'ground':
+              return <GroundAttack key={key} direction={direction} onComplete={handleComplete} />
+            case 'flying':
+              return <FlyingAttack key={key} direction={direction} onComplete={handleComplete} />
+            case 'bug':
+              return <BugAttack key={key} direction={direction} onComplete={handleComplete} />
+            case 'rock':
+              return <RockAttack key={key} direction={direction} onComplete={handleComplete} />
+            case 'ghost':
+              return <GhostAttack key={key} direction={direction} onComplete={handleComplete} />
+            case 'dragon':
+              return <DragonAttack key={key} direction={direction} onComplete={handleComplete} />
+            case 'steel':
+              return <SteelAttack key={key} direction={direction} onComplete={handleComplete} />
+            case 'fairy':
+              return <FairyAttack key={key} direction={direction} onComplete={handleComplete} />
+            default:
+              return <NormalAttack key={key} from={from} onComplete={handleComplete} />
+          }
+        })()}
+      </AnimatePresence>
 
       {/* ── Type advantage burst ── */}
       <AnimatePresence>
