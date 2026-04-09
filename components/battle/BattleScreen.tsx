@@ -1125,9 +1125,7 @@ export default function BattleScreen() {
         style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', flex: 1 }}
       >
         {/* Top bar */}
-        <div data-battle-top-bar style={{ padding: '10px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.08)', background: 'rgba(0,0,0,0.35)' }}>
-          <div style={{ color: '#94a3b8', fontSize: 13, fontWeight: 600 }}>⚔️ {arena?.name ?? 'Arena'}</div>
-          <div style={{ color: '#334155', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 700 }}>{arena?.name ?? 'BATTLE ARENA'}</div>
+        <div data-battle-top-bar style={{ padding: '10px 20px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid rgba(255,255,255,0.08)', background: 'rgba(0,0,0,0.35)' }}>
           <div style={{ color: '#64748b', fontSize: 13 }}>Turn {visibleLog.filter(e => e.type === 'move' || e.type === 'damage' || e.type === 'critical').length}</div>
         </div>
 
@@ -1283,6 +1281,24 @@ export default function BattleScreen() {
 
 
       {/* Winner banner — plain CSS to guarantee visibility */}
+      
+      {/* ── ARENA NAME — bottom center ── */}
+      <div style={{
+        position: 'fixed',
+        bottom: 24,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 5,
+        fontSize: 10,
+        fontWeight: 600,
+        color: 'rgba(148,163,184,0.6)',
+        textTransform: 'uppercase',
+        letterSpacing: '0.1em',
+        pointerEvents: 'none',
+      }}>
+        {arena?.name ?? 'Battle Arena'}
+      </div>
+
       {/* ── SPEED TOGGLE — fixed floating button, always visible during battle ── */}
       {!isDone && (
         <button
