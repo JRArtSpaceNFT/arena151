@@ -295,7 +295,13 @@ export default function GlobalChat() {
         } as ChatMessage
 
         console.log('[GlobalChat] Adding message to state:', newMessage.message)
-        setMessages(prev => [...prev, newMessage])
+        console.log('[GlobalChat] Current messages count BEFORE add:', messages.length)
+        setMessages(prev => {
+          console.log('[GlobalChat] Previous messages count:', prev.length)
+          const updated = [...prev, newMessage]
+          console.log('[GlobalChat] Updated messages count:', updated.length)
+          return updated
+        })
 
         // Increment unread if panel closed
         if (!isOpen && payload.new.user_id !== currentUser?.id) {
