@@ -466,7 +466,7 @@ export default function TrainerProfile() {
         {/* ═══ LEFT COLUMN ═══ */}
         <div className="col-span-2 flex flex-col gap-3 min-h-0 profile-left">
 
-          {/* ── Trainer Hero Card - HORIZONTAL LAYOUT ── */}
+          {/* ── Trainer Hero Card - REDESIGNED PER JONATHAN'S IMAGE ── */}
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
             className="rounded-2xl p-4 shadow-xl flex items-center gap-4 relative overflow-hidden shrink-0"
             style={{ background: 'linear-gradient(160deg, #1a1040 0%, #0d1a3e 60%, #1a0a2e 100%)', border: `1px solid ${typeColor}33` }}>
@@ -504,38 +504,81 @@ export default function TrainerProfile() {
               </motion.div>
             </div>
 
-            {/* Trainer Info - RIGHT SIDE */}
-            <div className="z-10 flex-1 text-left">
-              <div className="text-xs font-black uppercase tracking-widest mb-1" style={{ color: `${typeColor}99` }}>
-                Trainer ID
+            {/* Center - Username + Stats */}
+            <div className="z-10 flex-1 flex flex-col gap-2">
+              {/* TRAINER ID + Username */}
+              <div>
+                <div className="text-xs font-black uppercase tracking-widest mb-0.5" style={{ color: `${typeColor}99` }}>
+                  TRAINER ID
+                </div>
+                <h1 className="text-2xl font-black text-white tracking-wide">{currentTrainer.displayName}</h1>
               </div>
-              <h1 className="text-2xl font-black text-white mb-0.5 tracking-wide">{currentTrainer.displayName}</h1>
-              <p className="text-sm mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>@{currentTrainer.displayName.toLowerCase().replace(/\s+/g, '_')}</p>
 
-              {/* Partner + Win Rate */}
+              {/* Stats Row: Wins, Losses, P&L */}
               <div className="flex items-center gap-2">
-                <motion.div
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border cursor-pointer group relative"
-                  style={{ background: `${typeColor}11`, borderColor: `${typeColor}33` }}
-                  whileHover={{ scale: 1.04, boxShadow: `0 0 12px ${typeColor}44`, borderColor: typeColor }}
-                  onClick={() => setShowPokemonPicker(true)}
-                  title="Click to change your partner Pokémon"
-                >
-                  <motion.img
-                    src={getPokemonSpriteUrl(currentTrainer.favoritePokemon.id)}
-                    alt={currentTrainer.favoritePokemon.name}
-                    className="w-6 h-6 object-contain"
-                    style={{ imageRendering: 'pixelated', filter: `drop-shadow(0 0 4px ${typeColor})` }}
-                    animate={{ y: [0, -2, 0] }} transition={{ duration: 2, repeat: Infinity }}
-                  />
-                  <span className="text-xs font-bold text-white/70">{currentTrainer.favoritePokemon.name}</span>
-                </motion.div>
-                <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border"
-                  style={{ background: 'rgba(251,191,36,0.08)', borderColor: 'rgba(251,191,36,0.25)' }}>
-                  <span className="text-xs font-black text-amber-400">{winRate}% WR</span>
+                {/* Wins */}
+                <div className="flex-1 rounded-lg px-3 py-2 text-center relative overflow-hidden"
+                  style={{ background: 'linear-gradient(160deg, #052e16 0%, #0a1a10 100%)', border: '1px solid rgba(74,222,128,0.3)' }}>
+                  <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 50% 0%, rgba(74,222,128,0.15), transparent 70%)' }} />
+                  <div className="relative z-10">
+                    <div className="text-xs font-black text-green-400 uppercase tracking-wider mb-0.5">▲ WINS</div>
+                    <div className="text-2xl font-black text-green-400" style={{ textShadow: '0 0 12px rgba(74,222,128,0.5)' }}>{wins}</div>
+                  </div>
+                </div>
+                {/* Losses */}
+                <div className="flex-1 rounded-lg px-3 py-2 text-center relative overflow-hidden"
+                  style={{ background: 'linear-gradient(160deg, #2d0a0a 0%, #1a0a0a 100%)', border: '1px solid rgba(248,113,113,0.3)' }}>
+                  <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 50% 0%, rgba(248,113,113,0.15), transparent 70%)' }} />
+                  <div className="relative z-10">
+                    <div className="text-xs font-black text-red-400 uppercase tracking-wider mb-0.5">▼ LOSSES</div>
+                    <div className="text-2xl font-black text-red-400" style={{ textShadow: '0 0 12px rgba(248,113,113,0.5)' }}>{losses}</div>
+                  </div>
+                </div>
+                {/* P&L */}
+                <div className="flex-1 rounded-lg px-3 py-2 text-center relative overflow-hidden"
+                  style={{
+                    background: isProfit ? 'linear-gradient(160deg, #052e16 0%, #0a1a10 100%)' : 'linear-gradient(160deg, #2d0a0a 0%, #1a0a0a 100%)',
+                    border: `1px solid ${isProfit ? 'rgba(74,222,128,0.3)' : 'rgba(248,113,113,0.3)'}`,
+                  }}>
+                  <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at 50% 0%, ${isProfit ? 'rgba(74,222,128,0.12)' : 'rgba(248,113,113,0.12)'}, transparent 70%)` }} />
+                  <div className="relative z-10">
+                    <div className={`text-xs font-black uppercase tracking-wider mb-0.5 ${isProfit ? 'text-green-400' : 'text-red-400'}`}>P&L</div>
+                    <div className={`text-xl font-black ${isProfit ? 'text-green-400' : 'text-red-400'}`}
+                      style={{ textShadow: `0 0 12px ${isProfit ? 'rgba(74,222,128,0.5)' : 'rgba(248,113,113,0.5)'}` }}>
+                      {isProfit ? '+' : ''}{earnings.toFixed(2)}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
+
+            {/* Right - Favorite Pokemon */}
+            <motion.div
+              className="relative z-10 shrink-0 cursor-pointer"
+              whileHover={{ scale: 1.08, y: -4 }}
+              onClick={() => setShowPokemonPicker(true)}
+              title="Click to change your partner Pokémon"
+            >
+              <motion.div
+                animate={{ y: [0, -8, 0] }}
+                transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
+                style={{ position: 'relative' }}
+              >
+                {/* Glow behind pokemon */}
+                <div className="absolute inset-0 blur-xl" style={{ background: typeColor, opacity: 0.3, transform: 'scale(1.2)' }} />
+                <img
+                  src={getPokemonSpriteUrl(currentTrainer.favoritePokemon.id)}
+                  alt={currentTrainer.favoritePokemon.name}
+                  className="relative z-10"
+                  style={{
+                    width: 80,
+                    height: 80,
+                    imageRendering: 'pixelated',
+                    filter: `drop-shadow(0 0 12px ${typeColor})`,
+                  }}
+                />
+              </motion.div>
+            </motion.div>
           </motion.div>
 
           {/* ── X / Twitter OAuth ── */}
@@ -544,54 +587,6 @@ export default function TrainerProfile() {
               // Refresh trainer data after connection change
               window.location.reload()
             }} />
-          </motion.div>
-
-          {/* ── Stat Cards ── */}
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-            className="grid grid-cols-3 gap-2 shrink-0">
-            {/* Wins */}
-            <div className="rounded-xl p-3 text-center relative overflow-hidden"
-              style={{ background: 'linear-gradient(160deg, #052e16 0%, #0a1a10 100%)', border: '1px solid rgba(74,222,128,0.2)' }}>
-              <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 50% 0%, rgba(74,222,128,0.15), transparent 70%)' }} />
-              <div className="flex items-center justify-center gap-1 mb-1 relative z-10">
-                <Trophy className="w-3 h-3 text-green-400" />
-                <span className="text-xs font-black text-green-400 uppercase tracking-wider">Wins</span>
-              </div>
-              <p className="text-4xl font-black text-green-400 relative z-10" style={{ textShadow: '0 0 20px rgba(74,222,128,0.5)' }}>{wins}</p>
-            </div>
-            {/* Losses */}
-            <div className="rounded-xl p-3 text-center relative overflow-hidden"
-              style={{ background: 'linear-gradient(160deg, #2d0a0a 0%, #1a0a0a 100%)', border: '1px solid rgba(248,113,113,0.2)' }}>
-              <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 50% 0%, rgba(248,113,113,0.15), transparent 70%)' }} />
-              <div className="flex items-center justify-center gap-1 mb-1 relative z-10">
-                <Target className="w-3 h-3 text-red-400" />
-                <span className="text-xs font-black text-red-400 uppercase tracking-wider">Losses</span>
-              </div>
-              <p className="text-4xl font-black text-red-400 relative z-10" style={{ textShadow: '0 0 20px rgba(248,113,113,0.5)' }}>{losses}</p>
-            </div>
-            {/* P&L */}
-            <div className="rounded-xl p-3 text-center relative overflow-hidden"
-              style={{
-                background: isProfit ? 'linear-gradient(160deg, #052e16 0%, #0a1a10 100%)' : 'linear-gradient(160deg, #2d0a0a 0%, #1a0a0a 100%)',
-                border: `1px solid ${isProfit ? 'rgba(74,222,128,0.2)' : 'rgba(248,113,113,0.2)'}`,
-              }}>
-              <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at 50% 0%, ${isProfit ? 'rgba(74,222,128,0.12)' : 'rgba(248,113,113,0.12)'}, transparent 70%)` }} />
-              {/* shimmer */}
-              <motion.div className="absolute inset-0 opacity-0"
-                style={{ background: 'linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.06) 50%, transparent 60%)' }}
-                animate={{ opacity: [0, 1, 0], x: ['-100%', '200%'] }}
-                transition={{ duration: 2.5, repeat: Infinity, repeatDelay: 3 }}
-              />
-              <div className="flex items-center justify-center gap-1 mb-1 relative z-10">
-                {isProfit ? <TrendingUp className="w-3 h-3 text-green-400" /> : <TrendingDown className="w-3 h-3 text-red-400" />}
-                <span className={`text-xs font-black uppercase tracking-wider ${isProfit ? 'text-green-400' : 'text-red-400'}`}>P&L</span>
-              </div>
-              <p className={`text-2xl font-black relative z-10 ${isProfit ? 'text-green-400' : 'text-red-400'}`}
-                style={{ textShadow: `0 0 16px ${isProfit ? 'rgba(74,222,128,0.5)' : 'rgba(248,113,113,0.5)'}` }}>
-                {isProfit ? '+' : ''}{earnings.toFixed(2)}
-              </p>
-              <p className="text-xs relative z-10" style={{ color: 'rgba(255,255,255,0.3)' }}>SOL</p>
-            </div>
           </motion.div>
 
           {/* ── Gym Badges ── */}
