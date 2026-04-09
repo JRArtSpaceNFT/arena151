@@ -474,21 +474,21 @@ export default function TrainerProfile() {
             <div className="absolute inset-0 pointer-events-none"
               style={{ background: `radial-gradient(ellipse at 50% 0%, ${typeColor}22 0%, transparent 65%)` }} />
 
-            {/* Avatar */}
-            <div className="relative mb-3 z-10">
-              {/* Outer ring glow */}
-              <motion.div className="absolute -inset-2 rounded-full blur-xl"
-                style={{ background: typeColor, opacity: 0.25 }}
-                animate={{ opacity: [0.15, 0.4, 0.15] }}
+            {/* Avatar - MUCH BIGGER */}
+            <div className="relative mb-4 z-10">
+              {/* Outer ring glow - bigger and more intense */}
+              <motion.div className="absolute -inset-4 rounded-full blur-2xl"
+                style={{ background: typeColor, opacity: 0.35 }}
+                animate={{ opacity: [0.25, 0.5, 0.25] }}
                 transition={{ duration: 2.5, repeat: Infinity }}
               />
-              {/* Hexagon-inspired border frame */}
-              <div className="absolute -inset-1 rounded-full" style={{ background: `conic-gradient(${typeColor}, #7c3aed, ${typeColor})`, padding: 2, borderRadius: '50%' }}>
+              {/* Hexagon-inspired border frame - thicker */}
+              <div className="absolute -inset-2 rounded-full" style={{ background: `conic-gradient(${typeColor}, #7c3aed, ${typeColor})`, padding: 3, borderRadius: '50%' }}>
                 <div className="w-full h-full rounded-full" style={{ background: '#0d1a3e' }} />
               </div>
               <motion.div whileHover={{ scale: 1.05 }} onClick={() => setShowAvatarPicker(true)}
-                className="w-24 h-24 rounded-full overflow-hidden cursor-pointer relative group z-10"
-                style={{ boxShadow: `0 0 24px ${typeColor}66` }}>
+                className="w-40 h-40 rounded-full overflow-hidden cursor-pointer relative group z-10"
+                style={{ boxShadow: `0 0 32px ${typeColor}88, 0 0 64px ${typeColor}44` }}>
                 {currentTrainer.avatar?.startsWith('data:') || currentTrainer.avatar?.startsWith('/') ? (
                   <img src={currentTrainer.avatar} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
@@ -498,18 +498,18 @@ export default function TrainerProfile() {
                   </div>
                 )}
                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-full">
-                  <Camera className="w-5 h-5 text-white" />
+                  <Camera className="w-8 h-8 text-white" />
                 </div>
               </motion.div>
             </div>
 
             {/* Trainer ID card feel */}
             <div className="z-10 w-full">
-              <div className="text-xs font-black uppercase tracking-widest mb-0.5" style={{ color: `${typeColor}99` }}>
+              <div className="text-sm font-black uppercase tracking-widest mb-1" style={{ color: `${typeColor}99` }}>
                 Trainer ID
               </div>
-              <h1 className="text-xl font-black text-white mb-0.5 tracking-wide">{currentTrainer.displayName}</h1>
-              <p className="text-xs mb-3" style={{ color: 'rgba(255,255,255,0.35)' }}>@{currentTrainer.username}</p>
+              <h1 className="text-2xl font-black text-white mb-1 tracking-wide">{currentTrainer.displayName}</h1>
+              <p className="text-sm mb-4" style={{ color: 'rgba(255,255,255,0.4)' }}>@{currentTrainer.username}</p>
 
               <PokeBallDivider color={typeColor} />
 
