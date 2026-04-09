@@ -63,9 +63,14 @@ export async function getCurrentUserIdOrThrow(): Promise<string> {
   
   console.log('[auth-server] Cookie debug:')
   console.log('[auth-server] Total cookies found:', allCookies.length)
-  console.log('[auth-server] Cookie names:', allCookies.map(c => c.name))
+  console.log('[auth-server] All cookie names:', JSON.stringify(allCookies.map(c => c.name)))
+  console.log('[auth-server] Looking for pattern: sb-abzurjxkxxtahdjrpvxk-auth-token*')
   
-  const authCookie = allCookies.find(c => c.name.includes('-auth-token'))
+  // Look for the specific Supabase auth token cookie
+  const authCookie = allCookies.find(c => 
+    c.name === 'sb-abzurjxkxxtahdjrpvxk-auth-token' ||
+    c.name.startsWith('sb-abzurjxkxxtahdjrpvxk-auth-token.')
+  )
   
   if (!authCookie?.value) {
     console.error('[auth-server] ❌ No auth cookie found')
