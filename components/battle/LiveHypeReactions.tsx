@@ -97,16 +97,16 @@ export default function LiveHypeReactions({ onMount }: LiveHypeReactionsProps) {
 }
 
 function Reaction({ reaction }: { reaction: HypeReaction }) {
-  // Position based on side - spawn near trainer name area (left side panel)
+  // Position based on side - spawn near pokeball at bottom
   const isLeft = reaction.side === 'A'
   
-  // Start from trainer name area (left: ~10%, right would be ~90% but only A is enabled)
-  const startX = isLeft ? '10%' : '90%'
-  const startY = '15%'  // Near top where trainer names are
-  const endY = -50
+  // Start from bottom where pokeball is (left side for player A)
+  const startX = isLeft ? '15%' : '85%'  // Near bottom-left where pokeball is
+  const startY = '85%'  // Near bottom of screen
+  const endY = '20%'  // Float up to near top
   
   // Random horizontal drift
-  const driftX = (Math.random() - 0.5) * 60
+  const driftX = (Math.random() - 0.5) * 80
 
   return (
     <motion.div

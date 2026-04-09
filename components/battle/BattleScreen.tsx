@@ -1591,13 +1591,13 @@ function CreatureDisplay({
         </div>
       </div>
 
-      {/* ── HYPE CONTROL (below sprite, positioned to left of existing trainer name) ── */}
+      {/* ── HYPE CONTROL (below sprite, right after trainer name at bottom) ── */}
       {triggerHype && (
         <div style={{
           position: 'absolute',
-          bottom: -45,
-          left: isLeft ? 15 : 'auto',
-          right: isLeft ? 'auto' : 15,
+          bottom: -70,  // Much lower - near bottom of screen
+          left: isLeft ? 90 : 'auto',  // Moved right, closer to trainer name
+          right: isLeft ? 'auto' : 90,
         }}>
           <HypeControlPanel
             side={side}
