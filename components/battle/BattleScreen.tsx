@@ -1347,11 +1347,11 @@ export default function BattleScreen() {
 
       {/* Removed intermediate overlay - auto-advances to results screen */}
 
-      {/* ── HYPE CONTROL - fixed at bottom-left near trainer name ── */}
+      {/* ── HYPE CONTROL - fixed below trainer name ── */}
       {!isDone && triggerFn && (
         <div style={{
           position: 'fixed',
-          bottom: 70,  // Just above arena name
+          bottom: 50,  // Lower, below trainer name
           left: 220,   // Right next to where "BROCK" appears
           zIndex: 9998,
         }}>

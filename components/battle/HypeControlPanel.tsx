@@ -21,7 +21,6 @@ const EMOTES = [
 const QUICK_PHRASES_A = [
   "Let's go!",
   "Too easy!",
-  "Calculated!",
   "Outplayed!",
 ]
 
@@ -42,6 +41,9 @@ export default function HypeControlPanel({ side, onTrigger }: HypeControlPanelPr
     if (cooldown) return
     
     onTrigger(side, type, content)
+    
+    // Close panel immediately after selection
+    setExpanded(false)
     
     // 2 second cooldown to prevent spam
     setCooldown(true)
@@ -121,20 +123,7 @@ export default function HypeControlPanel({ side, onTrigger }: HypeControlPanelPr
             boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
           }}
         >
-          {/* Header */}
-          <div
-            style={{
-              fontSize: 12,
-              fontWeight: 900,
-              color: sideColor,
-              textTransform: 'uppercase',
-              letterSpacing: '0.1em',
-              marginBottom: 12,
-              textAlign: 'center',
-            }}
-          >
-            Hype Reactions
-          </div>
+
 
           {/* Emotes grid */}
           <div
@@ -173,18 +162,6 @@ export default function HypeControlPanel({ side, onTrigger }: HypeControlPanelPr
 
           {/* Quick phrases */}
           <div style={{ marginBottom: 12 }}>
-            <div
-              style={{
-                fontSize: 10,
-                fontWeight: 700,
-                color: '#94a3b8',
-                marginBottom: 6,
-                textTransform: 'uppercase',
-                letterSpacing: '0.08em',
-              }}
-            >
-              Quick Phrases
-            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {phrases.map(phrase => (
                 <motion.button
@@ -242,7 +219,7 @@ export default function HypeControlPanel({ side, onTrigger }: HypeControlPanelPr
               transition: 'all 0.2s ease',
             }}
           >
-            GG! 🎮
+            GG
           </motion.button>
 
           {cooldown && (
