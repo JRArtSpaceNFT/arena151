@@ -36,7 +36,7 @@ export function XConnectionCard({ onConnectionChange }: XConnectionCardProps) {
   const xProfileImage = currentUser?.x_profile_image_url
   const xVerifiedAt = currentUser?.x_verified_at
 
-  const handleConnect = async () => {
+  const handleConnect = () => {
     console.log('[XConnectionCard] handleConnect clicked')
     console.log('[XConnectionCard] currentUser:', currentUser)
     console.log('[XConnectionCard] currentUser.id:', currentUser?.id)
@@ -46,39 +46,11 @@ export function XConnectionCard({ onConnectionChange }: XConnectionCardProps) {
       return
     }
     
-    console.log('[XConnectionCard] Fetching /api/x/connect with credentials...')
+    console.log('[XConnectionCard] Navigating to /api/x/connect (same-origin, cookies will be sent)...')
     
-    try {
-      // Use fetch with credentials to ensure cookies are sent
-      const response = await fetch('/api/x/connect', {
-        method: 'GET',
-        credentials: 'include', // Force cookies to be included
-        redirect: 'manual', // Don't auto-follow redirects
-      })
-      
-      console.log('[XConnectionCard] Response status:', response.status)
-      console.log('[XConnectionCard] Response type:', response.type)
-      
-      // Check if we got a redirect (307)
-      if (response.status === 307 || response.type === 'opaqueredirect') {
-        const location = response.headers.get('Location')
-        console.log('[XConnectionCard] Redirect location:', location)
-        if (location) {
-          window.location.href = location
-        } else {
-          // Opaque redirect - follow it manually
-          window.location.href = '/api/x/connect'
-        }
-      } else {
-        // Some other response - check for error
-        const text = await response.text()
-        console.error('[XConnectionCard] Unexpected response:', text)
-        setErrorMessage('Failed to initiate X connection. Please try again.')
-      }
-    } catch (error) {
-      console.error('[XConnectionCard] Fetch error:', error)
-      setErrorMessage('Network error. Please try again.')
-    }
+    // Direct navigation - browser will send all cookies (including httpOnly)
+    // This is the only reliable way to send httpOnly cookies in Next.js
+    window.location.href = '/api/x/connect'
   }
 
   const handleUnlink = async () => {
@@ -148,11 +120,18 @@ export function XConnectionCard({ onConnectionChange }: XConnectionCardProps) {
             <button
               onClick={handleConnect}
               disabled={!currentUser}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-black px-6 py-3 font-bold text-white transition-all duration-200 hover:bg-black/80 hover:scale-[1.02] hover:shadow-lg hover:shadow-white/20 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none"
+              className="flex w-full items-center justify-center gap-3 rounded-xl px-8 py-4 font-black text-lg text-white transition-all duration-200 hover:scale-[1.05] hover:shadow-2xl hover:shadow-blue-500/50 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none relative overflow-hidden group"
               style={{
-                boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+                background: currentUser 
+                  ? 'linear-gradient(135deg, #1DA1F2 0%, #0d8bd9 100%)'
+                  : 'linear-gradient(135deg, #64748b 0%, #475569 100%)',
+                boxShadow: currentUser
+                  ? '0 4px 20px rgba(29, 161, 242, 0.4), inset 0 1px 0 rgba(255,255,255,0.2)'
+                  : '0 4px 12px rgba(0,0,0,0.3)',
               }}
             >
+              {/* Animated shine effect on hover */}
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
               <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">
                 <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
               </svg>
