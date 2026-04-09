@@ -12,7 +12,10 @@ import SlowMotionWrapper from './SlowMotionWrapper'
 import ArenaDamage from './ArenaDamage'
 import AttackTrail from './AttackTrail'
 import ImpactDistortion from './ImpactDistortion'
-import { FireAttack, WaterAttack, ElectricAttack, ImpactRings } from './attack-animations'
+import { 
+  FireAttack, WaterAttack, ElectricAttack, IceAttack, GrassAttack, 
+  PsychicAttack, FightingAttack, DarkAttack, ImpactRings 
+} from './attack-animations'
 import { useBattleVFX } from '@/hooks/useBattleVFX'
 import { useGameStore } from '@/lib/game-store'
 import { MOVES } from '@/lib/data/moves'
@@ -29,7 +32,10 @@ export default function EnhancedBattleWrapper({ children }: EnhancedBattleWrappe
   const [koText, setKoText] = useState(false)
   const [totalDamage, setTotalDamage] = useState(0)
   const [attackTrail, setAttackTrail] = useState<{ element: string; from: 'left' | 'right'; power: number; active: boolean } | null>(null)
-  const [activeAnimation, setActiveAnimation] = useState<{ type: 'fire' | 'water' | 'electric'; from: 'left' | 'right' } | null>(null)
+  const [activeAnimation, setActiveAnimation] = useState<{ 
+    type: 'fire' | 'water' | 'electric' | 'ice' | 'grass' | 'psychic' | 'fighting' | 'dark'; 
+    from: 'left' | 'right' 
+  } | null>(null)
   const [impactPosition, setImpactPosition] = useState<{ x: number; y: number; color: string; intensity: 'light' | 'medium' | 'heavy' } | null>(null)
   const lastLogLengthRef = useRef(0)
 
@@ -68,15 +74,20 @@ export default function EnhancedBattleWrapper({ children }: EnhancedBattleWrappe
 
         // Trigger element-specific attack animation
         const attackDirection = isP1Attack ? 'left' : 'right'
-        if (move.type === 'fire') {
-          setActiveAnimation({ type: 'fire', from: attackDirection })
-          setTimeout(() => setActiveAnimation(null), 800)
-        } else if (move.type === 'water') {
-          setActiveAnimation({ type: 'water', from: attackDirection })
-          setTimeout(() => setActiveAnimation(null), 900)
-        } else if (move.type === 'electric') {
-          setActiveAnimation({ type: 'electric', from: attackDirection })
-          setTimeout(() => setActiveAnimation(null), 600)
+        const typeAnimationMap: Record<string, { duration: number }> = {
+          fire: { duration: 800 },
+          water: { duration: 900 },
+          electric: { duration: 600 },
+          ice: { duration: 600 },
+          grass: { duration: 800 },
+          psychic: { duration: 1000 },
+          fighting: { duration: 600 },
+          dark: { duration: 1200 },
+        }
+        
+        if (typeAnimationMap[move.type]) {
+          setActiveAnimation({ type: move.type as any, from: attackDirection })
+          setTimeout(() => setActiveAnimation(null), typeAnimationMap[move.type].duration)
         }
         
         // Trigger impact VFX
@@ -169,6 +180,21 @@ export default function EnhancedBattleWrapper({ children }: EnhancedBattleWrappe
         )}
         {activeAnimation?.type === 'electric' && (
           <ElectricAttack from={activeAnimation.from} onComplete={() => setActiveAnimation(null)} />
+        )}
+        {activeAnimation?.type === 'ice' && (
+          <IceAttack from={activeAnimation.from} onComplete={() => setActiveAnimation(null)} />
+        )}
+        {activeAnimation?.type === 'grass' && (
+          <GrassAttack from={activeAnimation.from} onComplete={() => setActiveAnimation(null)} />
+        )}
+        {activeAnimation?.type === 'psychic' && (
+          <PsychicAttack from={activeAnimation.from} onComplete={() => setActiveAnimation(null)} />
+        )}
+        {activeAnimation?.type === 'fighting' && (
+          <FightingAttack from={activeAnimation.from} onComplete={() => setActiveAnimation(null)} />
+        )}
+        {activeAnimation?.type === 'dark' && (
+          <DarkAttack from={activeAnimation.from} onComplete={() => setActiveAnimation(null)} />
         )}
 
         {/* Impact rings */}
