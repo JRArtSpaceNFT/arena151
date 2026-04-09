@@ -60,29 +60,42 @@ export async function getCurrentUserIdOrThrow(): Promise<string> {
   // Try to get session from Supabase auth cookie
   // Cookie names: sb-<project-ref>-auth-token or sb-<project-ref>-auth-token.0, .1, etc.
   const allCookies = cookieStore.getAll()
+  
+  console.log('[auth-server] Cookie debug:')
+  console.log('[auth-server] Total cookies found:', allCookies.length)
+  console.log('[auth-server] Cookie names:', allCookies.map(c => c.name))
+  
   const authCookie = allCookies.find(c => c.name.includes('-auth-token'))
   
   if (!authCookie?.value) {
-    console.log('[auth-server] No auth cookie found. Available cookies:', allCookies.map(c => c.name))
+    console.error('[auth-server] ❌ No auth cookie found')
+    console.log('[auth-server] Looking for cookie matching pattern: *-auth-token*')
+    console.log('[auth-server] All cookies:', JSON.stringify(allCookies.map(c => ({ name: c.name, hasValue: !!c.value }))))
     throw new Error('Not authenticated')
   }
+
+  console.log('[auth-server] ✅ Found auth cookie:', authCookie.name)
+  console.log('[auth-server] Cookie value length:', authCookie.value.length)
+  console.log('[auth-server] Cookie value preview:', authCookie.value.substring(0, 50) + '...')
 
   // Try to decode JWT directly (fastest, no network call)
   const decoded = decodeJWT(authCookie.value)
   if (decoded?.sub) {
+    console.log('[auth-server] ✅ JWT decoded successfully, user ID:', decoded.sub)
     return decoded.sub
   }
 
   // Fallback to Supabase client if JWT decode failed
-  console.log('[auth-server] JWT decode failed, falling back to Supabase getUser()')
+  console.log('[auth-server] ⚠️ JWT decode failed, falling back to Supabase getUser()')
   const supabase = await getSupabaseServer()
   const { data: { user }, error } = await supabase.auth.getUser()
 
   if (error || !user) {
-    console.error('[auth-server] Supabase getUser() failed:', error?.message)
+    console.error('[auth-server] ❌ Supabase getUser() failed:', error?.message)
     throw new Error('Not authenticated')
   }
 
+  console.log('[auth-server] ✅ Supabase getUser() succeeded, user ID:', user.id)
   return user.id
 }
 
