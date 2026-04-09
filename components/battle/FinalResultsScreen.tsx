@@ -187,81 +187,104 @@ function BattleStatsSection() {
 
   return (
     <div style={{
-      background: 'rgba(0,0,0,0.4)',
-      border: '1px solid rgba(255,255,255,0.1)',
+      background: 'rgba(0,0,0,0.6)',
+      border: '1px solid rgba(255,255,255,0.15)',
       borderRadius: 12,
-      padding: 12,
+      padding: '12px 16px',
     }}>
+      {/* Header */}
       <div style={{
-        fontSize: 11, color: 'rgba(255,255,255,0.4)',
-        textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: 8, textAlign: 'center',
+        fontSize: 11,
+        color: 'rgba(255,255,255,0.5)',
+        textTransform: 'uppercase',
+        letterSpacing: '0.2em',
+        marginBottom: 12,
+        textAlign: 'center',
         fontWeight: 700,
       }}>Battle Statistics</div>
 
-      {/* Quick Stats Grid - MVP ONLY */}
+      {/* Single horizontal row layout matching screenshot */}
       <div style={{
         display: 'flex',
-        justifyContent: 'center',
-        marginBottom: 8,
-      }}>
-        <StatCardWithSprite creature={mvp} label="MVP" />
-      </div>
-
-      {/* Side-by-Side Comparison - Condensed to one line */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        gap: 6,
         alignItems: 'center',
-        paddingTop: 8,
-        borderTop: '1px solid rgba(255,255,255,0.08)',
-      }}>
-        {/* Team A (You) */}
-        <div style={{ fontSize: 13, fontWeight: 800, color: '#3b82f6' }}>You</div>
-        
-        {/* Damage Dealt */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(255,255,255,0.03)', borderRadius: 6, padding: '4px 8px' }}>
-          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>Damage Dealt</span>
-          <span style={{ fontSize: 14, fontWeight: 800, color: '#f1f5f9' }}>{damageA}</span>
-        </div>
-
-        <div style={{ fontSize: 16, color: 'rgba(255,255,255,0.2)', fontWeight: 700 }}>VS</div>
-
-        {/* Damage Dealt - Opponent */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(255,255,255,0.03)', borderRadius: 6, padding: '4px 8px' }}>
-          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>Damage Dealt</span>
-          <span style={{ fontSize: 14, fontWeight: 800, color: '#f1f5f9' }}>{damageB}</span>
-        </div>
-
-        <div style={{ fontSize: 13, fontWeight: 800, color: '#ef4444' }}>Opponent</div>
-      </div>
-
-      {/* Second line - Damage Taken */}
-      <div style={{
-        display: 'flex',
         justifyContent: 'center',
-        gap: 6,
-        alignItems: 'center',
-        marginTop: 6,
+        gap: 16,
       }}>
-        {/* Team A (You) */}
-        <div style={{ fontSize: 13, fontWeight: 800, color: '#3b82f6' }}>You</div>
-        
-        {/* Damage Taken */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(255,255,255,0.03)', borderRadius: 6, padding: '4px 8px' }}>
-          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>Damage Taken</span>
-          <span style={{ fontSize: 14, fontWeight: 800, color: '#f1f5f9' }}>{takenA}</span>
+        {/* MVP Pokemon with sprite */}
+        {mvp && (
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 4,
+            minWidth: 80,
+          }}>
+            <img
+              src={mvp.creature.spriteUrl}
+              alt={mvp.creature.name}
+              style={{
+                width: 48,
+                height: 48,
+                imageRendering: 'pixelated',
+              }}
+            />
+            <div style={{
+              fontSize: 11,
+              fontWeight: 800,
+              color: '#f1f5f9',
+            }}>{mvp.creature.name}</div>
+            <div style={{
+              fontSize: 9,
+              fontWeight: 700,
+              color: 'rgba(255,255,255,0.4)',
+              textTransform: 'uppercase',
+            }}>MVP</div>
+          </div>
+        )}
+
+        {/* Vertical divider */}
+        <div style={{
+          width: 1,
+          height: 60,
+          background: 'rgba(255,255,255,0.1)',
+        }} />
+
+        {/* Stats rows */}
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 8,
+        }}>
+          {/* Damage Dealt row */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+          }}>
+            <span style={{ fontSize: 13, fontWeight: 800, color: '#3b82f6', minWidth: 70, textAlign: 'right' }}>You</span>
+            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', minWidth: 100 }}>Damage Dealt</span>
+            <span style={{ fontSize: 16, fontWeight: 900, color: '#f1f5f9', minWidth: 50, textAlign: 'center' }}>{damageA}</span>
+            <span style={{ fontSize: 14, fontWeight: 800, color: 'rgba(255,255,255,0.3)' }}>VS</span>
+            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', minWidth: 100 }}>Damage Dealt</span>
+            <span style={{ fontSize: 16, fontWeight: 900, color: '#f1f5f9', minWidth: 50, textAlign: 'center' }}>{damageB}</span>
+            <span style={{ fontSize: 13, fontWeight: 800, color: '#ef4444', minWidth: 70 }}>Opponent</span>
+          </div>
+
+          {/* Damage Taken row */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+          }}>
+            <span style={{ fontSize: 13, fontWeight: 800, color: '#3b82f6', minWidth: 70, textAlign: 'right' }}>You</span>
+            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', minWidth: 100 }}>Damage Taken</span>
+            <span style={{ fontSize: 16, fontWeight: 900, color: '#f1f5f9', minWidth: 50, textAlign: 'center' }}>{takenA}</span>
+            <span style={{ fontSize: 14, fontWeight: 800, color: 'rgba(255,255,255,0.3)' }}>VS</span>
+            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', minWidth: 100 }}>Damage Taken</span>
+            <span style={{ fontSize: 16, fontWeight: 900, color: '#f1f5f9', minWidth: 50, textAlign: 'center' }}>{takenB}</span>
+            <span style={{ fontSize: 13, fontWeight: 800, color: '#ef4444', minWidth: 70 }}>Opponent</span>
+          </div>
         </div>
-
-        <div style={{ fontSize: 16, color: 'rgba(255,255,255,0.2)', fontWeight: 700 }}>VS</div>
-
-        {/* Damage Taken - Opponent */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(255,255,255,0.03)', borderRadius: 6, padding: '4px 8px' }}>
-          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>Damage Taken</span>
-          <span style={{ fontSize: 14, fontWeight: 800, color: '#f1f5f9' }}>{takenB}</span>
-        </div>
-
-        <div style={{ fontSize: 13, fontWeight: 800, color: '#ef4444' }}>Opponent</div>
       </div>
     </div>
   )
