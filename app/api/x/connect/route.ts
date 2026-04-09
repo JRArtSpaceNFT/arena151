@@ -10,40 +10,21 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
 import { generateCodeVerifier, generateCodeChallenge, generateState, buildAuthorizationUrl } from '@/lib/x-oauth'
+import { getCurrentUserId } from '@/lib/auth-server'
 
 export async function GET(request: NextRequest) {
   try {
-    // 1. Create Supabase client with cookies from request
     console.log('[X OAuth] Checking authentication...')
     
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return request.cookies.getAll()
-          },
-          setAll() {
-            // No-op for GET request
-          },
-        },
-      }
-    )
+    // 1. Verify user is logged in using server-side cookies
+    const userId = await getCurrentUserId()
     
-    // 2. Verify user is logged in
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
-    console.log('[X OAuth] Auth check result:', { user: !!user, error: authError?.message })
-    
-    if (authError || !user) {
-      console.error('[X OAuth] Auth error:', authError)
+    if (!userId) {
+      console.error('[X OAuth] No user session found')
       throw new Error('Not authenticated')
     }
     
-    const userId = user.id
     console.log('[X OAuth] User authenticated:', userId)
 
     // 2. Generate PKCE parameters
