@@ -227,7 +227,7 @@ export default function GlobalChat() {
           data.map(async (msg) => {
             const { data: userData } = await supabase
               .from('profiles')
-              .select('id, username, avatar')
+              .select('id, username, display_name, avatar, favorite_pokemon_id')
               .eq('id', msg.user_id)
               .single()
             return { 
@@ -235,9 +235,9 @@ export default function GlobalChat() {
               user: userData ? {
                 id: userData.id,
                 username: userData.username,
-                displayName: userData.username,
+                displayName: userData.display_name || userData.username,
                 avatar: userData.avatar,
-                favorite_creature_id: null
+                favorite_creature_id: userData.favorite_pokemon_id?.toString()
               } : undefined 
             }
           })
@@ -281,7 +281,7 @@ export default function GlobalChat() {
         // Fetch user data for the new message
         const { data: userData, error: userError } = await supabase
           .from('profiles')
-          .select('id, username, avatar')
+          .select('id, username, display_name, avatar, favorite_pokemon_id')
           .eq('id', payload.new.user_id)
           .single()
 
@@ -294,9 +294,9 @@ export default function GlobalChat() {
           user: userData ? {
             id: userData.id,
             username: userData.username,
-            displayName: userData.username, // Use username as displayName
+            displayName: userData.display_name || userData.username,
             avatar: userData.avatar,
-            favorite_creature_id: undefined
+            favorite_creature_id: userData.favorite_pokemon_id?.toString()
           } : undefined,
         } as ChatMessage
 
