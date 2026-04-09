@@ -97,16 +97,16 @@ export default function LiveHypeReactions({ onMount }: LiveHypeReactionsProps) {
 }
 
 function Reaction({ reaction }: { reaction: HypeReaction }) {
-  // Position based on side - spawn near pokeball at bottom
+  // Position based on side - spawn from pokeball at bottom-left
   const isLeft = reaction.side === 'A'
   
-  // Start from bottom where pokeball is (left side for player A)
-  const startX = isLeft ? '15%' : '85%'  // Near bottom-left where pokeball is
-  const startY = '85%'  // Near bottom of screen
-  const endY = '20%'  // Float up to near top
+  // Start from exact pokeball position (fixed: bottom 70px, left 220px)
+  const startX = isLeft ? 220 : window.innerWidth - 220  // Exact pokeball position
+  const startY = window.innerHeight - 70  // Bottom 70px from viewport
+  const endY = window.innerHeight * 0.3  // Float up to 30% from top
   
   // Random horizontal drift
-  const driftX = (Math.random() - 0.5) * 80
+  const driftX = (Math.random() - 0.5) * 100
 
   return (
     <motion.div
@@ -119,7 +119,7 @@ function Reaction({ reaction }: { reaction: HypeReaction }) {
       animate={{
         opacity: [0, 1, 1, 0.8, 0],
         scale: [0.3, 1.2, 1, 1, 0.8],
-        x: `calc(${startX} + ${driftX}px)`,
+        x: startX + driftX,
         y: endY,
       }}
       exit={{ opacity: 0, scale: 0 }}

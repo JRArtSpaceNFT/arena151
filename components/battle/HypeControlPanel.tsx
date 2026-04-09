@@ -108,14 +108,16 @@ export default function HypeControlPanel({ side, onTrigger }: HypeControlPanelPr
           transition={{ duration: 0.2 }}
           style={{
             position: 'absolute',
-            top: 40,
+            bottom: 40,  // Open upward instead of downward
             left: -10,
-            width: 240,
+            width: 200,  // Narrower
+            maxHeight: '60vh',  // Prevent overflow
+            overflowY: 'auto',
             background: 'rgba(15, 23, 42, 0.95)',
             backdropFilter: 'blur(12px)',
             border: '2px solid rgba(255,255,255,0.15)',
-            borderRadius: 16,
-            padding: 16,
+            borderRadius: 12,  // Smaller radius
+            padding: 12,  // Less padding
             boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
           }}
         >
@@ -151,13 +153,13 @@ export default function HypeControlPanel({ side, onTrigger }: HypeControlPanelPr
                 onClick={() => handleTrigger('emote', emoji)}
                 disabled={cooldown}
                 style={{
-                  padding: 8,
+                  padding: 6,  // Smaller
                   background: cooldown 
                     ? 'rgba(100,116,139,0.3)' 
                     : 'rgba(255,255,255,0.1)',
                   border: '1px solid rgba(255,255,255,0.2)',
-                  borderRadius: 8,
-                  fontSize: 24,
+                  borderRadius: 6,
+                  fontSize: 20,  // Smaller emojis
                   cursor: cooldown ? 'not-allowed' : 'pointer',
                   transition: 'all 0.2s ease',
                   opacity: cooldown ? 0.5 : 1,

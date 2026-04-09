@@ -1346,6 +1346,21 @@ export default function BattleScreen() {
       </div>
 
       {/* Removed intermediate overlay - auto-advances to results screen */}
+
+      {/* ── HYPE CONTROL - fixed at bottom-left near trainer name ── */}
+      {!isDone && triggerFn && (
+        <div style={{
+          position: 'fixed',
+          bottom: 70,  // Just above arena name
+          left: 220,   // Right next to where "BROCK" appears
+          zIndex: 9998,
+        }}>
+          <HypeControlPanel
+            side="A"
+            onTrigger={triggerFn}
+          />
+        </div>
+      )}
     </div>
   )
 }
@@ -1591,20 +1606,7 @@ function CreatureDisplay({
         </div>
       </div>
 
-      {/* ── HYPE CONTROL (below sprite, right after trainer name at bottom) ── */}
-      {triggerHype && (
-        <div style={{
-          position: 'absolute',
-          bottom: -70,  // Much lower - near bottom of screen
-          left: isLeft ? 90 : 'auto',  // Moved right, closer to trainer name
-          right: isLeft ? 'auto' : 90,
-        }}>
-          <HypeControlPanel
-            side={side}
-            onTrigger={triggerHype}
-          />
-        </div>
-      )}
+
 
     </div>
   )
