@@ -118,21 +118,24 @@ export function useBattleVFX() {
       }, 150)
     }
 
-    // Screen tint (element color overlay)
+    // Screen tint (element color overlay) - MUCH MORE VISIBLE
     if (elementConfig.screenTint) {
       if (tintTimeoutRef.current) clearTimeout(tintTimeoutRef.current)
+      
+      // Extract base color from rgba string and make it MUCH more intense
+      const baseColor = elementConfig.screenTint.split(',').slice(0, 3).join(',') + ')'
       
       setState(prev => ({
         ...prev,
         screenTint: {
-          opacity: tier === 'special' ? 0.4 : tier === 'heavy' ? 0.3 : 0.2,
-          color: elementConfig.screenTint,
+          opacity: tier === 'special' ? 0.6 : tier === 'heavy' ? 0.5 : tier === 'medium' ? 0.4 : 0.3,
+          color: baseColor.replace(')', ', 0.8)'), // Add alpha to color directly
         },
       }))
 
       tintTimeoutRef.current = setTimeout(() => {
         setState(prev => ({ ...prev, screenTint: { opacity: 0, color: '#000000' } }))
-      }, 500)
+      }, 800) // Longer duration
     }
 
     // Camera zoom punch (2x more)

@@ -12,6 +12,8 @@ import SlowMotionWrapper from './SlowMotionWrapper'
 import ArenaDamage from './ArenaDamage'
 import AttackTrail from './AttackTrail'
 import ImpactDistortion from './ImpactDistortion'
+// Advanced VFX components temporarily disabled due to interface mismatch
+// Will be integrated in next iteration
 import { useBattleVFX } from '@/hooks/useBattleVFX'
 import { useGameStore } from '@/lib/game-store'
 import { MOVES } from '@/lib/data/moves'
