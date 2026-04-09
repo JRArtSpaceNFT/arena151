@@ -14,6 +14,8 @@ interface MomentumMeterProps {
   teamSizeA: number
   teamSizeB: number
   attackingSide: 'A' | 'B' | null
+  usernameA: string
+  usernameB: string
 }
 
 export default function MomentumMeter({
@@ -28,6 +30,8 @@ export default function MomentumMeter({
   teamSizeA,
   teamSizeB,
   attackingSide,
+  usernameA,
+  usernameB,
 }: MomentumMeterProps) {
   const [momentum, setMomentum] = useState(0) // -100 (B dominating) to +100 (A dominating)
   const [momentumState, setMomentumState] = useState<string | null>(null)
@@ -204,8 +208,8 @@ export default function MomentumMeter({
           letterSpacing: '0.08em',
         }}
       >
-        <span style={{ color: '#3b82f6', textShadow: '0 0 6px rgba(59,130,246,0.6)' }}>BLUE</span>
-        <span style={{ color: '#ef4444', textShadow: '0 0 6px rgba(239,68,68,0.6)' }}>RED</span>
+        <span style={{ color: '#3b82f6', textShadow: '0 0 6px rgba(59,130,246,0.6)', fontSize: 8, letterSpacing: '0.05em' }}>{usernameB}</span>
+        <span style={{ color: '#ef4444', textShadow: '0 0 6px rgba(239,68,68,0.6)', fontSize: 8, letterSpacing: '0.05em' }}>{usernameA}</span>
       </div>
     </div>
   )

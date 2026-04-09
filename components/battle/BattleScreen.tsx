@@ -766,6 +766,8 @@ export default function BattleScreen() {
         teamSizeA={teamA.length}
         teamSizeB={teamB.length}
         attackingSide={attackingSide}
+        usernameA={p1Trainer?.name ?? 'Red'}
+        usernameB={p2Trainer?.name ?? 'Blue'}
       />
 
       {/* ── Live Hype Reactions ── */}

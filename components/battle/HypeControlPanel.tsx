@@ -77,7 +77,7 @@ export default function HypeControlPanel({ side, onTrigger }: HypeControlPanelPr
           transition: 'all 0.2s ease',
         }}
       >
-        {expanded ? '✕' : '⚾'}
+        {expanded ? '✕' : '🟥'}
       </motion.button>
 
       {/* Expanded panel */}

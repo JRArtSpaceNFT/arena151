@@ -198,15 +198,13 @@ function BattleStatsSection() {
         fontWeight: 700,
       }}>Battle Statistics</div>
 
-      {/* Quick Stats Grid */}
+      {/* Quick Stats Grid - MVP ONLY */}
       <div style={{
-        display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
-        gap: 6, marginBottom: 8,
+        display: 'flex',
+        justifyContent: 'center',
+        marginBottom: 8,
       }}>
-        <StatCard emoji="⚔️" label="Turns" value={totalTurns} />
-        <StatCard emoji="💀" label="Total KOs" value={totalKos} />
         <StatCardWithSprite creature={mvp} label="MVP" />
-        <StatCardWithSprite creature={topDamage} label="Top Damage" />
       </div>
 
       {/* Side-by-Side Comparison */}
@@ -250,24 +248,29 @@ function StatCard({ emoji, label, value }: { emoji: string; label: string; value
 }
 
 function StatCardWithSprite({ creature, label }: { creature: any; label: string }) {
-  if (!creature) return <StatCard emoji="—" label={label} value="—" />
+  if (!creature) return null
   
-  const imageUrl = creature.creature.sprite || `/pokemon/${creature.creature.slug}.png`
+  const imageUrl = creature.creature.spriteUrl || creature.creature.sprite || `/pokemon/${creature.creature.slug}.png`
   
   return (
     <div style={{
       background: 'rgba(255,255,255,0.04)', borderRadius: 8,
       padding: 6, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center',
     }}>
-      <div style={{ width: 32, height: 32, marginBottom: 3, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 48, height: 48, marginBottom: 3, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <img 
           src={imageUrl}
           alt={creature.creature.name}
           style={{
-            maxWidth: 32,
-            maxHeight: 32,
+            maxWidth: 48,
+            maxHeight: 48,
             objectFit: 'contain',
             imageRendering: 'pixelated',
+          }}
+          onError={(e) => {
+            console.error('MVP sprite failed to load:', imageUrl)
+            const img = e.target as HTMLImageElement
+            img.style.display = 'none'
           }}
         />
       </div>
@@ -648,11 +651,6 @@ export default function FinalResultsScreen() {
                 marginBottom: 12,
               }}
             >
-              {effectiveVictory && (
-                <div style={{ fontSize: 'clamp(40px, 6vh, 60px)', marginBottom: 6 }}>
-                  🏆
-                </div>
-              )}
               <div style={{
                 fontFamily: '"Impact","Arial Black",sans-serif',
                 fontSize: 'clamp(28px, 4.5vh, 44px)',
@@ -802,7 +800,7 @@ export default function FinalResultsScreen() {
                   boxShadow: effectiveVictory ? '0 0 30px rgba(217,119,6,0.6)' : '0 0 30px rgba(124,58,237,0.6)',
                 }}
               >
-                ⚔️ PLAY AGAIN
+                PLAY AGAIN
               </button>
 
               <div style={{ display: 'flex', gap: 10, width: '100%', maxWidth: 320 }}>
@@ -816,7 +814,7 @@ export default function FinalResultsScreen() {
                     fontSize: 14, fontWeight: 700, cursor: 'pointer',
                   }}
                 >
-                  🏠 Arena Home
+                  Arena Home
                 </button>
                 <button
                   onClick={handleShare}
