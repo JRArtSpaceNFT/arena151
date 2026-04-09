@@ -9,6 +9,9 @@ import ArenaArtwork from '@/components/battle/ArenaArtwork'
 import type { MoveAnimState } from '@/components/battle/MoveAnimation'
 import { playMusic, resumeAudioContext, stopCrowdAmbient } from '@/lib/audio/musicEngine'
 import { playKOSound, playRandomCrowdReaction, playRealCrowdCheer, playAttackSound, playStatusSound } from '@/lib/audio/sfx'
+import MomentumMeter from '@/components/battle/MomentumMeter'
+import LiveHypeReactions, { useHypeReactions } from '@/components/battle/LiveHypeReactions'
+import HypeControlPanel from '@/components/battle/HypeControlPanel'
 
 
 // ── TYPE STYLING ────────────────────────────────────────────────
@@ -52,6 +55,9 @@ export default function BattleScreen() {
     showBattleDialogue, clearBattleDialogue,
     battleDialogue, battleDialogueSide, battleDialogueKey,
   } = useGameStore()
+
+  // Hype reactions system
+  const { triggerFn, handleMount } = useHypeReactions()
 
   useEffect(() => {
     // Music + crowd already started in ArenaReveal when arena locks in
@@ -560,6 +566,18 @@ export default function BattleScreen() {
         const phrase = winningTrainer.koPhrases[Math.floor(Math.random() * winningTrainer.koPhrases.length)]
         setTimeout(() => queueDialogue(phrase, winningSide), Math.max(40, Math.round(900 / spd)))
       }
+      // Auto hype reaction on KO
+      setTimeout(() => {
+        triggerFn?.(winningSide, 'emote', '💀')
+      }, Math.max(40, Math.round(600 / spd)))
+    }
+
+    // Auto hype reaction on critical hit
+    if (entry.type === 'critical' && entry.side) {
+      const critSide = entry.side
+      setTimeout(() => {
+        triggerFn?.(critSide, 'emote', '⚡')
+      }, Math.max(40, Math.round(400 / spd)))
     }
 
     // Crowd roar flash
@@ -715,6 +733,34 @@ export default function BattleScreen() {
       }} />
 
       {/* Electric screen flash removed — was causing persistent yellow overlay */}
+
+      {/* ── Momentum Meter ── */}
+      <MomentumMeter
+        currentHpA={currentHpA}
+        maxHpA={maxHpA}
+        currentHpB={currentHpB}
+        maxHpB={maxHpB}
+        activeA={activeA}
+        activeB={activeB}
+        koSetA={koSetA}
+        koSetB={koSetB}
+        teamSizeA={teamA.length}
+        teamSizeB={teamB.length}
+        attackingSide={attackingSide}
+      />
+
+      {/* ── Live Hype Reactions ── */}
+      <LiveHypeReactions onMount={handleMount} />
+
+      {/* ── Hype Control Panels ── */}
+      <HypeControlPanel
+        side="A"
+        onTrigger={(side, type, content) => triggerFn?.(side, type, content)}
+      />
+      <HypeControlPanel
+        side="B"
+        onTrigger={(side, type, content) => triggerFn?.(side, type, content)}
+      />
 
       {/* ── Type advantage burst ── */}
       <AnimatePresence>
