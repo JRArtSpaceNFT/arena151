@@ -11,6 +11,7 @@ import PreBattleTalk from '@/components/battle/PreBattleTalk'
 import ArenaReveal from '@/components/battle/ArenaReveal'
 import Lineup from '@/components/battle/Lineup'
 import BattleScreen from '@/components/battle/BattleScreen'
+import EnhancedBattleWrapper from '@/components/battle/EnhancedBattleWrapper'
 import FinalResultsScreen from '@/components/battle/FinalResultsScreen'
 import ResultsScreen from '@/components/battle/ResultsScreen'
 import MoveAnimation from '@/components/battle/MoveAnimation'
@@ -450,7 +451,7 @@ export default function GameWrapper() {
     lineup: <Lineup />,
     arena_reveal: <ArenaReveal />,
     pretalk: <PreBattleTalk />,
-    battle: <BattleScreen />,
+    battle: <EnhancedBattleWrapper><BattleScreen /></EnhancedBattleWrapper>,
     result: <FinalResultsScreen />,
   }
 
