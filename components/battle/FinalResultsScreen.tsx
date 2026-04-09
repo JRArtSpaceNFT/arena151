@@ -249,40 +249,30 @@ function BattleStatsSection() {
           background: 'rgba(255,255,255,0.1)',
         }} />
 
-        {/* Stats rows */}
+        {/* Stats - simplified (opponent stats are redundant) */}
         <div style={{
           display: 'flex',
           flexDirection: 'column',
-          gap: 8,
+          gap: 10,
         }}>
-          {/* Damage Dealt row */}
+          {/* Damage Dealt */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 10,
+            gap: 12,
           }}>
-            <span style={{ fontSize: 13, fontWeight: 800, color: '#3b82f6', minWidth: 70, textAlign: 'right' }}>You</span>
-            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', minWidth: 100 }}>Damage Dealt</span>
-            <span style={{ fontSize: 16, fontWeight: 900, color: '#f1f5f9', minWidth: 50, textAlign: 'center' }}>{damageA}</span>
-            <span style={{ fontSize: 14, fontWeight: 800, color: 'rgba(255,255,255,0.3)' }}>VS</span>
-            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', minWidth: 100 }}>Damage Dealt</span>
-            <span style={{ fontSize: 16, fontWeight: 900, color: '#f1f5f9', minWidth: 50, textAlign: 'center' }}>{damageB}</span>
-            <span style={{ fontSize: 13, fontWeight: 800, color: '#ef4444', minWidth: 70 }}>Opponent</span>
+            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', minWidth: 110 }}>Damage Dealt</span>
+            <span style={{ fontSize: 20, fontWeight: 900, color: '#22c55e' }}>{damageA}</span>
           </div>
 
-          {/* Damage Taken row */}
+          {/* Damage Taken */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 10,
+            gap: 12,
           }}>
-            <span style={{ fontSize: 13, fontWeight: 800, color: '#3b82f6', minWidth: 70, textAlign: 'right' }}>You</span>
-            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', minWidth: 100 }}>Damage Taken</span>
-            <span style={{ fontSize: 16, fontWeight: 900, color: '#f1f5f9', minWidth: 50, textAlign: 'center' }}>{takenA}</span>
-            <span style={{ fontSize: 14, fontWeight: 800, color: 'rgba(255,255,255,0.3)' }}>VS</span>
-            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', minWidth: 100 }}>Damage Taken</span>
-            <span style={{ fontSize: 16, fontWeight: 900, color: '#f1f5f9', minWidth: 50, textAlign: 'center' }}>{takenB}</span>
-            <span style={{ fontSize: 13, fontWeight: 800, color: '#ef4444', minWidth: 70 }}>Opponent</span>
+            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', minWidth: 110 }}>Damage Taken</span>
+            <span style={{ fontSize: 20, fontWeight: 900, color: '#ef4444' }}>{takenA}</span>
           </div>
         </div>
       </div>
