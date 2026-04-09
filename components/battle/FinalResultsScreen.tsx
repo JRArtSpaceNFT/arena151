@@ -464,9 +464,16 @@ export default function FinalResultsScreen() {
   const effectiveTrainer = currentTrainer ?? syntheticTrainer ?? practiceTrainer as typeof currentTrainer
   const effectiveVictory = resolvedFromServer ? (settledMatchResult?.iWon ?? false) : isVictory
 
-  // Determine trainer background image
-  const winnerTrainer = effectiveVictory ? p1Trainer : p2Trainer
-  const trainerSlug = winnerTrainer?.id.toLowerCase().replace(/\s+/g, '-') ?? 'default'
+  // Determine trainer background image - ALWAYS show current player's trainer
+  const winnerTrainer = effectiveVictory ? p1Trainer : p2Trainer // Keep for share text
+  
+  // Determine which trainer is the current player
+  const isPlayerP1 = currentTrainer?.id === p1Trainer?.id
+  const isPlayerP2 = currentTrainer?.id === p2Trainer?.id
+  const myTrainer = isPlayerP1 ? p1Trainer : isPlayerP2 ? p2Trainer : effectiveTrainer
+  
+  // Use MY trainer for background, not the winner
+  const trainerSlug = myTrainer?.id.toLowerCase().replace(/\s+/g, '-') ?? 'default'
   const outcomeSlug = effectiveVictory ? 'win' : 'loss'
   const trainerBg = `/trainer-results/${trainerSlug}-${outcomeSlug}.png`
   const fallbackBg = effectiveVictory
