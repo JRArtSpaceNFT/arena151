@@ -10,6 +10,7 @@ import { POKEMON_DATABASE } from '@/lib/pokemon-data';
 import { getPokemonSpriteUrl } from '@/lib/pokemon-data';
 import { validateUsername } from '@/lib/moderation';
 import { registerUser, loginUser, initiatePasswordReset, getSession } from '@/lib/auth';
+import { playMusic } from '@/lib/audio/musicEngine';
 import PokemonSelector from './PokemonSelector';
 import type { PokemonType } from '@/types';
 
@@ -30,9 +31,19 @@ export default function SignupFlow() {
 
   // Age verification gate — must pass before seeing signup form
   const [ageVerified, setAgeVerified] = useState<boolean | null>(null);
+  
+  // Play Pokemon intro music when signup flow mounts
+  useEffect(() => {
+    playMusic('intro');
+    return () => {
+      // Music will naturally transition when user moves to next screen
+    };
+  }, []);
+  
   const [ageDenied, setAgeDenied] = useState(false);
   // ToS acceptance
   const [tosAccepted, setTosAccepted] = useState(false);
+
 
   const [formData, setFormData] = useState({
     email: '',

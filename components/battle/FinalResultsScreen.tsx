@@ -477,8 +477,8 @@ export default function FinalResultsScreen() {
   const outcomeSlug = effectiveVictory ? 'win' : 'loss'
   const trainerBg = `/trainer-results/${trainerSlug}-${outcomeSlug}.png`
   const fallbackBg = effectiveVictory
-    ? 'linear-gradient(160deg, #1a0f00 0%, #0f0a00 40%, #0a0a0f 100%)'
-    : 'linear-gradient(160deg, #0a000f 0%, #050010 40%, #0a0a0f 100%)'
+    ? 'linear-gradient(160deg, #f59e0b 0%, #d97706 25%, #b45309 50%, #92400e 75%, #78350f 100%)' // Victory: Golden orange gradient
+    : 'linear-gradient(160deg, #7c3aed 0%, #6d28d9 25%, #5b21b6 50%, #4c1d95 75%, #3b0764 100%)' // Defeat: Purple gradient
 
   useEffect(() => {
     playMusic('victory')
