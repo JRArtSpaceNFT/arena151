@@ -181,6 +181,9 @@ export default function BattleScreen() {
 
   // Screen shake controls
   const shakeControls = useAnimation()
+  // Camera zoom/rotation for dramatic moments
+  const [cameraZoom, setCameraZoom] = useState(1)
+  const [cameraRotation, setCameraRotation] = useState(0)
 
 
 
@@ -395,7 +398,14 @@ export default function BattleScreen() {
       const side = entry.side
       setTimeout(() => {
         setAttackingSide(side)
-        setTimeout(() => setAttackingSide(null), Math.max(40, Math.round(350 / spd)))
+        // Dramatic zoom + slight rotation on ultimate
+        setCameraZoom(1.08)
+        setCameraRotation(side === 'A' ? -0.5 : 0.5)
+        setTimeout(() => {
+          setAttackingSide(null)
+          setCameraZoom(1)
+          setCameraRotation(0)
+        }, Math.max(40, Math.round(350 / spd)))
       }, ULTIMATE_ATTACK_DELAY)
     }
 
@@ -556,6 +566,15 @@ export default function BattleScreen() {
       playKOSound()
       setTimeout(() => playRealCrowdCheer(), Math.max(20, Math.round(300 / spd)))
       setTimeout(() => playRandomCrowdReaction(), Math.max(40, Math.round(1200 / spd)))
+      
+      // Dramatic slow zoom on KO
+      const winningSide: 'A' | 'B' = entry.side === 'A' ? 'B' : 'A'
+      setCameraZoom(1.05)
+      setCameraRotation(winningSide === 'A' ? -0.3 : 0.3)
+      setTimeout(() => {
+        setCameraZoom(1)
+        setCameraRotation(0)
+      }, Math.max(80, Math.round(1200 / spd)))
     }
 
     // KO phrase — winning trainer taunts
@@ -1102,7 +1121,15 @@ export default function BattleScreen() {
 
       {/* ── Content ── */}
       <motion.div
-        animate={shakeControls}
+        animate={{
+          ...shakeControls,
+          scale: cameraZoom,
+          rotate: cameraRotation,
+        }}
+        transition={{
+          scale: { type: 'spring', stiffness: 120, damping: 20 },
+          rotate: { type: 'spring', stiffness: 120, damping: 20 },
+        }}
         style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', flex: 1 }}
       >
         {/* Top bar */}
