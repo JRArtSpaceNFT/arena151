@@ -41,19 +41,26 @@ export default function DefeatScreen() {
   return (
     <div style={{ height: '100dvh', maxHeight: '100dvh', position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 'clamp(14px,2vh,28px) 20px clamp(16px,2.5vh,32px)', overflow: 'hidden' }}>
 
-      {/* ── Battlefield at 8% opacity — loser stood here ── */}
-      {arenaImage && (
+      {/* ── Battlefield background — loser stood here ── */}
+      {arenaImage ? (
         <div style={{
           position: 'fixed', inset: 0,
           backgroundImage: `url(${arenaImage})`,
           backgroundSize: 'cover', backgroundPosition: 'center',
-          opacity: 0.08,
+          opacity: 0.15,
+          zIndex: 0,
+        }} />
+      ) : (
+        // Fallback if no arena image
+        <div style={{
+          position: 'fixed', inset: 0,
+          background: 'linear-gradient(135deg, #1a0a0f 0%, #0f0520 50%, #0a0a14 100%)',
           zIndex: 0,
         }} />
       )}
 
-      {/* Dark red base */}
-      <div style={{ position: 'fixed', inset: 0, background: 'linear-gradient(160deg,#12000a 0%,#0a000f 50%,#060006 100%)', zIndex: 1 }} />
+      {/* Dark red overlay */}
+      <div style={{ position: 'fixed', inset: 0, background: 'linear-gradient(160deg,rgba(18,0,10,0.8) 0%,rgba(10,0,15,0.9) 50%,rgba(6,0,6,0.95) 100%)', zIndex: 1 }} />
 
       {/* Pulsing vignette */}
       <motion.div
