@@ -47,7 +47,8 @@ export default function DefeatScreen() {
           position: 'fixed', inset: 0,
           backgroundImage: `url(${arenaImage})`,
           backgroundSize: 'cover', backgroundPosition: 'center',
-          opacity: 0.15,
+          opacity: 0.35,
+          filter: 'brightness(0.4) saturate(0.6)',
           zIndex: 0,
         }} />
       ) : (
@@ -59,8 +60,8 @@ export default function DefeatScreen() {
         }} />
       )}
 
-      {/* Dark red overlay */}
-      <div style={{ position: 'fixed', inset: 0, background: 'linear-gradient(160deg,rgba(18,0,10,0.8) 0%,rgba(10,0,15,0.9) 50%,rgba(6,0,6,0.95) 100%)', zIndex: 1 }} />
+      {/* Dark red overlay - LIGHTER so arena shows through */}
+      <div style={{ position: 'fixed', inset: 0, background: 'linear-gradient(160deg,rgba(18,0,10,0.5) 0%,rgba(10,0,15,0.6) 50%,rgba(6,0,6,0.7) 100%)', zIndex: 1 }} />
 
       {/* Pulsing vignette */}
       <motion.div
