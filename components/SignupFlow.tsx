@@ -182,7 +182,7 @@ export default function SignupFlow() {
   // ── LOGIN MODE ──────────────────────────────────────────────
   if (mode === 'login') {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 md:p-8 relative overflow-y-auto">
+      <div className="min-h-screen flex items-start md:items-center justify-center p-4 md:p-8 relative overflow-y-auto py-8">
         {/* Background image */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/SICK.jpg" alt="" className="absolute inset-0 w-full h-full object-cover" aria-hidden="true" />
@@ -252,7 +252,7 @@ export default function SignupFlow() {
   // ── FORGOT PASSWORD MODE ────────────────────────────────────
   if (mode === 'forgot') {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 md:p-8 relative overflow-y-auto">
+      <div className="min-h-screen flex items-start md:items-center justify-center p-4 md:p-8 relative overflow-y-auto py-8">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/SICK.jpg" alt="" className="absolute inset-0 w-full h-full object-cover" aria-hidden="true" />
         <div className="absolute inset-0 bg-black/50" />
@@ -297,7 +297,7 @@ export default function SignupFlow() {
   // ── AGE VERIFICATION GATE ──────────────────────────────────
   if (ageVerified === null || ageDenied) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 md:p-8 relative overflow-y-auto">
+      <div className="min-h-screen flex items-start md:items-center justify-center p-4 md:p-8 relative overflow-y-auto py-8">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/SICK.jpg" alt="" className="absolute inset-0 w-full h-full object-cover" aria-hidden="true" />
         <div className="absolute inset-0 bg-black/70" />
@@ -306,7 +306,7 @@ export default function SignupFlow() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/Arena151Logo.png" alt="Arena 151" className="h-20 mx-auto mb-3 object-contain" />
           </div>
-          <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800/50 rounded-2xl p-8 text-center">
+          <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800/50 rounded-2xl p-4 md:p-8 text-center">
             {ageDenied ? (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                 <div className="text-5xl mb-4">🚫</div>
@@ -357,7 +357,7 @@ export default function SignupFlow() {
 
   // ── SIGNUP MODE ─────────────────────────────────────────────
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 md:p-8 relative overflow-y-auto">
+    <div className="min-h-screen flex items-start md:items-center justify-center p-4 md:p-8 relative overflow-y-auto py-8">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src="/SICK.jpg" alt="" className="absolute inset-0 w-full h-full object-cover" aria-hidden="true" />
       <div className="absolute inset-0 bg-black/50" />
