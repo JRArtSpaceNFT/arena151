@@ -247,8 +247,10 @@ export default function GlobalChat() {
     fetchMessages()
   }, [isOpen])
 
-  // Subscribe to new messages
+  // Subscribe to new messages (always active, not just when chat is open)
   useEffect(() => {
+    if (!currentUser) return
+
     const channel = supabase
       .channel('arena-lobby')
       .on('postgres_changes', {
@@ -281,25 +283,27 @@ export default function GlobalChat() {
           setUnreadCount(prev => prev + 1)
         }
 
-        // Auto-scroll if near bottom
-        setTimeout(() => {
-          if (messagesEndRef.current) {
-            const container = messagesEndRef.current.parentElement
-            if (container) {
-              const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100
-              if (isNearBottom) {
-                messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
+        // Auto-scroll if near bottom and chat is open
+        if (isOpen) {
+          setTimeout(() => {
+            if (messagesEndRef.current) {
+              const container = messagesEndRef.current.parentElement
+              if (container) {
+                const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100
+                if (isNearBottom) {
+                  messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
+                }
               }
             }
-          }
-        }, 100)
+          }, 100)
+        }
       })
       .subscribe()
 
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [isOpen, currentUser?.id])
+  }, [currentUser?.id, isOpen])
 
   // Heartbeat presence
   useEffect(() => {
