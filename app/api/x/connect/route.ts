@@ -15,17 +15,21 @@ import { getCurrentUserId } from '@/lib/auth-server'
 
 export async function GET(request: NextRequest) {
   try {
-    console.log('[X OAuth] Checking authentication...')
+    console.log('[X OAuth Connect] Starting OAuth flow...')
+    console.log('[X OAuth Connect] Request URL:', request.url)
+    console.log('[X OAuth Connect] Request headers:', Object.fromEntries(request.headers.entries()))
     
     // 1. Verify user is logged in using server-side cookies
     const userId = await getCurrentUserId()
     
+    console.log('[X OAuth Connect] getCurrentUserId returned:', userId)
+    
     if (!userId) {
-      console.error('[X OAuth] No user session found')
+      console.error('[X OAuth Connect] No user session found - redirecting with error')
       throw new Error('Not authenticated')
     }
     
-    console.log('[X OAuth] User authenticated:', userId)
+    console.log('[X OAuth Connect] User authenticated successfully:', userId)
 
     // 2. Generate PKCE parameters
     const codeVerifier = generateCodeVerifier()
