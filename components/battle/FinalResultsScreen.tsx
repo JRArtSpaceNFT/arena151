@@ -207,28 +207,61 @@ function BattleStatsSection() {
         <StatCardWithSprite creature={mvp} label="MVP" />
       </div>
 
-      {/* Side-by-Side Comparison */}
+      {/* Side-by-Side Comparison - Condensed to one line */}
       <div style={{
-        display: 'grid', gridTemplateColumns: '1fr auto 1fr',
-        gap: 10, alignItems: 'center',
+        display: 'flex',
+        justifyContent: 'center',
+        gap: 6,
+        alignItems: 'center',
         paddingTop: 8,
         borderTop: '1px solid rgba(255,255,255,0.08)',
       }}>
-        {/* Team A */}
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: '#3b82f6', marginBottom: 8 }}>You</div>
-          <ComparisonRow label="Damage Dealt" value={damageA} align="right" />
-          <ComparisonRow label="Damage Taken" value={takenA} align="right" />
+        {/* Team A (You) */}
+        <div style={{ fontSize: 13, fontWeight: 800, color: '#3b82f6' }}>You</div>
+        
+        {/* Damage Dealt */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(255,255,255,0.03)', borderRadius: 6, padding: '4px 8px' }}>
+          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>Damage Dealt</span>
+          <span style={{ fontSize: 14, fontWeight: 800, color: '#f1f5f9' }}>{damageA}</span>
         </div>
 
-        <div style={{ fontSize: 18, color: 'rgba(255,255,255,0.2)' }}>VS</div>
+        <div style={{ fontSize: 16, color: 'rgba(255,255,255,0.2)', fontWeight: 700 }}>VS</div>
 
-        {/* Team B */}
-        <div style={{ textAlign: 'left' }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: '#ef4444', marginBottom: 8 }}>Opponent</div>
-          <ComparisonRow label="Damage Dealt" value={damageB} align="left" />
-          <ComparisonRow label="Damage Taken" value={takenB} align="left" />
+        {/* Damage Dealt - Opponent */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(255,255,255,0.03)', borderRadius: 6, padding: '4px 8px' }}>
+          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>Damage Dealt</span>
+          <span style={{ fontSize: 14, fontWeight: 800, color: '#f1f5f9' }}>{damageB}</span>
         </div>
+
+        <div style={{ fontSize: 13, fontWeight: 800, color: '#ef4444' }}>Opponent</div>
+      </div>
+
+      {/* Second line - Damage Taken */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        gap: 6,
+        alignItems: 'center',
+        marginTop: 6,
+      }}>
+        {/* Team A (You) */}
+        <div style={{ fontSize: 13, fontWeight: 800, color: '#3b82f6' }}>You</div>
+        
+        {/* Damage Taken */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(255,255,255,0.03)', borderRadius: 6, padding: '4px 8px' }}>
+          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>Damage Taken</span>
+          <span style={{ fontSize: 14, fontWeight: 800, color: '#f1f5f9' }}>{takenA}</span>
+        </div>
+
+        <div style={{ fontSize: 16, color: 'rgba(255,255,255,0.2)', fontWeight: 700 }}>VS</div>
+
+        {/* Damage Taken - Opponent */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(255,255,255,0.03)', borderRadius: 6, padding: '4px 8px' }}>
+          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>Damage Taken</span>
+          <span style={{ fontSize: 14, fontWeight: 800, color: '#f1f5f9' }}>{takenB}</span>
+        </div>
+
+        <div style={{ fontSize: 13, fontWeight: 800, color: '#ef4444' }}>Opponent</div>
       </div>
     </div>
   )

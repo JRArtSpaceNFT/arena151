@@ -77,17 +77,17 @@ export default function MomentumMeter({
     } else if (hpPctB <= 25 && hpPctB > 0) {
       newState = 'DANGER STATE'
     } else if (total >= 60) {
-      newState = 'RED DOMINANT'
+      newState = `${usernameA.toUpperCase()} DOMINANT`
     } else if (total <= -60) {
-      newState = 'BLUE DOMINANT'
+      newState = `${usernameB.toUpperCase()} DOMINANT`
     } else if (total >= 30 && total < 60) {
-      newState = 'MOMENTUM → RED'
+      newState = `MOMENTUM → ${usernameA.toUpperCase()}`
     } else if (total <= -30 && total > -60) {
-      newState = 'MOMENTUM → BLUE'
+      newState = `MOMENTUM → ${usernameB.toUpperCase()}`
     } else if (total >= 10 && total < 30) {
-      newState = 'RED RALLYING'
+      newState = `${usernameA.toUpperCase()} RALLYING`
     } else if (total <= -10 && total > -30) {
-      newState = 'BLUE RALLYING'
+      newState = `${usernameB.toUpperCase()} RALLYING`
     } else {
       newState = 'EVEN FIGHT'
     }
@@ -109,8 +109,8 @@ export default function MomentumMeter({
   }
 
   const getStateColor = () => {
-    if (momentumState?.includes('RED') || momentumState?.includes('FINAL STAND') || momentumState?.includes('DANGER')) return '#ef4444'
-    if (momentumState?.includes('BLUE')) return '#3b82f6'
+    if (momentumState?.includes(usernameA.toUpperCase()) || momentumState?.includes('FINAL STAND') || momentumState?.includes('DANGER')) return '#ef4444'
+    if (momentumState?.includes(usernameB.toUpperCase())) return '#3b82f6'
     return '#fbbf24'
   }
 
