@@ -201,12 +201,12 @@ function BattleStatsSection() {
       {/* Quick Stats Grid */}
       <div style={{
         display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
-        gap: 8, marginBottom: 16,
+        gap: 6, marginBottom: 12,
       }}>
         <StatCard emoji="⚔️" label="Turns" value={totalTurns} />
         <StatCard emoji="💀" label="Total KOs" value={totalKos} />
-        <StatCard emoji="⭐" label="MVP" value={mvp?.creature.name.slice(0, 8) ?? '—'} />
-        <StatCard emoji="💥" label="Top Damage" value={topDamage?.creature.name.slice(0, 8) ?? '—'} />
+        <StatCardWithSprite creature={mvp} label="MVP" />
+        <StatCardWithSprite creature={topDamage} label="Top Damage" />
       </div>
 
       {/* Side-by-Side Comparison */}
@@ -240,11 +240,39 @@ function StatCard({ emoji, label, value }: { emoji: string; label: string; value
   return (
     <div style={{
       background: 'rgba(255,255,255,0.04)', borderRadius: 8,
-      padding: 8, textAlign: 'center',
+      padding: 6, textAlign: 'center',
     }}>
-      <div style={{ fontSize: 16, marginBottom: 4 }}>{emoji}</div>
-      <div style={{ fontSize: 14, fontWeight: 800, color: '#f1f5f9', marginBottom: 2 }}>{value}</div>
-      <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)' }}>{label}</div>
+      <div style={{ fontSize: 14, marginBottom: 3 }}>{emoji}</div>
+      <div style={{ fontSize: 12, fontWeight: 800, color: '#f1f5f9', marginBottom: 2 }}>{value}</div>
+      <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.35)' }}>{label}</div>
+    </div>
+  )
+}
+
+function StatCardWithSprite({ creature, label }: { creature: any; label: string }) {
+  if (!creature) return <StatCard emoji="—" label={label} value="—" />
+  
+  return (
+    <div style={{
+      background: 'rgba(255,255,255,0.04)', borderRadius: 8,
+      padding: 6, textAlign: 'center',
+    }}>
+      <img 
+        src={`/pokemon/${creature.creature.slug}.png`}
+        alt={creature.creature.name}
+        style={{
+          width: 32,
+          height: 32,
+          objectFit: 'contain',
+          imageRendering: 'pixelated',
+          marginBottom: 3,
+        }}
+        onError={(e) => {
+          e.currentTarget.style.display = 'none'
+        }}
+      />
+      <div style={{ fontSize: 11, fontWeight: 800, color: '#f1f5f9', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{creature.creature.name.slice(0, 9)}</div>
+      <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.35)' }}>{label}</div>
     </div>
   )
 }
@@ -594,15 +622,17 @@ export default function FinalResultsScreen() {
               transition={{ delay: 0.1 }}
               style={{
                 textAlign: 'center',
-                marginBottom: 24,
+                marginBottom: 16,
               }}
             >
-              <div style={{ fontSize: 'clamp(48px, 8vh, 80px)', marginBottom: 8 }}>
-                {effectiveVictory ? '🏆' : '⚔️'}
-              </div>
+              {effectiveVictory && (
+                <div style={{ fontSize: 'clamp(48px, 8vh, 80px)', marginBottom: 8 }}>
+                  🏆
+                </div>
+              )}
               <div style={{
                 fontFamily: '"Impact","Arial Black",sans-serif',
-                fontSize: 'clamp(36px, 6vh, 64px)',
+                fontSize: 'clamp(32px, 5vh, 52px)',
                 fontWeight: 900,
                 letterSpacing: '0.06em',
                 color: effectiveVictory ? '#fbbf24' : '#a855f7',
@@ -610,7 +640,7 @@ export default function FinalResultsScreen() {
                   ? '0 0 40px rgba(251,191,36,0.9), 4px 4px 0 rgba(0,0,0,0.9)'
                   : '0 0 40px rgba(168,85,247,0.9), 4px 4px 0 rgba(0,0,0,0.9)',
                 lineHeight: 1,
-                marginBottom: 12,
+                marginBottom: 8,
               }}>
                 {effectiveVictory ? 'VICTORY!' : 'DEFEAT'}
               </div>

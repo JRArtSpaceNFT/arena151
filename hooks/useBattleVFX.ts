@@ -77,9 +77,9 @@ export function useBattleVFX() {
     const impactConfig = IMPACT_TIERS[tier]
     const elementConfig = ELEMENT_VFX[element as keyof typeof ELEMENT_VFX] || ELEMENT_VFX.normal
 
-    // Screen shake
+    // Screen shake (2x more intense)
     if (impactConfig.shake > 0) {
-      let shakeAmount = impactConfig.shake
+      let shakeAmount = impactConfig.shake * 2
       if (shakeIntervalRef.current) clearInterval(shakeIntervalRef.current)
       
       shakeIntervalRef.current = setInterval(() => {
@@ -101,21 +101,21 @@ export function useBattleVFX() {
       }, 50)
     }
 
-    // Screen flash
+    // Screen flash (more visible)
     if (impactConfig.flash > 0) {
       if (flashTimeoutRef.current) clearTimeout(flashTimeoutRef.current)
       
       setState(prev => ({
         ...prev,
         screenFlash: {
-          opacity: impactConfig.flash,
+          opacity: Math.min(impactConfig.flash * 1.5, 1),
           color: isCritical ? '#FFD700' : isSuperEffective ? '#22C55E' : '#FFFFFF',
         },
       }))
 
       flashTimeoutRef.current = setTimeout(() => {
         setState(prev => ({ ...prev, screenFlash: { opacity: 0, color: '#FFFFFF' } }))
-      }, 100)
+      }, 150)
     }
 
     // Screen tint (element color overlay)
@@ -135,15 +135,15 @@ export function useBattleVFX() {
       }, 500)
     }
 
-    // Camera zoom punch
+    // Camera zoom punch (2x more)
     if (impactConfig.zoom > 0) {
       if (zoomTimeoutRef.current) clearTimeout(zoomTimeoutRef.current)
       
-      setState(prev => ({ ...prev, cameraZoom: impactConfig.zoom }))
+      setState(prev => ({ ...prev, cameraZoom: impactConfig.zoom * 2 }))
 
       zoomTimeoutRef.current = setTimeout(() => {
         setState(prev => ({ ...prev, cameraZoom: 0 }))
-      }, 200)
+      }, 250)
     }
 
     // Hit-stop (freeze frame)

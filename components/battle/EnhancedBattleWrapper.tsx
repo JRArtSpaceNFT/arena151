@@ -75,11 +75,11 @@ export default function EnhancedBattleWrapper({ children }: EnhancedBattleWrappe
             position: { x: isP1Attack ? 70 : 30, y: 45 },
           })
 
-          // Spawn particles
+          // Spawn particles (more visible)
           setParticles({
             element: move.type,
             position: { x: isP1Attack ? 70 : 30, y: 40 },
-            count: isCritical ? 100 : 50,
+            count: isCritical ? 150 : 80,
           })
 
           // Clear particles after animation
