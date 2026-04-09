@@ -43,23 +43,36 @@ export function XConnectionCard({ onConnectionChange }: XConnectionCardProps) {
     console.log('[XConnectionCard] currentUser.id:', currentUser?.id)
     
     if (!currentUser) {
-      alert('Please log in to Arena 151 first before connecting your X account.')
+      setErrorMessage('Please log in to Arena 151 first before connecting your X account.')
       return
     }
     
     try {
+      console.log('[XConnectionCard] Fetching /api/x/connect...')
+      
       // Step 1: Fetch the OAuth URL from our backend
       const response = await fetch('/api/x/connect', {
         method: 'GET',
         credentials: 'same-origin', // Send cookies
       })
 
+      console.log('[XConnectionCard] Response status:', response.status)
+      console.log('[XConnectionCard] Response ok:', response.ok)
+
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+        let errorData
+        try {
+          errorData = await response.json()
+          console.log('[XConnectionCard] Error data:', errorData)
+        } catch (e) {
+          console.error('[XConnectionCard] Failed to parse error response:', e)
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        }
         throw new Error(errorData.error || `HTTP ${response.status}`)
       }
 
       const data = await response.json()
+      console.log('[XConnectionCard] Success data:', data)
       
       if (!data.authUrl) {
         throw new Error('No authorization URL received from server')
@@ -71,7 +84,9 @@ export function XConnectionCard({ onConnectionChange }: XConnectionCardProps) {
       window.location.href = data.authUrl
     } catch (error) {
       console.error('[XConnectionCard] Connect error:', error)
-      alert(`Failed to connect: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error'
+      console.error('[XConnectionCard] Error message:', errorMsg)
+      setErrorMessage(`Failed to connect: ${errorMsg}`)
     }
   }
 
