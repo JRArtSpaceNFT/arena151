@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { motion, AnimatePresence, useAnimation } from 'framer-motion'
 import { useGameStore } from '@/lib/game-store'
+import { useArenaStore } from '@/lib/store'
 import { MOVES } from '@/lib/data/moves'
 import type { BattleLogEntry } from '@/lib/game-types'
 import ArenaArtwork from '@/components/battle/ArenaArtwork'
@@ -55,6 +56,11 @@ export default function BattleScreen() {
     showBattleDialogue, clearBattleDialogue,
     battleDialogue, battleDialogueSide, battleDialogueKey,
   } = useGameStore()
+  
+  // Get current user to determine which side they're on
+  const currentTrainer = useArenaStore(s => s.currentTrainer)
+  const isPlayerSideA = currentTrainer?.id === p1Trainer?.id
+  const isPlayerSideB = currentTrainer?.id === p2Trainer?.id
 
   // Hype reactions system
   const { triggerFn, handleMount } = useHypeReactions()
@@ -111,12 +117,16 @@ export default function BattleScreen() {
     if (isDone && battleState?.winner && !hasAdvanced.current) {
       hasAdvanced.current = true
       const timer = setTimeout(() => {
-        if (battleState.winner === 'A') showVictoryScreen()
+        // Determine if current player won based on their actual side
+        const playerWon = (isPlayerSideA && battleState.winner === 'A') || 
+                          (isPlayerSideB && battleState.winner === 'B')
+        
+        if (playerWon) showVictoryScreen()
         else showDefeatScreen()
       }, 3000) // 3 seconds to see final battle state
       return () => clearTimeout(timer)
     }
-  }, [isDone, battleState?.winner, showVictoryScreen, showDefeatScreen])
+  }, [isDone, battleState?.winner, isPlayerSideA, isPlayerSideB, showVictoryScreen, showDefeatScreen])
 
   // ── Animation state ─────────────────────────────────────────
   const [attackingSide, setAttackingSide] = useState<'A' | 'B' | null>(null)
