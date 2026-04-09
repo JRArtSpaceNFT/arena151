@@ -12,8 +12,7 @@ import SlowMotionWrapper from './SlowMotionWrapper'
 import ArenaDamage from './ArenaDamage'
 import AttackTrail from './AttackTrail'
 import ImpactDistortion from './ImpactDistortion'
-// Advanced VFX components temporarily disabled due to interface mismatch
-// Will be integrated in next iteration
+import { FireAttack, WaterAttack, ElectricAttack, ImpactRings } from './attack-animations'
 import { useBattleVFX } from '@/hooks/useBattleVFX'
 import { useGameStore } from '@/lib/game-store'
 import { MOVES } from '@/lib/data/moves'
@@ -30,6 +29,8 @@ export default function EnhancedBattleWrapper({ children }: EnhancedBattleWrappe
   const [koText, setKoText] = useState(false)
   const [totalDamage, setTotalDamage] = useState(0)
   const [attackTrail, setAttackTrail] = useState<{ element: string; from: 'left' | 'right'; power: number; active: boolean } | null>(null)
+  const [activeAnimation, setActiveAnimation] = useState<{ type: 'fire' | 'water' | 'electric'; from: 'left' | 'right' } | null>(null)
+  const [impactPosition, setImpactPosition] = useState<{ x: number; y: number; color: string; intensity: 'light' | 'medium' | 'heavy' } | null>(null)
   const lastLogLengthRef = useRef(0)
 
   // Watch battle log for new entries and trigger VFX
@@ -64,6 +65,19 @@ export default function EnhancedBattleWrapper({ children }: EnhancedBattleWrappe
           active: true,
         })
         setTimeout(() => setAttackTrail(null), 600)
+
+        // Trigger element-specific attack animation
+        const attackDirection = isP1Attack ? 'left' : 'right'
+        if (move.type === 'fire') {
+          setActiveAnimation({ type: 'fire', from: attackDirection })
+          setTimeout(() => setActiveAnimation(null), 800)
+        } else if (move.type === 'water') {
+          setActiveAnimation({ type: 'water', from: attackDirection })
+          setTimeout(() => setActiveAnimation(null), 900)
+        } else if (move.type === 'electric') {
+          setActiveAnimation({ type: 'electric', from: attackDirection })
+          setTimeout(() => setActiveAnimation(null), 600)
+        }
         
         // Trigger impact VFX
         setTimeout(() => {
@@ -83,6 +97,16 @@ export default function EnhancedBattleWrapper({ children }: EnhancedBattleWrappe
             position: { x: isP1Attack ? 70 : 30, y: 40 },
             count: isCritical ? 150 : 80,
           })
+
+          // Show impact rings
+          const impactIntensity: 'light' | 'medium' | 'heavy' = move.power >= 100 ? 'heavy' : move.power >= 60 ? 'medium' : 'light'
+          setImpactPosition({
+            x: isP1Attack ? 70 : 30,
+            y: 45,
+            color: isCritical ? '#FFD700' : isSuperEffective ? '#22C55E' : '#FFFFFF',
+            intensity: impactIntensity,
+          })
+          setTimeout(() => setImpactPosition(null), 800)
 
           // Clear particles after animation
           setTimeout(() => setParticles(null), 1000)
@@ -133,6 +157,27 @@ export default function EnhancedBattleWrapper({ children }: EnhancedBattleWrappe
             from={attackTrail.from}
             power={attackTrail.power}
             isActive={attackTrail.active}
+          />
+        )}
+
+        {/* Element-specific attack animations */}
+        {activeAnimation?.type === 'fire' && (
+          <FireAttack from={activeAnimation.from} onComplete={() => setActiveAnimation(null)} />
+        )}
+        {activeAnimation?.type === 'water' && (
+          <WaterAttack from={activeAnimation.from} onComplete={() => setActiveAnimation(null)} />
+        )}
+        {activeAnimation?.type === 'electric' && (
+          <ElectricAttack from={activeAnimation.from} onComplete={() => setActiveAnimation(null)} />
+        )}
+
+        {/* Impact rings */}
+        {impactPosition && (
+          <ImpactRings
+            position={{ x: impactPosition.x, y: impactPosition.y }}
+            color={impactPosition.color}
+            intensity={impactPosition.intensity}
+            onComplete={() => setImpactPosition(null)}
           />
         )}
 
