@@ -460,7 +460,8 @@ export default function GameWrapper() {
       {screens[gameScreen] ?? <TrainerSelect />}
       {gameScreen === 'battle' && <BattleDialogueBubble />}
       {gameScreen === 'battle' && <BattleTrainerBusts />}
-      {gameScreen === 'battle' && <BattleAnimOverlay />}
+      {/* Old sprite-based animations disabled - replaced by EnhancedBattleWrapper VFX system */}
+      {/* {gameScreen === 'battle' && <BattleAnimOverlay />} */}
     </div>
   )
 }

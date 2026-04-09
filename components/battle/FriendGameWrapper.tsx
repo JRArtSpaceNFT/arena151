@@ -455,7 +455,8 @@ export default function FriendGameWrapper() {
 
       {gameScreen === 'battle' && <BattleDialogueBubble />}
       {gameScreen === 'battle' && <BattleTrainerBusts />}
-      {gameScreen === 'battle' && <BattleAnimOverlay />}
+      {/* Old sprite-based animations disabled - replaced by EnhancedBattleWrapper VFX system */}
+      {/* {gameScreen === 'battle' && <BattleAnimOverlay />} */}
     </div>
   )
 }
