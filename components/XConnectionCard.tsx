@@ -37,6 +37,16 @@ export function XConnectionCard({ onConnectionChange }: XConnectionCardProps) {
   const xVerifiedAt = currentUser?.x_verified_at
 
   const handleConnect = () => {
+    console.log('[XConnectionCard] handleConnect clicked')
+    console.log('[XConnectionCard] currentUser:', currentUser)
+    console.log('[XConnectionCard] currentUser.id:', currentUser?.id)
+    
+    if (!currentUser) {
+      alert('Please log in to Arena 151 first before connecting your X account.')
+      return
+    }
+    
+    console.log('[XConnectionCard] Redirecting to /api/x/connect...')
     // Redirect to OAuth connect route
     window.location.href = '/api/x/connect'
   }
