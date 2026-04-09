@@ -66,18 +66,37 @@ export default function HypeControlPanel({ side, onTrigger }: HypeControlPanelPr
           width: 32,
           height: 32,
           borderRadius: '50%',
-          background: expanded ? `linear-gradient(135deg, ${sideColor}, ${side === 'A' ? '#dc2626' : '#2563eb'})` : 'rgba(255,255,255,0.15)',
-          border: '2px solid rgba(255,255,255,0.3)',
-          boxShadow: expanded ? `0 2px 8px ${sideColor}66, inset 0 1px 0 rgba(255,255,255,0.2)` : 'none',
-          fontSize: 16,
+          background: expanded 
+            ? `linear-gradient(135deg, ${sideColor}, ${side === 'A' ? '#dc2626' : '#2563eb'})` 
+            : 'linear-gradient(180deg, #ef4444 0%, #ef4444 48%, #1e1e1e 48%, #1e1e1e 52%, #f8f8f8 52%, #f8f8f8 100%)',
+          border: '3px solid #1e1e1e',
+          boxShadow: expanded 
+            ? `0 2px 8px ${sideColor}66, inset 0 1px 0 rgba(255,255,255,0.2)` 
+            : '0 2px 6px rgba(0,0,0,0.4), inset 0 1px 2px rgba(255,255,255,0.3)',
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           transition: 'all 0.2s ease',
+          position: 'relative',
         }}
       >
-        {expanded ? '✕' : '🟥'}
+        {expanded ? (
+          <span style={{ fontSize: 16, fontWeight: 900, color: '#fff' }}>✕</span>
+        ) : (
+          <>
+            {/* Pokeball center button */}
+            <div style={{
+              position: 'absolute',
+              width: 10,
+              height: 10,
+              borderRadius: '50%',
+              background: '#f8f8f8',
+              border: '2px solid #1e1e1e',
+              boxShadow: 'inset 0 -1px 2px rgba(0,0,0,0.3)',
+            }} />
+          </>
+        )}
       </motion.button>
 
       {/* Expanded panel */}

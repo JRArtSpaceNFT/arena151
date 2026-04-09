@@ -1282,61 +1282,66 @@ export default function BattleScreen() {
 
       {/* Winner banner — plain CSS to guarantee visibility */}
       
-      {/* ── ARENA NAME — bottom center ── */}
+      {/* ── SPEED TOGGLE + ARENA NAME — centered at bottom ── */}
       <div style={{
         position: 'fixed',
-        bottom: 24,
+        bottom: 16,
         left: '50%',
         transform: 'translateX(-50%)',
-        zIndex: 5,
-        fontSize: 10,
-        fontWeight: 600,
-        color: 'rgba(148,163,184,0.6)',
-        textTransform: 'uppercase',
-        letterSpacing: '0.1em',
-        pointerEvents: 'none',
+        zIndex: 9999,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 6,
       }}>
-        {arena?.name ?? 'Battle Arena'}
-      </div>
+        {/* Speed toggle button - compact, centered, only during battle */}
+        {!isDone && (
+          <button
+            data-speed-btn
+            onClick={() => setPlaybackSpeed(s => s === 1 ? 3 : 1)}
+            title={playbackSpeed === 1 ? 'Switch to 3× speed' : 'Switch to normal speed'}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              padding: '6px 12px',
+              borderRadius: 8,
+              border: playbackSpeed === 3
+                ? '2px solid #fbbf24'
+                : '2px solid rgba(255,255,255,0.3)',
+              background: playbackSpeed === 3
+                ? 'linear-gradient(135deg, rgba(251,191,36,0.35), rgba(249,115,22,0.25))'
+                : 'rgba(10,10,20,0.75)',
+              color: playbackSpeed === 3 ? '#fbbf24' : '#e2e8f0',
+              fontSize: 11,
+              fontWeight: 900,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+              letterSpacing: '0.06em',
+              boxShadow: playbackSpeed === 3
+                ? '0 0 16px rgba(251,191,36,0.5), 0 2px 8px rgba(0,0,0,0.6)'
+                : '0 2px 8px rgba(0,0,0,0.6)',
+              backdropFilter: 'blur(8px)',
+              textTransform: 'uppercase',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <span style={{ fontSize: 13 }}>{playbackSpeed === 3 ? '⚡' : '▶'}</span>
+            {playbackSpeed === 3 ? '3×' : '1×'}
+          </button>
+        )}
 
-      {/* ── SPEED TOGGLE — fixed floating button, always visible during battle ── */}
-      {!isDone && (
-        <button
-          data-speed-btn
-          onClick={() => setPlaybackSpeed(s => s === 1 ? 3 : 1)}
-          title={playbackSpeed === 1 ? 'Switch to 3× speed' : 'Switch to normal speed'}
-          style={{
-            position: 'fixed',
-            bottom: 24,
-            right: 24,
-            zIndex: 9999,
-            display: 'flex', alignItems: 'center', gap: 6,
-            padding: '10px 18px',
-            borderRadius: 12,
-            border: playbackSpeed === 3
-              ? '2px solid #fbbf24'
-              : '2px solid rgba(255,255,255,0.4)',
-            background: playbackSpeed === 3
-              ? 'linear-gradient(135deg, rgba(251,191,36,0.35), rgba(249,115,22,0.25))'
-              : 'rgba(10,10,20,0.85)',
-            color: playbackSpeed === 3 ? '#fbbf24' : '#e2e8f0',
-            fontSize: 14,
-            fontWeight: 900,
-            cursor: 'pointer',
-            transition: 'all 0.15s ease',
-            letterSpacing: '0.08em',
-            boxShadow: playbackSpeed === 3
-              ? '0 0 20px rgba(251,191,36,0.6), 0 4px 16px rgba(0,0,0,0.6)'
-              : '0 4px 16px rgba(0,0,0,0.6)',
-            backdropFilter: 'blur(8px)',
-            textTransform: 'uppercase',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          <span style={{ fontSize: 16 }}>{playbackSpeed === 3 ? '⚡' : '▶'}</span>
-          {playbackSpeed === 3 ? '3× FAST' : '1× SPEED'}
-        </button>
-      )}
+        {/* Arena name label - bigger and brighter */}
+        <div style={{
+          fontSize: 13,
+          fontWeight: 800,
+          color: 'rgba(226,232,240,0.95)',
+          textTransform: 'uppercase',
+          letterSpacing: '0.12em',
+          pointerEvents: 'none',
+          textShadow: '0 2px 8px rgba(0,0,0,0.8), 0 0 16px rgba(255,255,255,0.2)',
+        }}>
+          {arena?.name ?? 'Battle Arena'}
+        </div>
+      </div>
 
       {/* Removed intermediate overlay - auto-advances to results screen */}
     </div>
