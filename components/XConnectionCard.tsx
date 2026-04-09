@@ -15,6 +15,20 @@ interface XConnectionCardProps {
 export function XConnectionCard({ onConnectionChange }: XConnectionCardProps) {
   const currentUser = useArenaStore(s => s.currentTrainer)
   const [isUnlinking, setIsUnlinking] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  // Check for error in URL on mount
+  useState(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      const error = params.get('x_error')
+      if (error) {
+        setErrorMessage(error)
+        // Clear error from URL
+        window.history.replaceState({}, '', window.location.pathname)
+      }
+    }
+  })
 
   const isConnected = !!currentUser?.x_user_id
   const xUsername = currentUser?.x_username
@@ -75,6 +89,17 @@ export function XConnectionCard({ onConnectionChange }: XConnectionCardProps) {
         </svg>
       </div>
 
+      {/* Error message */}
+      {errorMessage && (
+        <div className="mt-4 rounded-lg border border-red-500/50 bg-red-500/10 p-3">
+          <p className="text-sm font-bold text-red-400">
+            {errorMessage === 'Not authenticated' 
+              ? 'Please log in to Arena 151 first before connecting your X account'
+              : errorMessage}
+          </p>
+        </div>
+      )}
+
       {/* Connection status */}
       <div className="mt-6">
         {!isConnected ? (
@@ -82,16 +107,23 @@ export function XConnectionCard({ onConnectionChange }: XConnectionCardProps) {
           <div>
             <button
               onClick={handleConnect}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-black px-6 py-3 font-bold text-white transition hover:bg-black/80"
+              disabled={!currentUser}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-black px-6 py-3 font-bold text-white transition hover:bg-black/80 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">
                 <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
               </svg>
               Connect X Account
             </button>
-            <p className="mt-2 text-center text-xs text-white/40">
-              You'll be redirected to X to authorize Arena 151
-            </p>
+            {!currentUser ? (
+              <p className="mt-2 text-center text-xs text-red-400">
+                ⚠️ You must be logged in to connect your X account
+              </p>
+            ) : (
+              <p className="mt-2 text-center text-xs text-white/40">
+                You'll be redirected to X to authorize Arena 151
+              </p>
+            )}
           </div>
         ) : (
           // Connected state

@@ -61,7 +61,11 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('X OAuth connect error:', error)
     
-    const baseUrl = process.env.APP_BASE_URL || 'http://localhost:3002'
+    // Use production URL in production, localhost for dev
+    const baseUrl = process.env.NODE_ENV === 'production' 
+      ? 'https://arena151.xyz'
+      : 'http://localhost:3002'
+    
     const errorMessage = error instanceof Error ? error.message : 'Failed to connect X account'
     
     return NextResponse.redirect(`${baseUrl}/?x_error=${encodeURIComponent(errorMessage)}`)
