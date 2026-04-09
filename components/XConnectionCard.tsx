@@ -36,7 +36,7 @@ export function XConnectionCard({ onConnectionChange }: XConnectionCardProps) {
   const xProfileImage = currentUser?.x_profile_image_url
   const xVerifiedAt = currentUser?.x_verified_at
 
-  const handleConnect = () => {
+  const handleConnect = async () => {
     console.log('[XConnectionCard] handleConnect clicked')
     console.log('[XConnectionCard] currentUser:', currentUser)
     console.log('[XConnectionCard] currentUser.id:', currentUser?.id)
@@ -46,9 +46,39 @@ export function XConnectionCard({ onConnectionChange }: XConnectionCardProps) {
       return
     }
     
-    console.log('[XConnectionCard] Redirecting to /api/x/connect...')
-    // Redirect to OAuth connect route
-    window.location.href = '/api/x/connect'
+    console.log('[XConnectionCard] Fetching /api/x/connect with credentials...')
+    
+    try {
+      // Use fetch with credentials to ensure cookies are sent
+      const response = await fetch('/api/x/connect', {
+        method: 'GET',
+        credentials: 'include', // Force cookies to be included
+        redirect: 'manual', // Don't auto-follow redirects
+      })
+      
+      console.log('[XConnectionCard] Response status:', response.status)
+      console.log('[XConnectionCard] Response type:', response.type)
+      
+      // Check if we got a redirect (307)
+      if (response.status === 307 || response.type === 'opaqueredirect') {
+        const location = response.headers.get('Location')
+        console.log('[XConnectionCard] Redirect location:', location)
+        if (location) {
+          window.location.href = location
+        } else {
+          // Opaque redirect - follow it manually
+          window.location.href = '/api/x/connect'
+        }
+      } else {
+        // Some other response - check for error
+        const text = await response.text()
+        console.error('[XConnectionCard] Unexpected response:', text)
+        setErrorMessage('Failed to initiate X connection. Please try again.')
+      }
+    } catch (error) {
+      console.error('[XConnectionCard] Fetch error:', error)
+      setErrorMessage('Network error. Please try again.')
+    }
   }
 
   const handleUnlink = async () => {
