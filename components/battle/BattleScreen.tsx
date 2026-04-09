@@ -1133,13 +1133,7 @@ export default function BattleScreen() {
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
           {/* Side A — team list + trainer below */}
           <div data-side-panel-a style={{ width: 155, display: 'flex', flexDirection: 'column', padding: '10px 6px 0 10px', borderRight: '1px solid rgba(255,255,255,0.06)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-              <div style={{ color: '#7c3aed', fontSize: 11, fontWeight: 700, letterSpacing: '0.05em' }}>{p1Trainer?.name ?? 'P1'}</div>
-              <HypeControlPanel
-                side="A"
-                onTrigger={(side, type, content) => triggerFn?.(side, type, content)}
-              />
-            </div>
+            <div style={{ color: '#7c3aed', fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', marginBottom: 6 }}>{p1Trainer?.name ?? 'P1'}</div>
             {teamA.map((ac, i) => {
               const isActive = i === activeA
               const isKOd = koSetA.has(i)
@@ -1195,6 +1189,7 @@ export default function BattleScreen() {
                 isLastStand={false}
                 status={statusA}
                 spriteOverride={spriteOverrideA}
+                triggerHype={triggerFn ?? undefined}
               />
 
               {/* VS divider */}
@@ -1232,6 +1227,7 @@ export default function BattleScreen() {
                 isLastStand={false}
                 status={statusB}
                 spriteOverride={spriteOverrideB}
+                triggerHype={triggerFn ?? undefined}
               />
             </div>
 
@@ -1338,6 +1334,12 @@ export default function BattleScreen() {
           letterSpacing: '0.12em',
           pointerEvents: 'none',
           textShadow: '0 2px 8px rgba(0,0,0,0.8), 0 0 16px rgba(255,255,255,0.2)',
+          maxWidth: '90vw',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          paddingLeft: 8,
+          paddingRight: 8,
         }}>
           {arena?.name ?? 'Battle Arena'}
         </div>
@@ -1365,12 +1367,14 @@ interface CreatureDisplayProps {
   isLastStand: boolean
   status?: string
   spriteOverride?: string | null
+  triggerHype?: (side: 'A' | 'B', type: 'emote' | 'phrase' | 'gg', content?: string) => void
 }
 
 function CreatureDisplay({
   ac, currentHp, isLeft, trainerName, trainerColor,
   isAttacking, isFlashing, flashMoveType, isKO, isSwapping, hasSparkle, isUltimate, isLastStand, status,
   spriteOverride,
+  triggerHype,
 }: CreatureDisplayProps) {
   const [koFlashOn, setKoFlashOn] = useState(false)
   // Plain CSS-driven sprite transform state (no framer-motion on sprite)
@@ -1587,6 +1591,31 @@ function CreatureDisplay({
         </div>
       </div>
 
+      {/* ── TRAINER NAME + HYPE CONTROL (below sprite) ── */}
+      <div style={{
+        marginTop: 12,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+      }}>
+        <span style={{
+          fontSize: 14,
+          fontWeight: 800,
+          color: trainerColor,
+          textTransform: 'uppercase',
+          letterSpacing: '0.08em',
+          textShadow: `0 2px 6px ${trainerColor}66`,
+        }}>
+          {trainerName}
+        </span>
+        {triggerHype && (
+          <HypeControlPanel
+            side={side}
+            onTrigger={triggerHype}
+          />
+        )}
+      </div>
 
     </div>
   )
