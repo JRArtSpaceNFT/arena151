@@ -75,11 +75,6 @@ export async function GET(request: NextRequest) {
     console.error('[X OAuth] Error:', error)
     console.error('[X OAuth] Error stack:', error instanceof Error ? error.stack : 'No stack')
     
-    // Use production URL in production, localhost for dev
-    const baseUrl = process.env.NODE_ENV === 'production' 
-      ? 'https://arena151.xyz'
-      : 'http://localhost:3002'
-    
     let errorMessage = error instanceof Error ? error.message : 'Failed to connect X account'
     
     // More helpful error message for auth failures
@@ -87,8 +82,10 @@ export async function GET(request: NextRequest) {
       errorMessage = 'Session expired - please refresh and try again'
     }
     
-    console.log('[X OAuth] Redirecting to:', `${baseUrl}/?x_error=${encodeURIComponent(errorMessage)}`)
-    
-    return NextResponse.redirect(`${baseUrl}/?x_error=${encodeURIComponent(errorMessage)}`)
+    // Return JSON error instead of redirect so fetch() can catch it
+    return NextResponse.json(
+      { error: errorMessage },
+      { status: errorMessage === 'Not authenticated' ? 401 : 500 }
+    )
   }
 }

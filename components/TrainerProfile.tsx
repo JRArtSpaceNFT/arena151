@@ -281,8 +281,9 @@ export default function TrainerProfile() {
   const nextBadgeProgress = nextBadge ? Math.min(100, Math.round((earnedBadges / GYM_BADGES.length) * 100)) : 100;
 
   return (
-    <div className="h-screen overflow-hidden flex flex-col profile-outer" style={{ background: 'linear-gradient(160deg, #0f0c24 0%, #151030 40%, #0d1a2e 80%, #0a0a1a 100%)' }}>
+    <div className="h-screen flex flex-col profile-outer" style={{ background: 'linear-gradient(160deg, #0f0c24 0%, #151030 40%, #0d1a2e 80%, #0a0a1a 100%)' }}>
       <style>{`
+        .profile-body { overflow-y: auto !important; }
         @media (max-width: 1024px) {
           .profile-outer { overflow-y: auto !important; height: 100dvh !important; }
           .profile-body { grid-template-columns: 1fr !important; overflow: visible !important; height: auto !important; }
@@ -460,63 +461,61 @@ export default function TrainerProfile() {
       </div>
 
       {/* ── Body ── */}
-      <div className="flex-1 overflow-hidden px-4 pb-4 grid grid-cols-5 gap-3 min-h-0 profile-body">
+      <div className="flex-1 px-4 pb-4 grid grid-cols-5 gap-3 min-h-0 profile-body overflow-y-auto">
 
         {/* ═══ LEFT COLUMN ═══ */}
         <div className="col-span-2 flex flex-col gap-3 min-h-0 profile-left">
 
-          {/* ── Trainer Hero Card ── */}
+          {/* ── Trainer Hero Card - HORIZONTAL LAYOUT ── */}
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-            className="rounded-2xl p-4 shadow-xl flex flex-col items-center text-center relative overflow-hidden shrink-0"
+            className="rounded-2xl p-4 shadow-xl flex items-center gap-4 relative overflow-hidden shrink-0"
             style={{ background: 'linear-gradient(160deg, #1a1040 0%, #0d1a3e 60%, #1a0a2e 100%)', border: `1px solid ${typeColor}33` }}>
             <Particles color={typeColor} />
             {/* Type glow */}
             <div className="absolute inset-0 pointer-events-none"
-              style={{ background: `radial-gradient(ellipse at 50% 0%, ${typeColor}22 0%, transparent 65%)` }} />
+              style={{ background: `radial-gradient(ellipse at 0% 50%, ${typeColor}22 0%, transparent 65%)` }} />
 
-            {/* Avatar - EVEN BIGGER */}
-            <div className="relative mb-4 z-10">
-              {/* Outer ring glow - massive and intense */}
-              <motion.div className="absolute -inset-10 rounded-full blur-3xl"
+            {/* Avatar - LEFT SIDE */}
+            <div className="relative z-10 shrink-0">
+              {/* Outer ring glow */}
+              <motion.div className="absolute -inset-4 rounded-full blur-2xl"
                 style={{ background: typeColor, opacity: 0.4 }}
                 animate={{ opacity: [0.3, 0.6, 0.3] }}
                 transition={{ duration: 2.5, repeat: Infinity }}
               />
-              {/* Hexagon-inspired border frame - thicker and bigger */}
-              <div className="absolute -inset-4 rounded-full" style={{ background: `conic-gradient(${typeColor}, #7c3aed, ${typeColor})`, padding: 5, borderRadius: '50%' }}>
+              {/* Border frame */}
+              <div className="absolute -inset-2 rounded-full" style={{ background: `conic-gradient(${typeColor}, #7c3aed, ${typeColor})`, padding: 3, borderRadius: '50%' }}>
                 <div className="w-full h-full rounded-full" style={{ background: '#0d1a3e' }} />
               </div>
               <motion.div whileHover={{ scale: 1.05 }} onClick={() => setShowAvatarPicker(true)}
-                className="w-72 h-72 rounded-full overflow-hidden cursor-pointer relative group z-10"
-                style={{ boxShadow: `0 0 60px ${typeColor}AA, 0 0 120px ${typeColor}66` }}>
+                className="w-40 h-40 rounded-full overflow-hidden cursor-pointer relative group z-10"
+                style={{ boxShadow: `0 0 40px ${typeColor}AA, 0 0 80px ${typeColor}66` }}>
                 {currentTrainer.avatar?.startsWith('data:') || currentTrainer.avatar?.startsWith('/') ? (
                   <img src={currentTrainer.avatar} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-6xl"
+                  <div className="w-full h-full flex items-center justify-center text-4xl"
                     style={{ background: `linear-gradient(135deg, ${typeColor}33, #7c3aed33)` }}>
                     {currentTrainer.avatar || '🧑'}
                   </div>
                 )}
                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-full">
-                  <Camera className="w-14 h-14 text-white" />
+                  <Camera className="w-10 h-10 text-white" />
                 </div>
               </motion.div>
             </div>
 
-            {/* Trainer ID card feel */}
-            <div className="z-10 w-full">
-              <div className="text-sm font-black uppercase tracking-widest mb-1" style={{ color: `${typeColor}99` }}>
+            {/* Trainer Info - RIGHT SIDE */}
+            <div className="z-10 flex-1 text-left">
+              <div className="text-xs font-black uppercase tracking-widest mb-1" style={{ color: `${typeColor}99` }}>
                 Trainer ID
               </div>
-              <h1 className="text-3xl font-black text-white mb-1 tracking-wide">{currentTrainer.displayName}</h1>
-              <p className="text-base mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>@{currentTrainer.displayName.toLowerCase().replace(/\s+/g, '_')}</p>
-
-              <PokeBallDivider color={typeColor} />
+              <h1 className="text-2xl font-black text-white mb-0.5 tracking-wide">{currentTrainer.displayName}</h1>
+              <p className="text-sm mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>@{currentTrainer.displayName.toLowerCase().replace(/\s+/g, '_')}</p>
 
               {/* Partner + Win Rate */}
-              <div className="flex items-center justify-center gap-2 mt-2">
+              <div className="flex items-center gap-2">
                 <motion.div
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border cursor-pointer group relative"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border cursor-pointer group relative"
                   style={{ background: `${typeColor}11`, borderColor: `${typeColor}33` }}
                   whileHover={{ scale: 1.04, boxShadow: `0 0 12px ${typeColor}44`, borderColor: typeColor }}
                   onClick={() => setShowPokemonPicker(true)}
@@ -525,14 +524,13 @@ export default function TrainerProfile() {
                   <motion.img
                     src={getPokemonSpriteUrl(currentTrainer.favoritePokemon.id)}
                     alt={currentTrainer.favoritePokemon.name}
-                    className="w-7 h-7 object-contain"
+                    className="w-6 h-6 object-contain"
                     style={{ imageRendering: 'pixelated', filter: `drop-shadow(0 0 4px ${typeColor})` }}
-                    animate={{ y: [0, -3, 0] }} transition={{ duration: 2, repeat: Infinity }}
+                    animate={{ y: [0, -2, 0] }} transition={{ duration: 2, repeat: Infinity }}
                   />
                   <span className="text-xs font-bold text-white/70">{currentTrainer.favoritePokemon.name}</span>
-
                 </motion.div>
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border"
+                <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border"
                   style={{ background: 'rgba(251,191,36,0.08)', borderColor: 'rgba(251,191,36,0.25)' }}>
                   <span className="text-xs font-black text-amber-400">{winRate}% WR</span>
                 </div>
