@@ -505,7 +505,7 @@ export default function TrainerProfile() {
             </div>
 
             {/* Center - Username + Stats */}
-            <div className="z-10 flex-1 flex flex-col gap-2">
+            <div className="z-10 flex-1 flex flex-col gap-3">
               {/* TRAINER ID + Username */}
               <div>
                 <div className="text-xs font-black uppercase tracking-widest mb-0.5" style={{ color: `${typeColor}99` }}>
@@ -515,7 +515,7 @@ export default function TrainerProfile() {
               </div>
 
               {/* Stats Row: Wins, Losses, P&L */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2" style={{ marginTop: 4 }}>
                 {/* Wins */}
                 <div className="flex-1 rounded-lg px-3 py-2 text-center relative overflow-hidden"
                   style={{ background: 'linear-gradient(160deg, #052e16 0%, #0a1a10 100%)', border: '1px solid rgba(74,222,128,0.3)' }}>
@@ -552,29 +552,30 @@ export default function TrainerProfile() {
               </div>
             </div>
 
-            {/* Right - Favorite Pokemon */}
+            {/* Right - Favorite Pokemon - BIGGER & HIGHER */}
             <motion.div
               className="relative z-10 shrink-0 cursor-pointer"
-              whileHover={{ scale: 1.08, y: -4 }}
+              whileHover={{ scale: 1.1, y: -6 }}
               onClick={() => setShowPokemonPicker(true)}
               title="Click to change your partner Pokémon"
+              style={{ alignSelf: 'flex-start', marginTop: -8 }}
             >
               <motion.div
-                animate={{ y: [0, -8, 0] }}
+                animate={{ y: [0, -10, 0] }}
                 transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
                 style={{ position: 'relative' }}
               >
                 {/* Glow behind pokemon */}
-                <div className="absolute inset-0 blur-xl" style={{ background: typeColor, opacity: 0.3, transform: 'scale(1.2)' }} />
+                <div className="absolute inset-0 blur-2xl" style={{ background: typeColor, opacity: 0.4, transform: 'scale(1.3)' }} />
                 <img
                   src={getPokemonSpriteUrl(currentTrainer.favoritePokemon.id)}
                   alt={currentTrainer.favoritePokemon.name}
                   className="relative z-10"
                   style={{
-                    width: 80,
-                    height: 80,
+                    width: 110,
+                    height: 110,
                     imageRendering: 'pixelated',
-                    filter: `drop-shadow(0 0 12px ${typeColor})`,
+                    filter: `drop-shadow(0 0 16px ${typeColor})`,
                   }}
                 />
               </motion.div>
