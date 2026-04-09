@@ -137,6 +137,8 @@ export interface ActiveCreature {
   assignedMoves: Move[]
   kos: number
   damageDealt: number
+  damageTaken: number
+  totalDamage: number  // alias for damageDealt (used by results screen)
   turnsAlive: number
   trainerPassiveApplied: boolean
   firstAttackDone: boolean

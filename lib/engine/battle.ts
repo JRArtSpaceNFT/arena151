@@ -63,6 +63,8 @@ export function createActiveCreature(creatureId: number, rng?: () => number): Ac
     assignedMoves,
     kos: 0,
     damageDealt: 0,
+    damageTaken: 0,
+    totalDamage: 0,
     turnsAlive: 0,
     trainerPassiveApplied: false,
     firstAttackDone: false,
@@ -822,6 +824,8 @@ function simulateAttack(
 
   defenderBCS.ac.currentHp = Math.max(0, defenderBCS.ac.currentHp - damage)
   attackerBCS.ac.damageDealt += damage
+  attackerBCS.ac.totalDamage = attackerBCS.ac.damageDealt  // sync alias
+  defenderBCS.ac.damageTaken += damage
 
   if (isMegaDrain) {
     const healAmt = Math.floor(damage * 0.5)

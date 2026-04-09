@@ -190,18 +190,18 @@ function BattleStatsSection() {
       background: 'rgba(0,0,0,0.4)',
       border: '1px solid rgba(255,255,255,0.1)',
       borderRadius: 12,
-      padding: 16,
+      padding: 12,
     }}>
       <div style={{
         fontSize: 11, color: 'rgba(255,255,255,0.4)',
-        textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: 12, textAlign: 'center',
+        textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: 8, textAlign: 'center',
         fontWeight: 700,
       }}>Battle Statistics</div>
 
       {/* Quick Stats Grid */}
       <div style={{
         display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
-        gap: 6, marginBottom: 12,
+        gap: 6, marginBottom: 8,
       }}>
         <StatCard emoji="⚔️" label="Turns" value={totalTurns} />
         <StatCard emoji="💀" label="Total KOs" value={totalKos} />
@@ -212,8 +212,8 @@ function BattleStatsSection() {
       {/* Side-by-Side Comparison */}
       <div style={{
         display: 'grid', gridTemplateColumns: '1fr auto 1fr',
-        gap: 12, alignItems: 'center',
-        paddingTop: 12,
+        gap: 10, alignItems: 'center',
+        paddingTop: 8,
         borderTop: '1px solid rgba(255,255,255,0.08)',
       }}>
         {/* Team A */}
@@ -252,26 +252,26 @@ function StatCard({ emoji, label, value }: { emoji: string; label: string; value
 function StatCardWithSprite({ creature, label }: { creature: any; label: string }) {
   if (!creature) return <StatCard emoji="—" label={label} value="—" />
   
+  const imageUrl = creature.creature.sprite || `/pokemon/${creature.creature.slug}.png`
+  
   return (
     <div style={{
       background: 'rgba(255,255,255,0.04)', borderRadius: 8,
-      padding: 6, textAlign: 'center',
+      padding: 6, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center',
     }}>
-      <img 
-        src={`/pokemon/${creature.creature.slug}.png`}
-        alt={creature.creature.name}
-        style={{
-          width: 32,
-          height: 32,
-          objectFit: 'contain',
-          imageRendering: 'pixelated',
-          marginBottom: 3,
-        }}
-        onError={(e) => {
-          e.currentTarget.style.display = 'none'
-        }}
-      />
-      <div style={{ fontSize: 11, fontWeight: 800, color: '#f1f5f9', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{creature.creature.name.slice(0, 9)}</div>
+      <div style={{ width: 32, height: 32, marginBottom: 3, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <img 
+          src={imageUrl}
+          alt={creature.creature.name}
+          style={{
+            maxWidth: 32,
+            maxHeight: 32,
+            objectFit: 'contain',
+            imageRendering: 'pixelated',
+          }}
+        />
+      </div>
+      <div style={{ fontSize: 11, fontWeight: 800, color: '#f1f5f9', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{creature.creature.name.slice(0, 9)}</div>
       <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.35)' }}>{label}</div>
     </div>
   )
@@ -633,7 +633,7 @@ export default function FinalResultsScreen() {
         {/* Content */}
         <div style={{
           position: 'relative', zIndex: 2,
-          padding: 'clamp(16px, 3vh, 32px) clamp(16px, 4vw, 32px)',
+          padding: 'clamp(12px, 2vh, 20px) clamp(12px, 3vw, 24px)',
           display: 'flex', flexDirection: 'column', alignItems: 'center',
         }}>
           <div style={{ width: '100%', maxWidth: 720 }}>
@@ -645,17 +645,17 @@ export default function FinalResultsScreen() {
               transition={{ delay: 0.1 }}
               style={{
                 textAlign: 'center',
-                marginBottom: 16,
+                marginBottom: 12,
               }}
             >
               {effectiveVictory && (
-                <div style={{ fontSize: 'clamp(48px, 8vh, 80px)', marginBottom: 8 }}>
+                <div style={{ fontSize: 'clamp(40px, 6vh, 60px)', marginBottom: 6 }}>
                   🏆
                 </div>
               )}
               <div style={{
                 fontFamily: '"Impact","Arial Black",sans-serif',
-                fontSize: 'clamp(32px, 5vh, 52px)',
+                fontSize: 'clamp(28px, 4.5vh, 44px)',
                 fontWeight: 900,
                 letterSpacing: '0.06em',
                 color: effectiveVictory ? '#fbbf24' : '#a855f7',
@@ -663,19 +663,19 @@ export default function FinalResultsScreen() {
                   ? '0 0 40px rgba(251,191,36,0.9), 4px 4px 0 rgba(0,0,0,0.9)'
                   : '0 0 40px rgba(168,85,247,0.9), 4px 4px 0 rgba(0,0,0,0.9)',
                 lineHeight: 1,
-                marginBottom: 8,
+                marginBottom: 6,
               }}>
                 {effectiveVictory ? 'VICTORY!' : 'DEFEAT'}
               </div>
-              <div style={{ fontSize: 18, color: '#fff', fontWeight: 700, marginBottom: 6 }}>
-                {effectiveTrainer.displayName} {effectiveVictory ? 'defeated' : 'was defeated by'} {effectiveMatch.player2.displayName}
+              <div style={{ fontSize: 16, color: '#fff', fontWeight: 700, marginBottom: 4 }}>
+                {effectiveVictory ? 'You defeated' : 'You were defeated by'} {effectiveMatch.player2.displayName}
               </div>
-              <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)', marginBottom: 4 }}>
+              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', marginBottom: 4 }}>
                 {effectiveMatch.room.name}
               </div>
               {effectiveMatch.room.entryFee > 0 && (
                 <div style={{
-                  fontSize: 'clamp(24px, 4vh, 36px)',
+                  fontSize: 'clamp(20px, 3.5vh, 32px)',
                   fontWeight: 900,
                   color: effectiveVictory ? '#22c55e' : '#ef4444',
                   fontFamily: '"Impact",sans-serif',
@@ -697,8 +697,8 @@ export default function FinalResultsScreen() {
                 background: 'rgba(0,0,0,0.5)',
                 border: '1px solid rgba(255,255,255,0.2)',
                 borderRadius: 12,
-                padding: 12,
-                marginBottom: 20,
+                padding: 10,
+                marginBottom: 12,
               }}
             >
               <SummaryItem label="Match Type" value="Wager Battle" />
@@ -715,17 +715,17 @@ export default function FinalResultsScreen() {
                 background: effectiveVictory ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
                 border: `2px solid ${effectiveVictory ? 'rgba(34,197,94,0.4)' : 'rgba(239,68,68,0.4)'}`,
                 borderRadius: 12,
-                padding: 20,
-                marginBottom: 20,
+                padding: 14,
+                marginBottom: 12,
               }}
             >
               <div style={{
                 fontSize: 11, color: 'rgba(255,255,255,0.5)',
-                textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: 12, textAlign: 'center',
+                textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: 8, textAlign: 'center',
               }}>
                 {effectiveVictory ? '🎉 Rewards' : '💔 Result'}
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>
                     {effectiveVictory ? 'Your Payout' : 'Entry Fee'}
@@ -770,7 +770,7 @@ export default function FinalResultsScreen() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
-              style={{ marginBottom: 20 }}
+              style={{ marginBottom: 12 }}
             >
               <BattleStatsSection />
             </motion.div>
@@ -783,7 +783,7 @@ export default function FinalResultsScreen() {
               style={{
                 display: 'flex',
                 flexDirection: 'column',
-                gap: 12,
+                gap: 10,
                 alignItems: 'center',
               }}
             >
