@@ -223,7 +223,7 @@ export default function GlobalChat() {
           data.map(async (msg) => {
             const { data: userData } = await supabase
               .from('profiles')
-              .select('id, username, display_name, avatar, favorite_creature_id')
+              .select('id, username, avatar')
               .eq('id', msg.user_id)
               .single()
             return { 
@@ -231,14 +231,14 @@ export default function GlobalChat() {
               user: userData ? {
                 id: userData.id,
                 username: userData.username,
-                displayName: userData.display_name,
+                displayName: userData.username,
                 avatar: userData.avatar,
-                favorite_creature_id: userData.favorite_creature_id
+                favorite_creature_id: null
               } : undefined 
             }
           })
         )
-        setMessages(messagesWithUsers.reverse())
+        setMessages(messagesWithUsers.reverse() as ChatMessage[])
         lastReadTimestamp.current = new Date().toISOString()
         setUnreadCount(0)
       }
@@ -267,22 +267,26 @@ export default function GlobalChat() {
         console.log('[GlobalChat] New message received:', payload)
         
         // Fetch user data for the new message
-        const { data: userData } = await supabase
+        const { data: userData, error: userError } = await supabase
           .from('profiles')
-          .select('id, username, display_name, avatar, favorite_creature_id')
+          .select('id, username, avatar')
           .eq('id', payload.new.user_id)
           .single()
 
+        if (userError) {
+          console.error('[GlobalChat] Error fetching user data:', userError)
+        }
+
         const newMessage: ChatMessage = {
-          ...payload.new as any,
+          ...(payload.new as any),
           user: userData ? {
             id: userData.id,
             username: userData.username,
-            displayName: userData.display_name,
+            displayName: userData.username, // Use username as displayName
             avatar: userData.avatar,
-            favorite_creature_id: userData.favorite_creature_id
+            favorite_creature_id: undefined
           } : undefined,
-        }
+        } as ChatMessage
 
         console.log('[GlobalChat] Adding message to state:', newMessage.message)
         setMessages(prev => [...prev, newMessage])
