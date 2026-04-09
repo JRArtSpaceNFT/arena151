@@ -487,7 +487,7 @@ export default function Draft() {
                   </div>
                   {[
                     { icon: '💎', text: `You have ${BUDGET} draft points to spend` },
-                    { icon: '⚖️', text: 'Each Pokémon costs 5–20 points based on strength' },
+                    { icon: '⚖️', text: 'Each Pokémon costs 7–25 points based on strength' },
                     { icon: '🎯', text: `Build a team of ${TEAM_SIZE} within your budget` },
                     { icon: '⚡', text: 'Stronger Pokémon cost more — balance power vs. variety' },
                   ].map((item, i) => (
