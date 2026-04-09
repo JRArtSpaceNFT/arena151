@@ -251,13 +251,21 @@ export default function GlobalChat() {
   useEffect(() => {
     if (!currentUser) return
 
+    console.log('[GlobalChat] Setting up realtime subscription...')
+
     const channel = supabase
-      .channel('arena-lobby')
+      .channel('arena-lobby-chat', {
+        config: {
+          broadcast: { self: true },
+        },
+      })
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
         table: 'chat_messages',
       }, async (payload) => {
+        console.log('[GlobalChat] New message received:', payload)
+        
         // Fetch user data for the new message
         const { data: userData } = await supabase
           .from('profiles')
@@ -276,6 +284,7 @@ export default function GlobalChat() {
           } : undefined,
         }
 
+        console.log('[GlobalChat] Adding message to state:', newMessage.message)
         setMessages(prev => [...prev, newMessage])
 
         // Increment unread if panel closed
@@ -298,9 +307,12 @@ export default function GlobalChat() {
           }, 100)
         }
       })
-      .subscribe()
+      .subscribe((status) => {
+        console.log('[GlobalChat] Subscription status:', status)
+      })
 
     return () => {
+      console.log('[GlobalChat] Cleaning up subscription')
       supabase.removeChannel(channel)
     }
   }, [currentUser?.id, isOpen])
