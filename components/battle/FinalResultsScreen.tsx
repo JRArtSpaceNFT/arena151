@@ -260,12 +260,59 @@ function ComparisonRow({ label, value, align }: { label: string; value: number; 
 
 export default function FinalResultsScreen() {
   const { currentMatch, currentTrainer, setTrainer, setScreen, clearMatch, lastMatchWinner, settledMatchResult, setSettledMatchResult } = useArenaStore()
-  const { p1Trainer, p2Trainer } = useGameStore()
+  const { p1Trainer, p2Trainer, arena, gameMode } = useGameStore()
   const [isVictory] = useState(() => lastMatchWinner !== null ? lastMatchWinner === 1 : false)
   const [newBadgeArena, setNewBadgeArena] = useState<string | null>(null)
 
+  // ── Practice mode synthetic match ──
+  const isPracticeMode = gameMode === 'practice'
+  const practiceMatch = isPracticeMode && arena && p1Trainer ? {
+    matchId: 'practice-' + Date.now(),
+    player1: {
+      id: p1Trainer.id,
+      username: p1Trainer.name,
+      displayName: p1Trainer.name,
+      email: '', bio: '', avatar: '🎮',
+      favoritePokemon: null as never,
+      joinedDate: new Date(),
+      record: { wins: 0, losses: 0 },
+      internalWalletId: '', balance: 0, earnings: 0, badges: [],
+    },
+    player2: {
+      id: p2Trainer?.id ?? 'ai',
+      username: p2Trainer?.name ?? 'AI',
+      displayName: p2Trainer?.name ?? 'AI Opponent',
+      email: '', bio: '', avatar: '🤖',
+      favoritePokemon: null as never,
+      joinedDate: new Date(),
+      record: { wins: 0, losses: 0 },
+      internalWalletId: '', balance: 0, earnings: 0, badges: [],
+    },
+    room: {
+      id: arena.id,
+      name: arena.name,
+      entryFee: 0,
+      prizePool: 0,
+      tier: 'practice' as const,
+    },
+    iWon: isVictory,
+    payoutDelta: 0,
+    settlementTx: null,
+  } : null
+
+  const practiceTrainer = isPracticeMode && p1Trainer ? {
+    id: p1Trainer.id,
+    username: p1Trainer.name,
+    displayName: p1Trainer.name,
+    email: '', bio: '', avatar: '🎮',
+    favoritePokemon: null as never,
+    joinedDate: new Date(),
+    record: { wins: 0, losses: 0 },
+    internalWalletId: '', balance: 0, earnings: 0, badges: [],
+  } : null
+
   // ── Post-refresh settled resume path ──
-  const resolvedFromServer = !currentMatch && settledMatchResult
+  const resolvedFromServer = !currentMatch && settledMatchResult && !isPracticeMode
 
   const syntheticMatch = resolvedFromServer ? (() => {
     const r = settledMatchResult as SettledMatchResult
@@ -318,8 +365,8 @@ export default function FinalResultsScreen() {
     badges: settledMatchResult.myProfile.badges,
   } : null
 
-  const effectiveMatch = currentMatch ?? syntheticMatch as typeof currentMatch
-  const effectiveTrainer = currentTrainer ?? syntheticTrainer as typeof currentTrainer
+  const effectiveMatch = currentMatch ?? syntheticMatch ?? practiceMatch as typeof currentMatch
+  const effectiveTrainer = currentTrainer ?? syntheticTrainer ?? practiceTrainer as typeof currentTrainer
   const effectiveVictory = resolvedFromServer ? (settledMatchResult?.iWon ?? false) : isVictory
 
   // Determine trainer background image
