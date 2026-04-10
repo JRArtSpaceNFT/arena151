@@ -498,11 +498,11 @@ export default function BattleScreen() {
         const particleDelay = ATTACK_DELAY
         
         setTimeout(() => {
-          // Trigger full-screen type-based animation
+          // ALL attacks use type-based animations (no old sprite-based system)
           setActiveTypeAttack({ type: moveType, from: attackFrom, key: Date.now() })
           playAttackSound(move.animationKey)
           
-          // Clear animation after duration (varies by type)
+          // Clear animation after duration
           const animDuration = Math.max(400, Math.round(1000 / spd))
           setTimeout(() => {
             if (isMountedRef.current) {
@@ -510,8 +510,8 @@ export default function BattleScreen() {
             }
           }, animDuration)
           
-          // Big shake for explosive moves
-          const explosiveMoves = new Set(['explosion', 'fire_blast', 'mega_fire', 'quake', 'surf_wave'])
+          // Big shake for powerful moves
+          const explosiveMoves = new Set(['explosion', 'fire_blast', 'mega_fire', 'quake', 'surf_wave', 'water_blast', 'tsunami'])
           if (explosiveMoves.has(move.animationKey)) {
             setBigShake(true)
             setTimeout(() => setBigShake(false), Math.max(40, Math.round(850 / spd)))

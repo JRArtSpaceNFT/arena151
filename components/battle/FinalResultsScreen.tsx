@@ -467,19 +467,20 @@ export default function FinalResultsScreen() {
   // Determine trainer background image - ALWAYS show current player's trainer
   const winnerTrainer = effectiveVictory ? p1Trainer : p2Trainer // Keep for share text
   
-  // Determine which trainer is the current player
+  // Determine which trainer is the current player and which is opponent
   const isPlayerP1 = currentTrainer?.id === p1Trainer?.id
   const isPlayerP2 = currentTrainer?.id === p2Trainer?.id
   const myTrainer = isPlayerP1 ? p1Trainer : isPlayerP2 ? p2Trainer : effectiveTrainer
+  const opponentTrainer = isPlayerP1 ? p2Trainer : isPlayerP2 ? p1Trainer : p2Trainer
   
-  // Use MY trainer for background, not the winner
-  const trainerSlug = (myTrainer && 'username' in myTrainer) ? myTrainer.username?.toLowerCase().replace(/\s+/g, '-') : 'ash'
-  const outcomeSlug = effectiveVictory ? 'win' : 'loss'
-  const trainerBg = `/trainer-results/${trainerSlug}-${outcomeSlug}.png`
-  // Use the generic victory background as fallback instead of dark gradients
+  // VICTORY = show MY trainer celebrating | DEFEAT = show OPPONENT trainer celebrating
+  const bgTrainer = effectiveVictory ? myTrainer : opponentTrainer
+  const trainerSlug = (bgTrainer && 'username' in bgTrainer) ? bgTrainer.username?.toLowerCase().replace(/\s+/g, '-') : 'ash'
+  // Both victory and defeat images show the WINNER celebrating
+  const trainerBg = `/trainer-results/${trainerSlug}-win.png`
   const fallbackBg = '/victory-bg.png'
   
-  console.log('[FinalResultsScreen] trainerSlug:', trainerSlug, 'outcomeSlug:', outcomeSlug, 'trainerBg:', trainerBg)
+  console.log('[FinalResultsScreen] victory:', effectiveVictory, 'bgTrainer:', trainerSlug, 'trainerBg:', trainerBg)
 
   useEffect(() => {
     playMusic('victory')
