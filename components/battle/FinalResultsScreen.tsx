@@ -473,11 +473,13 @@ export default function FinalResultsScreen() {
   const myTrainer = isPlayerP1 ? p1Trainer : isPlayerP2 ? p2Trainer : effectiveTrainer
   
   // Use MY trainer for background, not the winner
-  const trainerSlug = (myTrainer && 'username' in myTrainer) ? myTrainer.username?.toLowerCase().replace(/\s+/g, '-') : 'default'
+  const trainerSlug = (myTrainer && 'username' in myTrainer) ? myTrainer.username?.toLowerCase().replace(/\s+/g, '-') : 'ash'
   const outcomeSlug = effectiveVictory ? 'win' : 'loss'
   const trainerBg = `/trainer-results/${trainerSlug}-${outcomeSlug}.png`
   // Use the generic victory background as fallback instead of dark gradients
   const fallbackBg = '/victory-bg.png'
+  
+  console.log('[FinalResultsScreen] trainerSlug:', trainerSlug, 'outcomeSlug:', outcomeSlug, 'trainerBg:', trainerBg)
 
   useEffect(() => {
     playMusic('victory')
@@ -663,7 +665,9 @@ export default function FinalResultsScreen() {
         {/* Background image — trainer-specific win/loss */}
         <div style={{
           position: 'fixed', inset: 0,
-          background: fallbackBg,
+          backgroundImage: `url(${fallbackBg})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
           zIndex: 0,
         }}>
           <img
