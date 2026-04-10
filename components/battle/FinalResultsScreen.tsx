@@ -475,12 +475,14 @@ export default function FinalResultsScreen() {
   
   // VICTORY = show MY trainer celebrating | DEFEAT = show OPPONENT trainer celebrating
   const bgTrainer = effectiveVictory ? myTrainer : opponentTrainer
-  const trainerSlug = (bgTrainer && 'username' in bgTrainer) ? bgTrainer.username?.toLowerCase().replace(/\s+/g, '-') : 'ash'
+  // Clean trainer name: lowercase, replace spaces and & with -, remove special chars
+  const cleanName = (bgTrainer && 'username' in bgTrainer) ? bgTrainer.username : (bgTrainer?.name || 'Ash')
+  const trainerSlug = cleanName.toLowerCase().replace(/[\s&]+/g, '-').replace(/[^a-z0-9-]/g, '')
   // Both victory and defeat images show the WINNER celebrating
   const trainerBg = `/trainer-results/${trainerSlug}-win.png`
   const fallbackBg = '/victory-bg.png'
   
-  console.log('[FinalResultsScreen] victory:', effectiveVictory, 'bgTrainer:', trainerSlug, 'trainerBg:', trainerBg)
+  console.log('[FinalResultsScreen] victory:', effectiveVictory, 'cleanName:', cleanName, 'trainerSlug:', trainerSlug, 'trainerBg:', trainerBg)
 
   useEffect(() => {
     playMusic('victory')
