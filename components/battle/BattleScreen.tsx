@@ -499,6 +499,7 @@ export default function BattleScreen() {
         
         setTimeout(() => {
           // ALL attacks use type-based animations (no old sprite-based system)
+          console.log('[BattleScreen] Attack animation:', entry.moveName, 'type:', moveType, 'from:', attackFrom)
           setActiveTypeAttack({ type: moveType, from: attackFrom, key: Date.now() })
           playAttackSound(move.animationKey)
           
