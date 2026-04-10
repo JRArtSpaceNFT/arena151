@@ -38,56 +38,9 @@ export function XConnectionCard({ onConnectionChange }: XConnectionCardProps) {
   const xVerifiedAt = currentUser?.x_verified_at
 
   const handleConnect = async () => {
-    console.log('[XConnectionCard] handleConnect clicked')
-    console.log('[XConnectionCard] currentUser:', currentUser)
-    console.log('[XConnectionCard] currentUser.id:', currentUser?.id)
-    
-    if (!currentUser) {
-      setErrorMessage('Please log in to Arena 151 first before connecting your X account.')
-      return
-    }
-    
-    try {
-      console.log('[XConnectionCard] Fetching /api/x/connect...')
-      
-      // Step 1: Fetch the OAuth URL from our backend
-      const response = await fetch('/api/x/connect', {
-        method: 'GET',
-        credentials: 'same-origin', // Send cookies
-      })
-
-      console.log('[XConnectionCard] Response status:', response.status)
-      console.log('[XConnectionCard] Response ok:', response.ok)
-
-      if (!response.ok) {
-        let errorData
-        try {
-          errorData = await response.json()
-          console.log('[XConnectionCard] Error data:', errorData)
-        } catch (e) {
-          console.error('[XConnectionCard] Failed to parse error response:', e)
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-        }
-        throw new Error(errorData.error || `HTTP ${response.status}`)
-      }
-
-      const data = await response.json()
-      console.log('[XConnectionCard] Success data:', data)
-      
-      if (!data.authUrl) {
-        throw new Error('No authorization URL received from server')
-      }
-
-      console.log('[XConnectionCard] Redirecting to X OAuth:', data.authUrl)
-      
-      // Step 2: Redirect to X OAuth
-      window.location.href = data.authUrl
-    } catch (error) {
-      console.error('[XConnectionCard] Connect error:', error)
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error'
-      console.error('[XConnectionCard] Error message:', errorMsg)
-      setErrorMessage(`Failed to connect: ${errorMsg}`)
-    }
+    // Temporarily disabled - coming soon
+    setErrorMessage('X account linking is coming soon!')
+    return
   }
 
   const handleUnlink = async () => {
@@ -181,7 +134,7 @@ export function XConnectionCard({ onConnectionChange }: XConnectionCardProps) {
               <svg viewBox="0 0 24 24" className="h-6 w-6 relative z-10" fill="currentColor">
                 <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
               </svg>
-              <span className="relative z-10">Connect X Account</span>
+              <span className="relative z-10">Connect X Account (Coming Soon)</span>
             </motion.button>
             {!currentUser ? (
               <p className="mt-2 text-center text-xs text-red-400">
