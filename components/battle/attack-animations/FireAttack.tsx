@@ -13,23 +13,25 @@ interface FireAttackProps {
 }
 
 export function FireAttack({ from, onComplete }: FireAttackProps) {
-  const startX = from === 'left' ? '10%' : '90%'
-  const endX = from === 'left' ? '70%' : '30%'
+  const startX = from === 'left' ? '30%' : '70%'  // Attacker position
+  const endX = from === 'left' ? '70%' : '30%'    // Defender position
+  const centerY = '50%'
 
   return (
     <div className="absolute inset-0 pointer-events-none z-30">
       {/* Main fireball projectile */}
       <motion.div
-        initial={{ x: startX, y: '50%', scale: 0.5, opacity: 0 }}
+        initial={{ left: startX, top: centerY, scale: 0.5, opacity: 0 }}
         animate={{ 
-          x: endX, 
-          y: '45%', 
+          left: endX, 
+          top: centerY, 
           scale: [0.5, 1.2, 1.5],
           opacity: [0, 1, 0],
         }}
         transition={{ duration: 0.6, ease: 'easeOut' }}
         onAnimationComplete={onComplete}
         className="absolute"
+        style={{ transform: 'translate(-50%, -50%)' }}
       >
         {/* Fireball core */}
         <div className="relative w-24 h-24">

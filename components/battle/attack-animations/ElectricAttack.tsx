@@ -13,8 +13,10 @@ interface ElectricAttackProps {
 }
 
 export function ElectricAttack({ from, onComplete }: ElectricAttackProps) {
-  const startX = from === 'left' ? 15 : 85
-  const endX = from === 'left' ? 70 : 30
+  // Position on actual sprite locations (30% and 70% horizontally, 50% vertically)
+  const startX = from === 'left' ? 30 : 70  // Attacker
+  const endX = from === 'left' ? 70 : 30     // Defender
+  const centerY = 50
 
   // Generate jagged lightning path
   const generateLightningPath = (startX: number, startY: number, endX: number, endY: number, segments: number = 8) => {
@@ -64,7 +66,7 @@ export function ElectricAttack({ from, onComplete }: ElectricAttackProps) {
 
         {/* Primary bolt */}
         <motion.path
-          d={generateLightningPath(startX, 50, endX, 45, 12)}
+          d={generateLightningPath(startX, centerY, endX, centerY, 12)}
           stroke="#FFFFFF"
           strokeWidth="4"
           fill="none"
@@ -84,13 +86,13 @@ export function ElectricAttack({ from, onComplete }: ElectricAttackProps) {
         {/* Secondary branching bolts */}
         {Array.from({ length: 3 }).map((_, i) => {
           const branchStart = startX + ((endX - startX) / 4) * (i + 1)
-          const branchEndX = branchStart + (Math.random() - 0.5) * 30
-          const branchEndY = 45 + (Math.random() - 0.5) * 40
+          const branchEndX = branchStart + (Math.random() - 0.5) * 15
+          const branchEndY = centerY + (Math.random() - 0.5) * 20
           
           return (
             <motion.path
               key={i}
-              d={generateLightningPath(branchStart, 48, branchEndX, branchEndY, 4)}
+              d={generateLightningPath(branchStart, centerY, branchEndX, branchEndY, 4)}
               stroke="#FFFF00"
               strokeWidth="2"
               fill="none"
@@ -113,14 +115,16 @@ export function ElectricAttack({ from, onComplete }: ElectricAttackProps) {
         <motion.div
           key={i}
           initial={{
-            x: `${endX}%`,
-            y: '45%',
+            left: `${endX}%`,
+            top: `${centerY}%`,
+            x: 0,
+            y: 0,
             scale: 0,
             opacity: 0,
           }}
           animate={{
-            x: `${endX + (Math.random() - 0.5) * 20}%`,
-            y: `${45 + (Math.random() - 0.5) * 30}%`,
+            x: (Math.random() - 0.5) * 100,
+            y: (Math.random() - 0.5) * 100,
             scale: [0, 1.5, 0],
             opacity: [0, 1, 0],
             rotate: Math.random() * 360,
@@ -131,6 +135,7 @@ export function ElectricAttack({ from, onComplete }: ElectricAttackProps) {
             ease: 'easeOut',
           }}
           className="absolute"
+          style={{ transform: 'translate(-50%, -50%)' }}
         >
           {/* Star-shaped spark */}
           <svg width="12" height="12" viewBox="0 0 12 12">
@@ -156,9 +161,9 @@ export function ElectricAttack({ from, onComplete }: ElectricAttackProps) {
         className="absolute rounded-full"
         style={{
           left: `${endX}%`,
-          top: '45%',
-          width: 120,
-          height: 120,
+          top: `${centerY}%`,
+          width: 150,
+          height: 150,
           background: 'radial-gradient(circle, rgba(255, 255, 0, 0.4) 0%, transparent 70%)',
           transform: 'translate(-50%, -50%)',
           filter: 'blur(8px)',

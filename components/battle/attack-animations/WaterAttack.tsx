@@ -15,6 +15,7 @@ interface WaterAttackProps {
 export function WaterAttack({ from, onComplete }: WaterAttackProps) {
   const startX = from === 'left' ? 0 : 100
   const endX = from === 'left' ? 70 : 30
+  const centerY = 50
 
   return (
     <div className="absolute inset-0 pointer-events-none z-30 overflow-hidden">
@@ -34,9 +35,9 @@ export function WaterAttack({ from, onComplete }: WaterAttackProps) {
           </linearGradient>
         </defs>
 
-        {/* Animated wave path */}
+        {/* Animated wave path - centered on battle area */}
         <motion.path
-          d={`M ${startX},50 Q ${(startX + endX) / 2},30 ${endX},50 T ${endX + (endX - startX)},50 V 100 H ${startX} Z`}
+          d={`M ${startX},${centerY} Q ${(startX + endX) / 2},${centerY - 20} ${endX},${centerY} T ${endX + (endX - startX)},${centerY} V 100 H ${startX} Z`}
           fill="url(#waterGradient)"
           initial={{ x: from === 'left' ? '-100%' : '100%' }}
           animate={{ x: '0%' }}
