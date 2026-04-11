@@ -710,35 +710,37 @@ export default function SignupFlow() {
           </AnimatePresence>
         </motion.div>
 
-        <div className="flex flex-col gap-3">
-          <div className="flex justify-between items-center">
-            {step > 1 ? (
-              <button onClick={() => { setStep(s => s - 1); setError(''); }}
-                className="px-6 py-3 bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-lg font-semibold hover:border-blue-500/50 transition-all">Back</button>
-            ) : (
-              <button onClick={() => { setMode('login'); setError(''); }}
-                className="px-6 py-3 bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-lg font-semibold hover:border-blue-500/50 transition-all">Sign In Instead</button>
-            )}
-            <button onClick={handleNext} disabled={!canProceed() || isLoading}
-              className={`px-8 py-3 rounded-lg font-bold tracking-wide uppercase text-sm transition-all bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 shadow-lg shadow-blue-500/50 flex items-center gap-2 ${(!canProceed() || isLoading) ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}>
-              {isLoading ? 'Creating...' : step === totalSteps ? 'Enter the Arena' : 'Continue'}
-              {!isLoading && <ChevronRight className="w-5 h-5" />}
-            </button>
-          </div>
-          {/* Skip for now — only on wallet step */}
-          {step === totalSteps && (
-            <div className="text-center">
-              <button
-                onClick={handleCreateAccount}
-                disabled={isLoading}
-                className="text-sm text-slate-500 hover:text-slate-300 transition-colors"
-              >
-                Skip for now → &nbsp;
-                <span className="text-slate-600 text-xs">You can deposit SOL anytime from your profile</span>
+        {step !== 4 && (
+          <div className="flex flex-col gap-3">
+            <div className="flex justify-between items-center">
+              {step > 1 ? (
+                <button onClick={() => { setStep(s => s - 1); setError(''); }}
+                  className="px-6 py-3 bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-lg font-semibold hover:border-blue-500/50 transition-all">Back</button>
+              ) : (
+                <button onClick={() => { setMode('login'); setError(''); }}
+                  className="px-6 py-3 bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-lg font-semibold hover:border-blue-500/50 transition-all">Sign In Instead</button>
+              )}
+              <button onClick={handleNext} disabled={!canProceed() || isLoading}
+                className={`px-8 py-3 rounded-lg font-bold tracking-wide uppercase text-sm transition-all bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 shadow-lg shadow-blue-500/50 flex items-center gap-2 ${(!canProceed() || isLoading) ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}>
+                {isLoading ? 'Creating...' : step === totalSteps ? 'Enter the Arena' : 'Continue'}
+                {!isLoading && <ChevronRight className="w-5 h-5" />}
               </button>
             </div>
-          )}
-        </div>
+            {/* Skip for now — only on wallet step */}
+            {step === totalSteps && (
+              <div className="text-center">
+                <button
+                  onClick={handleCreateAccount}
+                  disabled={isLoading}
+                  className="text-sm text-slate-500 hover:text-slate-300 transition-colors"
+                >
+                  Skip for now → &nbsp;
+                  <span className="text-slate-600 text-xs">You can deposit SOL anytime from your profile</span>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
