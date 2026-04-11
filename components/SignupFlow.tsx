@@ -373,12 +373,12 @@ export default function SignupFlow() {
 
   // ── SIGNUP MODE ─────────────────────────────────────────────
   return (
-    <div className="min-h-screen flex items-start md:items-center justify-center p-4 md:p-8 relative overflow-y-auto py-8">
+    <div className="min-h-screen flex items-start justify-center p-4 md:p-8 relative py-8">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src="/SICK.jpg" alt="" className="absolute inset-0 w-full h-full object-cover" aria-hidden="true" />
       <div className="absolute inset-0 bg-black/50" />
 
-      <div className="relative z-10 max-w-2xl w-full">
+      <div className="relative z-10 max-w-2xl w-full pb-8">
         {/* Progress */}
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
           <div className="flex items-center justify-between mb-3">
@@ -396,7 +396,7 @@ export default function SignupFlow() {
           </div>
         </motion.div>
 
-        <motion.div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800/50 rounded-2xl p-4 md:p-8 mb-6 overflow-y-visible">
+        <motion.div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800/50 rounded-2xl p-4 md:p-8 mb-6 max-h-[85vh] overflow-y-auto">
           {error && <div className="flex items-center gap-3 bg-red-950/50 border border-red-500/50 rounded-lg p-3 mb-6 text-red-300 text-sm"><AlertCircle className="w-4 h-4 flex-shrink-0" />{error}</div>}
 
           <AnimatePresence mode="wait">
@@ -515,8 +515,20 @@ export default function SignupFlow() {
             {/* STEP 4 — Favorite Pokémon */}
             {step === 4 && (
               <motion.div key="s4" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-                <div className="flex items-center gap-3 mb-6"><Heart className="w-8 h-8 text-red-400" /><h2 className="text-3xl font-bold">Favorite Pokémon</h2></div>
-                <p className="text-slate-400 mb-6">Choose your signature Pokémon — shown on your public trainer profile. Search all 151 or browse.</p>
+                <div className="flex items-start justify-between gap-4 mb-6">
+                  <div>
+                    <div className="flex items-center gap-3 mb-2">
+                      <Heart className="w-8 h-8 text-red-400" />
+                      <h2 className="text-3xl font-bold text-white">Favorite Pokémon</h2>
+                    </div>
+                    <p className="text-slate-400">Choose your signature Pokémon — shown on your public trainer profile. Search all 151 or browse.</p>
+                  </div>
+                  <button onClick={handleNext} disabled={!canProceed() || isLoading}
+                    className={`shrink-0 rounded-xl px-6 py-3 font-bold tracking-wide uppercase text-sm transition-all bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 shadow-lg shadow-blue-500/50 flex items-center gap-2 ${(!canProceed() || isLoading) ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}>
+                    Continue
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </div>
                 <PokemonSelector
                   selectedId={formData.favoritePokemon.id}
                   onSelect={p => setFormData(f => ({ ...f, favoritePokemon: { id: p.id, name: p.name, sprite: '', types: p.types as PokemonType[], stats: { hp: 100, attack: 100, defense: 100, spAttack: 100, spDefense: 100, speed: 100 } } }))}
