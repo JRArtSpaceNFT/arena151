@@ -396,7 +396,7 @@ export default function SignupFlow() {
           </div>
         </motion.div>
 
-        <motion.div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800/50 rounded-2xl p-4 md:p-8 mb-6 max-h-[80vh] overflow-y-auto">
+        <motion.div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800/50 rounded-2xl p-4 md:p-8 mb-6 overflow-y-visible">
           {error && <div className="flex items-center gap-3 bg-red-950/50 border border-red-500/50 rounded-lg p-3 mb-6 text-red-300 text-sm"><AlertCircle className="w-4 h-4 flex-shrink-0" />{error}</div>}
 
           <AnimatePresence mode="wait">
