@@ -17,6 +17,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendSol, calcWithdrawal, getSolBalance, getMinWithdrawalSol, RENT_EXEMPT_MIN, GAS_BUFFER } from '@/lib/solana'
+import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -54,6 +55,19 @@ export async function POST(req: NextRequest) {
     // ── Enforce: authenticated user can only withdraw their own funds ──
     if (authUser.id !== userId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    // ── API Rate Limit: 3 withdrawal requests per 1 hour ────────
+    const rateLimitKey = `withdraw:${userId}`
+    const rateLimit = checkRateLimit(rateLimitKey, RATE_LIMITS.WITHDRAW)
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json({
+        error: 'Too many withdrawal attempts. Please wait before trying again.',
+        code: 'RATE_LIMIT_EXCEEDED',
+        remaining: rateLimit.remaining,
+        resetMs: rateLimit.resetMs,
+      }, { status: 429 })
     }
 
     const minWithdrawalSol = await getMinWithdrawalSol()

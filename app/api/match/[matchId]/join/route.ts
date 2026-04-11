@@ -14,6 +14,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { runServerBattle } from '@/lib/engine/server-battle'
+import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -44,6 +45,19 @@ export async function POST(
     const { matchId } = await _params
     const userId = authUser.id
     const { teamB } = await req.json().catch(() => ({}))
+
+    // ── API Rate Limit: 20 join attempts per 5 minutes ──────────
+    const rateLimitKey = `match-join:${userId}`
+    const rateLimit = checkRateLimit(rateLimitKey, RATE_LIMITS.MATCH_JOIN)
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json({
+        error: 'Rate limit exceeded. Please wait before joining another match.',
+        code: 'RATE_LIMIT_EXCEEDED',
+        remaining: rateLimit.remaining,
+        resetMs: rateLimit.resetMs,
+      }, { status: 429 })
+    }
 
     // ── Load match ───────────────────────────────────────────────
     const { data: match, error: matchError } = await supabaseAdmin

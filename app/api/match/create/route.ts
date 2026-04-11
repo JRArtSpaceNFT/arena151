@@ -14,6 +14,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'crypto'
+import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -51,7 +52,20 @@ export async function POST(req: NextRequest) {
 
     const userId = authUser.id
 
-    // ── Rate limit: max 3 open 'forming' matches per user ────────
+    // ── API Rate Limit: 10 match creations per 5 minutes ─────────
+    const rateLimitKey = `match-create:${userId}`
+    const rateLimit = checkRateLimit(rateLimitKey, RATE_LIMITS.MATCH_CREATE)
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json({
+        error: 'Rate limit exceeded. Please wait before creating another match.',
+        code: 'RATE_LIMIT_EXCEEDED',
+        remaining: rateLimit.remaining,
+        resetMs: rateLimit.resetMs,
+      }, { status: 429 })
+    }
+
+    // ── DB Limit: max 3 open 'forming' matches per user ──────────
     // Prevents spam-creating matches to lock up funds or clog matchmaking.
     // 'forming' = created but no opponent yet. Cap at 3 concurrent open matches.
     const { count: openCount, error: openMatchError } = await supabaseAdmin

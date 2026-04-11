@@ -20,6 +20,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { timingSafeEqual } from 'crypto'
 import { sendSol, TREASURY_ADDRESS, HOUSE_FEE_PCT } from '@/lib/solana'
+import { verifySettlementOnChain, shouldRetrySettlement } from '@/lib/settlement-verification'
 
 const MAX_RETRIES = 3
 const LOOKBACK_HOURS = 24
@@ -157,68 +158,79 @@ export async function POST(req: NextRequest) {
     const houseFee     = parseFloat((pot * HOUSE_FEE_PCT).toFixed(9))
     const winnerPayout = parseFloat((pot - houseFee).toFixed(9))
 
-    // ── Step 5: On-chain verification before retry ────────────
-    // CRITICAL: Before firing sendSol, verify whether a payment from the
-    // loser's wallet to the winner's wallet already exists on-chain.
-    // If it does, we must NOT send again — that would double-pay.
-    // We query Helius for recent signatures from the loser's wallet and
-    // check for a transfer to the winner matching the expected amount.
-    let alreadyPaidOnChain = false
-    try {
-      const heliusKey = process.env.HELIUS_API_KEY
-      if (heliusKey && loserProfile.sol_address) {
-        // FIX 5: Expanded limit=100 (was 20) to reduce risk of missing the payment
-        // in high-activity wallets. Also add timestamp bounding: only look at txs
-        // within the last 48h (well beyond any expected retry window).
-        const cutoffTimestamp = Math.floor((Date.now() - 48 * 60 * 60 * 1000) / 1000)
-        const sigRes = await fetch(
-          `https://api.helius.xyz/v0/addresses/${loserProfile.sol_address}/transactions?api-key=${heliusKey}&limit=100&type=TRANSFER`,
-          { signal: AbortSignal.timeout(8000) }
-        )
-        if (sigRes.ok) {
-          const txs = await sigRes.json() as Array<{
-            timestamp?: number
-            nativeTransfers?: Array<{ fromUserAccount: string; toUserAccount: string; amount: number }>
-          }>
-          const winnerLamports = Math.floor(winnerPayout * 1_000_000_000)
-          // Only consider txs within our 48h window (timestamp is unix seconds from Helius)
-          const recentTxs = txs.filter(tx => !tx.timestamp || tx.timestamp >= cutoffTimestamp)
-          // Allow ±1000 lamports tolerance for rounding
-          alreadyPaidOnChain = recentTxs.some(tx =>
-            (tx.nativeTransfers ?? []).some(t =>
-              t.fromUserAccount === loserProfile.sol_address &&
-              t.toUserAccount === winnerProfile.sol_address &&
-              Math.abs(t.amount - winnerLamports) <= 1000
-            )
-          )
-          if (alreadyPaidOnChain) {
-            console.log(`[SettlementRetry] On-chain payment already detected for match ${matchId} — skipping sendSol, reconciling DB only`)
-            await supabaseAdmin.rpc('settle_match_db', {
-              p_match_id: matchId,
-              p_winner_id: winnerId,
-              p_loser_id: loserId,
-              p_entry_fee: entryFeeSol,
-              p_winner_payout: winnerPayout,
-              p_settlement_tx: 'recovered-onchain-verified',
-            })
-            await supabaseAdmin.from('audit_log').insert({
-              match_id: matchId,
-              event_type: 'settlement_recovered_onchain',
-              metadata: { note: 'On-chain payment detected via Helius — DB reconciled without re-sending', winner_id: winnerId },
-            })
-            results.push({ matchId, action: 'already_settled', details: 'On-chain verified — DB reconciled' })
-            continue
-          }
-        }
-      }
-    } catch (verifyErr) {
-      // Verification failed — proceed cautiously: log and skip this retry
-      // to avoid a potential double-payment we cannot rule out.
-      console.error('[SettlementRetry] On-chain verification failed for match', matchId, verifyErr)
-      await incrementRetry(matchId, retryCount, `On-chain verification failed: ${String(verifyErr)} — skipping retry until verification succeeds`)
-      results.push({ matchId, action: 'retry_failed', details: 'On-chain verification error — skipped for safety' })
+    // ── Step 5: Multi-Source On-Chain Verification (H2 FIX) ────
+    // Use verifySettlementOnChain() which checks:
+    // 1. Helius transaction history (primary)
+    // 2. Solana RPC getSignaturesForAddress (fallback)
+    // 3. Balance delta check (last resort)
+    // Only retry if ALL sources confirm no payment was sent.
+    const verification = await verifySettlementOnChain(
+      loserProfile.sol_address,
+      winnerProfile.sol_address,
+      winnerPayout,
+      houseFee
+    )
+
+    // If payment already detected on-chain, reconcile DB and skip sendSol
+    if (verification.verified) {
+      console.log(`[SettlementRetry] ${verification.source?.toUpperCase()}: Payment confirmed on-chain (${verification.signature})`)
+
+      const { error: dbFixErr } = await supabaseAdmin.rpc('settle_match_db', {
+        p_match_id: matchId,
+        p_winner_id: winnerId,
+        p_loser_id: loserId,
+        p_entry_fee: entryFeeSol,
+        p_winner_payout: winnerPayout,
+        p_settlement_tx: verification.signature ?? 'recovered-onchain-verified',
+      })
+
+      await supabaseAdmin.from('audit_log').insert({
+        match_id: matchId,
+        event_type: 'settlement_recovered_onchain',
+        metadata: {
+          source: verification.source,
+          signature: verification.signature,
+          confidence: verification.confidence,
+          details: verification.details,
+          note: 'On-chain payment verified — DB reconciled without re-sending',
+        },
+      })
+
+      results.push({
+        matchId,
+        action: 'already_settled',
+        details: `${verification.source?.toUpperCase()} verified — sig: ${verification.signature}`,
+      })
       continue
     }
+
+    // If verification failed (Helius down + RPC down), DO NOT retry
+    // Fail-safe: better to delay settlement than risk double-payment
+    if (!shouldRetrySettlement(verification)) {
+      console.error(`[SettlementRetry] Verification failed for match ${matchId} — cannot safely retry`)
+
+      await incrementRetry(matchId, retryCount, `On-chain verification failed (${verification.confidence}): ${verification.details}`)
+
+      await supabaseAdmin.from('audit_log').insert({
+        match_id: matchId,
+        event_type: 'settlement_retry_blocked_verification_failed',
+        metadata: {
+          confidence: verification.confidence,
+          details: verification.details,
+          note: 'All verification sources failed — cannot confirm payment status. Manual review required.',
+        },
+      })
+
+      results.push({
+        matchId,
+        action: 'retry_failed',
+        details: `Verification unavailable (${verification.confidence}) — skipped for safety`,
+      })
+      continue
+    }
+
+    // ── All sources confirm no payment — safe to retry ────────────
+    console.log(`[SettlementRetry] All sources confirm no payment — safe to retry match ${matchId}`)
 
     // ── Step 6: Retry sendSol (only if not already paid on-chain) ──
     const payoutResult = await sendSol(
