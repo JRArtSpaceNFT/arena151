@@ -1,0 +1,84 @@
+╔══════════════════════════════════════════════════════════════════════╗
+║                                                                      ║
+║   ARENA 151 SECURITY FIX — START HERE                                ║
+║                                                                      ║
+║   Date: April 11, 2026                                               ║
+║   Status: ❌ NOT SAFE FOR REAL MONEY (blockers exist)                ║
+║                                                                      ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+🔴 CRITICAL: DO NOT LAUNCH WITH REAL USER FUNDS YET
+
+You have 3 blockers that MUST be fixed first:
+
+┌──────────────────────────────────────────────────────────────────────┐
+│ BLOCKER 1: Production Secrets Exposed                               │
+│                                                                      │
+│ Risk:  Master wallet key + DB admin key in .env.local               │
+│ Fix:   Secret rotation + Vercel env vars migration                  │
+│ Time:  4 hours                                                       │
+│                                                                      │
+│ 👉 ACTION: Open IMMEDIATE_ACTION_PLAN.md, follow BLOCKER 1          │
+└──────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────┐
+│ BLOCKER 2: No First-Withdrawal Delay                                │
+│                                                                      │
+│ Risk:  Account compromise → instant drain                           │
+│ Fix:   24-hour account age check + velocity limits                  │
+│ Time:  30 minutes                                                    │
+│                                                                      │
+│ 👉 ACTION: Open IMMEDIATE_ACTION_PLAN.md, follow BLOCKER 2          │
+└──────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────┐
+│ BLOCKER 3: Settlement Retry Double-Payment Risk                     │
+│                                                                      │
+│ Risk:  Winner gets paid twice if retry logic fails                  │
+│ Fix:   Multi-source on-chain verification                           │
+│ Time:  2 hours                                                       │
+│                                                                      │
+│ 👉 ACTION: Open IMMEDIATE_ACTION_PLAN.md, follow BLOCKER 3          │
+└──────────────────────────────────────────────────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════
+
+EXECUTION ORDER:
+
+1. Read:  IMMEDIATE_ACTION_PLAN.md          (what to fix, in order)
+2. Fix:   Follow steps for BLOCKER 1-3      (code + DB changes)
+3. Test:  LAUNCH_GATE_CHECKLIST.md          (verification)
+4. Deploy: DEPLOYMENT_RUNBOOK.md            (production deployment)
+
+═══════════════════════════════════════════════════════════════════════
+
+QUICK REFERENCE:
+
+📋 IMMEDIATE_ACTION_PLAN.md       ← Start here
+📋 LAUNCH_GATE_CHECKLIST.md       ← Pre-launch verification
+📋 DEPLOYMENT_RUNBOOK.md          ← Deployment procedures
+📋 SECURITY_FIX_SUMMARY.md        ← Full overview
+
+Code fixes already provided:
+✅ scripts/rotate-secrets.sh
+✅ scripts/migrate-re-encrypt-wallets.ts
+✅ supabase/migrations/014_wallet_key_versioning.sql
+✅ supabase/migrations/015_withdrawal_security.sql
+✅ lib/config-validation.ts
+✅ lib/settlement-verification.ts
+✅ app/api/withdraw/route.ts (hardened)
+
+═══════════════════════════════════════════════════════════════════════
+
+TIME TO FIX ALL BLOCKERS: ~6 hours (parallelizable with 2 people)
+
+AFTER FIXES: Platform is safe for soft launch (low limits, beta users)
+
+═══════════════════════════════════════════════════════════════════════
+
+Questions? Read SECURITY_FIX_SUMMARY.md for full context.
+
+Good luck. Fix the blockers and you're good to go. 🚀
+
+— Achilles
