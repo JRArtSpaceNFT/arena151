@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
 
 export async function GET() {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const {
     data: { session },
@@ -20,7 +20,7 @@ export async function GET() {
 
   try {
     // Mock data for now - replace with real anomaly detection
-    const alerts = [];
+    const alerts: any[] = [];
 
     return NextResponse.json({ alerts });
   } catch (error) {

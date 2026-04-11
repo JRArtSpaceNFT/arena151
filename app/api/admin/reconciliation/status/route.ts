@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
 
 export async function GET() {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const {
     data: { session },
@@ -57,8 +57,18 @@ export async function GET() {
       .limit(1)
       .single();
 
-    const status = {
-      status: 'healthy' as const,
+    const status: {
+      status: 'healthy' | 'warning' | 'critical';
+      totalBalance: number;
+      totalLocked: number;
+      pendingWithdrawals: number;
+      pendingDeposits: number;
+      platformFees: number;
+      mismatchCount: number;
+      driftAmount: number;
+      lastRun: string | null;
+    } = {
+      status: 'healthy',
       totalBalance,
       totalLocked,
       pendingWithdrawals: pendingWithdrawalsTotal,
