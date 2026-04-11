@@ -59,8 +59,12 @@ export async function GET() {
       .eq('status', 'settlement_failed')
       .gte('created_at', twentyFourHoursAgo.toISOString());
 
-    const health = {
-      overall: 'healthy' as const,
+    const health: {
+      overall: 'healthy' | 'degraded' | 'down';
+      services: any;
+      metrics: any;
+    } = {
+      overall: 'healthy',
       services: {
         database: {
           status: 'up' as const,
