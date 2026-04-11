@@ -1,58 +1,71 @@
-/**
- * GET /api/admin/matches
- *
- * Admin dashboard feed — list matches by status with player info and audit summary.
- * Use this to monitor manual_review, settlement_failed, and stuck matches.
- *
- * Query params:
- *   status   — filter by match status (default: manual_review,settlement_failed)
- *   limit    — max results (default: 50)
- *   offset   — pagination offset
- *
- * Auth: x-admin-token header matching ADMIN_SECRET
- */
-
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import { timingSafeEqual } from 'crypto'
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_KEY!
-)
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase-server';
 
 export async function GET(req: NextRequest) {
-  // ── Auth ─────────────────────────────────────────────────────
-  const adminToken    = req.headers.get('x-admin-token') ?? ''
-  const expectedToken = process.env.ADMIN_SECRET ?? ''
-  let authorized = false
+  const supabase = createClient();
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('is_admin')
+    .eq('id', session.user.id)
+    .single();
+
+  if (!profile?.is_admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
   try {
-    const a = Buffer.from(adminToken)
-    const b = Buffer.from(expectedToken)
-    authorized = a.length > 0 && a.length === b.length && timingSafeEqual(a, b)
-  } catch { authorized = false }
-  if (!authorized) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const { searchParams } = new URL(req.url);
+    const status = searchParams.get('status') || 'live';
 
-  const url    = new URL(req.url)
-  const status = url.searchParams.get('status') ?? 'manual_review,settlement_failed'
-  const limit  = Math.min(parseInt(url.searchParams.get('limit') ?? '50'), 200)
-  const offset = parseInt(url.searchParams.get('offset') ?? '0')
+    let query = supabase
+      .from('matches')
+      .select(`
+        *,
+        player_a:profiles!matches_player_a_fkey(username),
+        player_b:profiles!matches_player_b_fkey(username)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(50);
 
-  const statuses = status.split(',').map(s => s.trim())
+    if (status === 'live') {
+      query = query.in('status', ['ready', 'battling']);
+    } else if (status === 'settlement_pending') {
+      query = query.eq('status', 'settlement_pending');
+    } else if (status === 'completed') {
+      query = query.eq('status', 'completed');
+    } else if (status === 'failed') {
+      query = query.eq('status', 'settlement_failed');
+    }
 
-  const { data: matches, error, count } = await supabaseAdmin
-    .from('matches')
-    .select(`
-      id, status, entry_fee_sol, winner_id, settlement_tx,
-      player_a_id, player_b_id, error_message,
-      retry_count, result_claim_a, result_claim_b,
-      created_at, updated_at
-    `, { count: 'exact' })
-    .in('status', statuses)
-    .order('updated_at', { ascending: false })
-    .range(offset, offset + limit - 1)
+    const { data: matches, error } = await query;
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) throw error;
 
-  return NextResponse.json({ total: count, matches, statuses, limit, offset })
+    const enrichedMatches = (matches || []).map((m: any) => ({
+      id: m.id,
+      player_a_username: m.player_a?.username || 'Unknown',
+      player_b_username: m.player_b?.username || 'Unknown',
+      entry_fee: Number(m.entry_fee),
+      platform_fee: Number(m.platform_fee),
+      status: m.status,
+      funds_locked: m.funds_locked || false,
+      winner_id: m.winner_id,
+      settlement_status: m.settlement_status,
+      retry_count: m.retry_count || 0,
+      created_at: m.created_at,
+      battle_started_at: m.battle_started_at,
+      settled_at: m.settled_at,
+      error_message: m.error_message,
+    }));
+
+    return NextResponse.json({ matches: enrichedMatches });
+  } catch (error) {
+    console.error('Admin matches error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 }
