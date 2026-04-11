@@ -77,21 +77,8 @@ async function migrateWallets() {
   console.log('=================================')
   console.log('')
 
-  // Step 1: Add key_version column if it doesn't exist
-  console.log('Step 1: Adding key_version column...')
-  const { error: alterError } = await supabaseAdmin.rpc('exec_sql', {
-    sql: 'ALTER TABLE profiles ADD COLUMN IF NOT EXISTS key_version INTEGER DEFAULT 1;'
-  }).catch(() => {
-    // Column may already exist from manual migration — that's fine
-    return { error: null }
-  })
-
-  if (alterError) {
-    console.warn('⚠️  Could not add key_version column (may already exist):', alterError.message)
-  } else {
-    console.log('✅ key_version column ready')
-  }
-
+  // Step 1: Skip - column already exists from migration
+  console.log('Step 1: Skipping column creation (already exists from migration)')
   console.log('')
 
   // Step 2: Load all profiles with encrypted keys
