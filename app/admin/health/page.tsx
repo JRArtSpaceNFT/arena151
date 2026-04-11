@@ -110,33 +110,33 @@ export default function AdminHealth() {
             name="Database"
             icon={Database}
             status={health?.services.database.status || 'down'}
-            latency={health?.services.database.latency}
+            latency={health?.services.database.latency ?? null}
             lastCheck={health?.services.database.lastCheck}
-            error={health?.services.database.error}
+            error={health?.services.database.error ?? null}
           />
           <ServiceCard
             name="RPC Provider"
             icon={Zap}
             status={health?.services.rpc.status || 'down'}
-            latency={health?.services.rpc.latency}
+            latency={health?.services.rpc.latency ?? null}
             lastCheck={health?.services.rpc.lastCheck}
-            error={health?.services.rpc.error}
+            error={health?.services.rpc.error ?? null}
           />
           <ServiceCard
             name="Webhooks"
             icon={Webhook}
             status={health?.services.webhooks.status || 'down'}
-            latency={health?.services.webhooks.latency}
+            latency={health?.services.webhooks.latency ?? null}
             lastCheck={health?.services.webhooks.lastCheck}
-            error={health?.services.webhooks.error}
+            error={health?.services.webhooks.error ?? null}
           />
           <ServiceCard
             name="Cron Jobs"
             icon={Clock}
             status={health?.services.cron.status || 'down'}
-            latency={health?.services.cron.latency}
+            latency={health?.services.cron.latency ?? null}
             lastCheck={health?.services.cron.lastCheck}
-            error={health?.services.cron.error}
+            error={health?.services.cron.error ?? null}
           />
         </div>
       </div>
