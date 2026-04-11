@@ -130,7 +130,9 @@ export async function verifySettlementOnChain(
       if (!tx || !tx.meta) continue
 
       // Analyze postBalances to find transfers
-      const { accountKeys, postBalances, preBalances } = tx.transaction.message
+      const accountKeys = tx.transaction.message.accountKeys
+      const postBalances = tx.meta.postBalances
+      const preBalances = tx.meta.preBalances
       const loserIndex = accountKeys.findIndex(k => k.pubkey.toString() === loserWallet)
       const winnerIndex = accountKeys.findIndex(k => k.pubkey.toString() === winnerWallet)
 
