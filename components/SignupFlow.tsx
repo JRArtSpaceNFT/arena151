@@ -515,20 +515,11 @@ export default function SignupFlow() {
             {/* STEP 4 — Favorite Pokémon */}
             {step === 4 && (
               <motion.div key="s4" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-                <div className="flex items-start justify-between gap-4 mb-6">
-                  <div>
-                    <div className="flex items-center gap-3 mb-2">
-                      <Heart className="w-8 h-8 text-red-400" />
-                      <h2 className="text-3xl font-bold text-white">Favorite Pokémon</h2>
-                    </div>
-                    <p className="text-slate-400">Choose your signature Pokémon — shown on your public trainer profile. Search all 151 or browse.</p>
-                  </div>
-                  <button onClick={handleNext} disabled={!canProceed() || isLoading}
-                    className={`shrink-0 rounded-xl px-6 py-3 font-bold tracking-wide uppercase text-sm transition-all bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 shadow-lg shadow-blue-500/50 flex items-center gap-2 ${(!canProceed() || isLoading) ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}>
-                    Continue
-                    <ChevronRight className="w-5 h-5" />
-                  </button>
+                <div className="flex items-center gap-3 mb-2">
+                  <Heart className="w-8 h-8 text-red-400" />
+                  <h2 className="text-3xl font-bold text-white">Favorite Pokémon</h2>
                 </div>
+                <p className="text-slate-400 mb-6">Choose your signature Pokémon — shown on your public trainer profile. Search all 151 or browse.</p>
                 <PokemonSelector
                   selectedId={formData.favoritePokemon.id}
                   onSelect={p => setFormData(f => ({ ...f, favoritePokemon: { id: p.id, name: p.name, sprite: '', types: p.types as PokemonType[], stats: { hp: 100, attack: 100, defense: 100, spAttack: 100, spDefense: 100, speed: 100 } } }))}
@@ -710,37 +701,35 @@ export default function SignupFlow() {
           </AnimatePresence>
         </motion.div>
 
-        {step !== 4 && (
-          <div className="flex flex-col gap-3">
-            <div className="flex justify-between items-center">
-              {step > 1 ? (
-                <button onClick={() => { setStep(s => s - 1); setError(''); }}
-                  className="px-6 py-3 bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-lg font-semibold hover:border-blue-500/50 transition-all">Back</button>
-              ) : (
-                <button onClick={() => { setMode('login'); setError(''); }}
-                  className="px-6 py-3 bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-lg font-semibold hover:border-blue-500/50 transition-all">Sign In Instead</button>
-              )}
-              <button onClick={handleNext} disabled={!canProceed() || isLoading}
-                className={`px-8 py-3 rounded-lg font-bold tracking-wide uppercase text-sm transition-all bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 shadow-lg shadow-blue-500/50 flex items-center gap-2 ${(!canProceed() || isLoading) ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}>
-                {isLoading ? 'Creating...' : step === totalSteps ? 'Enter the Arena' : 'Continue'}
-                {!isLoading && <ChevronRight className="w-5 h-5" />}
+        <div className="flex flex-col gap-3">
+          <div className="flex justify-between items-center">
+            {step > 1 ? (
+              <button onClick={() => { setStep(s => s - 1); setError(''); }}
+                className="px-6 py-3 bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-lg font-semibold hover:border-blue-500/50 transition-all">Back</button>
+            ) : (
+              <button onClick={() => { setMode('login'); setError(''); }}
+                className="px-6 py-3 bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-lg font-semibold hover:border-blue-500/50 transition-all">Sign In Instead</button>
+            )}
+            <button onClick={handleNext} disabled={!canProceed() || isLoading}
+              className={`px-8 py-3 rounded-lg font-bold tracking-wide uppercase text-sm transition-all bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 shadow-lg shadow-blue-500/50 flex items-center gap-2 ${(!canProceed() || isLoading) ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}>
+              {isLoading ? 'Creating...' : step === totalSteps ? 'Enter the Arena' : 'Continue'}
+              {!isLoading && <ChevronRight className="w-5 h-5" />}
+            </button>
+          </div>
+          {/* Skip for now — only on wallet step */}
+          {step === totalSteps && (
+            <div className="text-center">
+              <button
+                onClick={handleCreateAccount}
+                disabled={isLoading}
+                className="text-sm text-slate-500 hover:text-slate-300 transition-colors"
+              >
+                Skip for now → &nbsp;
+                <span className="text-slate-600 text-xs">You can deposit SOL anytime from your profile</span>
               </button>
             </div>
-            {/* Skip for now — only on wallet step */}
-            {step === totalSteps && (
-              <div className="text-center">
-                <button
-                  onClick={handleCreateAccount}
-                  disabled={isLoading}
-                  className="text-sm text-slate-500 hover:text-slate-300 transition-colors"
-                >
-                  Skip for now → &nbsp;
-                  <span className="text-slate-600 text-xs">You can deposit SOL anytime from your profile</span>
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
