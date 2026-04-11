@@ -371,12 +371,11 @@ export default function Draft() {
     <>
       {/* ── Root container ── */}
       <div className="draft-root" style={{
-        height: '100dvh',
-        maxHeight: '100dvh',
+        minHeight: '100dvh',
         background: '#06060a',
         display: 'flex',
         flexDirection: 'column',
-        overflow: 'hidden',
+        overflow: 'auto',
         fontFamily: 'system-ui, -apple-system, sans-serif',
         color: '#e2e8f0',
       }}>
@@ -1109,6 +1108,8 @@ export default function Draft() {
           alignItems: 'center',
           justifyContent: 'center',
           animation: 'orderOverlayIn 0.35s ease forwards',
+          overflowY: 'auto',
+          padding: '40px 20px',
         }}>
           {/* Scanline texture */}
           <div style={{

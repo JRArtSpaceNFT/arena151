@@ -69,7 +69,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </aside>
 
       {/* Main Content */}
-      <main className="ml-64 min-h-screen">
+      <main className="ml-64 min-h-screen overflow-y-auto">
         {children}
       </main>
     </div>
