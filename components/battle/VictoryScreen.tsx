@@ -100,7 +100,7 @@ export default function VictoryScreen() {
     'lorelei':     { height: '52vh', left: '40%' },
     'bruno':       { height: '50vh', left: '41%' },
     'lance':       { height: '52vh' },
-    'jessie-james':{ height: '72vh', bottom: '20%', left: '38%' },
+    'jessie-james':{ height: '72vh', bottom: '30%', left: '38%' },
   }
   const ov = OVERRIDES[winnerTrainer.id] ?? {}
   const trainerH = ov.height ?? '58vh'
