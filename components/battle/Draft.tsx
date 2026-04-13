@@ -31,7 +31,10 @@ const TOTAL_DRAFT_TIME = 120
 
 const GLOBAL_CSS = `
 @media (max-width: 1024px) {
-  .draft-root { overflow-y: visible !important; }
+  .draft-root { 
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
   .draft-zone2 { 
     flex: 1 1 auto !important; 
     max-height: none !important;
@@ -41,9 +44,12 @@ const GLOBAL_CSS = `
   .draft-zone3 { display: none !important; }
   .draft-grid { 
     overflow-y: auto !important;
-    max-height: calc(100dvh - 180px) !important;
+    -webkit-overflow-scrolling: touch !important;
+    max-height: calc(100vh - 360px) !important;
+    overscroll-behavior: contain !important;
   }
   .draft-mobile-team { display: flex !important; }
+  .draft-battlefield-mobile { display: flex !important; }
   /* Order overlay: left = pokemon slots, right = confirm button */
   .draft-order-overlay {
     flex-direction: row !important;
@@ -682,7 +688,6 @@ export default function Draft() {
           flex: 1,
           display: 'flex',
           flexDirection: 'column',
-          overflow: 'hidden',
           minHeight: 0,
         }}>
 
@@ -692,7 +697,6 @@ export default function Draft() {
             minHeight: 0,
             display: 'flex',
             flexDirection: 'column',
-            overflow: 'hidden',
             borderBottom: '2px solid #0f0f1a',
             position: 'relative',
             transition: 'opacity 0.4s',
@@ -778,6 +782,8 @@ export default function Draft() {
             <div className="draft-grid" style={{
               flex: 1,
               overflow: 'auto',
+              WebkitOverflowScrolling: 'touch',
+              overscrollBehavior: 'contain',
               padding: '12px 16px',
               marginRight: infoCreature ? 320 : 0,
               transition: 'margin-right 0.2s ease',
@@ -1091,6 +1097,93 @@ export default function Draft() {
                 ⚔ {p1Trainer?.name ?? 'YOUR TEAM'}
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* ══ BOTTOM BATTLEFIELD — Selected Pokemon lineup ══ */}
+        <div style={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: 100,
+          background: 'linear-gradient(to top, rgba(10,10,20,0.98) 0%, rgba(10,10,20,0.95) 100%)',
+          borderTop: '2px solid #7c3aed',
+          padding: '12px 8px',
+          boxShadow: '0 -4px 20px rgba(0,0,0,0.6)',
+          overflow: 'hidden',
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            overflowX: 'auto',
+            WebkitOverflowScrolling: 'touch',
+            paddingBottom: '4px',
+          }}>
+            {draftTeamA.map((creature, idx) => (
+              <div key={creature.id} style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                flexShrink: 0,
+                position: 'relative',
+              }}>
+                {/* Pokemon sprite */}
+                <img
+                  src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${creature.id}.png`}
+                  alt={creature.name}
+                  style={{
+                    width: 64,
+                    height: 64,
+                    imageRendering: 'pixelated' as const,
+                    filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))',
+                  }}
+                />
+                {/* Pokeball under Pokemon */}
+                <div style={{
+                  marginTop: -8,
+                  position: 'relative',
+                  zIndex: 2,
+                }}>
+                  <svg width="18" height="18" viewBox="0 0 22 22">
+                    <path d="M2,11 A9,9 0 0,1 20,11 Z" fill="#e53e3e" stroke="#1a1a1a" strokeWidth="1.2"/>
+                    <path d="M2,11 A9,9 0 0,0 20,11 Z" fill="#f7f7f7" stroke="#1a1a1a" strokeWidth="1.2"/>
+                    <line x1="2" y1="11" x2="20" y2="11" stroke="#1a1a1a" strokeWidth="1.5"/>
+                    <circle cx="11" cy="11" r="3.2" fill="#f7f7f7" stroke="#1a1a1a" strokeWidth="1.2"/>
+                    <circle cx="11" cy="11" r="1.4" fill={TYPE_COLORS[creature.types[0]] ?? '#7c3aed'} />
+                  </svg>
+                </div>
+                {/* Name */}
+                <div style={{
+                  fontSize: 8,
+                  fontWeight: 700,
+                  color: 'rgba(255,255,255,0.75)',
+                  marginTop: 2,
+                  textTransform: 'uppercase' as const,
+                  letterSpacing: '0.05em',
+                }}>
+                  {creature.name}
+                </div>
+              </div>
+            ))}
+            {/* Empty slots */}
+            {Array.from({ length: TEAM_SIZE - draftTeamA.length }).map((_, i) => (
+              <div key={`empty-${i}`} style={{
+                width: 64,
+                height: 64,
+                borderRadius: '50%',
+                border: '2px dashed rgba(124,58,237,0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'rgba(124,58,237,0.4)',
+                fontSize: 24,
+                fontWeight: 300,
+                flexShrink: 0,
+              }}>?</div>
+            ))}
           </div>
         </div>
       </div>

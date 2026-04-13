@@ -14,6 +14,8 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [resetMode, setResetMode] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,6 +109,39 @@ export default function LoginPage() {
               {loading ? 'Logging in...' : 'Login'}
             </button>
           </form>
+
+          <div className="mt-4 text-center">
+            <button
+              type="button"
+              onClick={async () => {
+                if (!email) {
+                  setError('Please enter your email address');
+                  return;
+                }
+                setLoading(true);
+                setError('');
+                try {
+                  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                    redirectTo: `${window.location.origin}/api/auth/callback?type=recovery`,
+                  });
+                  if (error) throw error;
+                  setResetSent(true);
+                } catch (error: any) {
+                  setError(error.message || 'Failed to send reset email');
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
+            >
+              Forgot password?
+            </button>
+            {resetSent && (
+              <div className="mt-2 p-3 rounded-lg bg-green-500/10 border border-green-500/30 text-green-400 text-sm">
+                Password reset email sent! Check your inbox.
+              </div>
+            )}
+          </div>
 
           <div className="mt-6 text-center">
             <a href="/" className="text-sm text-gray-500 hover:text-gray-300 transition-colors">
