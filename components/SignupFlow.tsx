@@ -524,7 +524,18 @@ export default function SignupFlow() {
                   selectedId={formData.favoritePokemon.id}
                   onSelect={p => setFormData(f => ({ ...f, favoritePokemon: { id: p.id, name: p.name, sprite: '', types: p.types as PokemonType[], stats: { hp: 100, attack: 100, defense: 100, spAttack: 100, spDefense: 100, speed: 100 } } }))}
                 />
-                <p className="text-xs text-slate-500 mt-4">Public • Shown on your trainer card and match reveals</p>
+                <p className="text-xs text-slate-500 mt-4 mb-6">Public • Shown on your trainer card and match reveals</p>
+                
+                {/* Continue button for step 4 */}
+                <div className="flex justify-between items-center pt-4 border-t border-slate-700">
+                  <button onClick={() => { setStep(s => s - 1); setError(''); }}
+                    className="px-6 py-3 bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-lg font-semibold hover:border-blue-500/50 transition-all">Back</button>
+                  <button onClick={handleNext} disabled={!canProceed() || isLoading}
+                    className={`px-8 py-3 rounded-lg font-bold tracking-wide uppercase text-sm transition-all bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 shadow-lg shadow-blue-500/50 flex items-center gap-2 ${(!canProceed() || isLoading) ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}>
+                    Continue
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </div>
               </motion.div>
             )}
 
