@@ -1,12 +1,29 @@
 import { createClient } from '@/lib/supabase-server';
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const token_hash = requestUrl.searchParams.get('token_hash');
   const type = requestUrl.searchParams.get('type');
-  const next = requestUrl.searchParams.get('next') || '/';
-
+  const code = requestUrl.searchParams.get('code');
+  
+  // Handle email confirmation with code
+  if (code) {
+    const supabase = await createClient();
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    
+    if (!error) {
+      // Check if this is a password recovery flow
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        // For recovery, redirect to reset password page
+        return NextResponse.redirect(`${requestUrl.origin}/reset-password`);
+      }
+    }
+  }
+  
+  // Handle legacy token_hash flow
   if (token_hash && type) {
     const supabase = await createClient();
 
@@ -16,15 +33,13 @@ export async function GET(request: Request) {
     });
 
     if (!error) {
-      // If it's a password recovery, redirect to reset password page
       if (type === 'recovery') {
         return NextResponse.redirect(`${requestUrl.origin}/reset-password`);
       }
-      // Otherwise redirect to the next page
-      return NextResponse.redirect(`${requestUrl.origin}${next}`);
+      return NextResponse.redirect(`${requestUrl.origin}/`);
     }
   }
 
-  // If there's an error or no token, redirect to login
-  return NextResponse.redirect(`${requestUrl.origin}/login?error=auth_failed`);
+  // Default: redirect to home or show error
+  return NextResponse.redirect(`${requestUrl.origin}/`);
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
 
@@ -15,9 +15,35 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [isValidSession, setIsValidSession] = useState(false);
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    // Check if user has a valid session from the email link
+    const checkSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setIsValidSession(!!session);
+        if (!session) {
+          setError('Invalid or expired reset link. Please request a new one.');
+        }
+      } catch (err) {
+        setError('Failed to verify session');
+      } finally {
+        setChecking(false);
+      }
+    };
+    checkSession();
+  }, []);
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!isValidSession) {
+      setError('Invalid session. Please request a new reset link.');
+      return;
+    }
+    
     setLoading(true);
     setError('');
 
@@ -54,6 +80,14 @@ export default function ResetPasswordPage() {
       setLoading(false);
     }
   };
+
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center p-4">
+        <div className="text-gray-400">Verifying reset link...</div>
+      </div>
+    );
+  }
 
   if (success) {
     return (
