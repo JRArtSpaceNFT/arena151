@@ -464,7 +464,10 @@ export default function TrainerSelect() {
     <div className="ts-root" style={{
       height: '100dvh',
       maxHeight: '100dvh',
-      background: '#050510',
+      backgroundImage: 'url(/trainer-select-bg/TrainerSelect.png)',
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      backgroundRepeat: 'no-repeat',
       padding: '8px 24px 8px',
       display: 'flex',
       flexDirection: 'column',
