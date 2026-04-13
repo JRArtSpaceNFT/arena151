@@ -30,7 +30,16 @@ const TOTAL_DRAFT_TIME = 120
 // ─── CSS keyframes injected once ─────────────────────────────────────────────
 
 const GLOBAL_CSS = `
+/* Hide bottom battlefield on desktop - only show on mobile */
+.draft-bottom-battlefield {
+  display: none !important;
+}
+
 @media (max-width: 1024px) {
+  /* Show bottom battlefield on mobile */
+  .draft-bottom-battlefield {
+    display: block !important;
+  }
   .draft-root { 
     overflow-y: scroll !important;
     -webkit-overflow-scrolling: touch !important;
@@ -45,6 +54,7 @@ const GLOBAL_CSS = `
     min-height: 0 !important;
   }
   .draft-zone3 { display: none !important; }
+  
   .draft-grid { 
     overflow: visible !important;
     -webkit-overflow-scrolling: touch !important;
