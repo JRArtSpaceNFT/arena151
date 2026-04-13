@@ -32,23 +32,26 @@ const TOTAL_DRAFT_TIME = 120
 const GLOBAL_CSS = `
 @media (max-width: 1024px) {
   .draft-root { 
-    overflow-y: auto !important;
+    overflow-y: scroll !important;
     -webkit-overflow-scrolling: touch !important;
-    padding-bottom: 120px !important;
+    padding-bottom: 140px !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
   }
   .draft-zone2 { 
-    flex: 1 1 auto !important; 
+    flex: 0 0 auto !important; 
     max-height: none !important;
     overflow: visible !important;
     min-height: 0 !important;
   }
   .draft-zone3 { display: none !important; }
   .draft-grid { 
-    overflow-y: auto !important;
+    overflow: visible !important;
     -webkit-overflow-scrolling: touch !important;
     max-height: none !important;
-    overscroll-behavior: contain !important;
-    min-height: 400px !important;
+    overscroll-behavior: auto !important;
+    min-height: 600px !important;
+    padding-bottom: 40px !important;
   }
   .draft-mobile-team { display: flex !important; }
   .draft-battlefield-mobile { display: flex !important; }
@@ -56,7 +59,19 @@ const GLOBAL_CSS = `
     background-image: url('/BD1.png') !important;
     background-size: cover !important;
     background-position: center bottom !important;
-    height: 110px !important;
+    height: 140px !important;
+    padding: 16px 8px !important;
+  }
+  .draft-bottom-pokemon {
+    width: 96px !important;
+    height: 96px !important;
+  }
+  .draft-bottom-pokeball {
+    width: 24px !important;
+    height: 24px !important;
+  }
+  .draft-bottom-name {
+    font-size: 10px !important;
   }
   /* Order overlay: left = pokemon slots, right = confirm button */
   .draft-order-overlay {
@@ -1145,22 +1160,23 @@ export default function Draft() {
               }}>
                 {/* Pokemon sprite */}
                 <img
+                  className="draft-bottom-pokemon"
                   src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${creature.id}.png`}
                   alt={creature.name}
                   style={{
-                    width: 64,
-                    height: 64,
+                    width: 96,
+                    height: 96,
                     imageRendering: 'pixelated' as const,
-                    filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))',
+                    filter: 'drop-shadow(0 3px 6px rgba(0,0,0,0.6))',
                   }}
                 />
                 {/* Pokeball under Pokemon */}
-                <div style={{
-                  marginTop: -8,
+                <div className="draft-bottom-pokeball" style={{
+                  marginTop: -12,
                   position: 'relative',
                   zIndex: 2,
                 }}>
-                  <svg width="18" height="18" viewBox="0 0 22 22">
+                  <svg width="24" height="24" viewBox="0 0 22 22">
                     <path d="M2,11 A9,9 0 0,1 20,11 Z" fill="#e53e3e" stroke="#1a1a1a" strokeWidth="1.2"/>
                     <path d="M2,11 A9,9 0 0,0 20,11 Z" fill="#f7f7f7" stroke="#1a1a1a" strokeWidth="1.2"/>
                     <line x1="2" y1="11" x2="20" y2="11" stroke="#1a1a1a" strokeWidth="1.5"/>
@@ -1169,13 +1185,14 @@ export default function Draft() {
                   </svg>
                 </div>
                 {/* Name */}
-                <div style={{
-                  fontSize: 8,
+                <div className="draft-bottom-name" style={{
+                  fontSize: 10,
                   fontWeight: 700,
-                  color: 'rgba(255,255,255,0.75)',
-                  marginTop: 2,
+                  color: 'rgba(255,255,255,0.85)',
+                  marginTop: 3,
                   textTransform: 'uppercase' as const,
                   letterSpacing: '0.05em',
+                  textShadow: '0 1px 3px rgba(0,0,0,0.8)',
                 }}>
                   {creature.name}
                 </div>
@@ -1183,16 +1200,16 @@ export default function Draft() {
             ))}
             {/* Empty slots */}
             {Array.from({ length: TEAM_SIZE - draftTeamA.length }).map((_, i) => (
-              <div key={`empty-${i}`} style={{
-                width: 64,
-                height: 64,
+              <div key={`empty-${i}`} className="draft-bottom-pokemon" style={{
+                width: 96,
+                height: 96,
                 borderRadius: '50%',
                 border: '2px dashed rgba(124,58,237,0.3)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: 'rgba(124,58,237,0.4)',
-                fontSize: 24,
+                fontSize: 32,
                 fontWeight: 300,
                 flexShrink: 0,
               }}>?</div>
