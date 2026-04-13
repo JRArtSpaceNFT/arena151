@@ -400,11 +400,12 @@ export default function Draft() {
     <>
       {/* ── Root container ── */}
       <div className="draft-root" style={{
-        minHeight: '100dvh',
+        height: '100dvh',
+        maxHeight: '100dvh',
         background: '#06060a',
         display: 'flex',
         flexDirection: 'column',
-        overflow: 'auto',
+        overflow: 'hidden',
         fontFamily: 'system-ui, -apple-system, sans-serif',
         color: '#e2e8f0',
       }}>
@@ -1794,8 +1795,8 @@ function BattlefieldPokemon({ creature, index }: { creature: Creature; index: nu
         src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${creature.id}.png`}
         alt={creature.name}
         style={{
-          width: 180,
-          height: 180,
+          width: 360,
+          height: 360,
           imageRendering: 'pixelated' as const,
           objectFit: 'contain',
         }}
@@ -1803,11 +1804,11 @@ function BattlefieldPokemon({ creature, index }: { creature: Creature; index: nu
       {/* Pokéball on the ground */}
       <div style={{
         position: 'relative',
-        marginTop: -8,
+        marginTop: -16,
         zIndex: 2,
       }}>
         {/* Pokéball SVG */}
-        <svg width="22" height="22" viewBox="0 0 22 22" style={{ display: 'block' }}>
+        <svg width="44" height="44" viewBox="0 0 22 22" style={{ display: 'block' }}>
           {/* Top half — red */}
           <path d="M2,11 A9,9 0 0,1 20,11 Z" fill="#e53e3e" stroke="#1a1a1a" strokeWidth="1.2"/>
           {/* Bottom half — white */}
@@ -1822,12 +1823,12 @@ function BattlefieldPokemon({ creature, index }: { creature: Creature; index: nu
       </div>
       {/* Name label */}
       <div style={{
-        fontSize: 9,
+        fontSize: 18,
         fontWeight: 700,
-        color: 'rgba(255,255,255,0.75)',
-        marginTop: 3,
+        color: 'rgba(255,255,255,0.85)',
+        marginTop: 6,
         letterSpacing: '0.05em',
-        textShadow: '0 1px 4px rgba(0,0,0,0.9)',
+        textShadow: '0 2px 8px rgba(0,0,0,0.9)',
         textTransform: 'uppercase' as const,
       }}>
         {creature.name}
