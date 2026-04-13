@@ -34,6 +34,7 @@ const GLOBAL_CSS = `
   .draft-root { 
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
+    padding-bottom: 120px !important;
   }
   .draft-zone2 { 
     flex: 1 1 auto !important; 
@@ -45,11 +46,18 @@ const GLOBAL_CSS = `
   .draft-grid { 
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
-    max-height: calc(100vh - 360px) !important;
+    max-height: none !important;
     overscroll-behavior: contain !important;
+    min-height: 400px !important;
   }
   .draft-mobile-team { display: flex !important; }
   .draft-battlefield-mobile { display: flex !important; }
+  .draft-bottom-battlefield {
+    background-image: url('/BD1.png') !important;
+    background-size: cover !important;
+    background-position: center bottom !important;
+    height: 110px !important;
+  }
   /* Order overlay: left = pokemon slots, right = confirm button */
   .draft-order-overlay {
     flex-direction: row !important;
@@ -785,8 +793,10 @@ export default function Draft() {
               WebkitOverflowScrolling: 'touch',
               overscrollBehavior: 'contain',
               padding: '12px 16px',
+              paddingBottom: '24px',
               marginRight: infoCreature ? 320 : 0,
               transition: 'margin-right 0.2s ease',
+              minHeight: 0,
             }}>
               <div style={{
                 display: 'grid',
@@ -1101,7 +1111,7 @@ export default function Draft() {
         </div>
 
         {/* ══ BOTTOM BATTLEFIELD — Selected Pokemon lineup ══ */}
-        <div style={{
+        <div className="draft-bottom-battlefield" style={{
           position: 'fixed',
           bottom: 0,
           left: 0,
@@ -1112,6 +1122,9 @@ export default function Draft() {
           padding: '12px 8px',
           boxShadow: '0 -4px 20px rgba(0,0,0,0.6)',
           overflow: 'hidden',
+          backgroundImage: 'url("/BD1.png")',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center bottom',
         }}>
           <div style={{
             display: 'flex',
