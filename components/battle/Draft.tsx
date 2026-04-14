@@ -1800,13 +1800,13 @@ function BattlefieldPokemon({ creature, index }: { creature: Creature; index: nu
         position: 'relative',
       }}
     >
-      {/* Pokémon sprite — big, no drop shadow */}
+      {/* Pokémon sprite — scaled to fit */}
       <img
         src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${creature.id}.png`}
         alt={creature.name}
         style={{
-          width: 360,
-          height: 360,
+          width: 120,
+          height: 120,
           imageRendering: 'pixelated' as const,
           objectFit: 'contain',
         }}
