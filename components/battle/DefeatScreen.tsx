@@ -36,15 +36,17 @@ export default function DefeatScreen() {
   // If winner is A → loser is P2 → show P2's (opponent's) sprite
   // If winner is B → loser is P1 → show P1's (player's) sprite
   const loserTrainer = battleState?.winner === 'A' ? p2Trainer : p1Trainer
+  // For defeat screen, show the WINNER's victory celebration background (they won)
+  const winnerTrainer = battleState?.winner === 'A' ? p1Trainer : p2Trainer
   const arenaImage = arena?.image ?? null
 
   return (
     <div style={{ height: '100dvh', maxHeight: '100dvh', position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 'clamp(14px,2vh,28px) 20px clamp(16px,2.5vh,32px)', overflow: 'hidden' }}>
 
-      {/* ── Battlefield background — trainer-specific defeat background ── */}
+      {/* ── Battlefield background — winner's celebration (you lost to them) ── */}
       <div style={{
         position: 'fixed', inset: 0,
-        backgroundImage: loserTrainer ? `url(/trainer-results/${loserTrainer.id}-loss.png)` : `url(${arenaImage})`,
+        backgroundImage: winnerTrainer ? `url(/trainer-results/${winnerTrainer.id}-win.png)` : `url(${arenaImage})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         opacity: 0.35,
