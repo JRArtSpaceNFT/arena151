@@ -25,23 +25,9 @@ const Leaderboard = lazy(() => import('@/components/Leaderboard'));
 const BattleGuide = lazy(() => import('@/components/BattleGuide'));
 const FairGaming = lazy(() => import('@/components/FairGaming'));
 
-// Loading fallback
+// Loading fallback - empty to prevent flash
 function LoadingScreen() {
-  return (
-    <div style={{
-      position: 'fixed',
-      inset: 0,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: 'linear-gradient(180deg, #0f172a 0%, #020617 100%)',
-      color: '#f1f5f9',
-      fontSize: 18,
-      fontWeight: 700,
-    }}>
-      Loading...
-    </div>
-  );
+  return null;
 }
 
 const CROWD_SCREENS = new Set(['draft-mode-intro', 'profile', 'leaderboard']);
@@ -109,7 +95,7 @@ export default function ArenaApp() {
       {currentScreen === 'home' && <HomePage />}
       
       {/* All other screens are lazy-loaded */}
-      <Suspense fallback={<LoadingScreen />}>
+      <Suspense fallback={null}>
         {currentScreen === 'signup' && <SignupFlow />}
         {currentScreen === 'profile' && <TrainerProfile />}
         {currentScreen === 'draft-mode-intro' && <DraftModeIntro />}
