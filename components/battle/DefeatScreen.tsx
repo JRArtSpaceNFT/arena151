@@ -41,24 +41,16 @@ export default function DefeatScreen() {
   return (
     <div style={{ height: '100dvh', maxHeight: '100dvh', position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 'clamp(14px,2vh,28px) 20px clamp(16px,2.5vh,32px)', overflow: 'hidden' }}>
 
-      {/* ── Battlefield background — loser stood here ── */}
-      {arenaImage ? (
-        <div style={{
-          position: 'fixed', inset: 0,
-          backgroundImage: `url(${arenaImage})`,
-          backgroundSize: 'cover', backgroundPosition: 'center',
-          opacity: 0.35,
-          filter: 'brightness(0.4) saturate(0.6)',
-          zIndex: 0,
-        }} />
-      ) : (
-        // Fallback if no arena image
-        <div style={{
-          position: 'fixed', inset: 0,
-          background: 'linear-gradient(135deg, #1a0a0f 0%, #0f0520 50%, #0a0a14 100%)',
-          zIndex: 0,
-        }} />
-      )}
+      {/* ── Battlefield background — trainer-specific defeat background ── */}
+      <div style={{
+        position: 'fixed', inset: 0,
+        backgroundImage: loserTrainer ? `url(/trainer-results/${loserTrainer.id}-loss.png)` : `url(${arenaImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        opacity: 0.35,
+        filter: 'brightness(0.4) saturate(0.6)',
+        zIndex: 0,
+      }} />
 
       {/* Dark red overlay - LIGHTER so arena shows through */}
       <div style={{ position: 'fixed', inset: 0, background: 'linear-gradient(160deg,rgba(18,0,10,0.5) 0%,rgba(10,0,15,0.6) 50%,rgba(6,0,6,0.7) 100%)', zIndex: 1 }} />
