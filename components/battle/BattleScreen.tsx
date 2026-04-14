@@ -748,6 +748,7 @@ export default function BattleScreen() {
             // Per-arena vertical positioning so Pokémon appear to stand on the ground
             objectPosition: arena.id === 'sabrinas_gym' ? 'center 5%'
               : arena.id === 'giovannis_gym' ? 'center 90%'
+              : arena.id === 'viridian-city' ? 'center 85%'
               : 'center 75%',
             imageRendering: 'pixelated',
             pointerEvents: 'none',
