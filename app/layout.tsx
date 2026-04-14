@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import MusicToggle from "@/components/MusicToggle";
 import RotatePrompt from "@/components/RotatePrompt";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -11,9 +12,47 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 };
 
+const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://arena151.xyz';
+
 export const metadata: Metadata = {
-  title: "Arena 151 - Build Your Legend",
-  description: "The premier Pokémon Draft Mode competitive platform. Enter the arena. Face real rivals. Write your destiny.",
+  title: "Arena 151 — Pokémon Draft Battles",
+  description: "The premier competitive Pokémon Draft Mode platform. Enter the arena. Face real rivals. Write your destiny.",
+  
+  // Open Graph for social sharing
+  openGraph: {
+    title: 'Arena 151 — Build Your Legend',
+    description: 'Competitive Pokémon Draft Mode battles. Real stakes. Real rivals. Real glory.',
+    url: baseUrl,
+    siteName: 'Arena 151',
+    images: [
+      {
+        url: `${baseUrl}/og-image.png`,
+        width: 1200,
+        height: 630,
+        alt: 'Arena 151 — Pokémon Draft Battles',
+      },
+    ],
+    locale: 'en_US',
+    type: 'website',
+  },
+  
+  // Twitter Card
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Arena 151 — Pokémon Draft Battles',
+    description: 'Build your team. Face real rivals. Claim your legend.',
+    images: [`${baseUrl}/og-image.png`],
+    creator: '@arena151xyz',
+  },
+  
+  // PWA & Mobile
+  manifest: '/manifest.json',
+  
+  // Icons
+  icons: {
+    icon: '/favicon.ico',
+    apple: '/icon-192.png',
+  },
 };
 
 export default function RootLayout({
@@ -26,6 +65,7 @@ export default function RootLayout({
       <head>
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         {/* Preconnect to external resources */}
         <link rel="preconnect" href="https://raw.githubusercontent.com" />
         <link rel="dns-prefetch" href="https://raw.githubusercontent.com" />
@@ -41,11 +81,13 @@ export default function RootLayout({
           `
         }}
       >
-        <RotatePrompt />
-        <MusicToggle />
-        <main style={{height:'100%',overflow:'hidden'}}>
-          {children}
-        </main>
+        <ErrorBoundary>
+          <RotatePrompt />
+          <MusicToggle />
+          <main style={{height:'100%',overflow:'hidden'}}>
+            {children}
+          </main>
+        </ErrorBoundary>
       </body>
     </html>
   );

@@ -11,6 +11,8 @@ import { getPokemonSpriteUrl } from '@/lib/pokemon-data';
 import { validateUsername } from '@/lib/moderation';
 import { registerUser, loginUser, initiatePasswordReset, getSession } from '@/lib/auth';
 import { playMusic } from '@/lib/audio/musicEngine';
+import { trackEvent } from '@/lib/analytics';
+import { haptic } from '@/lib/haptics';
 import PokemonSelector from './PokemonSelector';
 import type { PokemonType } from '@/types';
 
@@ -155,6 +157,7 @@ export default function SignupFlow() {
 
   const handleCreateAccount = async () => {
     setIsLoading(true);
+    haptic.medium();
     // Generate username from displayName (lowercase, replace spaces with underscores)
     const generatedUsername = formData.displayName.toLowerCase().replace(/\s+/g, '_');
     const result = await registerUser({
@@ -170,9 +173,12 @@ export default function SignupFlow() {
     });
     setIsLoading(false);
     if (!result.success) {
+      haptic.error();
       setError(result.error || 'Something went wrong.');
       return;
     }
+    haptic.success();
+    trackEvent.signUp('email');
     applySession(result.user!);
   };
 
@@ -182,9 +188,12 @@ export default function SignupFlow() {
     const result = await loginUser(formData.email, formData.password);
     setIsLoading(false);
     if (!result.success) {
+      haptic.error();
       setError(result.error || 'Login failed.');
       return;
     }
+    haptic.success();
+    trackEvent.login();
     applySession(result.user!);
   };
 

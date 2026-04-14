@@ -7,6 +7,8 @@ import { useArenaStore } from '@/lib/store';
 import { ROOM_TIERS, ARENA_BADGES, usdToSol } from '@/lib/constants';
 import { useSolPrice } from '@/lib/useSolPrice';
 import { getBattlesTotal, getSessionsToday } from '@/lib/battleStats';
+import { haptic } from '@/lib/haptics';
+import { trackEvent } from '@/lib/analytics';
 import type { BattleRoom } from '@/types';
 
 // Per-arena identity config — optimized WebP images (90%+ smaller)
@@ -51,7 +53,12 @@ export default function RoomSelect() {
     if (!currentTrainer) return;
     const room = ROOM_TIERS[roomId];
     const entryFee = getEntryFee(room.tier);
-    if (currentTrainer.balance < entryFee) return;
+    if (currentTrainer.balance < entryFee) {
+      haptic.error();
+      return;
+    }
+    haptic.medium();
+    trackEvent.roomSelected(roomId);
     startQueue(roomId, currentTrainer);
     setScreen('queue');
   };

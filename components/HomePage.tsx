@@ -170,13 +170,15 @@ export default function HomePage() {
           alt="Arena 151 — Draft Battle Conquer"
           fill
           priority
-          quality={90}
+          quality={85}
           sizes="100vw"
           style={{
             objectFit: 'fill',
             userSelect: 'none',
           }}
           draggable={false}
+          placeholder="blur"
+          blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
         />
 
         {/* Enter Arena — click zone positioned exactly over the button in the image.

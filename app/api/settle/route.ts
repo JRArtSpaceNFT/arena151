@@ -25,7 +25,9 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { sendSol, getSolBalance, TREASURY_ADDRESS, HOUSE_FEE_PCT, RENT_EXEMPT_MIN, GAS_BUFFER } from '@/lib/solana'
+import { getSolBalance, TREASURY_ADDRESS, HOUSE_FEE_PCT, RENT_EXEMPT_MIN, GAS_BUFFER } from '@/lib/solana'
+import { sendSolWithRetry } from '@/lib/solana-retry'
+import { logger } from '@/lib/logger'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -193,10 +195,18 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Step 2: Send winner payout from loser wallet → winner ────
-    const payoutResult = await sendSol(
+    logger.info('Settlement: sending payout', {
+      matchId,
+      winnerId,
+      loserId,
+      winnerPayout,
+    })
+    
+    const payoutResult = await sendSolWithRetry(
       loserProfile.encrypted_private_key,
       winnerProfile.sol_address,
       winnerPayout,
+      { maxRetries: 3 }
     )
 
     if (!payoutResult.success) {
@@ -222,21 +232,26 @@ export async function POST(req: NextRequest) {
       }, { status: 500 })
     }
 
-    // ── Step 2: Send house fee from loser wallet → treasury ──────
+    // ── Step 3: Send house fee from loser wallet → treasury ──────
     // Best-effort — log failure but don't roll back winner payout (can't reverse on-chain tx)
     // skipPreflightCheck=true: house fee truncation is acceptable (our money, not user funds).
     let feeSignature: string | undefined
-    const feeResult = await sendSol(
+    const feeResult = await sendSolWithRetry(
       loserProfile.encrypted_private_key,
       TREASURY_ADDRESS,
       houseFee,
-      { skipPreflightCheck: true }
+      { skipPreflightCheck: true, maxRetries: 2 }
     )
     if (feeResult.success) {
       feeSignature = feeResult.signature
     } else {
       // FIX 7: Log to audit_log so reconciliation query detects missing fees
-      console.error('[Settle] House fee transfer failed (non-fatal):', feeResult.error)
+      logger.warn('House fee transfer failed (non-fatal)', {
+        matchId,
+        loserId,
+        houseFee,
+        error: feeResult.error,
+      })
       await supabaseAdmin.from('audit_log').insert({
         user_id: loserId,
         match_id: matchId,
