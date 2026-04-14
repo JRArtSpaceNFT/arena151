@@ -154,11 +154,11 @@ export default function Lineup() {
                   {i + 1}
                 </div>
 
-                {/* Sprite */}
+                {/* Sprite — 2x larger */}
                 <img
                   src={ac.creature.spriteUrl}
                   alt={ac.creature.name}
-                  style={{ width: 'clamp(36px, 5.5vh, 50px)', height: 'clamp(36px, 5.5vh, 50px)', imageRendering: 'pixelated', flexShrink: 0 }}
+                  style={{ width: 'clamp(72px, 11vh, 100px)', height: 'clamp(72px, 11vh, 100px)', imageRendering: 'pixelated', flexShrink: 0 }}
                 />
 
                 {/* Info */}
