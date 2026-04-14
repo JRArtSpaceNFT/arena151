@@ -275,7 +275,7 @@ export default function RoomSelect() {
                     filter: 'blur(0.5px)',
                   }} />
                   {/* Darker overlay for text legibility */}
-                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.95) 100%)' }} />
+                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.88) 100%)' }} />
                   {/* Subtle accent bottom glow */}
                   <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '40%', background: `linear-gradient(to top, ${identity.accentDark}33, transparent)` }} />
                 </div>
