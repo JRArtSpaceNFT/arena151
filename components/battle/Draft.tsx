@@ -66,7 +66,7 @@ const GLOBAL_CSS = `
   .draft-mobile-team { display: flex !important; }
   .draft-battlefield-mobile { display: flex !important; }
   .draft-bottom-battlefield {
-    background-image: url('/BD1.png') !important;
+    background-image: url('/BD1.webp') !important;
     background-size: cover !important;
     background-position: center bottom !important;
     height: 140px !important;
@@ -1042,7 +1042,7 @@ export default function Draft() {
           }}>
             {/* Battlefield background image */}
             <img
-              src="/BD1.png"
+              src="/BD1.webp"
               alt=""
               aria-hidden="true"
               style={{
@@ -1148,7 +1148,7 @@ export default function Draft() {
           padding: '12px 8px',
           boxShadow: '0 -4px 20px rgba(0,0,0,0.6)',
           overflow: 'hidden',
-          backgroundImage: 'url("/BD1.png")',
+          backgroundImage: 'url("/BD1.webp")',
           backgroundSize: 'cover',
           backgroundPosition: 'center bottom',
         }}>

@@ -1018,7 +1018,7 @@ export default function BattleScreen() {
       <div style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden', pointerEvents: 'none' }} aria-hidden="true">
         {[p1Trainer, p2Trainer].filter(Boolean).map(t => {
           const capitalized = t!.id.charAt(0).toUpperCase() + t!.id.slice(1)
-          return <img key={t!.id} src={`/trainer-specials/${capitalized}.png`} alt="" />
+          return <img key={t!.id} src={`/trainer-specials/${capitalized}.webp`} alt="" />
         })}
       </div>
 
@@ -1078,7 +1078,7 @@ export default function BattleScreen() {
               )`,
             }}>
               <img
-                src={`/trainer-specials/${specialFlash.trainerId.charAt(0).toUpperCase() + specialFlash.trainerId.slice(1)}.png`}
+                src={`/trainer-specials/${specialFlash.trainerId.charAt(0).toUpperCase() + specialFlash.trainerId.slice(1)}.webp`}
                 alt="Special attack"
                 style={{ maxHeight: '60vh', maxWidth: '75vw', objectFit: 'contain', display: 'block' }}
                 onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}

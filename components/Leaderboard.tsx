@@ -265,7 +265,7 @@ export default function Leaderboard() {
 
   return (
     <div className="h-screen overflow-hidden flex flex-col relative"
-      style={{ backgroundImage: 'url(/leaderboard-bg.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
+      style={{ backgroundImage: 'url(/leaderboard-bg.webp)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
 
       {/* Darker arena overlay */}
       <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.60)' }} />

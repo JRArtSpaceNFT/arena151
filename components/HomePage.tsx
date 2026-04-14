@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import Image from 'next/image';
 import { useArenaStore } from '@/lib/store';
 import { playMusic, resumeAudioContext, getCurrentTrack, getCurrentAudio } from '@/lib/audio/musicEngine';
 import { getSession } from '@/lib/auth';
@@ -31,8 +32,19 @@ export default function HomePage() {
 
   useEffect(() => {
     computeScale();
-    window.addEventListener('resize', computeScale);
-    return () => window.removeEventListener('resize', computeScale);
+    
+    // Debounced resize handler to prevent excessive re-renders
+    let resizeTimer: NodeJS.Timeout;
+    const debouncedResize = () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(computeScale, 100);
+    };
+    
+    window.addEventListener('resize', debouncedResize);
+    return () => {
+      clearTimeout(resizeTimer);
+      window.removeEventListener('resize', debouncedResize);
+    };
   }, [computeScale]);
 
   // Restore session on load
@@ -152,18 +164,16 @@ export default function HomePage() {
           transformOrigin: 'center center',
         }}
       >
-        {/* Full-stage background image — no contain/cover needed; stage IS the image size */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/Perfect.png"
+        {/* Full-stage background image — optimized WebP with priority loading */}
+        <Image
+          src="/Perfect.webp"
           alt="Arena 151 — Draft Battle Conquer"
+          fill
+          priority
+          quality={90}
+          sizes="100vw"
           style={{
-            position: 'absolute',
-            inset: 0,
-            width: '100%',
-            height: '100%',
             objectFit: 'fill',
-            display: 'block',
             userSelect: 'none',
           }}
           draggable={false}

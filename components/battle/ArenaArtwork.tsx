@@ -14,7 +14,7 @@ export default function ArenaArtwork({
 }) {
   return (
     <img
-      src={`/arenas/${arena.id}.png`}
+      src={`/arenas/${arena.id}.webp`}
       alt={arena.name}
       width={width}
       height={height}

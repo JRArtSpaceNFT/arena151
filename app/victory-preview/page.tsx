@@ -87,7 +87,7 @@ function VictoryView({ trainer, loserName }: { trainer: typeof TRAINERS[0], lose
     <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative', background: '#000' }}>
 
       {/* Background */}
-      <div style={{ position: 'absolute', inset: 0, backgroundImage: 'url(/victory-bg.png)', backgroundSize: 'cover', backgroundPosition: 'center' }} />
+      <div style={{ position: 'absolute', inset: 0, backgroundImage: 'url(/victory-bg.webp)', backgroundSize: 'cover', backgroundPosition: 'center' }} />
       <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.45)' }} />
       <div style={{ position: 'absolute', inset: 0, opacity: 0.5 }}><SpeedLines color={wColor} /></div>
       <div style={{ position: 'absolute', inset: 0, backgroundImage: `radial-gradient(${wColor}18 1.5px, transparent 1.5px)`, backgroundSize: '22px 22px' }} />

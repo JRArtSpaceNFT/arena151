@@ -479,8 +479,8 @@ export default function FinalResultsScreen() {
   const cleanName = (bgTrainer && 'username' in bgTrainer) ? bgTrainer.username : (bgTrainer?.name || 'Ash')
   const trainerSlug = cleanName.toLowerCase().replace(/[\s&]+/g, '-').replace(/[^a-z0-9-]/g, '')
   // Both victory and defeat images show the WINNER celebrating
-  const trainerBg = `/trainer-results/${trainerSlug}-win.png`
-  const fallbackBg = '/victory-bg.png'
+  const trainerBg = `/trainer-results/${trainerSlug}-win.webp`
+  const fallbackBg = '/victory-bg.webp'
   
   console.log('[FinalResultsScreen] victory:', effectiveVictory, 'cleanName:', cleanName, 'trainerSlug:', trainerSlug, 'trainerBg:', trainerBg)
 

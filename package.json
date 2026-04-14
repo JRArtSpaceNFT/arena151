@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start -p 3002",
     "migrate:re-encrypt": "tsx scripts/migrate-re-encrypt-wallets.ts",
-    "db:status": "tsx scripts/db-status.ts"
+    "db:status": "tsx scripts/db-status.ts",
+    "optimize-images": "node scripts/optimize-images.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.81.0",
@@ -29,6 +30,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "sharp": "^0.34.5",
     "tailwindcss": "^4.0.0",
     "tsx": "^4.7.0",
     "typescript": "^5"

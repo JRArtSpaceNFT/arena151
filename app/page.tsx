@@ -1,25 +1,48 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, lazy, Suspense } from 'react';
 import { useArenaStore } from '@/lib/store';
 import HomePage from '@/components/HomePage';
-import SignupFlow from '@/components/SignupFlow';
-import TrainerProfile from '@/components/TrainerProfile';
-import DraftModeIntro from '@/components/DraftModeIntro';
-import RoomSelect from '@/components/RoomSelect';
-import QueueScreen from '@/components/QueueScreen';
-import MatchFound from '@/components/MatchFound';
-import VersusScreen from '@/components/VersusScreen';
-import ResultScreen from '@/components/ResultScreen';
-import GlobalChat from '@/components/GlobalChat';
-import ProfessorOak from '@/components/ProfessorOak';
-import GameWrapper from '@/components/battle/GameWrapper';
-import PracticeGameWrapper from '@/components/battle/PracticeGameWrapper'
-import FriendGameWrapper from '@/components/battle/FriendGameWrapper';
-import FriendBattle from '@/components/FriendBattle';
-import Leaderboard from '@/components/Leaderboard';
-import BattleGuide from '@/components/BattleGuide';
-import FairGaming from '@/components/FairGaming';
+
+// ── Code Splitting: Lazy load heavy components ──
+// Only HomePage is eager-loaded (critical path)
+// Everything else loads on-demand when user navigates
+const SignupFlow = lazy(() => import('@/components/SignupFlow'));
+const TrainerProfile = lazy(() => import('@/components/TrainerProfile'));
+const DraftModeIntro = lazy(() => import('@/components/DraftModeIntro'));
+const RoomSelect = lazy(() => import('@/components/RoomSelect'));
+const QueueScreen = lazy(() => import('@/components/QueueScreen'));
+const MatchFound = lazy(() => import('@/components/MatchFound'));
+const VersusScreen = lazy(() => import('@/components/VersusScreen'));
+const ResultScreen = lazy(() => import('@/components/ResultScreen'));
+const GlobalChat = lazy(() => import('@/components/GlobalChat'));
+const ProfessorOak = lazy(() => import('@/components/ProfessorOak'));
+const GameWrapper = lazy(() => import('@/components/battle/GameWrapper'));
+const PracticeGameWrapper = lazy(() => import('@/components/battle/PracticeGameWrapper'));
+const FriendGameWrapper = lazy(() => import('@/components/battle/FriendGameWrapper'));
+const FriendBattle = lazy(() => import('@/components/FriendBattle'));
+const Leaderboard = lazy(() => import('@/components/Leaderboard'));
+const BattleGuide = lazy(() => import('@/components/BattleGuide'));
+const FairGaming = lazy(() => import('@/components/FairGaming'));
+
+// Loading fallback
+function LoadingScreen() {
+  return (
+    <div style={{
+      position: 'fixed',
+      inset: 0,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: 'linear-gradient(180deg, #0f172a 0%, #020617 100%)',
+      color: '#f1f5f9',
+      fontSize: 18,
+      fontWeight: 700,
+    }}>
+      Loading...
+    </div>
+  );
+}
 
 const CROWD_SCREENS = new Set(['draft-mode-intro', 'profile', 'leaderboard']);
 
@@ -82,28 +105,33 @@ export default function ArenaApp() {
 
   return (
     <main className="min-h-screen">
+      {/* Home is eager-loaded (no Suspense needed) */}
       {currentScreen === 'home' && <HomePage />}
-      {currentScreen === 'signup' && <SignupFlow />}
-      {currentScreen === 'profile' && <TrainerProfile />}
-      {currentScreen === 'draft-mode-intro' && <DraftModeIntro />}
-      {currentScreen === 'room-select' && <RoomSelect />}
-      {currentScreen === 'queue' && <QueueScreen />}
-      {currentScreen === 'match-found' && <MatchFound />}
-      {currentScreen === 'versus' && <VersusScreen />}
-      {currentScreen === 'game' && <GameWrapper />}
-      {currentScreen === 'practice-game' && <PracticeGameWrapper />}
-      {currentScreen === 'friend-game' && <FriendGameWrapper />}
-      {currentScreen === 'friend-battle' && <FriendBattle />}
-      {currentScreen === 'result' && <ResultScreen />}
-      {currentScreen === 'leaderboard' && <Leaderboard />}
-      {currentScreen === 'battle-guide' && <BattleGuide />}
-      {currentScreen === 'fair-gaming' && <FairGaming />}
       
-      {/* Professor Oak AI Assistant - Always available except during game */}
-      {currentScreen !== 'game' && currentScreen !== 'practice-game' && currentScreen !== 'friend-game' && <ProfessorOak />}
+      {/* All other screens are lazy-loaded */}
+      <Suspense fallback={<LoadingScreen />}>
+        {currentScreen === 'signup' && <SignupFlow />}
+        {currentScreen === 'profile' && <TrainerProfile />}
+        {currentScreen === 'draft-mode-intro' && <DraftModeIntro />}
+        {currentScreen === 'room-select' && <RoomSelect />}
+        {currentScreen === 'queue' && <QueueScreen />}
+        {currentScreen === 'match-found' && <MatchFound />}
+        {currentScreen === 'versus' && <VersusScreen />}
+        {currentScreen === 'game' && <GameWrapper />}
+        {currentScreen === 'practice-game' && <PracticeGameWrapper />}
+        {currentScreen === 'friend-game' && <FriendGameWrapper />}
+        {currentScreen === 'friend-battle' && <FriendBattle />}
+        {currentScreen === 'result' && <ResultScreen />}
+        {currentScreen === 'leaderboard' && <Leaderboard />}
+        {currentScreen === 'battle-guide' && <BattleGuide />}
+        {currentScreen === 'fair-gaming' && <FairGaming />}
+        
+        {/* Professor Oak AI Assistant - Always available except during game */}
+        {currentScreen !== 'game' && currentScreen !== 'practice-game' && currentScreen !== 'friend-game' && <ProfessorOak />}
 
-      {/* Global chat - only show on draft-mode-intro (Road to Victory) */}
-      {currentScreen === 'draft-mode-intro' && <GlobalChat />}
+        {/* Global chat - only show on draft-mode-intro (Road to Victory) */}
+        {currentScreen === 'draft-mode-intro' && <GlobalChat />}
+      </Suspense>
     </main>
   );
 }
