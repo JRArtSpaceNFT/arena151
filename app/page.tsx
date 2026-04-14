@@ -108,7 +108,6 @@ export default function ArenaApp() {
 
         {/* Global chat - only show on draft-mode-intro (Road to Victory) */}
         {currentScreen === 'draft-mode-intro' && <GlobalChat />}
-      </Suspense>
     </main>
   );
 }

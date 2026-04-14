@@ -270,14 +270,14 @@ export default function RoomSelect() {
                     backgroundImage: `url(${identity.bgImage})`,
                     backgroundSize: 'cover',
                     backgroundPosition: 'center',
-                    opacity: isHigh ? 0.65 : 0.55,
+                    opacity: 0.85,
                     imageRendering: 'pixelated',
-                    filter: 'blur(1.5px)',
+                    filter: 'blur(0.5px)',
                   }} />
-                  {/* Even dark overlay for clean readability */}
-                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.68) 100%)' }} />
+                  {/* Lighter dark overlay for readability while keeping image visible */}
+                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.45) 100%)' }} />
                   {/* Subtle accent bottom glow */}
-                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '40%', background: `linear-gradient(to top, ${identity.accentDark}55, transparent)` }} />
+                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '40%', background: `linear-gradient(to top, ${identity.accentDark}33, transparent)` }} />
                 </div>
 
                 {/* Corner accents */}
