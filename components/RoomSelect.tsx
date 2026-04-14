@@ -20,14 +20,14 @@ const ARENA_IDENTITY: Record<string, {
   stakeTier: 'low' | 'mid' | 'high';
   btnLabel: string;
 }> = {
-  'pewter-city':    { bgImage: '/arenas/gyms/pewter-city.webp',      accent: '#a8a29e', accentDark: '#292524', stakeTier: 'low',  btnLabel: 'Pound the Rock →' },
-  'cerulean-city':  { bgImage: '/arenas/gyms/cerulean-city.webp',    accent: '#38bdf8', accentDark: '#075985', stakeTier: 'low',  btnLabel: 'Dive in Deep →' },
-  'vermilion-city': { bgImage: '/arenas/gyms/vermilion-city.webp',   accent: '#facc15', accentDark: '#713f12', stakeTier: 'low',  btnLabel: 'Charge Up Fast →' },
-  'celadon-city':   { bgImage: '/arenas/gyms/celadon-city.webp',     accent: '#86efac', accentDark: '#14532d', stakeTier: 'mid',  btnLabel: 'Explore the Garden →' },
-  'fuchsia-city':   { bgImage: '/arenas/gyms/fuchsia-city.webp',     accent: '#c084fc', accentDark: '#3b0764', stakeTier: 'mid',  btnLabel: 'Enter the Dojo →' },
-  'saffron-city':   { bgImage: '/arenas/gyms/saffron-city.webp',     accent: '#f0abfc', accentDark: '#4a044e', stakeTier: 'high', btnLabel: 'Test Your Mind →' },
-  'cinnabar-island':{ bgImage: '/arenas/gyms/cinnabar-island.webp',  accent: '#fb923c', accentDark: '#7c2d12', stakeTier: 'high', btnLabel: 'Brave the Flames →' },
-  'viridian-city':  { bgImage: '/arenas/gyms/viridian-city.webp',    accent: '#fbbf24', accentDark: '#451a03', stakeTier: 'high', btnLabel: 'Claim the Throne →' },
+  'pewter-city':    { bgImage: '/arenas/gyms/pewter-city.png',      accent: '#a8a29e', accentDark: '#292524', stakeTier: 'low',  btnLabel: 'Pound the Rock →' },
+  'cerulean-city':  { bgImage: '/arenas/gyms/cerulean-city.png',    accent: '#38bdf8', accentDark: '#075985', stakeTier: 'low',  btnLabel: 'Dive in Deep →' },
+  'vermilion-city': { bgImage: '/arenas/gyms/vermilion-city.png',   accent: '#facc15', accentDark: '#713f12', stakeTier: 'low',  btnLabel: 'Charge Up Fast →' },
+  'celadon-city':   { bgImage: '/arenas/gyms/celadon-city.png',     accent: '#86efac', accentDark: '#14532d', stakeTier: 'mid',  btnLabel: 'Explore the Garden →' },
+  'fuchsia-city':   { bgImage: '/arenas/gyms/fuchsia-city.png',     accent: '#c084fc', accentDark: '#3b0764', stakeTier: 'mid',  btnLabel: 'Enter the Dojo →' },
+  'saffron-city':   { bgImage: '/arenas/gyms/saffron-city.png',     accent: '#f0abfc', accentDark: '#4a044e', stakeTier: 'high', btnLabel: 'Test Your Mind →' },
+  'cinnabar-island':{ bgImage: '/arenas/gyms/cinnabar-island.png',  accent: '#fb923c', accentDark: '#7c2d12', stakeTier: 'high', btnLabel: 'Brave the Flames →' },
+  'viridian-city':  { bgImage: '/arenas/gyms/viridian-city.png',    accent: '#fbbf24', accentDark: '#451a03', stakeTier: 'high', btnLabel: 'Claim the Throne →' },
 };
 
 const STAKE_BAND = {
