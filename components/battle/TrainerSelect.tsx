@@ -279,14 +279,15 @@ function DossierCard({ trainer, isTaken }: { trainer: Trainer; isTaken: boolean 
               transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
               className="ts-dossier-sprite"
               style={{
-                width: ['ash','jessie-james'].includes(trainer.id) ? 'clamp(320px, 45vh, 420px)' : 'clamp(220px, 32vh, 300px)',
-                height: ['ash','jessie-james'].includes(trainer.id) ? 'clamp(320px, 45vh, 420px)' : 'clamp(220px, 32vh, 300px)',
+                width: 'clamp(220px, 32vh, 300px)',
+                height: 'clamp(220px, 32vh, 300px)',
                 objectFit: 'contain',
                 // all trainers are pixel art — pixelated keeps them crisp at large sizes
                 // only misty + jessie-james are hi-res photos so they get auto
                 imageRendering: ['misty','jessie-james'].includes(trainer.id) ? 'auto' : 'pixelated',
                 filter: `drop-shadow(0 8px 20px ${trainer.color}88)`,
                 position: 'relative', zIndex: 1,
+                transform: trainer.id === 'jessie-james' ? 'scale(1.5)' : 'none',
               }}
             />
           ) : (
