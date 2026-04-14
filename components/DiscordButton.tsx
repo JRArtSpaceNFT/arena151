@@ -1,6 +1,22 @@
 'use client'
 
+import { useArenaStore } from '@/lib/store'
+
 export default function DiscordButton() {
+  const { screen } = useArenaStore()
+  
+  // Only show on these screens (NOT during battle flows)
+  const allowedScreens = [
+    'home',
+    'road-to-victory', 
+    'leaderboard',
+    'profile',
+    'battle-guide'
+  ]
+  
+  if (!allowedScreens.includes(screen)) {
+    return null
+  }
   return (
     <a
       href="https://discord.gg/tW8AqEJRE3"
