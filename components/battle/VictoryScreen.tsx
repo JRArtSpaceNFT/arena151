@@ -127,7 +127,7 @@ export default function VictoryScreen() {
       {/* ── Background image ── */}
       <div style={{
         position: 'absolute', inset: 0,
-        backgroundImage: 'url(/victory-bg.webp)',
+        backgroundImage: 'url(/victory-bg.png)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
       }} />
