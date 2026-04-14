@@ -1650,7 +1650,7 @@ function CreatureDisplay({
                 style={{
                   width: isIllustrated ? illustratedSize : 380,
                   height: isIllustrated ? illustratedSize : 380,
-                  marginTop: isJessieJames ? -180 : isIllustrated ? 60 : 0,
+                  marginTop: isJessieJames ? -220 : isIllustrated ? 60 : 0,
                   imageRendering: 'pixelated',
                   // Illustrated sprites face right by default — flip logic is inverted vs pixel art
                   transform: isIllustrated
