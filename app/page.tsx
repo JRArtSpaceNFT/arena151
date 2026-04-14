@@ -82,12 +82,9 @@ export default function ArenaApp() {
 
   return (
     <main className="min-h-screen">
-      {/* Home is eager-loaded (no Suspense needed) */}
+      {/* All components now eager-loaded for instant navigation */}
       {currentScreen === 'home' && <HomePage />}
-      
-      {/* All other screens are lazy-loaded */}
-      <Suspense fallback={null}>
-        {currentScreen === 'signup' && <SignupFlow />}
+      {currentScreen === 'signup' && <SignupFlow />}
         {currentScreen === 'profile' && <TrainerProfile />}
         {currentScreen === 'draft-mode-intro' && <DraftModeIntro />}
         {currentScreen === 'room-select' && <RoomSelect />}
