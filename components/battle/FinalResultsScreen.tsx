@@ -475,13 +475,28 @@ export default function FinalResultsScreen() {
   
   // VICTORY = show MY trainer celebrating | DEFEAT = show OPPONENT trainer celebrating
   const bgTrainer = effectiveVictory ? myTrainer : opponentTrainer
-  // Clean trainer name: lowercase, replace spaces and & with -, remove special chars
-  const cleanName = (bgTrainer && 'username' in bgTrainer) ? bgTrainer.username : (bgTrainer?.name || 'Ash')
-  const trainerSlug = cleanName.toLowerCase().replace(/[\s&]+/g, '-').replace(/[^a-z0-9-]/g, '')
-  // Both victory and defeat images show the WINNER celebrating
-  const trainerBg = `/trainer-results/${trainerSlug}-win.webp`
   
-  console.log('[FinalResultsScreen] victory:', effectiveVictory, 'cleanName:', cleanName, 'trainerSlug:', trainerSlug, 'trainerBg:', trainerBg)
+  // Extract trainer ID - handle both AI trainers (id field) and user trainers (username field)
+  let trainerId: string
+  if (bgTrainer && 'id' in bgTrainer && typeof bgTrainer.id === 'string') {
+    // AI trainer - use the id directly (e.g., 'jessie-james', 'ash', 'brock')
+    trainerId = bgTrainer.id
+  } else if (bgTrainer && 'username' in bgTrainer) {
+    // User trainer - use username
+    trainerId = bgTrainer.username
+  } else {
+    // Fallback to name field
+    trainerId = bgTrainer?.name || 'ash'
+  }
+  
+  // Clean the ID: lowercase, replace spaces/& with -, remove special chars
+  const trainerSlug = trainerId.toLowerCase().replace(/[\s&]+/g, '-').replace(/[^a-z0-9-]/g, '')
+  
+  // Construct image path - show winner celebrating (win) or loser (loss)
+  const winLoss = effectiveVictory ? 'win' : 'loss'
+  const trainerBg = `/trainer-results/${trainerSlug}-${winLoss}.webp`
+  
+  console.log('[FinalResultsScreen] victory:', effectiveVictory, 'bgTrainer:', bgTrainer, 'trainerId:', trainerId, 'trainerSlug:', trainerSlug, 'trainerBg:', trainerBg)
 
   useEffect(() => {
     playMusic('victory')
