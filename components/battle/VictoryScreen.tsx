@@ -124,10 +124,10 @@ export default function VictoryScreen() {
       background: '#000',
     }}>
 
-      {/* ── Background image ── */}
+      {/* ── Background image — trainer-specific ── */}
       <div style={{
         position: 'absolute', inset: 0,
-        backgroundImage: 'url(/victory-bg.png)',
+        backgroundImage: `url(/trainer-results/${winnerTrainer.id}-win.png)`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
       }} />
