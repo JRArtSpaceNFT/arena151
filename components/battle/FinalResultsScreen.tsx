@@ -476,17 +476,25 @@ export default function FinalResultsScreen() {
   // VICTORY = show MY trainer celebrating | DEFEAT = show OPPONENT trainer celebrating
   const bgTrainer = effectiveVictory ? myTrainer : opponentTrainer
   
+  console.log('[FinalResultsScreen DEBUG] effectiveVictory:', effectiveVictory)
+  console.log('[FinalResultsScreen DEBUG] myTrainer:', myTrainer)
+  console.log('[FinalResultsScreen DEBUG] opponentTrainer:', opponentTrainer)
+  console.log('[FinalResultsScreen DEBUG] bgTrainer:', bgTrainer)
+  
   // Extract trainer ID - handle both AI trainers (id field) and user trainers (username field)
   let trainerId: string
   if (bgTrainer && 'id' in bgTrainer && typeof bgTrainer.id === 'string') {
     // AI trainer - use the id directly (e.g., 'jessie-james', 'ash', 'brock')
     trainerId = bgTrainer.id
+    console.log('[FinalResultsScreen DEBUG] Using trainer.id:', trainerId)
   } else if (bgTrainer && 'username' in bgTrainer) {
     // User trainer - use username
     trainerId = bgTrainer.username
+    console.log('[FinalResultsScreen DEBUG] Using trainer.username:', trainerId)
   } else {
     // Fallback to name field
     trainerId = bgTrainer?.name || 'ash'
+    console.log('[FinalResultsScreen DEBUG] Using fallback name:', trainerId)
   }
   
   // Clean the ID: lowercase, replace spaces/& with -, remove special chars
@@ -496,7 +504,7 @@ export default function FinalResultsScreen() {
   const winLoss = effectiveVictory ? 'win' : 'loss'
   const trainerBg = `/trainer-results/${trainerSlug}-${winLoss}.webp`
   
-  console.log('[FinalResultsScreen] victory:', effectiveVictory, 'bgTrainer:', bgTrainer, 'trainerId:', trainerId, 'trainerSlug:', trainerSlug, 'trainerBg:', trainerBg)
+  console.log('[FinalResultsScreen FINAL] trainerId:', trainerId, 'trainerSlug:', trainerSlug, 'winLoss:', winLoss, 'trainerBg:', trainerBg)
 
   useEffect(() => {
     playMusic('victory')
@@ -694,7 +702,11 @@ export default function FinalResultsScreen() {
               objectFit: 'cover',
               objectPosition: 'center',
             }}
+            onLoad={() => {
+              console.log('[FinalResultsScreen] ✅ Background image loaded successfully:', trainerBg)
+            }}
             onError={(e) => {
+              console.error('[FinalResultsScreen] ❌ Background image FAILED to load:', trainerBg)
               // On error, just show dark background
               e.currentTarget.style.display = 'none'
             }}
