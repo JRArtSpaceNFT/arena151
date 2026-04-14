@@ -4,20 +4,20 @@
 
 export const TRAINER_AVATAR_PRESETS: string[] = [
   // Row 1 — Trainers
-  '/trainer-avatars/ProfessorOak.png',
-  '/trainer-avatars/Ash.png',
-  '/trainer-avatars/Gary.png',
-  '/trainer-avatars/Brock.png',
+  '/trainer-avatars/ProfessorOak.webp',
+  '/trainer-avatars/Ash.webp',
+  '/trainer-avatars/Gary.webp',
+  '/trainer-avatars/Brock.webp',
   // Row 2 — Trainers cont.
-  '/trainer-avatars/Misty.png',
-  '/trainer-avatars/Giovanni.png',
+  '/trainer-avatars/Misty.webp',
+  '/trainer-avatars/Giovanni.webp',
   // Row 3 — Pokémon
-  '/trainer-avatars/Bulbasaur.png',
-  '/trainer-avatars/Charmander.png',
-  '/trainer-avatars/Squirtle.png',
-  '/trainer-avatars/Pikachu.png',
-  '/trainer-avatars/Eevee.png',
-  '/trainer-avatars/Snorlax.png',
+  '/trainer-avatars/Bulbasaur.webp',
+  '/trainer-avatars/Charmander.webp',
+  '/trainer-avatars/Squirtle.webp',
+  '/trainer-avatars/Pikachu.webp',
+  '/trainer-avatars/Eevee.webp',
+  '/trainer-avatars/Snorlax.webp',
 ];
 
 // Emoji fallbacks — used when no custom images are provided yet

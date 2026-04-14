@@ -480,7 +480,6 @@ export default function FinalResultsScreen() {
   const trainerSlug = cleanName.toLowerCase().replace(/[\s&]+/g, '-').replace(/[^a-z0-9-]/g, '')
   // Both victory and defeat images show the WINNER celebrating
   const trainerBg = `/trainer-results/${trainerSlug}-win.webp`
-  const fallbackBg = '/victory-bg.webp'
   
   console.log('[FinalResultsScreen] victory:', effectiveVictory, 'cleanName:', cleanName, 'trainerSlug:', trainerSlug, 'trainerBg:', trainerBg)
 
@@ -668,9 +667,7 @@ export default function FinalResultsScreen() {
         {/* Background image — trainer-specific win/loss */}
         <div style={{
           position: 'fixed', inset: 0,
-          backgroundImage: `url(${fallbackBg})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
+          background: '#0a0814',
           zIndex: 0,
         }}>
           <img
@@ -683,7 +680,7 @@ export default function FinalResultsScreen() {
               objectPosition: 'center',
             }}
             onError={(e) => {
-              // Hide image on error, fallback gradient shows through
+              // On error, just show dark background
               e.currentTarget.style.display = 'none'
             }}
           />

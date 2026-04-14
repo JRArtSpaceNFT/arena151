@@ -703,13 +703,13 @@ export default function Draft() {
               <img
                 src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${c.id}.png`}
                 alt={c.name}
-                style={{ width: 32, height: 32, imageRendering: 'pixelated' as const }}
+                style={{ width: 48, height: 48, imageRendering: 'pixelated' as const }}
               />
             </div>
           ))}
           {Array.from({ length: TEAM_SIZE - draftTeamA.length }).map((_, i) => (
             <div key={`empty-${i}`} style={{
-              width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+              width: 48, height: 48, borderRadius: '50%', flexShrink: 0,
               border: '1px dashed rgba(255,255,255,0.12)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               color: 'rgba(255,255,255,0.15)', fontSize: 14,
@@ -926,8 +926,8 @@ export default function Draft() {
 
                       {/* Sprite */}
                       <div style={{
-                        width: 56,
-                        height: 56,
+                        width: 72,
+                        height: 72,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -1805,8 +1805,8 @@ function BattlefieldPokemon({ creature, index }: { creature: Creature; index: nu
         src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${creature.id}.png`}
         alt={creature.name}
         style={{
-          width: 120,
-          height: 120,
+          width: 150,
+          height: 150,
           imageRendering: 'pixelated' as const,
           objectFit: 'contain',
         }}
@@ -1814,11 +1814,11 @@ function BattlefieldPokemon({ creature, index }: { creature: Creature; index: nu
       {/* Pokéball on the ground */}
       <div style={{
         position: 'relative',
-        marginTop: -16,
+        marginTop: -20,
         zIndex: 2,
       }}>
         {/* Pokéball SVG */}
-        <svg width="44" height="44" viewBox="0 0 22 22" style={{ display: 'block' }}>
+        <svg width="32" height="32" viewBox="0 0 22 22" style={{ display: 'block' }}>
           {/* Top half — red */}
           <path d="M2,11 A9,9 0 0,1 20,11 Z" fill="#e53e3e" stroke="#1a1a1a" strokeWidth="1.2"/>
           {/* Bottom half — white */}

@@ -207,7 +207,7 @@ export default function SignupFlow() {
   // ── LOGIN MODE ──────────────────────────────────────────────
   if (mode === 'login') {
     return (
-      <div className="min-h-screen flex items-start md:items-center justify-center p-4 md:p-8 relative overflow-y-auto py-8">
+      <div className="min-h-screen flex items-start md:items-center justify-center p-4 md:p-8 relative py-8" style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
         {/* Background image */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/SICK.jpg" alt="" className="absolute inset-0 w-full h-full object-cover" aria-hidden="true" />
@@ -277,7 +277,7 @@ export default function SignupFlow() {
   // ── FORGOT PASSWORD MODE ────────────────────────────────────
   if (mode === 'forgot') {
     return (
-      <div className="min-h-screen flex items-start md:items-center justify-center p-4 md:p-8 relative overflow-y-auto py-8">
+      <div className="min-h-screen flex items-start md:items-center justify-center p-4 md:p-8 relative py-8" style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/SICK.jpg" alt="" className="absolute inset-0 w-full h-full object-cover" aria-hidden="true" />
         <div className="absolute inset-0 bg-black/50" />
@@ -322,7 +322,7 @@ export default function SignupFlow() {
   // ── AGE VERIFICATION GATE ──────────────────────────────────
   if (ageVerified === null || ageDenied) {
     return (
-      <div className="min-h-screen flex items-start md:items-center justify-center p-4 md:p-8 relative overflow-y-auto py-8">
+      <div className="min-h-screen flex items-start md:items-center justify-center p-4 md:p-8 relative py-8" style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/SICK.jpg" alt="" className="absolute inset-0 w-full h-full object-cover" aria-hidden="true" />
         <div className="absolute inset-0 bg-black/70" />
@@ -382,7 +382,7 @@ export default function SignupFlow() {
 
   // ── SIGNUP MODE ─────────────────────────────────────────────
   return (
-    <div className="min-h-screen flex items-start justify-center p-4 md:p-8 relative py-8">
+    <div className="min-h-screen flex items-start justify-center p-4 md:p-8 relative py-8" style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src="/SICK.jpg" alt="" className="absolute inset-0 w-full h-full object-cover" aria-hidden="true" />
       <div className="absolute inset-0 bg-black/50" />
@@ -510,7 +510,7 @@ export default function SignupFlow() {
                       onClick={() => setFormData(f => ({ ...f, avatar: opt.value, customAvatarPreview: '' }))}
                       className={`aspect-square rounded-xl cursor-pointer overflow-hidden border-2 transition-all ${!formData.customAvatarPreview && formData.avatar === opt.value ? 'border-blue-500 shadow-lg shadow-blue-500/50' : 'border-slate-700 hover:border-slate-500 opacity-60 hover:opacity-100'}`}>
                       {opt.type === 'image' ? (
-                        <img src={opt.value} alt="Trainer" className="w-full h-full object-cover" />
+                        <img src={opt.value} alt="Trainer" className="w-full h-full object-cover" loading="lazy" />
                       ) : (
                         <div className="w-full h-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-2xl">{opt.value}</div>
                       )}

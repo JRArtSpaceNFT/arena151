@@ -70,7 +70,7 @@ export default function RoomSelect() {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden relative roomselect-outer"
-      style={{ background: 'linear-gradient(160deg,#08060f 0%,#0d0a1e 40%,#0a0d18 80%,#060608 100%)' }}>
+      style={{ background: 'linear-gradient(160deg,#12101d 0%,#18152e 40%,#14172a 80%,#0e0e16 100%)' }}>
 
       {/* Kanto map background — very low opacity */}
       <div className="absolute inset-0 pointer-events-none">
@@ -274,8 +274,8 @@ export default function RoomSelect() {
                     imageRendering: 'pixelated',
                     filter: 'blur(0.5px)',
                   }} />
-                  {/* Lighter dark overlay for readability while keeping image visible */}
-                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.45) 100%)' }} />
+                  {/* Darker overlay for text legibility */}
+                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.95) 100%)' }} />
                   {/* Subtle accent bottom glow */}
                   <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '40%', background: `linear-gradient(to top, ${identity.accentDark}33, transparent)` }} />
                 </div>
@@ -386,7 +386,7 @@ export default function RoomSelect() {
                         background: `linear-gradient(160deg, ${identity.accent}18 0%, ${identity.accent}0a 100%)`,
                         border: `1px solid ${identity.accent}33`,
                       }}>
-                      <p className="font-black uppercase tracking-widest" style={{ color: `${identity.accent}99`, fontSize: 9 }}>ENTRY</p>
+                      <p className="font-black uppercase tracking-widest" style={{ color: '#ffffff', fontSize: 11, letterSpacing: '0.1em', textShadow: `0 0 12px ${identity.accent}ff, 0 0 6px ${identity.accent}dd` }}>ENTRY</p>
                       <div className="text-right">
                         <p className="font-black text-white leading-none" style={{ fontSize: 15 }}>{entryFee} <span style={{ fontSize: 10, opacity: 0.6 }}>SOL</span></p>
                         <p className="font-bold mt-0.5" style={{ color: `${identity.accent}88`, fontSize: 10 }}>${room.tier}</p>
@@ -401,7 +401,7 @@ export default function RoomSelect() {
                         border: `1px solid ${identity.accent}66`,
                         boxShadow: `0 0 18px ${identity.accent}55, 0 0 6px ${identity.accent}33 inset`,
                       }}>
-                      <p className="font-black uppercase tracking-widest" style={{ color: `${identity.accent}bb`, fontSize: 9 }}>YOU WIN</p>
+                      <p className="font-black uppercase tracking-widest" style={{ color: '#ffffff', fontSize: 11, letterSpacing: '0.1em', textShadow: `0 0 16px ${identity.accent}ff, 0 0 8px ${identity.accent}ff, 0 2px 4px rgba(0,0,0,0.8)` }}>YOU WIN</p>
                       <div className="text-right">
                         <p className="font-black leading-none" style={{
                           fontSize: 15,
