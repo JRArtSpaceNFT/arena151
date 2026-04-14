@@ -25,9 +25,16 @@ const Leaderboard = lazy(() => import('@/components/Leaderboard'));
 const BattleGuide = lazy(() => import('@/components/BattleGuide'));
 const FairGaming = lazy(() => import('@/components/FairGaming'));
 
-// Loading fallback - empty to prevent flash
+// Minimal loading indicator - no jarring text, just a subtle fade
 function LoadingScreen() {
-  return null;
+  return (
+    <div style={{
+      position: 'fixed',
+      inset: 0,
+      background: 'linear-gradient(180deg, #0f172a 0%, #020617 100%)',
+      opacity: 0.95,
+    }} />
+  );
 }
 
 const CROWD_SCREENS = new Set(['draft-mode-intro', 'profile', 'leaderboard']);

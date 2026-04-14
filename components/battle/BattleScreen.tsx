@@ -1202,16 +1202,16 @@ export default function BattleScreen() {
               if (!isRevealed) {
                 return (
                   <div key={`a-hidden-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'transparent', borderRadius: 6, padding: '3px 5px', marginBottom: 3, border: '1px solid transparent' }}>
-                    <div style={{ width: 26, height: 26, borderRadius: 4, background: '#1a1a2e', border: '1px dashed #2d2d5e', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#334155', fontWeight: 900 }}>?</div>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: '#334155' }}>???</div>
+                    <div style={{ width: 22, height: 22, borderRadius: 4, background: '#1a1a2e', border: '1px dashed #2d2d5e', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#334155', fontWeight: 900 }}>?</div>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: '#334155' }}>???</div>
                   </div>
                 )
               }
               return (
                 <div key={ac.creature.id} style={{ display: 'flex', alignItems: 'center', gap: 5, background: isActive ? 'rgba(124,58,237,0.18)' : 'transparent', borderRadius: 6, padding: '3px 5px', marginBottom: 3, border: isActive ? '1px solid rgba(124,58,237,0.35)' : '1px solid transparent', opacity: isKOd ? 0.3 : 1, filter: isKOd ? 'grayscale(1)' : 'none' }}>
-                  <img src={ac.creature.spriteUrl} alt={ac.creature.name} style={{ width: 26, height: 26, imageRendering: 'pixelated' }} />
+                  <img src={ac.creature.spriteUrl} alt={ac.creature.name} style={{ width: 22, height: 22, imageRendering: 'pixelated' }} />
                   <div>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: isKOd ? '#475569' : '#e2e8f0' }}>{ac.creature.name}</div>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: isKOd ? '#475569' : '#e2e8f0', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ac.creature.name}</div>
                     {isKOd ? (
                       <div style={{ fontSize: 9, color: '#ef4444' }}>KO</div>
                     ) : (
