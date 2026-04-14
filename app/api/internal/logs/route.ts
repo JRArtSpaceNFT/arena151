@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     // Add server-side metadata
     const enrichedLog = {
       ...log,
-      ip: req.ip ?? req.headers.get('x-forwarded-for') ?? 'unknown',
+      ip: req.headers.get('x-forwarded-for') ?? req.headers.get('x-real-ip') ?? 'unknown',
       userAgent: req.headers.get('user-agent') ?? 'unknown',
       serverTimestamp: new Date().toISOString(),
     }
