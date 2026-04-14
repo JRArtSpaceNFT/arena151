@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import MusicToggle from "@/components/MusicToggle";
+import DiscordButton from "@/components/DiscordButton";
 import RotatePrompt from "@/components/RotatePrompt";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
@@ -84,6 +85,7 @@ export default function RootLayout({
         <ErrorBoundary>
           <RotatePrompt />
           <MusicToggle />
+          <DiscordButton />
           <main style={{height:'100%',overflow:'hidden'}}>
             {children}
           </main>

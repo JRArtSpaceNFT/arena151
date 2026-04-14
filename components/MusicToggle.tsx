@@ -23,10 +23,10 @@ export default function MusicToggle() {
       style={{
         position: 'fixed',
         bottom: 18,
-        left: 56,
+        left: 12,
         zIndex: 9999,
-        width: 38,
-        height: 38,
+        width: 34,
+        height: 34,
         borderRadius: '50%',
         border: '1px solid rgba(255,255,255,0.15)',
         background: 'rgba(0,0,0,0.55)',
