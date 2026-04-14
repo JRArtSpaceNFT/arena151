@@ -1553,7 +1553,7 @@ function CreatureDisplay({
 
         {/* Name row */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 5 }}>
-          <span data-creature-name style={{ fontSize: 18, fontWeight: 800, color: '#f1f5f9', letterSpacing: '0.02em' }}>
+          <span data-creature-name style={{ fontSize: 16, fontWeight: 800, color: '#f1f5f9', letterSpacing: '0.02em', maxWidth: 180, overflow: 'visible', whiteSpace: 'nowrap' }}>
             {ac.creature.name}
           </span>
           {ac.shiny && (
@@ -1566,7 +1566,7 @@ function CreatureDisplay({
           {/* Type badges inline */}
           {ac.creature.types.map((t: string) => (
             <span key={t} style={{
-              fontSize: 9, padding: '2px 6px', borderRadius: 8,
+              fontSize: 8, padding: '2px 5px', borderRadius: 6,
               background: `${TYPE_COLORS[t] ?? '#9ca3af'}33`,
               color: TYPE_COLORS[t] ?? '#9ca3af',
               fontWeight: 700, textTransform: 'uppercase',
@@ -1648,8 +1648,8 @@ function CreatureDisplay({
                   }
                 }}
                 style={{
-                  width: isIllustrated ? illustratedSize : 340,
-                  height: isIllustrated ? illustratedSize : 340,
+                  width: isIllustrated ? illustratedSize : 380,
+                  height: isIllustrated ? illustratedSize : 380,
                   marginTop: isJessieJames ? -140 : isIllustrated ? 60 : 0,
                   imageRendering: 'pixelated',
                   // Illustrated sprites face right by default — flip logic is inverted vs pixel art
