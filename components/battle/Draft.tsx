@@ -1050,9 +1050,9 @@ export default function Draft() {
             display: 'flex',
             flexDirection: 'column',
           }}>
-            {/* Battlefield Display - 60% height */}
+            {/* Battlefield Display - 70% height (BIGGER for proper Pokémon display) */}
             <div style={{
-              flex: '0 0 60%',
+              flex: '0 0 70%',
               position: 'relative',
             }}>
               <BattlefieldTeamDisplay 
@@ -1061,12 +1061,12 @@ export default function Draft() {
               />
             </div>
 
-            {/* Info Panel - 40% height */}
+            {/* Info Panel - 30% height (compressed but scrollable) */}
             <div style={{
-              flex: '0 0 40%',
+              flex: '0 0 30%',
               background: 'rgba(10,10,20,0.95)',
               borderTop: '2px solid rgba(124,58,237,0.3)',
-              padding: '16px',
+              padding: '10px',
               overflowY: 'auto',
               minHeight: 0,
             }}>

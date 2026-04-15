@@ -42,12 +42,12 @@ export default function BattlefieldTeamDisplay({ team, onSelectPokemon }: Battle
       height: '100%',
       overflow: 'hidden',
     }}>
-      {/* Pure grassy field background - NO CITY SKYLINE */}
+      {/* Pure grass field background */}
       <div style={{
         position: 'absolute',
         inset: 0,
         background: '#7cb342',
-        backgroundImage: 'url(/grass-field.webp)',
+        backgroundImage: 'url(/Grass-Field.png)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
       }} />

@@ -46,8 +46,8 @@ export default function PokemonInfoPanel({ creature }: PokemonInfoPanelProps) {
           width: '100%',
           display: 'flex',
           flexDirection: 'column',
-          gap: 16,
-          paddingBottom: 20,
+          gap: 10,
+          paddingBottom: 12,
         }}
       >
         {/* Header */}
@@ -143,10 +143,10 @@ export default function PokemonInfoPanel({ creature }: PokemonInfoPanelProps) {
         {/* Passive Ability */}
         <div>
           <div style={{
-            fontSize: 11,
+            fontSize: 10,
             fontWeight: 700,
             color: '#94a3b8',
-            marginBottom: 8,
+            marginBottom: 6,
             textTransform: 'uppercase',
             letterSpacing: '0.1em',
           }}>
@@ -156,20 +156,20 @@ export default function PokemonInfoPanel({ creature }: PokemonInfoPanelProps) {
             background: `linear-gradient(135deg, ${typeColor}22, ${typeColor}11)`,
             border: `2px solid ${typeColor}44`,
             borderRadius: 8,
-            padding: 12,
+            padding: 8,
           }}>
             <div style={{
-              fontSize: 13,
+              fontSize: 11,
               fontWeight: 700,
               color: typeColor,
-              marginBottom: 4,
+              marginBottom: 3,
             }}>
               {creature.passive.name}
             </div>
             <div style={{
-              fontSize: 12,
+              fontSize: 10,
               color: '#cbd5e1',
-              lineHeight: 1.5,
+              lineHeight: 1.4,
             }}>
               {creature.passive.description}
             </div>
@@ -179,10 +179,10 @@ export default function PokemonInfoPanel({ creature }: PokemonInfoPanelProps) {
         {/* Move Pool */}
         <div>
           <div style={{
-            fontSize: 11,
+            fontSize: 10,
             fontWeight: 700,
             color: '#94a3b8',
-            marginBottom: 8,
+            marginBottom: 6,
             textTransform: 'uppercase',
             letterSpacing: '0.1em',
           }}>
@@ -191,7 +191,7 @@ export default function PokemonInfoPanel({ creature }: PokemonInfoPanelProps) {
           <div style={{
             display: 'flex',
             flexWrap: 'wrap',
-            gap: 6,
+            gap: 4,
           }}>
             {creature.movePool.map(move => (
               <div
@@ -199,9 +199,9 @@ export default function PokemonInfoPanel({ creature }: PokemonInfoPanelProps) {
                 style={{
                   background: 'rgba(255,255,255,0.08)',
                   border: '1px solid rgba(255,255,255,0.15)',
-                  borderRadius: 6,
-                  padding: '6px 10px',
-                  fontSize: 11,
+                  borderRadius: 4,
+                  padding: '4px 8px',
+                  fontSize: 9,
                   fontWeight: 600,
                   color: '#e2e8f0',
                   textTransform: 'capitalize',
