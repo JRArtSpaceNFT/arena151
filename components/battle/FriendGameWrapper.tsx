@@ -320,6 +320,8 @@ export default function FriendGameWrapper() {
     if (lineupSynced) return
     if (lineupA.length === 0) { console.warn('[FriendBattle] ⚠️ Step3 arena_reveal but lineupA empty'); return }
     setLineupSynced(true)
+    
+    console.log('[FriendBattle] 🎯 Starting arena_reveal sync phase...')
 
     const lineupIds = lineupA.map(ac => ac.creature.id)
     const trainerId = p1Trainer?.id ?? ''
@@ -377,16 +379,30 @@ export default function FriendGameWrapper() {
       }
 
       console.log('[FriendBattle] ✅ Battle computed. Canonical winner:', canonBattle.winner, '| I won:', iWon, '| Display winner:', displayWinner)
+      console.log('[FriendBattle] 🚀 Transitioning to battle screen NOW')
 
-      useGameStore.setState({
+      // Set all state in one atomic update to prevent race conditions
+      const newState = {
         p1Trainer: myTrainer,    // always MY trainer on MY screen
         p2Trainer: oppTrainer,   // always OPPONENT's trainer on MY screen
         lineupA:   amPlayerA ? canonTeamA : canonTeamB,  // my team always in slot A
         lineupB:   amPlayerA ? canonTeamB : canonTeamA,  // opponent always in slot B
         arena,
         battleState: displayBattle,
-        screen: 'battle',
-      })
+        screen: 'battle' as const,
+      }
+      
+      useGameStore.setState(newState)
+      
+      // Force re-render by checking screen state
+      setTimeout(() => {
+        const currentScreen = useGameStore.getState().screen
+        console.log('[FriendBattle] ✅ Screen confirmed:', currentScreen)
+        if (currentScreen !== 'battle') {
+          console.error('[FriendBattle] ⚠️ Screen stuck at', currentScreen, '- forcing battle screen')
+          useGameStore.setState({ screen: 'battle' })
+        }
+      }, 100)
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameScreen])
