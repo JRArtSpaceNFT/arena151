@@ -237,7 +237,7 @@ function TeamSlot({ creature, index }: { creature: Creature | null; index: numbe
 
 export default function DraftV2() {
   const {
-    draftTeam, draftBudgetA, draftBudgetB, 
+    draftTeamA, draftBudgetA, draftBudgetB, 
     p1Trainer, p2Trainer, isP1Turn,
     addToDraft, removeFromDraft,
     autoDraftPick, confirmDraftOrder, navigateTo,
@@ -250,6 +250,7 @@ export default function DraftV2() {
   const currentTrainer = isP1Turn ? p1Trainer : p2Trainer
   const opponentTrainer = isP1Turn ? p2Trainer : p1Trainer
   const currentBudget = draftBudgetA
+  const draftTeam = draftTeamA
   const selectedIds = new Set(draftTeam.map(c => c.id))
 
   useEffect(() => {
@@ -270,7 +271,7 @@ export default function DraftV2() {
     } else if (draftTeam.length < TEAM_SIZE && creature.pointCost <= currentBudget) {
       addToDraft(creature)
     }
-  }, [selectedIds, draftTeam, currentBudget, addToDraft, removeFromDraft])
+  }, [selectedIds, draftTeam.length, currentBudget, addToDraft, removeFromDraft])
 
   // Filter creatures
   const filteredCreatures = CREATURES.filter(c => 
