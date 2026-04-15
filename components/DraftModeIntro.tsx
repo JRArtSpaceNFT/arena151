@@ -152,11 +152,11 @@ export default function DraftModeIntro() {
 
       </div>
 
-      {/* Discord link with animated yellow arrow — fixed to viewport bottom-right */}
+      {/* Discord link with animated yellow arrow — fixed to viewport bottom-LEFT (like all other pages) */}
       <div style={{
         position: 'fixed',
         bottom: 20,
-        right: 20,
+        left: 12,
         zIndex: 9999,
         display: 'flex',
         flexDirection: 'column',
