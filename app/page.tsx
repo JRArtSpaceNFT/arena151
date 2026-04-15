@@ -30,6 +30,8 @@ export default function ArenaApp() {
   const serverMatchId = useArenaStore((state) => state.serverMatchId);
   const crowdRef = useRef<HTMLAudioElement | null>(null);
 
+  console.log('[ArenaApp] Render - currentScreen:', currentScreen);
+
   // Restore active paid match from sessionStorage on page load.
   // Prevents refresh from creating a duplicate match and locking funds twice.
   useEffect(() => {
