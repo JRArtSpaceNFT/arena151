@@ -121,6 +121,7 @@ export default function HypeControlPanel({ side, onTrigger }: HypeControlPanelPr
             borderRadius: 12,  // Smaller radius
             padding: 12,  // Less padding
             boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+            zIndex: 99999,  // Above everything in battle (trainers, pokemon, effects)
           }}
         >
 

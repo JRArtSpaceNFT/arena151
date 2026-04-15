@@ -52,10 +52,10 @@ export default function DefeatScreen() {
     arena: arena?.name
   })
 
-  // Defeat screen ALWAYS shows the player's trainer (they lost)
-  const displayTrainer = playerTrainer
+  // Defeat screen shows the OPPONENT's trainer (they won, you lost)
+  const displayTrainer = opponentTrainer
   const arenaImage = arena?.image ?? null
-  const defeatBackground = getResultBackground(displayTrainer?.id, 'defeat')
+  const defeatBackground = getResultBackground(displayTrainer?.id, 'victory')
   console.log('[DefeatScreen] Background resolved:', defeatBackground)
 
   return (

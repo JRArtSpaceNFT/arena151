@@ -606,14 +606,22 @@ export default function TrainerSelect() {
       }}>
         {/* PREV */}
         <motion.button
-          whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+          whileHover={{ scale: 1.15, boxShadow: `0 6px 24px ${trainer.color}` }} 
+          whileTap={{ scale: 0.95 }}
           onClick={goPrev}
           style={{
-            background: 'rgba(255,255,255,0.04)',
-            border: `1px solid ${trainer.color}44`,
-            borderRadius: 10, padding: '12px 16px',
-            color: trainer.color, fontSize: 22,
-            cursor: 'pointer', flexShrink: 0, zIndex: 10,
+            background: `linear-gradient(135deg, ${trainer.color}, ${trainer.color}dd)`,
+            border: `4px solid ${trainer.color}`,
+            borderRadius: 16, 
+            padding: '20px 24px',
+            color: '#ffffff', 
+            fontSize: 40, 
+            fontWeight: 900,
+            cursor: 'pointer', 
+            flexShrink: 0, 
+            zIndex: 10,
+            boxShadow: `0 6px 20px ${trainer.color}88, inset 0 2px 0 rgba(255,255,255,0.3)`,
+            textShadow: `0 3px 12px rgba(0,0,0,0.8)`,
           }}
         >←</motion.button>
 
@@ -705,14 +713,22 @@ export default function TrainerSelect() {
 
         {/* NEXT */}
         <motion.button
-          whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+          whileHover={{ scale: 1.15, boxShadow: `0 6px 24px ${trainer.color}` }} 
+          whileTap={{ scale: 0.95 }}
           onClick={goNext}
           style={{
-            background: 'rgba(255,255,255,0.04)',
-            border: `1px solid ${trainer.color}44`,
-            borderRadius: 10, padding: '12px 16px',
-            color: trainer.color, fontSize: 22,
-            cursor: 'pointer', flexShrink: 0, zIndex: 10,
+            background: `linear-gradient(135deg, ${trainer.color}, ${trainer.color}dd)`,
+            border: `4px solid ${trainer.color}`,
+            borderRadius: 16, 
+            padding: '20px 24px',
+            color: '#ffffff', 
+            fontSize: 40, 
+            fontWeight: 900,
+            cursor: 'pointer', 
+            flexShrink: 0, 
+            zIndex: 10,
+            boxShadow: `0 6px 20px ${trainer.color}88, inset 0 2px 0 rgba(255,255,255,0.3)`,
+            textShadow: `0 3px 12px rgba(0,0,0,0.8)`,
           }}
         >→</motion.button>
       </div>
