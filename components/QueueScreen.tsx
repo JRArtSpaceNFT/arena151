@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { useArenaStore } from '@/lib/store';
 import { ROOM_TIERS } from '@/lib/constants';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase';
 import type { Trainer, Pokemon } from '@/types';
 
 // Rotating flavor text
@@ -223,10 +223,7 @@ export default function QueueScreen() {
     // Real money matchmaking
     const run = async () => {
       try {
-        const supabase = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        );
+        // Use pre-configured Supabase client from lib/supabase
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.access_token) return;
         const token = session.access_token;

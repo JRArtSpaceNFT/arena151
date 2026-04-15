@@ -7,7 +7,7 @@ import { useArenaStore } from '@/lib/store'
 import { playMusic, resumeAudioContext, startCrowdAmbient } from '@/lib/audio/musicEngine'
 import { ARENAS } from '@/lib/data/arenas'
 import ArenaArtwork from '@/components/battle/ArenaArtwork'
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from '@/lib/supabase'
 
 const TYPE_COLORS: Record<string, string> = {
   normal: '#9ca3af', fire: '#f97316', water: '#3b82f6', electric: '#eab308',
@@ -187,10 +187,7 @@ export default function ArenaReveal() {
 
         const createAndProceed = async () => {
       try {
-        const supabase = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        )
+        // Use pre-configured Supabase client
         const { data: { session } } = await supabase.auth.getSession()
         if (!session?.access_token) {
           setPaidMatchError('Not authenticated. Please log in to play.')

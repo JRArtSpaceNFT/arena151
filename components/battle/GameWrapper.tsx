@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useGameStore } from '@/lib/game-store'
 import { useArenaStore } from '@/lib/store'
+import { supabase } from '@/lib/supabase'
 import TrainerSelect from '@/components/battle/TrainerSelect'
 import Draft from '@/components/battle/Draft'
 import CoinToss from '@/components/battle/CoinToss'
@@ -213,11 +214,8 @@ export default function GameWrapper() {
     if (serverMatchId) {
       ;(async () => {
         try {
-          const { createClient } = await import('@supabase/supabase-js')
-          const sb = createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-          )
+          // Use pre-configured Supabase client
+          const sb = supabase
           const { data: { session } } = await sb.auth.getSession()
           if (!session?.access_token) {
             playAgain(); setGameMode('paid_pvp'); return
@@ -325,11 +323,7 @@ export default function GameWrapper() {
       // this prevents confusing error toasts during the opening moves.
       await new Promise(r => setTimeout(r, 8000)) // wait ~8s into animation
       try {
-        const { createClient } = await import('@supabase/supabase-js')
-        const supabase = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        )
+        // Use pre-configured Supabase client
         const { data: { session } } = await supabase.auth.getSession()
         if (!session?.access_token) return
 
