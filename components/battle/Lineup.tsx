@@ -21,7 +21,11 @@ export default function Lineup() {
 
   useEffect(() => {
     resumeAudioContext()
-    playMusic('menu')
+    // Friend Battle: skip menu music — ArenaReveal will start battle music
+    if (gameMode !== 'friend_battle') {
+      playMusic('menu')
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const [timeLeft, setTimeLeft] = useState(30)

@@ -2,6 +2,8 @@
 // ARENA 151 — WEB AUDIO SFX
 // ═══════════════════════════════════════════════════════════════
 
+import { isGlobalMuted } from './musicEngine'
+
 let _ctx: AudioContext | null = null
 
 function getCtx(): AudioContext {
@@ -12,6 +14,7 @@ function getCtx(): AudioContext {
 
 // ── Crowd cheer — loud burst of filtered noise, 2.5s ──────────
 export function playCrowdCheer() {
+  if (isGlobalMuted()) return
   try {
     const ctx = getCtx()
     const duration = 2.5
@@ -52,6 +55,7 @@ export function playCrowdCheer() {
 
 // ── Crowd "OOOOO" — rising filtered noise sweep, 2s ──────────
 export function playOooSound() {
+  if (isGlobalMuted()) return
   try {
     const ctx = getCtx()
     const duration = 2.0
@@ -85,6 +89,7 @@ export function playOooSound() {
 
 // ── KO boom — big dramatic impact thud ────────────────────────
 export function playKOSound() {
+  if (isGlobalMuted()) return
   try {
     const ctx = getCtx()
 
@@ -542,6 +547,7 @@ function sndSlash(ctx: AudioContext) {
 
 // ── Master dispatcher ─────────────────────────────────────────
 export function playAttackSound(animKey: string) {
+  if (isGlobalMuted()) return
   try {
     const ctx = getCtx()
     switch (animKey) {
@@ -605,6 +611,7 @@ export function playAttackSound(animKey: string) {
 
 // ── Status condition sounds ────────────────────────────────────
 export function playStatusSound(status: string) {
+  if (isGlobalMuted()) return
   try {
     const ctx = getCtx()
     const t = ctx.currentTime
@@ -702,6 +709,7 @@ export function playStatusSound(status: string) {
 
 // ── Play a random crowd reaction (cheer OR ooo) ───────────────
 export function playRandomCrowdReaction() {
+  if (isGlobalMuted()) return
   if (Math.random() < 0.5) {
     playCrowdCheer()
   } else {
@@ -711,6 +719,7 @@ export function playRandomCrowdReaction() {
 
 // ── Real crowd cheer MP3 — plays first 3 seconds then fades ──
 export function playRealCrowdCheer() {
+  if (isGlobalMuted()) return
   try {
     const audio = new Audio('/music/Crowd Cheer Sound Effect.mp3')
     audio.volume = 0.85

@@ -263,7 +263,11 @@ export default function Draft() {
 
   useEffect(() => {
     resumeAudioContext()
-    playMusic('menu')
+    // Friend Battle: skip menu music — ArenaReveal will start battle music
+    if (gameMode !== 'friend_battle') {
+      playMusic('menu')
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // vs_ai / practice: AI picks full team instantly at draft mount.

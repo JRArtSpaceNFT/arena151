@@ -143,6 +143,7 @@ function startTrack(track: 'menu' | 'battle' | 'victory') {
 let _muted = false
 
 export function isMusicMuted(): boolean { return _muted }
+export function isGlobalMuted(): boolean { return _muted } // Alias for SFX to check
 
 export function getCurrentTrack(): 'menu' | 'battle' | 'victory' | null { return currentTrack }
 
