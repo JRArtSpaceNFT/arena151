@@ -874,7 +874,11 @@ export default function Draft() {
                       style={{
                         width: '100%',
                         height: 140,
-                        background: isDrafted ? '#0a0a12' : isHovered ? '#1a1a2e' : '#0f0f1a',
+                        background: isDrafted 
+                          ? `linear-gradient(135deg, ${typeColor}22, ${typeColor}11)` 
+                          : isHovered 
+                          ? `linear-gradient(135deg, ${typeColor}33, ${typeColor}18)` 
+                          : `linear-gradient(135deg, ${typeColor}18, ${typeColor}0a)`,
                         border: isDrafted
                           ? `2px solid ${typeColor}`
                           : isOverBudget
