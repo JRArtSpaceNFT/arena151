@@ -18,12 +18,13 @@ interface FieldPosition {
 }
 
 // Position mapping: 1st = center, 2nd = bottom-left, 3rd = bottom-right, 4th = top-left, 5th = top-right
+// MOVED UP: y values reduced by 10-15% to give more space at bottom
 const POSITIONS: FieldPosition[] = [
-  { x: '50%', y: '50%', scale: 1.0 },    // 1st pick: CENTER
-  { x: '15%', y: '75%', scale: 1.0 },    // 2nd pick: BOTTOM LEFT
-  { x: '85%', y: '75%', scale: 1.0 },    // 3rd pick: BOTTOM RIGHT
-  { x: '15%', y: '25%', scale: 1.0 },    // 4th pick: TOP LEFT
-  { x: '85%', y: '25%', scale: 1.0 },    // 5th pick: TOP RIGHT
+  { x: '50%', y: '40%', scale: 1.0 },    // 1st pick: CENTER (moved up)
+  { x: '15%', y: '65%', scale: 1.0 },    // 2nd pick: BOTTOM LEFT (moved up)
+  { x: '85%', y: '65%', scale: 1.0 },    // 3rd pick: BOTTOM RIGHT (moved up)
+  { x: '15%', y: '15%', scale: 1.0 },    // 4th pick: TOP LEFT (moved up)
+  { x: '85%', y: '15%', scale: 1.0 },    // 5th pick: TOP RIGHT (moved up)
 ]
 
 interface BattlefieldTeamDisplayProps {
@@ -41,19 +42,15 @@ export default function BattlefieldTeamDisplay({ team, onSelectPokemon }: Battle
       height: '100%',
       overflow: 'hidden',
     }}>
-      {/* Grassy field background */}
-      <img
-        src="/BD1.webp"
-        alt="Battlefield"
-        style={{
-          position: 'absolute',
-          inset: 0,
-          width: '100%',
-          height: '100%',
-          objectFit: 'cover',
-          objectPosition: 'center',
-        }}
-      />
+      {/* Pure grassy field background - NO CITY SKYLINE */}
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        background: '#7cb342',
+        backgroundImage: 'url(/grass-field.webp)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }} />
 
       {/* Pokemon positioned on field */}
       <AnimatePresence>
@@ -118,8 +115,8 @@ export default function BattlefieldTeamDisplay({ team, onSelectPokemon }: Battle
                   src={creature.spriteUrl}
                   alt={creature.name}
                   style={{
-                    width: 120,
-                    height: 120,
+                    width: 140,
+                    height: 140,
                     imageRendering: 'pixelated',
                   }}
                 />
@@ -159,20 +156,23 @@ export default function BattlefieldTeamDisplay({ team, onSelectPokemon }: Battle
               {/* Pokemon name */}
               <div
                 style={{
-                  fontSize: 10,
+                  fontSize: 9,
                   fontWeight: 700,
                   color: '#fff',
                   textTransform: 'uppercase',
                   letterSpacing: '0.05em',
                   textShadow: '0 2px 6px rgba(0,0,0,0.9)',
-                  padding: '2px 6px',
+                  padding: '2px 5px',
                   background: isHovered 
                     ? `linear-gradient(135deg, ${typeColor}dd, ${typeColor}aa)` 
-                    : 'rgba(0,0,0,0.7)',
+                    : 'rgba(0,0,0,0.75)',
                   borderRadius: 4,
                   border: isHovered ? `1px solid ${typeColor}` : '1px solid rgba(255,255,255,0.2)',
                   backdropFilter: 'blur(4px)',
                   whiteSpace: 'nowrap',
+                  maxWidth: '120px',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
                 }}
               >
                 {creature.name}
