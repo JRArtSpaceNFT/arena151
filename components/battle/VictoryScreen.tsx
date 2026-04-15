@@ -42,15 +42,22 @@ export default function VictoryScreen() {
 
   const isStoryMode = gameMode === 'story'
   const winner = battleState?.winner
-  const winnerTrainer = winner === 'A' ? p1Trainer : p2Trainer
-  const loserTrainer  = winner === 'A' ? p2Trainer : p1Trainer
-  const quote = winnerTrainer?.winQuote ?? '...'
+  
+  // Determine which trainer is the player (current user)
+  const isPlayerSideA = currentTrainer?.id === p1Trainer?.id
+  const isPlayerSideB = currentTrainer?.id === p2Trainer?.id
+  const playerTrainer = isPlayerSideA ? p1Trainer : p2Trainer
+  const opponentTrainer = isPlayerSideA ? p2Trainer : p1Trainer
+  
+  // Victory screen ALWAYS shows the player's trainer (they won)
+  const displayTrainer = playerTrainer
+  const quote = displayTrainer?.winQuote ?? '...'
 
   useEffect(() => {
     playMusic('victory')
     // Track stats
     incrementBattlesTotal()
-    if (winnerTrainer && loserTrainer) {
+    if (playerTrainer && opponentTrainer) {
       const TYPE_EMOJI: Record<string, string> = {
         fire: '🔥', water: '💧', electric: '⚡', grass: '🌿', ice: '❄️',
         fighting: '👊', poison: '☠️', ground: '🌍', flying: '🦅', psychic: '🔮',
@@ -58,8 +65,8 @@ export default function VictoryScreen() {
       }
       const arenaEmoji = arena?.type ? (TYPE_EMOJI[arena.type] ?? '⚔️') : '⚔️'
       addBattleToLog({
-        winner: winnerTrainer.name,
-        loser: loserTrainer.name,
+        winner: playerTrainer.name,
+        loser: opponentTrainer.name,
         arena: arena?.name ?? 'Unknown Arena',
         arenaEmoji,
         timestamp: Date.now(),
@@ -89,18 +96,20 @@ export default function VictoryScreen() {
   }, [showQuote, quote])
 
   console.log('[VictoryScreen] Rendering', { 
-    winnerTrainer: winnerTrainer?.id,
+    playerTrainer: playerTrainer?.id,
     winner: battleState?.winner,
+    isPlayerSideA,
+    isPlayerSideB,
     p1Trainer: p1Trainer?.id,
     p2Trainer: p2Trainer?.id 
   })
 
-  if (!winnerTrainer) {
-    console.error('[VictoryScreen] No winner trainer!', { battleState, p1Trainer, p2Trainer })
+  if (!displayTrainer) {
+    console.error('[VictoryScreen] No player trainer!', { battleState, p1Trainer, p2Trainer, currentTrainer })
     return null
   }
-  const wColor = winnerTrainer.color
-  const victoryBackground = getResultBackground(winnerTrainer.id, 'victory')
+  const wColor = displayTrainer.color
+  const victoryBackground = getResultBackground(displayTrainer.id, 'victory')
   console.log('[VictoryScreen] Background resolved:', victoryBackground)
 
   const OVERRIDES: Record<string, { height?: string; left?: string; bottom?: string }> = {
@@ -115,7 +124,7 @@ export default function VictoryScreen() {
     'lance':       { height: '52vh' },
     'jessie-james':{ height: '72vh', bottom: '30%', left: '38%' },
   }
-  const ov = OVERRIDES[winnerTrainer.id] ?? {}
+  const ov = OVERRIDES[displayTrainer.id] ?? {}
   const trainerH = ov.height ?? '58vh'
   const trainerLeft = ov.left ?? '39%'
   const trainerBottom = ov.bottom ?? '28%'
@@ -190,7 +199,7 @@ export default function VictoryScreen() {
           textTransform: 'uppercase', letterSpacing: '0.04em',
           textAlign: 'center',
         }}>
-          {winnerTrainer.name}
+          {displayTrainer.name}
         </div>
         <div style={{
           fontFamily: '"Impact", "Arial Black", sans-serif',
@@ -205,7 +214,7 @@ export default function VictoryScreen() {
           letterSpacing: '0.15em', marginTop: 4,
           textTransform: 'uppercase',
         }}>
-          defeated {loserTrainer?.name ?? 'challenger'}
+          defeated {opponentTrainer?.name ?? 'challenger'}
         </div>
       </motion.div>
 
@@ -233,11 +242,11 @@ export default function VictoryScreen() {
           pointerEvents: 'none',
         }} />
 
-        {winnerTrainer.spriteUrl ? (
+        {displayTrainer.spriteUrl ? (
           <img
             className="victory-trainer-img"
-            src={winnerTrainer.spriteUrl}
-            alt={winnerTrainer.name}
+            src={displayTrainer.spriteUrl}
+            alt={displayTrainer.name}
             style={{
               height: trainerH,
               width: 'auto',
@@ -254,7 +263,7 @@ export default function VictoryScreen() {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 160, color: wColor,
           }}>
-            {winnerTrainer.name[0]}
+            {displayTrainer.name[0]}
           </div>
         )}
       </motion.div>
@@ -377,7 +386,7 @@ export default function VictoryScreen() {
                 whileTap={{ scale: 0.97 }}
                 onClick={() => {
                   const text = encodeURIComponent(
-                    `Just won a battle on Arena 151! 🏆 My trainer ${winnerTrainer.name} crushed it! Play at https://arena151.xyz #Arena151 #Pokemon`
+                    `Just won a battle on Arena 151! 🏆 My trainer ${displayTrainer.name} crushed it! Play at https://arena151.xyz #Arena151 #Pokemon`
                   )
                   window.open(`https://twitter.com/intent/tweet?text=${text}`, '_blank', 'noopener,noreferrer')
                 }}

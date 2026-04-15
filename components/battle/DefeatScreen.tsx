@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useGameStore } from '@/lib/game-store'
+import { useArenaStore } from '@/lib/store'
 import { playMusic } from '@/lib/audio/musicEngine'
 import { getResultBackground } from '@/lib/resultBackgrounds'
 
@@ -24,6 +25,7 @@ const EMBERS = Array.from({ length: 18 }, (_, i) => ({
 
 export default function DefeatScreen() {
   const { navigateTo, gameMode, storyProgress, battleState, p1Trainer, p2Trainer, arena, matchResults } = useGameStore()
+  const { currentTrainer } = useArenaStore()
   const [defeatLine] = useState(() => DEFEAT_LINES[Math.floor(Math.random() * DEFEAT_LINES.length)])
 
   useEffect(() => { playMusic('victory') }, [])
@@ -33,21 +35,27 @@ export default function DefeatScreen() {
     else navigateTo('result')
   }
 
+  // Determine which trainer is the player (current user)
+  const isPlayerSideA = currentTrainer?.id === p1Trainer?.id
+  const isPlayerSideB = currentTrainer?.id === p2Trainer?.id
+  const playerTrainer = isPlayerSideA ? p1Trainer : p2Trainer
+  const opponentTrainer = isPlayerSideA ? p2Trainer : p1Trainer
+
   console.log('[DefeatScreen] Rendering', {
     winner: battleState?.winner,
+    playerTrainer: playerTrainer?.id,
+    opponentTrainer: opponentTrainer?.id,
+    isPlayerSideA,
+    isPlayerSideB,
     p1Trainer: p1Trainer?.id,
     p2Trainer: p2Trainer?.id,
     arena: arena?.name
   })
 
-  // FIXED: Show the loser's background, not the winner's!
-  // If winner is A → loser is P2 → show P2's (opponent's) sprite
-  // If winner is B → loser is P1 → show P1's (player's) sprite
-  const loserTrainer = battleState?.winner === 'A' ? p2Trainer : p1Trainer
-  // For defeat screen, show the WINNER's victory celebration background (they won)
-  const winnerTrainer = battleState?.winner === 'A' ? p1Trainer : p2Trainer
+  // Defeat screen ALWAYS shows the player's trainer (they lost)
+  const displayTrainer = playerTrainer
   const arenaImage = arena?.image ?? null
-  const defeatBackground = getResultBackground(winnerTrainer?.id, 'victory')
+  const defeatBackground = getResultBackground(displayTrainer?.id, 'defeat')
   console.log('[DefeatScreen] Background resolved:', defeatBackground)
 
   return (
@@ -117,7 +125,7 @@ export default function DefeatScreen() {
       <div style={{ position: 'relative', zIndex: 10, width: '100%', maxWidth: 820, display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, minHeight: 0, justifyContent: 'center' }}>
 
         {/* Fallen trainer — large, center, greyscale */}
-        {loserTrainer?.spriteUrl && (
+        {displayTrainer?.spriteUrl && (
           <motion.div style={{ position: 'relative', marginBottom: 12 }}>
             {/* Red halo behind trainer */}
             <motion.div style={{
@@ -129,8 +137,8 @@ export default function DefeatScreen() {
               animate={{ opacity: [0.4, 0.8, 0.4] }} transition={{ duration: 2.5, repeat: Infinity }}
             />
             <motion.img
-              src={loserTrainer.spriteUrl}
-              alt={loserTrainer.name}
+              src={displayTrainer.spriteUrl}
+              alt={displayTrainer.name}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 0.65, y: 0 }}
               transition={{ delay: 0.2, duration: 0.6 }}
