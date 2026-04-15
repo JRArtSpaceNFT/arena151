@@ -44,11 +44,10 @@ export default function PokemonInfoPanel({ creature }: PokemonInfoPanelProps) {
         transition={{ duration: 0.2 }}
         style={{
           width: '100%',
-          height: '100%',
-          overflowY: 'auto',
           display: 'flex',
           flexDirection: 'column',
           gap: 16,
+          paddingBottom: 20,
         }}
       >
         {/* Header */}

@@ -43,7 +43,7 @@ export default function BattlefieldTeamDisplay({ team, onSelectPokemon }: Battle
     }}>
       {/* Grassy field background */}
       <img
-        src="/NewBD.webp"
+        src="/BD1.webp"
         alt="Battlefield"
         style={{
           position: 'absolute',
@@ -118,8 +118,8 @@ export default function BattlefieldTeamDisplay({ team, onSelectPokemon }: Battle
                   src={creature.spriteUrl}
                   alt={creature.name}
                   style={{
-                    width: 80,
-                    height: 80,
+                    width: 120,
+                    height: 120,
                     imageRendering: 'pixelated',
                   }}
                 />
