@@ -86,7 +86,7 @@ export default function RootLayout({
           <RotatePrompt />
           <MusicToggle />
           <DiscordButton />
-          <main style={{height:'100%',overflow:'hidden'}}>
+          <main className="arena-main" style={{height:'100%'}}>
             {children}
           </main>
         </ErrorBoundary>

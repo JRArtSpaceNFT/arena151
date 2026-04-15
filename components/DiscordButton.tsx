@@ -3,7 +3,7 @@
 import { useArenaStore } from '@/lib/store'
 
 export default function DiscordButton() {
-  const { screen } = useArenaStore()
+  const { currentScreen } = useArenaStore()
   
   // Only show on these screens (NOT during battle flows)
   const allowedScreens = [
@@ -14,7 +14,7 @@ export default function DiscordButton() {
     'battle-guide'
   ]
   
-  if (!allowedScreens.includes(screen)) {
+  if (!allowedScreens.includes(currentScreen)) {
     return null
   }
   return (

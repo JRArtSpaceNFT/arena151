@@ -1,16 +1,38 @@
 @import "tailwindcss";
 
-/* ── Fullscreen game shell — lock viewport ── */
+/* ── Fullscreen game shell — lock viewport on desktop, allow scroll on mobile ── */
 html, body {
   height: 100%;
   max-height: 100%;
-  overflow: hidden;
-  overscroll-behavior: none;
+}
+
+/* Desktop: lock scrolling */
+@media (min-width: 1025px) {
+  html, body {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+  #__next, main {
+    overflow: hidden;
+  }
+}
+
+/* Mobile: allow scrolling */
+@media (max-width: 1024px) {
+  html, body {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  main.arena-main {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    height: auto;
+    min-height: 100%;
+  }
 }
 
 #__next, main {
   height: 100%;
-  overflow: hidden;
 }
 
 .game-screen {
