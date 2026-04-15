@@ -1066,10 +1066,13 @@ export default function Draft() {
               flex: '0 0 40%',
               background: 'rgba(10,10,20,0.95)',
               borderTop: '2px solid rgba(124,58,237,0.3)',
-              padding: '20px',
+              padding: '16px',
               overflowY: 'auto',
+              minHeight: 0,
             }}>
-              <PokemonInfoPanel creature={selectedFieldPokemon} />
+              <div style={{ height: '100%', overflowY: 'auto' }}>
+                <PokemonInfoPanel creature={selectedFieldPokemon} />
+              </div>
             </div>
           </div>
         </div>

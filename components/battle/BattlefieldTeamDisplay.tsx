@@ -17,13 +17,13 @@ interface FieldPosition {
   scale: number
 }
 
-// Position mapping: 1st = center (large), 2nd = bottom-left, 3rd = bottom-right, 4th = top-left, 5th = top-right
+// Position mapping: 1st = center, 2nd = bottom-left, 3rd = bottom-right, 4th = top-left, 5th = top-right
 const POSITIONS: FieldPosition[] = [
-  { x: '50%', y: '50%', scale: 1.3 },    // 1st pick: CENTER (featured)
-  { x: '25%', y: '70%', scale: 1.0 },    // 2nd pick: BOTTOM LEFT
-  { x: '75%', y: '70%', scale: 1.0 },    // 3rd pick: BOTTOM RIGHT
-  { x: '25%', y: '30%', scale: 1.0 },    // 4th pick: TOP LEFT
-  { x: '75%', y: '30%', scale: 1.0 },    // 5th pick: TOP RIGHT
+  { x: '50%', y: '50%', scale: 1.0 },    // 1st pick: CENTER
+  { x: '15%', y: '75%', scale: 1.0 },    // 2nd pick: BOTTOM LEFT
+  { x: '85%', y: '75%', scale: 1.0 },    // 3rd pick: BOTTOM RIGHT
+  { x: '15%', y: '25%', scale: 1.0 },    // 4th pick: TOP LEFT
+  { x: '85%', y: '25%', scale: 1.0 },    // 5th pick: TOP RIGHT
 ]
 
 interface BattlefieldTeamDisplayProps {
@@ -63,7 +63,6 @@ export default function BattlefieldTeamDisplay({ team, onSelectPokemon }: Battle
 
           const typeColor = TYPE_COLORS[creature.types[0]] || '#888'
           const isHovered = hoveredId === creature.id
-          const isCenterPick = index === 0
 
           return (
             <motion.div
@@ -71,7 +70,7 @@ export default function BattlefieldTeamDisplay({ team, onSelectPokemon }: Battle
               initial={{ opacity: 0, scale: 0.5, y: 20 }}
               animate={{ 
                 opacity: 1, 
-                scale: position.scale,
+                scale: 1.0,
                 y: 0,
               }}
               exit={{ opacity: 0, scale: 0.5 }}
@@ -81,7 +80,7 @@ export default function BattlefieldTeamDisplay({ team, onSelectPokemon }: Battle
                 damping: 20,
                 delay: index * 0.15,
               }}
-              whileHover={{ scale: position.scale * 1.1, y: -8 }}
+              whileHover={{ scale: 1.08, y: -6 }}
               onMouseEnter={() => {
                 setHoveredId(creature.id)
                 onSelectPokemon?.(creature)
@@ -97,7 +96,7 @@ export default function BattlefieldTeamDisplay({ team, onSelectPokemon }: Battle
                 top: position.y,
                 transform: 'translate(-50%, -50%)',
                 cursor: 'pointer',
-                zIndex: isHovered ? 20 : isCenterPick ? 10 : 5,
+                zIndex: isHovered ? 20 : 5,
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
@@ -109,8 +108,6 @@ export default function BattlefieldTeamDisplay({ team, onSelectPokemon }: Battle
                 animate={{
                   filter: isHovered 
                     ? `drop-shadow(0 0 20px ${typeColor}) brightness(1.2)` 
-                    : isCenterPick
-                    ? `drop-shadow(0 6px 12px rgba(0,0,0,0.4)) brightness(1.1)`
                     : 'drop-shadow(0 4px 8px rgba(0,0,0,0.3))',
                 }}
                 style={{
@@ -121,8 +118,8 @@ export default function BattlefieldTeamDisplay({ team, onSelectPokemon }: Battle
                   src={creature.spriteUrl}
                   alt={creature.name}
                   style={{
-                    width: isCenterPick ? 120 : 96,
-                    height: isCenterPick ? 120 : 96,
+                    width: 80,
+                    height: 80,
                     imageRendering: 'pixelated',
                   }}
                 />
@@ -145,8 +142,8 @@ export default function BattlefieldTeamDisplay({ team, onSelectPokemon }: Battle
 
               {/* Pokeball */}
               <svg 
-                width={isCenterPick ? 28 : 24} 
-                height={isCenterPick ? 28 : 24} 
+                width={18} 
+                height={18} 
                 viewBox="0 0 24 24"
                 style={{
                   filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))',
@@ -162,52 +159,24 @@ export default function BattlefieldTeamDisplay({ team, onSelectPokemon }: Battle
               {/* Pokemon name */}
               <div
                 style={{
-                  fontSize: isCenterPick ? 14 : 12,
-                  fontWeight: 900,
+                  fontSize: 10,
+                  fontWeight: 700,
                   color: '#fff',
                   textTransform: 'uppercase',
                   letterSpacing: '0.05em',
-                  textShadow: '0 2px 8px rgba(0,0,0,0.9), 0 0 4px rgba(0,0,0,0.8)',
-                  padding: '3px 8px',
+                  textShadow: '0 2px 6px rgba(0,0,0,0.9)',
+                  padding: '2px 6px',
                   background: isHovered 
                     ? `linear-gradient(135deg, ${typeColor}dd, ${typeColor}aa)` 
-                    : 'rgba(0,0,0,0.6)',
-                  borderRadius: 6,
-                  border: isHovered ? `2px solid ${typeColor}` : '2px solid rgba(255,255,255,0.2)',
+                    : 'rgba(0,0,0,0.7)',
+                  borderRadius: 4,
+                  border: isHovered ? `1px solid ${typeColor}` : '1px solid rgba(255,255,255,0.2)',
                   backdropFilter: 'blur(4px)',
                   whiteSpace: 'nowrap',
                 }}
               >
                 {creature.name}
               </div>
-
-              {/* Captain badge for center pick */}
-              {isCenterPick && (
-                <motion.div
-                  initial={{ scale: 0, rotate: -180 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  transition={{ delay: 0.3, type: 'spring' }}
-                  style={{
-                    position: 'absolute',
-                    top: -12,
-                    right: -12,
-                    background: 'linear-gradient(135deg, #fbbf24, #f59e0b)',
-                    color: '#000',
-                    fontSize: 16,
-                    width: 32,
-                    height: 32,
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontWeight: 900,
-                    border: '2px solid #fff',
-                    boxShadow: '0 4px 12px rgba(251,191,36,0.6)',
-                  }}
-                >
-                  ⭐
-                </motion.div>
-              )}
             </motion.div>
           )
         })}
