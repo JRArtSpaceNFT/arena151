@@ -7,6 +7,8 @@ import { playMusic, resumeAudioContext } from '@/lib/audio/musicEngine'
 import { CREATURES } from '@/lib/data/creatures'
 import { MOVES } from '@/lib/data/moves'
 import type { PokemonType, Creature } from '@/lib/game-types'
+import BattlefieldTeamDisplay from '@/components/battle/BattlefieldTeamDisplay'
+import PokemonInfoPanel from '@/components/battle/PokemonInfoPanel'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -289,6 +291,7 @@ export default function Draft() {
   const [infoCreature, setInfoCreature] = useState<Creature | null>(null)
   const [draftReveal, setDraftReveal] = useState<{ creatureId: number; creatureName: string; trainerName: string } | null>(null)
   const [hoveredId, setHoveredId] = useState<number | null>(null)
+  const [selectedFieldPokemon, setSelectedFieldPokemon] = useState<Creature | null>(null)
   const typeBarRef = useRef<HTMLDivElement>(null)
 
   // Ordering phase
@@ -1043,170 +1046,31 @@ export default function Draft() {
             flex: '0 0 33%',
             minHeight: 0,
             position: 'relative',
-            overflow: 'auto',
-            background: 'rgba(10,10,20,0.95)',
-            backdropFilter: 'blur(12px)',
-            padding: '24px',
+            overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column',
-            gap: '24px',
           }}>
-            {/* Budget */}
-            <div>
-              <div style={{
-                fontSize: 11,
-                color: '#94a3b8',
-                fontWeight: 600,
-                marginBottom: 8,
-                textTransform: 'uppercase',
-                letterSpacing: '0.1em',
-              }}>
-                Points Remaining
-              </div>
-              <div style={{
-                fontSize: 48,
-                fontWeight: 900,
-                color: currentBudget < 10 ? '#ef4444' : '#fbbf24',
-                fontFamily: 'Impact, monospace, sans-serif',
-                textShadow: currentBudget < 10 ? '0 0 16px #ef4444' : 'none',
-                lineHeight: 1,
-              }}>
-                {currentBudget}
-              </div>
-            </div>
-
-            {/* Team count */}
-            <div>
-              <div style={{
-                fontSize: 11,
-                color: '#94a3b8',
-                fontWeight: 600,
-                marginBottom: 8,
-                textTransform: 'uppercase',
-                letterSpacing: '0.1em',
-              }}>
-                Team
-              </div>
-              <div style={{
-                fontSize: 24,
-                fontWeight: 700,
-                color: draftTeamA.length === TEAM_SIZE ? '#22c55e' : '#fff',
-              }}>
-                {draftTeamA.length} / {TEAM_SIZE}
-              </div>
-            </div>
-
-            {/* Team slots */}
+            {/* Battlefield Display - 60% height */}
             <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 12,
+              flex: '0 0 60%',
+              position: 'relative',
             }}>
-              {draftTeamA.map((creature, idx) => {
-                const typeColor = TYPE_COLORS[creature.types[0]] || '#888'
-                return (
-                  <div
-                    key={creature.id}
-                    style={{
-                      background: `linear-gradient(135deg, ${typeColor}22, ${typeColor}11)`,
-                      border: `2px solid ${typeColor}`,
-                      borderRadius: 12,
-                      padding: 12,
-                      display: 'flex',
-                      gap: 12,
-                      alignItems: 'center',
-                      boxShadow: `0 4px 12px ${typeColor}44`,
-                    }}
-                  >
-                    <img
-                      src={creature.spriteUrl}
-                      alt={creature.name}
-                      style={{
-                        width: 56,
-                        height: 56,
-                        imageRendering: 'pixelated',
-                      }}
-                    />
-                    <div style={{ flex: 1 }}>
-                      <div style={{
-                        fontSize: 14,
-                        fontWeight: 700,
-                        color: typeColor,
-                        marginBottom: 4,
-                      }}>
-                        {creature.name}
-                      </div>
-                      <div style={{
-                        fontSize: 11,
-                        color: '#999',
-                        fontWeight: 600,
-                      }}>
-                        {creature.pointCost} pts • {creature.types.join('/')}
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-              {Array.from({ length: TEAM_SIZE - draftTeamA.length }).map((_, i) => (
-                <div
-                  key={`empty-${i}`}
-                  style={{
-                    background: 'rgba(255,255,255,0.03)',
-                    border: '2px dashed rgba(255,255,255,0.15)',
-                    borderRadius: 12,
-                    padding: 12,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    height: 80,
-                    color: '#555',
-                    fontSize: 12,
-                    fontWeight: 600,
-                  }}
-                >
-                  Slot {draftTeamA.length + i + 1}
-                </div>
-              ))}
+              <BattlefieldTeamDisplay 
+                team={draftTeamA} 
+                onSelectPokemon={setSelectedFieldPokemon}
+              />
             </div>
 
-            {/* Hovered creature detail */}
-            {hoveredId && (() => {
-              const creature = CREATURES.find(c => c.id === hoveredId)
-              if (!creature) return null
-              const typeColor = TYPE_COLORS[creature.types[0]] || '#888'
-              return (
-                <div style={{
-                  background: `linear-gradient(135deg, ${typeColor}22, ${typeColor}11)`,
-                  border: `2px solid ${typeColor}`,
-                  borderRadius: 12,
-                  padding: 16,
-                  marginTop: 'auto',
-                }}>
-                  <div style={{
-                    fontSize: 16,
-                    fontWeight: 700,
-                    color: typeColor,
-                    marginBottom: 8,
-                  }}>
-                    {creature.name}
-                  </div>
-                  <div style={{
-                    fontSize: 12,
-                    color: '#ccc',
-                    marginBottom: 8,
-                  }}>
-                    HP {creature.baseHp} • ATK {creature.baseAtk} • DEF {creature.baseDef} • SPE {creature.baseSpe}
-                  </div>
-                  <div style={{
-                    fontSize: 11,
-                    color: '#999',
-                    fontStyle: 'italic',
-                  }}>
-                    {creature.passive.description}
-                  </div>
-                </div>
-              )
-            })()}
+            {/* Info Panel - 40% height */}
+            <div style={{
+              flex: '0 0 40%',
+              background: 'rgba(10,10,20,0.95)',
+              borderTop: '2px solid rgba(124,58,237,0.3)',
+              padding: '20px',
+              overflowY: 'auto',
+            }}>
+              <PokemonInfoPanel creature={selectedFieldPokemon} />
+            </div>
           </div>
         </div>
 
