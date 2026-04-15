@@ -75,14 +75,18 @@ export default function BattleScreen() {
   const friendSendReaction = useGameStore(s => s.friendBattleSendReaction)
 
   // Expose triggerFn to FriendGameWrapper for opponent reactions
+  // Use ref to avoid infinite loop from triggerFn changing on every render
+  const triggerFnRef = useRef(triggerFn)
   useEffect(() => {
-    if (triggerFn) {
-      useGameStore.setState({ battleReactionTrigger: triggerFn })
-    }
+    triggerFnRef.current = triggerFn
+  }, [triggerFn])
+
+  useEffect(() => {
+    useGameStore.setState({ battleReactionTrigger: triggerFnRef.current })
     return () => {
       useGameStore.setState({ battleReactionTrigger: null })
     }
-  }, [triggerFn])
+  }, [])
 
   useEffect(() => {
     // Music + crowd already started in ArenaReveal when arena locks in
