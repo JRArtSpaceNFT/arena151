@@ -13,6 +13,8 @@ import Lineup from '@/components/battle/Lineup'
 import BattleScreen from '@/components/battle/BattleScreen'
 import EnhancedBattleWrapper from '@/components/battle/EnhancedBattleWrapper'
 import FinalResultsScreen from '@/components/battle/FinalResultsScreen'
+import VictoryScreen from '@/components/battle/VictoryScreen'
+import DefeatScreen from '@/components/battle/DefeatScreen'
 import ResultsScreen from '@/components/battle/ResultsScreen'
 import MoveAnimation from '@/components/battle/MoveAnimation'
 
@@ -230,42 +232,17 @@ export default function GameWrapper() {
           console.log('[GameWrapper] Refresh resume check:', rd.resumePhase, rd.status)
 
           if (rd.resumePhase === 'battle_ready' && rd.teamA && rd.teamB && rd.battleSeed) {
-            // Both players joined — compute battle and jump to battle screen directly.
-            // Skip trainer_select, draft, lineup entirely.
-            const { resolveBattle, createActiveCreature } = await import('@/lib/engine/battle')
-            const { mulberry32, seedFromMatchId } = await import('@/lib/engine/prng')
-            const { ARENAS } = await import('@/lib/data/arenas')
-            const { TRAINERS } = await import('@/lib/data/trainers')
-
+            // Both players joined — set game mode and show arena reveal.
+            // ArenaReveal will handle all hydration, battle computation, and transition.
             const seed = rd.battleSeed as string
-            const teamA = (rd.teamA as number[]).map((id: number) => createActiveCreature(id))
-            const teamB = (rd.teamB as number[]).map((id: number) => createActiveCreature(id))
-            const seedNum = Math.abs(seed.split('').reduce((h: number, c: string) => Math.imul(h, 31) + c.charCodeAt(0) | 0, 0))
-            const arena = ARENAS[seedNum % ARENAS.length]
-            const tSeedA = Math.abs((seedNum * 7 + 3) % TRAINERS.length)
-            const tSeedB_raw = Math.abs((seedNum * 13 + 7) % TRAINERS.length)
-            const tSeedB = tSeedB_raw !== tSeedA ? tSeedB_raw : (tSeedB_raw + 1) % TRAINERS.length
-            const trainerA = TRAINERS[tSeedA]
-            const trainerB = TRAINERS[tSeedB]
-            const rng = mulberry32(seedFromMatchId(seed))
-            const battleState = resolveBattle(teamA, teamB, arena, trainerA, trainerB, rng)
-
-            // Set server match seed in case it changed
             setServerMatch(serverMatchId, seed)
 
-            // Apply state and jump to battle — no need to go through trainer_select
             const gameStore = (await import('@/lib/game-store')).useGameStore
             gameStore.setState({
               gameMode: 'paid_pvp',
-              p1Trainer: trainerA,
-              p2Trainer: trainerB,
-              lineupA: teamA,
-              lineupB: teamB,
-              arena,
-              battleState,
-              screen: 'battle',
+              screen: 'arena_reveal',  // ✅ ArenaReveal handles everything from here!
             })
-            console.log('[GameWrapper] Resumed battle directly after refresh. Winner:', battleState.winner)
+            console.log('[GameWrapper] Match ready — showing arena reveal ceremony')
             return
           }
 
@@ -452,6 +429,8 @@ export default function GameWrapper() {
     arena_reveal: <ArenaReveal />,
     pretalk: <PreBattleTalk />,
     battle: <EnhancedBattleWrapper><BattleScreen /></EnhancedBattleWrapper>,
+    victory: <VictoryScreen />,
+    defeat: <DefeatScreen />,
     result: <FinalResultsScreen />,
   }
 
