@@ -148,12 +148,19 @@ html, body {
     overflow: hidden !important;
   }
   
-  /* Sprites: half of desktop size on mobile — desktop is 340px so target ~140-160px */
+  /* Pokemon sprites: bigger on mobile */
   [data-battle-sprite] {
-    width: clamp(100px, 20dvh, 155px) !important;
-    height: clamp(100px, 20dvh, 155px) !important;
+    width: clamp(140px, 28dvh, 200px) !important;
+    height: clamp(140px, 28dvh, 200px) !important;
     margin-top: 0 !important;
     max-width: 100% !important;
+  }
+  
+  /* Trainer sprites: much smaller on mobile */
+  [data-trainer-sprite] {
+    width: clamp(60px, 12dvh, 90px) !important;
+    height: clamp(60px, 12dvh, 90px) !important;
+    max-width: 90px !important;
   }
   
   /* Creature name */

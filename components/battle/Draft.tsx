@@ -104,9 +104,9 @@ const GLOBAL_CSS = `
   .draft-order-slots {
     flex-wrap: nowrap !important;
     gap: 6px !important;
-    justify-content: flex-start !important;
+    justify-content: center !important;
     padding: 0 !important;
-    flex: 1 !important;
+    flex: 0 1 auto !important;
     overflow-x: auto !important;
   }
   .draft-order-card { width: 60px !important; height: 60px !important; border-radius: 10px !important; }
@@ -118,6 +118,7 @@ const GLOBAL_CSS = `
     align-items: center !important;
     gap: 8px !important;
     flex-shrink: 0 !important;
+    flex: 0 1 auto !important;
   }
   .draft-order-confirm {
     margin-top: 0 !important;

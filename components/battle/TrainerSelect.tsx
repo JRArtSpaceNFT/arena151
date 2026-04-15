@@ -494,11 +494,14 @@ export default function TrainerSelect() {
             min-height: 0 !important;
           }
           
-          /* Sprite column: wider so sprite is actually visible */
+          /* Sprite column: centered on mobile */
           .ts-dossier-sprite-col {
-            width: 140px !important;
-            min-width: 140px !important;
+            width: 100% !important;
+            min-width: 100% !important;
             flex-shrink: 0 !important;
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
           }
           
           /* Sprite: proper size */
