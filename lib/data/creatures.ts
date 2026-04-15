@@ -208,7 +208,7 @@ export const CREATURES: Creature[] = [
   // 142 Aerodactyl
   { id: 142, name: 'Aerodactyl', types: ['rock','flying'], pointCost: 19, baseHp: 140, baseAtk: 105, baseDef: 65, baseSpe: 130, passive: P('pressure_a','Pressure','Enemy PP drains faster (each move costs double).','pp_drain',0.0), movePool: ['wing_attack', 'ancient_power', 'bite', 'crunch', 'sky_attack', 'stone_edge'], spriteUrl: S(142) },
   // 143 Snorlax
-  { id: 143, name: 'Snorlax',   types: ['normal'], pointCost: 21, baseHp: 155, baseAtk: 100, baseDef: 65, baseSpe: 30, passive: P('thick_fat_sl','Thick Fat','Reduces Fire and Ice damage by 8%.','thick_fat_strong',0.08), movePool: ['body_slam','hyper_beam','earthquake','crunch','rest','amnesia'], spriteUrl: S(143) },
+  { id: 143, name: 'Snorlax',   types: ['normal'], pointCost: 21, baseHp: 155, baseAtk: 100, baseDef: 65, baseSpe: 30, passive: P('thick_fat_sl','Thick Fat','Reduces Fire and Ice damage by 8%.','thick_fat_strong',0.08), movePool: ['body_slam','hyper_beam','earthquake','crunch','rest'], spriteUrl: S(143) },
   // 144-146 Legendaries
   { id: 144, name: 'Articuno',  types: ['ice','flying'], pointCost: 23, baseHp: 175, baseAtk: 85, baseDef: 100, baseSpe: 85, passive: P('pressure_ar','Pressure','Enemy costs double per move.','pp_drain',0.0), movePool: ['blizzard','ice_beam','hurricane','sky_attack','freeze_dry','calm_mind'], spriteUrl: S(144) },
   { id: 145, name: 'Zapdos',    types: ['electric','flying'], pointCost: 23, baseHp: 165, baseAtk: 90, baseDef: 85, baseSpe: 100, passive: P('static3','Static','10% paralyze on contact, +5% speed.','static_spd',0.10), movePool: ['thunderbolt','thunder','discharge','sky_attack','hurricane','thunder_surge'], spriteUrl: S(145) },
