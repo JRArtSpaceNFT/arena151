@@ -138,12 +138,23 @@ export default function VictoryScreen() {
     }}>
 
       {/* ── Background image — trainer-specific ── */}
-      <div style={{
-        position: 'absolute', inset: 0,
-        backgroundImage: `url(${victoryBackground})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-      }} />
+      <img
+        src={victoryBackground}
+        alt="Victory background"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          objectPosition: 'center',
+        }}
+        onError={(e) => {
+          console.error('[VictoryScreen] Background image failed to load:', victoryBackground)
+          e.currentTarget.style.display = 'none'
+        }}
+        onLoad={() => console.log('[VictoryScreen] Background loaded successfully:', victoryBackground)}
+      />
 
       {/* Dark overlay for legibility */}
       <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.45)' }} />

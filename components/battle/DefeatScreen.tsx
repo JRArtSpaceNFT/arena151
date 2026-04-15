@@ -54,15 +54,26 @@ export default function DefeatScreen() {
     <div style={{ height: '100dvh', maxHeight: '100dvh', position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 'clamp(14px,2vh,28px) 20px clamp(16px,2.5vh,32px)', overflow: 'hidden' }}>
 
       {/* ── Battlefield background — winner's celebration (you lost to them) ── */}
-      <div style={{
-        position: 'fixed', inset: 0,
-        backgroundImage: `url(${defeatBackground})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        opacity: 0.35,
-        filter: 'brightness(0.4) saturate(0.6)',
-        zIndex: 0,
-      }} />
+      <img
+        src={defeatBackground}
+        alt="Defeat background"
+        style={{
+          position: 'fixed',
+          inset: 0,
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          objectPosition: 'center',
+          opacity: 0.35,
+          filter: 'brightness(0.4) saturate(0.6)',
+          zIndex: 0,
+        }}
+        onError={(e) => {
+          console.error('[DefeatScreen] Background image failed to load:', defeatBackground)
+          e.currentTarget.style.display = 'none'
+        }}
+        onLoad={() => console.log('[DefeatScreen] Background loaded successfully:', defeatBackground)}
+      />
 
       {/* Dark red overlay - LIGHTER so arena shows through */}
       <div style={{ position: 'fixed', inset: 0, background: 'linear-gradient(160deg,rgba(18,0,10,0.5) 0%,rgba(10,0,15,0.6) 50%,rgba(6,0,6,0.7) 100%)', zIndex: 1 }} />
