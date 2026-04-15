@@ -107,16 +107,14 @@ export default function ArenaReveal() {
     const entryFee = currentMatch?.room?.entryFee ?? 0
     const isPaidMatch = entryFee > 0
 
-    // FIX 5: Friend battle — skip the 4.5s delay entirely.
-    // FriendGameWrapper handles battle computation via lineup_locked sync.
-    // proceedFromArenaReveal is a no-op in friend_battle mode anyway,
-    // but we also skip the 4.5s wait to avoid wasting time.
+    // Friend battle: Let the animation play but don't call proceedFromArenaReveal.
+    // FriendGameWrapper handles battle computation and screen transition via lineup_locked sync.
     const { useGameStore: gs } = require('@/lib/game-store') as { useGameStore: typeof import('@/lib/game-store').useGameStore }
     const isFriendBattle = gs.getState().gameMode === 'friend_battle'
 
     if (isFriendBattle) {
-      // FriendGameWrapper computes and sets screen='battle' directly after lineup sync.
-      // Nothing to do here — just let the ArenaReveal visuals play.
+      // Animation plays normally, FriendGameWrapper will transition to battle when ready
+      // (no 4.5s delay, no proceedFromArenaReveal call)
       return
     }
 

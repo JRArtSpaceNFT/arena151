@@ -621,13 +621,20 @@ export default function BattleScreen() {
       }, Math.max(40, Math.round(700 / spd)))
     }
 
-    // Ditto transform reveal — clear the override for the active slot to reveal new form
+    // Ditto transform reveal — set the new sprite explicitly
     if ((entry as any).dittoRevealSide) {
       const revealSide = (entry as any).dittoRevealSide as 'A' | 'B'
-      if (revealSide === 'A') {
-        setSpriteOverridesA(prev => { const n = { ...prev }; delete n[activeA]; return n })
-      } else {
-        setSpriteOverridesB(prev => { const n = { ...prev }; delete n[activeB]; return n })
+      const newSprite = (entry as any).dittoRevealSprite as string | undefined
+      console.log('[BattleScreen] 🌀 Ditto transform detected!', { revealSide, newSprite, activeA, activeB })
+      
+      if (newSprite) {
+        if (revealSide === 'A') {
+          setSpriteOverridesA(prev => ({ ...prev, [activeA]: newSprite }))
+          console.log('[BattleScreen] ✅ Set sprite override A[' + activeA + ']:', newSprite)
+        } else {
+          setSpriteOverridesB(prev => ({ ...prev, [activeB]: newSprite }))
+          console.log('[BattleScreen] ✅ Set sprite override B[' + activeB + ']:', newSprite)
+        }
       }
     }
 

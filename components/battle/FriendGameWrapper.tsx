@@ -379,30 +379,24 @@ export default function FriendGameWrapper() {
       }
 
       console.log('[FriendBattle] ✅ Battle computed. Canonical winner:', canonBattle.winner, '| I won:', iWon, '| Display winner:', displayWinner)
-      console.log('[FriendBattle] 🚀 Transitioning to battle screen NOW')
-
-      // Set all state in one atomic update to prevent race conditions
-      const newState = {
-        p1Trainer: myTrainer,    // always MY trainer on MY screen
-        p2Trainer: oppTrainer,   // always OPPONENT's trainer on MY screen
-        lineupA:   amPlayerA ? canonTeamA : canonTeamB,  // my team always in slot A
-        lineupB:   amPlayerA ? canonTeamB : canonTeamA,  // opponent always in slot B
+      
+      // Set battle data (but keep screen='arena_reveal' to let animation finish)
+      useGameStore.setState({
+        p1Trainer: myTrainer,
+        p2Trainer: oppTrainer,
+        lineupA:   amPlayerA ? canonTeamA : canonTeamB,
+        lineupB:   amPlayerA ? canonTeamB : canonTeamA,
         arena,
         battleState: displayBattle,
-        screen: 'battle' as const,
-      }
+        // screen stays 'arena_reveal' - will transition after animation
+      })
       
-      useGameStore.setState(newState)
-      
-      // Force re-render by checking screen state
+      // Wait 8 seconds for arena animation to complete, then transition to battle
+      console.log('[FriendBattle] ⏳ Waiting for arena animation to finish (8s)...')
       setTimeout(() => {
-        const currentScreen = useGameStore.getState().screen
-        console.log('[FriendBattle] ✅ Screen confirmed:', currentScreen)
-        if (currentScreen !== 'battle') {
-          console.error('[FriendBattle] ⚠️ Screen stuck at', currentScreen, '- forcing battle screen')
-          useGameStore.setState({ screen: 'battle' })
-        }
-      }, 100)
+        console.log('[FriendBattle] 🚀 Arena animation complete - transitioning to battle')
+        useGameStore.setState({ screen: 'battle' })
+      }, 8000)
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameScreen])
