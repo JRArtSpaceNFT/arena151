@@ -33,6 +33,7 @@ export default function ArenaApp() {
   // Restore active paid match from sessionStorage on page load.
   // Prevents refresh from creating a duplicate match and locking funds twice.
   useEffect(() => {
+    if (typeof window === 'undefined') return // SSR guard
     if (serverMatchId) return // already set (no-op)
     const savedMatchId = sessionStorage.getItem('arena_matchId')
     const savedSeed    = sessionStorage.getItem('arena_seed')
