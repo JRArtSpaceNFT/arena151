@@ -726,17 +726,17 @@ export default function Draft() {
         <div style={{
           flex: 1,
           display: 'flex',
-          flexDirection: 'column',
+          flexDirection: 'row',
           minHeight: 0,
         }}>
 
-          {/* ══ ZONE 2 — ROSTER (55%) ══ */}
+          {/* ══ ZONE 2 — ROSTER (67%) ══ */}
           <div className="draft-zone2" style={{
-            flex: '0 0 55%',
+            flex: '0 0 67%',
             minHeight: 0,
             display: 'flex',
             flexDirection: 'column',
-            borderBottom: '2px solid #0f0f1a',
+            borderRight: '2px solid #0f0f1a',
             position: 'relative',
             transition: 'opacity 0.4s',
           }}>
@@ -1038,12 +1038,17 @@ export default function Draft() {
             </div>
           </div>
 
-          {/* ══ ZONE 3 — BATTLEFIELD (45%) ══ */}
+          {/* ══ ZONE 3 — TEAM PANEL (33%) ══ */}
           <div className="draft-zone3" style={{
-            flex: '0 0 45%',
+            flex: '0 0 33%',
             minHeight: 0,
             position: 'relative',
-            overflow: 'hidden',
+            overflow: 'auto',
+            background: 'rgba(10,10,20,0.95)',
+            padding: '24px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '20px',
           }}>
             {/* Battlefield background image */}
             <img
