@@ -1045,104 +1045,168 @@ export default function Draft() {
             position: 'relative',
             overflow: 'auto',
             background: 'rgba(10,10,20,0.95)',
+            backdropFilter: 'blur(12px)',
             padding: '24px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '20px',
+            gap: '24px',
           }}>
-            {/* Battlefield background image */}
-            <img
-              src="/BD1.webp"
-              alt=""
-              aria-hidden="true"
-              style={{
-                position: 'absolute',
-                inset: 0,
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                objectPosition: 'center bottom',
-                zIndex: 0,
-                pointerEvents: 'none',
-              }}
-            />
-            {/* Subtle dark overlay so Pokémon pop */}
-            <div style={{
-              position: 'absolute',
-              inset: 0,
-              background: 'rgba(0,0,0,0.15)',
-              zIndex: 1,
-              pointerEvents: 'none',
-            }} />
-
-
-
-            {/* Pokémon lineup or placeholder */}
-            <div style={{
-              position: 'absolute',
-              inset: 0,
-              bottom: 12,
-              zIndex: 4,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'flex-end',
-            }}>
-              {draftTeamA.length === 0 ? null : (
-                /* ── NORMAL DRAFT MODE: standard lineup ── */
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'flex-end',
-                  gap: 0,
-                  paddingBottom: 4,
-                  paddingLeft: 0,
-                  paddingRight: 0,
-                  width: '100%',
-                  justifyContent: 'space-around',
-                }}>
-                  {/* Filled slots */}
-                  {draftTeamA.map((c, i) => (
-                    <BattlefieldPokemon key={c.id} creature={c} index={i} />
-                  ))}
-                  {/* Empty slots */}
-                  {Array.from({ length: TEAM_SIZE - draftTeamA.length }).map((_, i) => (
-                    <div key={`empty-${i}`} style={{
-                      width: 64,
-                      height: 64,
-                      border: '2px dashed rgba(255,255,255,0.12)',
-                      borderRadius: '50%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: 'rgba(255,255,255,0.12)',
-                      fontSize: 20,
-                      flexShrink: 0,
-                    }}>?</div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Player name label */}
-            <div style={{
-              position: 'absolute',
-              top: 10,
-              left: 16,
-              zIndex: 5,
-            }}>
+            {/* Budget */}
+            <div>
               <div style={{
-                background: 'rgba(0,0,0,0.45)',
-                border: '1px solid rgba(124,58,237,0.4)',
-                borderRadius: 6,
-                padding: '4px 10px',
                 fontSize: 11,
-                fontWeight: 700,
-                color: '#b39dfa',
-                letterSpacing: '0.06em',
+                color: '#94a3b8',
+                fontWeight: 600,
+                marginBottom: 8,
+                textTransform: 'uppercase',
+                letterSpacing: '0.1em',
               }}>
-                ⚔ {p1Trainer?.name ?? 'YOUR TEAM'}
+                Points Remaining
+              </div>
+              <div style={{
+                fontSize: 48,
+                fontWeight: 900,
+                color: currentBudget < 10 ? '#ef4444' : '#fbbf24',
+                fontFamily: 'Impact, monospace, sans-serif',
+                textShadow: currentBudget < 10 ? '0 0 16px #ef4444' : 'none',
+                lineHeight: 1,
+              }}>
+                {currentBudget}
               </div>
             </div>
+
+            {/* Team count */}
+            <div>
+              <div style={{
+                fontSize: 11,
+                color: '#94a3b8',
+                fontWeight: 600,
+                marginBottom: 8,
+                textTransform: 'uppercase',
+                letterSpacing: '0.1em',
+              }}>
+                Team
+              </div>
+              <div style={{
+                fontSize: 24,
+                fontWeight: 700,
+                color: draftTeamA.length === TEAM_SIZE ? '#22c55e' : '#fff',
+              }}>
+                {draftTeamA.length} / {TEAM_SIZE}
+              </div>
+            </div>
+
+            {/* Team slots */}
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12,
+            }}>
+              {draftTeamA.map((creature, idx) => {
+                const typeColor = TYPE_COLORS[creature.types[0]] || '#888'
+                return (
+                  <div
+                    key={creature.id}
+                    style={{
+                      background: `linear-gradient(135deg, ${typeColor}22, ${typeColor}11)`,
+                      border: `2px solid ${typeColor}`,
+                      borderRadius: 12,
+                      padding: 12,
+                      display: 'flex',
+                      gap: 12,
+                      alignItems: 'center',
+                      boxShadow: `0 4px 12px ${typeColor}44`,
+                    }}
+                  >
+                    <img
+                      src={creature.spriteUrl}
+                      alt={creature.name}
+                      style={{
+                        width: 56,
+                        height: 56,
+                        imageRendering: 'pixelated',
+                      }}
+                    />
+                    <div style={{ flex: 1 }}>
+                      <div style={{
+                        fontSize: 14,
+                        fontWeight: 700,
+                        color: typeColor,
+                        marginBottom: 4,
+                      }}>
+                        {creature.name}
+                      </div>
+                      <div style={{
+                        fontSize: 11,
+                        color: '#999',
+                        fontWeight: 600,
+                      }}>
+                        {creature.pointCost} pts • {creature.types.join('/')}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+              {Array.from({ length: TEAM_SIZE - draftTeamA.length }).map((_, i) => (
+                <div
+                  key={`empty-${i}`}
+                  style={{
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '2px dashed rgba(255,255,255,0.15)',
+                    borderRadius: 12,
+                    padding: 12,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    height: 80,
+                    color: '#555',
+                    fontSize: 12,
+                    fontWeight: 600,
+                  }}
+                >
+                  Slot {draftTeamA.length + i + 1}
+                </div>
+              ))}
+            </div>
+
+            {/* Hovered creature detail */}
+            {hoveredId && (() => {
+              const creature = CREATURES.find(c => c.id === hoveredId)
+              if (!creature) return null
+              const typeColor = TYPE_COLORS[creature.types[0]] || '#888'
+              return (
+                <div style={{
+                  background: `linear-gradient(135deg, ${typeColor}22, ${typeColor}11)`,
+                  border: `2px solid ${typeColor}`,
+                  borderRadius: 12,
+                  padding: 16,
+                  marginTop: 'auto',
+                }}>
+                  <div style={{
+                    fontSize: 16,
+                    fontWeight: 700,
+                    color: typeColor,
+                    marginBottom: 8,
+                  }}>
+                    {creature.name}
+                  </div>
+                  <div style={{
+                    fontSize: 12,
+                    color: '#ccc',
+                    marginBottom: 8,
+                  }}>
+                    HP {creature.baseHp} • ATK {creature.baseAtk} • DEF {creature.baseDef} • SPE {creature.baseSpe}
+                  </div>
+                  <div style={{
+                    fontSize: 11,
+                    color: '#999',
+                    fontStyle: 'italic',
+                  }}>
+                    {creature.passive.description}
+                  </div>
+                </div>
+              )
+            })()}
           </div>
         </div>
 
