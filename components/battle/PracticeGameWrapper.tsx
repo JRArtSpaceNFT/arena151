@@ -75,7 +75,6 @@ function BattleAnimOverlay() {
 export default function PracticeGameWrapper() {
   const gameScreen = useGameStore(s => s.screen)
   const setGameMode = useGameStore(s => s.setGameMode)
-  const playAgain = useGameStore(s => s.playAgain)
   const matchResults = useGameStore(s => s.matchResults)
   const { setScreen } = useArenaStore()
 
@@ -84,7 +83,8 @@ export default function PracticeGameWrapper() {
   useEffect(() => {
     if (initialized.current) return
     initialized.current = true
-    playAgain()
+    // Don't call playAgain() - it sets screen to 'home' which triggers parent updates.
+    // Instead, directly initialize practice mode:
     setGameMode('practice')
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
