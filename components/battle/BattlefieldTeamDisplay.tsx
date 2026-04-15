@@ -18,13 +18,13 @@ interface FieldPosition {
 }
 
 // Position mapping: 1st = center, 2nd = bottom-left, 3rd = bottom-right, 4th = top-left, 5th = top-right
-// MOVED UP: y values reduced by 10-15% to give more space at bottom
+// Adjusted to prevent edge squishing
 const POSITIONS: FieldPosition[] = [
-  { x: '50%', y: '40%', scale: 1.0 },    // 1st pick: CENTER (moved up)
-  { x: '15%', y: '65%', scale: 1.0 },    // 2nd pick: BOTTOM LEFT (moved up)
-  { x: '85%', y: '65%', scale: 1.0 },    // 3rd pick: BOTTOM RIGHT (moved up)
-  { x: '15%', y: '15%', scale: 1.0 },    // 4th pick: TOP LEFT (moved up)
-  { x: '85%', y: '15%', scale: 1.0 },    // 5th pick: TOP RIGHT (moved up)
+  { x: '50%', y: '42%', scale: 1.0 },    // 1st pick: CENTER
+  { x: '20%', y: '70%', scale: 1.0 },    // 2nd pick: BOTTOM LEFT
+  { x: '80%', y: '70%', scale: 1.0 },    // 3rd pick: BOTTOM RIGHT (was 85%, now 80%)
+  { x: '20%', y: '18%', scale: 1.0 },    // 4th pick: TOP LEFT
+  { x: '80%', y: '18%', scale: 1.0 },    // 5th pick: TOP RIGHT
 ]
 
 interface BattlefieldTeamDisplayProps {

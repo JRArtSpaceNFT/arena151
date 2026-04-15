@@ -294,6 +294,13 @@ export default function Draft() {
   const [selectedFieldPokemon, setSelectedFieldPokemon] = useState<Creature | null>(null)
   const typeBarRef = useRef<HTMLDivElement>(null)
 
+  // Auto-select first Pokémon when team changes (so info panel is always scrollable)
+  useEffect(() => {
+    if (draftTeamA.length > 0 && !selectedFieldPokemon) {
+      setSelectedFieldPokemon(draftTeamA[0])
+    }
+  }, [draftTeamA, selectedFieldPokemon])
+
   // Ordering phase
   const [isOrdering, setIsOrdering] = useState(false)
   const [selectedOrderIdx, setSelectedOrderIdx] = useState<number | null>(null)
