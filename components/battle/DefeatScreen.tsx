@@ -33,6 +33,13 @@ export default function DefeatScreen() {
     else navigateTo('result')
   }
 
+  console.log('[DefeatScreen] Rendering', {
+    winner: battleState?.winner,
+    p1Trainer: p1Trainer?.id,
+    p2Trainer: p2Trainer?.id,
+    arena: arena?.name
+  })
+
   // FIXED: Show the loser's background, not the winner's!
   // If winner is A → loser is P2 → show P2's (opponent's) sprite
   // If winner is B → loser is P1 → show P1's (player's) sprite
@@ -41,6 +48,7 @@ export default function DefeatScreen() {
   const winnerTrainer = battleState?.winner === 'A' ? p1Trainer : p2Trainer
   const arenaImage = arena?.image ?? null
   const defeatBackground = getResultBackground(winnerTrainer?.id, 'victory')
+  console.log('[DefeatScreen] Background resolved:', defeatBackground)
 
   return (
     <div style={{ height: '100dvh', maxHeight: '100dvh', position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 'clamp(14px,2vh,28px) 20px clamp(16px,2.5vh,32px)', overflow: 'hidden' }}>

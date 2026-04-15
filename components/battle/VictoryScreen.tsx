@@ -88,9 +88,20 @@ export default function VictoryScreen() {
     return () => clearInterval(iv)
   }, [showQuote, quote])
 
-  if (!winnerTrainer) return null
+  console.log('[VictoryScreen] Rendering', { 
+    winnerTrainer: winnerTrainer?.id,
+    winner: battleState?.winner,
+    p1Trainer: p1Trainer?.id,
+    p2Trainer: p2Trainer?.id 
+  })
+
+  if (!winnerTrainer) {
+    console.error('[VictoryScreen] No winner trainer!', { battleState, p1Trainer, p2Trainer })
+    return null
+  }
   const wColor = winnerTrainer.color
   const victoryBackground = getResultBackground(winnerTrainer.id, 'victory')
+  console.log('[VictoryScreen] Background resolved:', victoryBackground)
 
   const OVERRIDES: Record<string, { height?: string; left?: string; bottom?: string }> = {
     'gary':        { height: '50vh', left: '41%' },
