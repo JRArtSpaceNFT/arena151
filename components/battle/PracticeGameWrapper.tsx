@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useGameStore } from '@/lib/game-store'
 import { useArenaStore } from '@/lib/store'
+import { preloadResultBackgrounds } from '@/lib/resultBackgrounds'
 import TrainerSelect from '@/components/battle/TrainerSelect'
 import { BattleTrainerBusts } from '@/components/battle/GameWrapper'
 import Draft from '@/components/battle/Draft'
@@ -76,6 +77,8 @@ export default function PracticeGameWrapper() {
   const gameScreen = useGameStore(s => s.screen)
   const setGameMode = useGameStore(s => s.setGameMode)
   const matchResults = useGameStore(s => s.matchResults)
+  const p1Trainer = useGameStore(s => s.p1Trainer)
+  const p2Trainer = useGameStore(s => s.p2Trainer)
   const { setScreen } = useArenaStore()
 
   const initialized = useRef(false)
@@ -88,6 +91,14 @@ export default function PracticeGameWrapper() {
     setGameMode('practice')
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Preload result backgrounds when trainers are selected
+  useEffect(() => {
+    const trainerIds = [p1Trainer?.id, p2Trainer?.id].filter(Boolean) as string[]
+    if (trainerIds.length > 0) {
+      preloadResultBackgrounds(trainerIds)
+    }
+  }, [p1Trainer, p2Trainer])
 
   const prevScreen = useRef(gameScreen)
   const lastMatchResultsRef = useRef(matchResults)

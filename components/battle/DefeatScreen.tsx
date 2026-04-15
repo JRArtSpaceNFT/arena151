@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useGameStore } from '@/lib/game-store'
 import { playMusic } from '@/lib/audio/musicEngine'
+import { getResultBackground } from '@/lib/resultBackgrounds'
 
 const DEFEAT_LINES = [
   "Your team fought bravely, but this battle was not yours.",
@@ -39,6 +40,7 @@ export default function DefeatScreen() {
   // For defeat screen, show the WINNER's victory celebration background (they won)
   const winnerTrainer = battleState?.winner === 'A' ? p1Trainer : p2Trainer
   const arenaImage = arena?.image ?? null
+  const defeatBackground = getResultBackground(winnerTrainer?.id, 'victory')
 
   return (
     <div style={{ height: '100dvh', maxHeight: '100dvh', position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 'clamp(14px,2vh,28px) 20px clamp(16px,2.5vh,32px)', overflow: 'hidden' }}>
@@ -46,7 +48,7 @@ export default function DefeatScreen() {
       {/* ── Battlefield background — winner's celebration (you lost to them) ── */}
       <div style={{
         position: 'fixed', inset: 0,
-        backgroundImage: winnerTrainer ? `url(/trainer-results/${winnerTrainer.id}-win.png)` : `url(${arenaImage})`,
+        backgroundImage: `url(${defeatBackground})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         opacity: 0.35,

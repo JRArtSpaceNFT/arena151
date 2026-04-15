@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useGameStore } from '@/lib/game-store'
 import { useArenaStore } from '@/lib/store'
 import { supabase } from '@/lib/supabase'
+import { preloadResultBackgrounds } from '@/lib/resultBackgrounds'
 import TrainerSelect from '@/components/battle/TrainerSelect'
 import Draft from '@/components/battle/Draft'
 import CoinToss from '@/components/battle/CoinToss'
@@ -187,6 +188,8 @@ export default function GameWrapper() {
   const gameMode = useGameStore(s => s.gameMode)
   const battleState = useGameStore(s => s.battleState)
   const lineupA = useGameStore(s => s.lineupA)
+  const p1Trainer = useGameStore(s => s.p1Trainer)
+  const p2Trainer = useGameStore(s => s.p2Trainer)
 
   const {
     setScreen, setLastMatchWinner,
@@ -284,6 +287,14 @@ export default function GameWrapper() {
     setGameMode('paid_pvp')
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Preload result backgrounds when trainers are selected
+  useEffect(() => {
+    const trainerIds = [p1Trainer?.id, p2Trainer?.id].filter(Boolean) as string[]
+    if (trainerIds.length > 0) {
+      preloadResultBackgrounds(trainerIds)
+    }
+  }, [p1Trainer, p2Trainer])
 
   // Watch for game returning to 'home' (playAgain was called from ResultsScreen)
   // At that point, redirect to arena151's result screen.

@@ -5,6 +5,7 @@ import { useGameStore } from '@/lib/game-store'
 import { useArenaStore } from '@/lib/store'
 import { playMusic } from '@/lib/audio/musicEngine'
 import { incrementBattlesTotal, addBattleToLog } from '@/lib/battleStats'
+import { getResultBackground } from '@/lib/resultBackgrounds'
 
 function SpeedLines({ color }: { color: string }) {
   return (
@@ -89,6 +90,7 @@ export default function VictoryScreen() {
 
   if (!winnerTrainer) return null
   const wColor = winnerTrainer.color
+  const victoryBackground = getResultBackground(winnerTrainer.id, 'victory')
 
   const OVERRIDES: Record<string, { height?: string; left?: string; bottom?: string }> = {
     'gary':        { height: '50vh', left: '41%' },
@@ -127,7 +129,7 @@ export default function VictoryScreen() {
       {/* ── Background image — trainer-specific ── */}
       <div style={{
         position: 'absolute', inset: 0,
-        backgroundImage: `url(/trainer-results/${winnerTrainer.id}-win.png)`,
+        backgroundImage: `url(${victoryBackground})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
       }} />
