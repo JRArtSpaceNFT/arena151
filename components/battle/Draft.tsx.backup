@@ -831,8 +831,8 @@ export default function Draft() {
             }}>
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
-                gap: 12,
+                gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))',
+                gap: 8,
                 alignContent: 'start',
               }}>
                 {filteredCreatures.map(creature => {
@@ -863,7 +863,7 @@ export default function Draft() {
                       }}
                       style={{
                         width: '100%',
-                        height: 140,
+                        height: 110,
                         background: isDrafted ? '#0a0a12' : isHovered ? '#1a1a2e' : '#0f0f1a',
                         border: isDrafted
                           ? `2px solid ${typeColor}`
@@ -931,8 +931,8 @@ export default function Draft() {
 
                       {/* Sprite */}
                       <div style={{
-                        width: 90,
-                        height: 90,
+                        width: 72,
+                        height: 72,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
