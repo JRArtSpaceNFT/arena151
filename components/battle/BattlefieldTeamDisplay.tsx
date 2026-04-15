@@ -18,13 +18,13 @@ interface FieldPosition {
 }
 
 // Position mapping: 1st = center, 2nd = bottom-left, 3rd = bottom-right, 4th = top-left, 5th = top-right
-// Adjusted to prevent edge squishing
+// Moved UP and LEFT to prevent squishing
 const POSITIONS: FieldPosition[] = [
-  { x: '50%', y: '42%', scale: 1.0 },    // 1st pick: CENTER
-  { x: '20%', y: '70%', scale: 1.0 },    // 2nd pick: BOTTOM LEFT
-  { x: '80%', y: '70%', scale: 1.0 },    // 3rd pick: BOTTOM RIGHT (was 85%, now 80%)
-  { x: '20%', y: '18%', scale: 1.0 },    // 4th pick: TOP LEFT
-  { x: '80%', y: '18%', scale: 1.0 },    // 5th pick: TOP RIGHT
+  { x: '42%', y: '35%', scale: 1.0 },    // 1st pick: CENTER (moved left + up)
+  { x: '15%', y: '60%', scale: 1.0 },    // 2nd pick: BOTTOM LEFT (moved up)
+  { x: '70%', y: '60%', scale: 1.0 },    // 3rd pick: BOTTOM RIGHT (moved left + up)
+  { x: '15%', y: '12%', scale: 1.0 },    // 4th pick: TOP LEFT (moved up)
+  { x: '70%', y: '12%', scale: 1.0 },    // 5th pick: TOP RIGHT (moved left + up)
 ]
 
 interface BattlefieldTeamDisplayProps {
@@ -80,11 +80,9 @@ export default function BattlefieldTeamDisplay({ team, onSelectPokemon }: Battle
               whileHover={{ scale: 1.08, y: -6 }}
               onMouseEnter={() => {
                 setHoveredId(creature.id)
-                onSelectPokemon?.(creature)
               }}
               onMouseLeave={() => {
                 setHoveredId(null)
-                onSelectPokemon?.(null)
               }}
               onClick={() => onSelectPokemon?.(creature)}
               style={{
