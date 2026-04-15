@@ -71,6 +71,18 @@ export default function BattleScreen() {
 
   // Hype reactions system
   const { triggerFn, handleMount } = useHypeReactions()
+  const gameMode = useGameStore(s => s.gameMode)
+  const friendSendReaction = useGameStore(s => s.friendBattleSendReaction)
+
+  // Expose triggerFn to FriendGameWrapper for opponent reactions
+  useEffect(() => {
+    if (triggerFn) {
+      useGameStore.setState({ battleReactionTrigger: triggerFn })
+    }
+    return () => {
+      useGameStore.setState({ battleReactionTrigger: null })
+    }
+  }, [triggerFn])
 
   useEffect(() => {
     // Music + crowd already started in ArenaReveal when arena locks in
@@ -1426,7 +1438,14 @@ export default function BattleScreen() {
         }}>
           <HypeControlPanel
             side="A"
-            onTrigger={triggerFn}
+            onTrigger={(side, type, content) => {
+              // Trigger local animation immediately
+              triggerFn(side, type, content)
+              // If in Friend Battle, also send to server
+              if (gameMode === 'friend_battle' && friendSendReaction) {
+                friendSendReaction(type, content || '')
+              }
+            }}
           />
         </div>
       )}

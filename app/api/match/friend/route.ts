@@ -460,6 +460,94 @@ export async function POST(req: NextRequest) {
       })
     }
 
+    // ── SEND_REACTION ─────────────────────────────────────────────
+    // Player sends a hype reaction during battle.
+    // Stored in match.reactions array with {playerId, type, content, timestamp}.
+    // Opponent polls via get_reactions to display them live.
+    if (action === 'send_reaction') {
+      const user = await getAuthUser(req)
+      if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+      const { matchId, type, content } = body as {
+        matchId: string
+        type: 'emote' | 'phrase' | 'gg'
+        content: string
+      }
+      if (!matchId || !type || !content) {
+        return NextResponse.json({ error: 'matchId, type, and content required' }, { status: 400 })
+      }
+
+      const { data: match } = await supabaseAdmin
+        .from('matches')
+        .select('id, player_a_id, player_b_id, reactions')
+        .eq('id', matchId)
+        .single()
+
+      if (!match) return NextResponse.json({ error: 'Match not found' }, { status: 404 })
+      if (match.player_a_id !== user.id && match.player_b_id !== user.id) {
+        return NextResponse.json({ error: 'Not a player in this match' }, { status: 403 })
+      }
+
+      const existingReactions = (match.reactions as any[] | null) ?? []
+      const newReaction = {
+        playerId: user.id,
+        type,
+        content,
+        timestamp: new Date().toISOString(),
+      }
+
+      // Keep last 50 reactions to prevent unbounded growth
+      const updatedReactions = [...existingReactions, newReaction].slice(-50)
+
+      const { error: writeError } = await supabaseAdmin
+        .from('matches')
+        .update({ reactions: updatedReactions, updated_at: new Date().toISOString() })
+        .eq('id', matchId)
+
+      if (writeError) {
+        console.error('[FriendReaction] send_reaction write failed:', writeError)
+        return NextResponse.json({ error: 'Failed to send reaction' }, { status: 500 })
+      }
+
+      return NextResponse.json({ ok: true })
+    }
+
+    // ── GET_REACTIONS ─────────────────────────────────────────────
+    // Poll for new reactions from opponent.
+    // Returns all reactions after a given timestamp (client tracks last seen).
+    if (action === 'get_reactions') {
+      const user = await getAuthUser(req)
+      if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+      const { matchId, since } = body as { matchId: string; since?: string }
+      if (!matchId) return NextResponse.json({ error: 'matchId required' }, { status: 400 })
+
+      const { data: match } = await supabaseAdmin
+        .from('matches')
+        .select('id, player_a_id, player_b_id, reactions')
+        .eq('id', matchId)
+        .single()
+
+      if (!match) return NextResponse.json({ error: 'Match not found' }, { status: 404 })
+      if (match.player_a_id !== user.id && match.player_b_id !== user.id) {
+        return NextResponse.json({ error: 'Not a player in this match' }, { status: 403 })
+      }
+
+      const allReactions = (match.reactions as any[] | null) ?? []
+      // Filter to opponent's reactions only (not my own)
+      const opponentReactions = allReactions.filter((r: any) => r.playerId !== user.id)
+      
+      // If since timestamp provided, filter to only new reactions
+      const newReactions = since
+        ? opponentReactions.filter((r: any) => new Date(r.timestamp) > new Date(since))
+        : opponentReactions
+
+      return NextResponse.json({
+        reactions: newReactions,
+        myRole: match.player_a_id === user.id ? 'a' : 'b',
+      })
+    }
+
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
 
   } catch (err) {

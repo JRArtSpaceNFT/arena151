@@ -185,9 +185,15 @@ export default function FriendGameWrapper() {
   const [trainerSynced, setTrainerSynced] = useState(false)
   const [draftSynced,   setDraftSynced]   = useState(false)
   const [lineupSynced,  setLineupSynced]  = useState(false)
+  const [lastReactionCheck, setLastReactionCheck] = useState<string | null>(null)
+  const reactionPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const stopPoll = useCallback(() => {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
+  }, [])
+
+  const stopReactionPoll = useCallback(() => {
+    if (reactionPollRef.current) { clearInterval(reactionPollRef.current); reactionPollRef.current = null }
   }, [])
 
   const getToken = useCallback(async (): Promise<string | null> => {
@@ -214,7 +220,7 @@ export default function FriendGameWrapper() {
     prevScreen.current = gameScreen
   }, [gameScreen, setScreen, clearServerMatch, stopPoll])
 
-  useEffect(() => () => stopPoll(), [stopPoll])
+  useEffect(() => () => { stopPoll(); stopReactionPoll() }, [stopPoll, stopReactionPoll])
 
   // ── Generic wait-for-opponent ─────────────────────────────────────────────
   // Both players enter FriendGameWrapper AFTER P2 has already joined (P1 waits
@@ -272,8 +278,78 @@ export default function FriendGameWrapper() {
   }, [getToken, stopPoll])  // intentionally excludes serverMatchId/storeSeed — read via refs above
 
   const handleCancel = useCallback(() => {
-    stopPoll(); clearServerMatch(); setScreen('friend-battle')
-  }, [stopPoll, clearServerMatch, setScreen])
+    stopPoll(); stopReactionPoll(); clearServerMatch(); setScreen('friend-battle')
+  }, [stopPoll, stopReactionPoll, clearServerMatch, setScreen])
+
+  // ── Live Reactions ────────────────────────────────────────────────────────
+  const sendReaction = useCallback(async (type: 'emote' | 'phrase' | 'gg', content: string) => {
+    const token   = await getToken()
+    const matchId = serverMatchIdRef.current
+    if (!token || !matchId) return
+
+    try {
+      await fetch('/api/match/friend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action: 'send_reaction', matchId, type, content }),
+      })
+    } catch (e) {
+      console.warn('[FriendBattle] send_reaction failed:', e)
+    }
+  }, [getToken])
+
+  const pollReactions = useCallback(async () => {
+    const token   = await getToken()
+    const matchId = serverMatchIdRef.current
+    if (!token || !matchId) return
+
+    try {
+      const res = await fetch('/api/match/friend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          action: 'get_reactions',
+          matchId,
+          since: lastReactionCheck,
+        }),
+      })
+      if (!res.ok) return
+
+      const data = await res.json()
+      const { reactions, myRole } = data as {
+        reactions: Array<{ playerId: string; type: 'emote' | 'phrase' | 'gg'; content: string; timestamp: string }>
+        myRole: 'a' | 'b'
+      }
+
+      if (reactions.length > 0) {
+        // Trigger animations for each new reaction
+        const triggerFn = useGameStore.getState().battleReactionTrigger
+        if (triggerFn) {
+          reactions.forEach(r => {
+            // Opponent's reactions come from opposite side
+            const side = myRole === 'a' ? 'B' : 'A'
+            triggerFn(side, r.type, r.content)
+          })
+        }
+        // Update last check timestamp to newest reaction
+        setLastReactionCheck(reactions[reactions.length - 1].timestamp)
+      }
+    } catch (e) {
+      console.warn('[FriendBattle] poll_reactions failed:', e)
+    }
+  }, [getToken, lastReactionCheck])
+
+  // Start/stop reaction polling when battle screen is active
+  useEffect(() => {
+    if (gameScreen === 'battle') {
+      console.log('[FriendBattle] 🎉 Battle started — starting reaction poll')
+      setLastReactionCheck(new Date().toISOString()) // Start from now
+      reactionPollRef.current = setInterval(pollReactions, 2000) // Poll every 2s
+      return () => stopReactionPoll()
+    } else {
+      stopReactionPoll()
+    }
+  }, [gameScreen, pollReactions, stopReactionPoll])
 
   // ── Step 1: Trainer picked → screen becomes 'draft' ──────────────────────
   useEffect(() => {
@@ -456,6 +532,12 @@ export default function FriendGameWrapper() {
       </div>
 
       <div style={{ paddingTop: 26 }}>
+        {/* Inject sendReaction into game store when battle screen loads */}
+        {gameScreen === 'battle' && (() => {
+          // Store sendReaction in game-store so BattleScreen's HypeControlPanel can call it
+          useGameStore.setState({ friendBattleSendReaction: sendReaction })
+          return null
+        })()}
         {screens[gameScreen] ?? <TrainerSelect />}
       </div>
 

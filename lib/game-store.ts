@@ -105,6 +105,8 @@ export interface GameState {
   setMoveAnim: (anim: { animKey: string; side: 'A' | 'B'; id: string } | null) => void
   // Friend Battle Actions
   setOpponentTeamForFriendBattle: (trainerIdB: string, teamIds: number[]) => void
+  friendBattleSendReaction: ((type: 'emote' | 'phrase' | 'gg', content: string) => void) | null
+  battleReactionTrigger: ((side: 'A' | 'B', type: 'emote' | 'phrase' | 'gg', content?: string) => void) | null
 
   // Story Mode Actions
   startStoryMode: () => void
@@ -156,6 +158,10 @@ export const useGameStore = create<GameState>((set, get) => ({
   // Story Mode state
   storyProgress: null,
   storyMode: false,
+
+  // Friend Battle reactions
+  friendBattleSendReaction: null,
+  battleReactionTrigger: null,
 
   navigateTo: (screen) => set({ screen }),
 
@@ -629,6 +635,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       matchResults: null,
       battleDialogue: null,
       battleDialogueKey: 0,
+      friendBattleSendReaction: null,
+      battleReactionTrigger: null,
     })
   },
 
