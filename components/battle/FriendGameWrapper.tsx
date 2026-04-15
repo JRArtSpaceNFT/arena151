@@ -32,7 +32,7 @@ import BattleScreen from '@/components/battle/BattleScreen'
 import EnhancedBattleWrapper from '@/components/battle/EnhancedBattleWrapper'
 import VictoryScreen from '@/components/battle/VictoryScreen'
 import DefeatScreen from '@/components/battle/DefeatScreen'
-import ResultsScreen from '@/components/battle/ResultsScreen'
+import FinalResultsScreen from '@/components/battle/FinalResultsScreen'
 import MoveAnimation from '@/components/battle/MoveAnimation'
 
 // ── Overlays ──────────────────────────────────────────────────────────────────
@@ -412,7 +412,7 @@ export default function FriendGameWrapper() {
     battle:         <EnhancedBattleWrapper><BattleScreen /></EnhancedBattleWrapper>,
     victory:        <VictoryScreen />,
     defeat:         <DefeatScreen />,
-    results:        <ResultsScreen />,
+    result:         <FinalResultsScreen />,  // singular 'result' matches game-store
   }
 
   const waitMessages: Record<string, string> = {
