@@ -80,15 +80,11 @@ export default function PracticeGameWrapper() {
 
   const initialized = useRef(false)
 
-  console.log('[PracticeGameWrapper] Render - gameScreen:', gameScreen)
-
   useEffect(() => {
-    console.log('[PracticeGameWrapper] Mount effect - initialized:', initialized.current)
     if (initialized.current) return
     initialized.current = true
     // Don't call playAgain() - it sets screen to 'home' which triggers parent updates.
     // Instead, directly initialize practice mode:
-    console.log('[PracticeGameWrapper] Calling setGameMode(practice)')
     setGameMode('practice')
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -96,14 +92,11 @@ export default function PracticeGameWrapper() {
   const prevScreen = useRef(gameScreen)
   const lastMatchResultsRef = useRef(matchResults)
   useEffect(() => {
-    console.log('[PracticeGameWrapper] matchResults changed:', matchResults)
     if (matchResults) lastMatchResultsRef.current = matchResults
   }, [matchResults])
 
   useEffect(() => {
-    console.log('[PracticeGameWrapper] gameScreen effect - prev:', prevScreen.current, 'current:', gameScreen, 'initialized:', initialized.current)
     if (prevScreen.current !== 'home' && gameScreen === 'home' && initialized.current) {
-      console.log('[PracticeGameWrapper] Calling setScreen(draft-mode-intro)')
       setScreen('draft-mode-intro')
     }
     prevScreen.current = gameScreen
