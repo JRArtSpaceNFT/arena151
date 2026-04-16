@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/match-cleanup",
-      "schedule": "0 */3 * * *"
+      "schedule": "0 2 * * *"
     }
   ]
 }
