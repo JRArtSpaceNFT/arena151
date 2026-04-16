@@ -106,6 +106,8 @@ export async function POST(
     // If another player joined between our read and this write, we'd get 0 rows
     // with no error — and this player's funds would be locked with no match record.
     // We MUST detect 0 rows and unlock funds immediately.
+    console.log('[Match Join] P2 attempting to join match:', { matchId, userId });
+    
     const { data: updatedRows, error: updateError } = await supabaseAdmin
       .from('matches')
       .update({
@@ -133,6 +135,7 @@ export async function POST(
 
       // 0 rows affected: another player won the race and joined this match first.
       // Funds have been unlocked above — return a clean error.
+      console.log('[Match Join] Race condition: another P2 joined first. Funds unlocked for userId:', userId);
       return NextResponse.json(
         { error: 'Match is no longer available — another player joined first' },
         { status: 409 }
@@ -203,6 +206,8 @@ export async function POST(
       }
     }
 
+    console.log('[Match Join] SUCCESS: P2 joined match:', { matchId, userId, status: serverWinnerId ? 'settlement_pending' : 'ready' });
+    
     return NextResponse.json({
       matchId,
       status: serverWinnerId ? 'settlement_pending' : 'ready',

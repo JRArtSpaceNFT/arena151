@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/settlement-health",
       "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/match-cleanup",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

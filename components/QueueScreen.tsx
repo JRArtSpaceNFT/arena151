@@ -197,6 +197,8 @@ export default function QueueScreen() {
   const [noOpponentFound, setNoOpponentFound] = useState(false);
   const [debugMsg, setDebugMsg] = useState<string>('Initializing...');
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tokenRef = useRef<string | null>(null);
 
   const trainer = liveTrainer ?? queueState.currentTrainer;
@@ -256,9 +258,6 @@ export default function QueueScreen() {
         const roomTier = ROOM_TIERS[roomId];
         if (!roomTier) return;
         const entryFeeSol = roomTier.entryFee;
-
-        // Small delay to allow P1's match to hit DB before P2 queries
-        await new Promise(resolve => setTimeout(resolve, 500));
 
         // Step 1: Check for an existing open match to join (P2 path)
         console.log('[Queue] Step 1: Checking for open matches in room:', roomId);
@@ -342,40 +341,48 @@ export default function QueueScreen() {
 
         setQueueMatchId(queueData.matchId);
 
-        // Step 3: Poll for P2 to join (every 4s, up to 5 minutes)
-        const MAX_POLL_MS = 5 * 60 * 1000;
-        const startTime = Date.now();
-
-        pollRef.current = setInterval(async () => {
-          if (Date.now() - startTime > MAX_POLL_MS) {
-            if (pollRef.current) clearInterval(pollRef.current);
-            setNoOpponentFound(true);
-            return;
-          }
-
-          try {
-            const statusRes = await fetch(`/api/match/${queueData.matchId}/status`, {
-              headers: { 'Authorization': `Bearer ${token}` },
-            });
-            if (!statusRes.ok) return;
-            const statusData = await statusRes.json();
-
-            if (statusData.status === 'ready') {
-              if (pollRef.current) clearInterval(pollRef.current);
-              if (trainer) {
-                setMatch({
-                  player1: trainer,
-                  player2: GENERIC_RIVAL,
-                  room: roomTier,
-                  matchId: queueData.matchId,
-                });
+        // Step 3: Subscribe to realtime match updates (replaces polling)
+        console.log('[Queue] Subscribing to realtime updates for match:', queueData.matchId);
+        channelRef.current = supabase
+          .channel(`match:${queueData.matchId}`)
+          .on(
+            'postgres_changes',
+            {
+              event: 'UPDATE',
+              schema: 'public',
+              table: 'matches',
+              filter: `id=eq.${queueData.matchId}`,
+            },
+            (payload) => {
+              console.log('[Queue] Realtime update received:', payload.new);
+              const newStatus = payload.new.status;
+              
+              if (newStatus === 'ready' || newStatus === 'settlement_pending') {
+                console.log('[Queue] Match ready! Transitioning to versus screen');
+                if (channelRef.current) channelRef.current.unsubscribe();
+                if (timeoutRef.current) clearTimeout(timeoutRef.current);
+                if (trainer) {
+                  setMatch({
+                    player1: trainer,
+                    player2: GENERIC_RIVAL,
+                    room: roomTier,
+                    matchId: queueData.matchId,
+                  });
+                }
+                setScreen('versus');
               }
-              setScreen('versus');
             }
-          } catch {
-            // Ignore poll errors — keep trying
-          }
-        }, 4000);
+          )
+          .subscribe((status) => {
+            console.log('[Queue] Realtime subscription status:', status);
+          });
+
+        // Fallback timeout after 5 minutes
+        timeoutRef.current = setTimeout(() => {
+          console.log('[Queue] Match timeout - no opponent found');
+          if (channelRef.current) channelRef.current.unsubscribe();
+          setNoOpponentFound(true);
+        }, 5 * 60 * 1000);
       } catch {
         // Ignore top-level errors
       }
@@ -385,6 +392,8 @@ export default function QueueScreen() {
 
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
+      if (channelRef.current) channelRef.current.unsubscribe();
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
   }, [testingMode, queueState.roomId, queueState.isSearching]); // Re-run when queue state changes
 

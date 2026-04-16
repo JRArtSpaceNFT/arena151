@@ -188,6 +188,8 @@ export async function POST(req: NextRequest) {
     const matchId = randomUUID()
     const battleSeed = randomUUID()
 
+    console.log('[Queue POST] Creating new match:', { matchId, userId, roomId, entryFeeSol })
+
     const { error: matchError } = await supabaseAdmin
       .from('matches')
       .insert({
