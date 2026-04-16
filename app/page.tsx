@@ -28,6 +28,8 @@ export default function ArenaApp() {
   const setServerMatch = useArenaStore((state) => state.setServerMatch);
   const setIsMatchJoiner = useArenaStore((state) => state.setIsMatchJoiner);
   const serverMatchId = useArenaStore((state) => state.serverMatchId);
+  
+  console.log('🎮 [App] Current screen:', currentScreen);
   const crowdRef = useRef<HTMLAudioElement | null>(null);
 
   // Restore active paid match from sessionStorage on page load.
