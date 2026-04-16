@@ -212,6 +212,14 @@ export default function QueueScreen() {
 
   // Real matchmaking effect
   useEffect(() => {
+    console.log('[Queue] useEffect fired - testingMode:', testingMode, 'roomId:', queueState.roomId, 'isSearching:', queueState.isSearching);
+    
+    // Guard: only run if actually searching
+    if (!queueState.isSearching || !queueState.roomId) {
+      console.log('[Queue] Not searching or no roomId - skipping');
+      return;
+    }
+    
     if (testingMode) {
       // Testing mode: auto-resolve to bot after random delay
       const matchTimeout = setTimeout(() => {
@@ -361,8 +369,7 @@ export default function QueueScreen() {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [testingMode, queueState.roomId, queueState.isSearching]); // Re-run when queue state changes
 
   const handleCancel = () => {
     if (pollRef.current) clearInterval(pollRef.current);
