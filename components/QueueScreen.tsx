@@ -229,7 +229,14 @@ export default function QueueScreen() {
     }
 
     // Real money matchmaking
+    let hasRun = false;  // ← Prevent double execution
     const run = async () => {
+      if (hasRun) {
+        console.log('[Queue] Ignoring duplicate run() call');
+        return;
+      }
+      hasRun = true;
+      
       try {
         // Use pre-configured Supabase client from lib/supabase
         const { data: { session } } = await supabase.auth.getSession();
@@ -399,7 +406,7 @@ export default function QueueScreen() {
       if (channelRef.current) channelRef.current.unsubscribe();
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
-  }, [testingMode, queueState.roomId, queueState.isSearching]); // Re-run when queue state changes
+  }, []); // ← Run ONCE on mount only - queue state is captured in closure
 
   const handleCancel = () => {
     if (pollRef.current) clearInterval(pollRef.current);
