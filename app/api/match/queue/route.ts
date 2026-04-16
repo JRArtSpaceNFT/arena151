@@ -206,7 +206,34 @@ export async function POST(req: NextRequest) {
       })
 
     if (matchError) {
-      // Rollback the fund lock
+      // Check if error is unique constraint violation (duplicate match)
+      if (matchError.code === '23505') {
+        console.log('[Queue POST] Unique constraint hit - returning existing match')
+        // Rollback the fund lock since we're using existing match
+        await supabaseAdmin.rpc('unlock_player_funds', { p_user_id: userId, p_amount: entryFeeSol })
+        
+        // Return the existing match
+        const { data: existingMatch } = await supabaseAdmin
+          .from('matches')
+          .select('id, battle_seed, status')
+          .eq('player_a_id', userId)
+          .eq('room_id', roomId)
+          .eq('status', 'forming')
+          .single()
+        
+        if (existingMatch) {
+          return NextResponse.json({
+            matchId: existingMatch.id,
+            idempotencyKey: existingMatch.id,
+            battleSeed: existingMatch.battle_seed,
+            status: existingMatch.status,
+            resumed: true,
+            note: 'Resumed existing match from another tab/device'
+          })
+        }
+      }
+      
+      // Other error - rollback and fail
       await supabaseAdmin.rpc('unlock_player_funds', { p_user_id: userId, p_amount: entryFeeSol })
       console.error('[Queue POST] insert error:', matchError)
       return NextResponse.json({ error: 'Failed to create match' }, { status: 500 })

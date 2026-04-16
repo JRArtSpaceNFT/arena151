@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/match-cleanup",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/auto-settle",
+      "schedule": "0 3 * * *"
     }
   ]
 }

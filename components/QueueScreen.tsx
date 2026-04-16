@@ -378,9 +378,27 @@ export default function QueueScreen() {
           });
 
         // Fallback timeout after 5 minutes
-        timeoutRef.current = setTimeout(() => {
-          console.log('[Queue] Match timeout - no opponent found');
+        timeoutRef.current = setTimeout(async () => {
+          console.log('[Queue] Match timeout - auto-abandoning and unlocking funds');
           if (channelRef.current) channelRef.current.unsubscribe();
+          
+          // Auto-abandon to unlock funds
+          if (tokenRef.current) {
+            try {
+              const abandonRes = await fetch(`/api/match/${queueData.matchId}/abandon`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${tokenRef.current}` },
+              });
+              if (abandonRes.ok) {
+                console.log('[Queue] Funds unlocked successfully after timeout');
+              } else {
+                console.error('[Queue] Failed to abandon match:', await abandonRes.text());
+              }
+            } catch (err) {
+              console.error('[Queue] Error abandoning match:', err);
+            }
+          }
+          
           setNoOpponentFound(true);
         }, 5 * 60 * 1000);
       } catch {
