@@ -609,9 +609,10 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   playAgain: () => {
+    const currentMode = get().gameMode
     set({
       screen: 'home',
-      gameMode: null,
+      gameMode: currentMode === 'paid_pvp' ? 'paid_pvp' : null,  // Preserve paid_pvp mode!
       p1Trainer: null,
       p2Trainer: null,
       trainerSelectPhase: 'p1',
