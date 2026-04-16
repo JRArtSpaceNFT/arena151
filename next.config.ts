@@ -20,9 +20,8 @@ const nextConfig: NextConfig = {
   
   // ── Performance Optimizations ──
   compiler: {
-    removeConsole: process.env.NODE_ENV === 'production' ? {
-      exclude: ['error', 'warn'],
-    } : false,
+    // DISABLED during matchmaking audit - re-enable after launch
+    removeConsole: false,
   },
   
   // ── Headers for Caching ──
