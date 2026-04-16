@@ -213,14 +213,14 @@ export default function QueueScreen() {
   // Real matchmaking effect
   useEffect(() => {
     console.log('🔥🔥🔥 [Queue] useEffect fired - testingMode:', testingMode, 'roomId:', queueState.roomId, 'isSearching:', queueState.isSearching);
-    alert(`Queue useEffect fired! isSearching: ${queueState.isSearching}, roomId: ${queueState.roomId}`);
     
     // Guard: only run if actually searching
     if (!queueState.isSearching || !queueState.roomId) {
       console.log('[Queue] Not searching or no roomId - skipping');
-      alert('Guard triggered - not searching or no roomId');
       return;
     }
+    
+    console.log('✅ [Queue] Guard passed - starting matchmaking flow');
     
     if (testingMode) {
       // Testing mode: auto-resolve to bot after random delay
