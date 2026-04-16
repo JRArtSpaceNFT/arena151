@@ -182,11 +182,16 @@ const GENERIC_RIVAL: Trainer = {
 };
 
 export default function QueueScreen() {
+  console.log('🎯 [QueueScreen] Component rendering!');
+  
   const {
     queueState, cancelQueue, setScreen, testingMode,
     currentTrainer: liveTrainer, setMatch, setServerMatch,
     queueMatchId, setQueueMatchId, isMatchJoiner, setIsMatchJoiner,
   } = useArenaStore();
+  
+  console.log('🎯 [QueueScreen] Store loaded - queueState:', queueState);
+  
   const [elapsed, setElapsed] = useState(0);
   const [flavorIdx, setFlavorIdx] = useState(0);
   const [noOpponentFound, setNoOpponentFound] = useState(false);
