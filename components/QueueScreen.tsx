@@ -243,19 +243,36 @@ export default function QueueScreen() {
         const checkData = await checkRes.json();
 
         if (checkData.matchId) {
-          // P2: found an open match — join it immediately
+          // P2: found an open match — JOIN IT via API call
           setIsMatchJoiner(true);
-          setServerMatch(checkData.matchId, '');
-          if (trainer) {
-            setMatch({
-              player1: trainer,
-              player2: GENERIC_RIVAL,
-              room: roomTier,
-              matchId: checkData.matchId,
-            });
+          
+          // Call /api/match/[matchId]/join to lock funds + set player_b
+          const joinRes = await fetch(`/api/match/${checkData.matchId}/join`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({ teamB: null }), // Team will be drafted later
+          });
+          
+          if (!joinRes.ok) {
+            console.error('[Queue] Failed to join match:', await joinRes.text());
+            // Fall through to P1 path (create own match)
+          } else {
+            const joinData = await joinRes.json();
+            setServerMatch(checkData.matchId, joinData.battleSeed ?? '');
+            if (trainer) {
+              setMatch({
+                player1: trainer,
+                player2: GENERIC_RIVAL,
+                room: roomTier,
+                matchId: checkData.matchId,
+              });
+            }
+            setScreen('versus');
+            return;
           }
-          setScreen('versus');
-          return;
         }
 
         // Step 2: No open match — register as P1
