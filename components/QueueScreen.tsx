@@ -195,6 +195,7 @@ export default function QueueScreen() {
   const [elapsed, setElapsed] = useState(0);
   const [flavorIdx, setFlavorIdx] = useState(0);
   const [noOpponentFound, setNoOpponentFound] = useState(false);
+  const [debugMsg, setDebugMsg] = useState<string>('Initializing...');
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const tokenRef = useRef<string | null>(null);
 
@@ -226,6 +227,7 @@ export default function QueueScreen() {
     }
     
     console.log('✅ [Queue] Guard passed - starting matchmaking flow');
+    setDebugMsg('Guard passed - starting matchmaking');
     
     if (testingMode) {
       // Testing mode: auto-resolve to bot after random delay
@@ -239,8 +241,13 @@ export default function QueueScreen() {
     const run = async () => {
       try {
         // Use pre-configured Supabase client from lib/supabase
+        setDebugMsg('Getting auth session...');
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.access_token) return;
+        if (!session?.access_token) {
+          setDebugMsg('ERROR: No auth session!');
+          return;
+        }
+        setDebugMsg('Auth OK - checking for matches...');
         const token = session.access_token;
         tokenRef.current = token;
 
@@ -494,6 +501,9 @@ export default function QueueScreen() {
                 transition={{ duration: 0.35 }}
                 className="text-lg font-black text-white mb-1" style={{ letterSpacing: '0.02em' }}>
                 {SEARCH_LINES[flavorIdx]}
+                <div style={{ marginTop: 12, fontSize: 11, color: '#ff0', background: '#000', padding: 8, borderRadius: 4 }}>
+                  DEBUG: {debugMsg}
+                </div>
               </motion.h2>
             </AnimatePresence>
             <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>
