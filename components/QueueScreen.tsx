@@ -236,14 +236,20 @@ export default function QueueScreen() {
         const entryFeeSol = roomTier.entryFee;
 
         // Step 1: Check for an existing open match to join (P2 path)
+        console.log('[Queue] Step 1: Checking for open matches in room:', roomId);
         const checkRes = await fetch(`/api/match/queue?roomId=${roomId}`, {
           headers: { 'Authorization': `Bearer ${token}` },
         });
-        if (!checkRes.ok) return;
+        if (!checkRes.ok) {
+          console.error('[Queue] GET /queue failed:', checkRes.status);
+          return;
+        }
         const checkData = await checkRes.json();
+        console.log('[Queue] GET /queue result:', checkData);
 
         if (checkData.matchId) {
           // P2: found an open match — JOIN IT via API call
+          console.log('[Queue] P2 found match:', checkData.matchId, '- calling /join API');
           setIsMatchJoiner(true);
           
           // Call /api/match/[matchId]/join to lock funds + set player_b
@@ -257,10 +263,12 @@ export default function QueueScreen() {
           });
           
           if (!joinRes.ok) {
-            console.error('[Queue] Failed to join match:', await joinRes.text());
+            const errText = await joinRes.text();
+            console.error('[Queue] Join API failed:', joinRes.status, errText);
             // Fall through to P1 path (create own match)
           } else {
             const joinData = await joinRes.json();
+            console.log('[Queue] P2 joined successfully:', joinData);
             setServerMatch(checkData.matchId, joinData.battleSeed ?? '');
             if (trainer) {
               setMatch({
@@ -276,6 +284,7 @@ export default function QueueScreen() {
         }
 
         // Step 2: No open match — register as P1
+        console.log('[Queue] Step 2: No open match found, creating new match as P1');
         const queueRes = await fetch('/api/match/queue', {
           method: 'POST',
           headers: {
@@ -284,8 +293,12 @@ export default function QueueScreen() {
           },
           body: JSON.stringify({ roomId, entryFeeSol }),
         });
-        if (!queueRes.ok) return;
+        if (!queueRes.ok) {
+          console.error('[Queue] POST /queue failed:', queueRes.status, await queueRes.text());
+          return;
+        }
         const queueData = await queueRes.json();
+        console.log('[Queue] P1 match created:', queueData);
 
         // Handle resumed match (idempotency: user had an active match already)
         if (queueData.resumed) {
