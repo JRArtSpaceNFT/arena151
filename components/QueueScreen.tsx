@@ -250,6 +250,9 @@ export default function QueueScreen() {
         if (!roomTier) return;
         const entryFeeSol = roomTier.entryFee;
 
+        // Small delay to allow P1's match to hit DB before P2 queries
+        await new Promise(resolve => setTimeout(resolve, 500));
+
         // Step 1: Check for an existing open match to join (P2 path)
         console.log('[Queue] Step 1: Checking for open matches in room:', roomId);
         const checkRes = await fetch(`/api/match/queue?roomId=${roomId}`, {
