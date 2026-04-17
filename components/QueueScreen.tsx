@@ -252,6 +252,11 @@ export default function QueueScreen() {
         if (!roomTier) return;
         const entryFeeSol = roomTier.entryFee;
 
+        // Small random delay (0-800ms) to reduce race condition when 2 players join simultaneously
+        const jitter = Math.floor(Math.random() * 800);
+        console.log(`[Queue] Waiting ${jitter}ms before checking for matches (anti-race jitter)`);
+        await new Promise(r => setTimeout(r, jitter));
+
         // Step 1: Check for an existing open match to join (P2 path)
         console.log('[Queue] Step 1: Checking for open matches in room:', roomId);
         const checkRes = await fetch(`/api/match/queue?roomId=${roomId}`, {
@@ -300,8 +305,46 @@ export default function QueueScreen() {
           }
         }
 
-        // Step 2: No open match — register as P1
-        console.log('[Queue] Step 2: No open match found, creating new match as P1');
+        // Step 2: No open match — wait briefly then check ONE MORE TIME (race condition mitigation)
+        console.log('[Queue] Step 2: No open match found. Waiting 500ms then rechecking before creating...');
+        await new Promise(r => setTimeout(r, 500));
+        
+        const recheckRes = await fetch(`/api/match/queue?roomId=${roomId}`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (recheckRes.ok) {
+          const recheckData = await recheckRes.json();
+          if (recheckData.matchId) {
+            console.log('[Queue] RECHECK found match! Joining:', recheckData.matchId);
+            setIsMatchJoiner(true);
+            const joinRes = await fetch(`/api/match/${recheckData.matchId}/join`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+              },
+              body: JSON.stringify({ teamB: null }),
+            });
+            if (joinRes.ok) {
+              const joinData = await joinRes.json();
+              console.log('[Queue] P2 joined on recheck:', joinData);
+              setServerMatch(recheckData.matchId, joinData.battleSeed ?? '');
+              if (trainer) {
+                setMatch({
+                  player1: trainer,
+                  player2: GENERIC_RIVAL,
+                  room: roomTier,
+                  matchId: recheckData.matchId,
+                });
+              }
+              setScreen('versus');
+              return;
+            }
+          }
+        }
+        
+        // Step 3: Still no match after recheck — NOW create as P1
+        console.log('[Queue] Step 3: Recheck found nothing, creating new match as P1');
         const queueRes = await fetch('/api/match/queue', {
           method: 'POST',
           headers: {
