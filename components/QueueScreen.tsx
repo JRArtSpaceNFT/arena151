@@ -296,6 +296,30 @@ export default function QueueScreen() {
         // If match is already ready (player_b joined) or settlement_pending (resumed)
         if (matchData.status === 'ready' || matchData.status === 'settlement_pending') {
           console.log('[Queue] Match already ready — transitioning to versus');
+          
+          // CRITICAL FIX: If resumed=true but status=ready, this is a stale match
+          // Don't transition immediately - the match is corrupt. Cancel and retry.
+          if (matchData.resumed) {
+            console.warn('[Queue] STALE MATCH DETECTED - voiding and retrying');
+            // Clear the corrupted match from sessionStorage
+            if (typeof window !== 'undefined') {
+              sessionStorage.removeItem('arena_matchId');
+              sessionStorage.removeItem('arena_seed');
+              sessionStorage.removeItem('arena_isJoiner');
+            }
+            // Abandon the match to unlock funds
+            if (tokenRef.current) {
+              fetch(`/api/match/${matchData.matchId}/abandon`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${tokenRef.current}` },
+              }).catch(() => {});
+            }
+            alert('Found a stale match. Please try joining again.');
+            cancelQueue();
+            setScreen('room-select');
+            return;
+          }
+          
           if (trainer) {
             setMatch({
               player1: matchData.role === 'player_a' ? trainer : GENERIC_RIVAL,
