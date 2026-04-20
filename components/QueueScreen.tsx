@@ -217,6 +217,7 @@ export default function QueueScreen() {
   useEffect(() => {
     // Guard: only run if actually searching
     if (!queueState.isSearching || !queueState.roomId) {
+      console.log('[Queue] useEffect guard: not searching or no roomId');
       return;
     }
     
@@ -228,14 +229,10 @@ export default function QueueScreen() {
       return () => clearTimeout(matchTimeout);
     }
 
+    console.log('[Queue] useEffect triggered - queueState:', queueState);
+
     // Real money matchmaking — NEW ATOMIC SERVER PATH
-    let hasRun = false;  // ← Prevent double execution
     const run = async () => {
-      if (hasRun) {
-        console.log('[Queue] Ignoring duplicate run() call');
-        return;
-      }
-      hasRun = true;
       
       try {
         // Get auth token
@@ -378,7 +375,7 @@ export default function QueueScreen() {
       if (channelRef.current) channelRef.current.unsubscribe();
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
-  }, []); // ← Run ONCE on mount only - queue state is captured in closure
+  }, [queueState.isSearching, queueState.roomId, testingMode]); // Re-run when queue state changes
 
   const handleCancel = () => {
     if (pollRef.current) clearInterval(pollRef.current);
