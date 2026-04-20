@@ -147,14 +147,7 @@ export default function DraftModeIntro() {
 
         {/* ENTER THE ARENA — nudged lower */}
         <button
-          onClick={() => {
-            if (!currentTrainer) {
-              setScreen('signup');
-            } else {
-              // Always go to team builder for paid PVP
-              setScreen('team-builder');
-            }
-          }}
+          onClick={() => currentTrainer ? setScreen('room-select') : setScreen('signup')}
           aria-label="Enter the Arena"
           style={{ position: 'absolute', left: '31.5%', top: '73%', width: '34.6%', height: '5.1%',
             background: 'transparent', border: 'none', cursor: 'pointer' }}

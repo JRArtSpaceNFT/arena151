@@ -8,7 +8,6 @@ import TrainerProfile from '@/components/TrainerProfile';
 import DraftModeIntro from '@/components/DraftModeIntro';
 import RoomSelect from '@/components/RoomSelect';
 import QueueScreenV2 from '@/components/QueueScreenV2';
-import PreMatchTeamBuilder from '@/components/PreMatchTeamBuilder';
 import MatchFound from '@/components/MatchFound';
 import VersusScreen from '@/components/VersusScreen';
 import ResultScreen from '@/components/ResultScreen';
@@ -91,7 +90,6 @@ export default function ArenaApp() {
         {currentScreen === 'draft-mode-intro' && <DraftModeIntro />}
         {currentScreen === 'room-select' && <RoomSelect />}
         {currentScreen === 'queue' && <QueueScreenV2 />}
-        {currentScreen === 'team-builder' && <PreMatchTeamBuilder />}
         {currentScreen === 'match-found' && <MatchFound />}
         {currentScreen === 'versus' && <VersusScreen />}
         {currentScreen === 'game' && <GameWrapper />}
