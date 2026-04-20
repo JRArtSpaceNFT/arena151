@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useArenaStore } from '@/lib/store';
+import { useGameStore } from '@/lib/game-store';
 import TeamLockFlow from '@/components/TeamLockFlow';
 
 // Design canvas — matches ttt.png dimensions exactly
@@ -41,13 +42,16 @@ function SparkleIcon({ size, color = 'white' }: { size: number; color?: string }
 
 export default function DraftModeIntro() {
   const { currentTrainer, setScreen } = useArenaStore();
+  const { p1Trainer, draftTeamA, lineupA } = useGameStore();
   
   // Team lock state
   const [showTeamLock, setShowTeamLock] = useState(false);
   const [isTeamLocked, setIsTeamLocked] = useState(false);
-  const [selectedTrainer] = useState('ash');
-  const [selectedTeam] = useState([1, 2, 3, 4, 5, 6]);
-  const [lockedOrder] = useState([0, 1, 2, 3, 4, 5]);
+  
+  // Real trainer and team data from game store
+  const selectedTrainer = p1Trainer?.id || currentTrainer?.id || null;
+  const selectedTeam = draftTeamA.length > 0 ? draftTeamA.map(c => c.id) : [];
+  const lockedOrder = lineupA.length > 0 ? lineupA.map((_, idx) => idx) : [];
 
   // ── Viewport-fit uniform scale (same pattern as HomePage) ─────────────────
   const [scale, setScale] = useState(1);
@@ -146,10 +150,9 @@ export default function DraftModeIntro() {
           onClick={() => {
             if (!currentTrainer) {
               setScreen('signup');
-            } else if (!isTeamLocked) {
-              setShowTeamLock(true);
             } else {
-              setScreen('room-select');
+              // Always go to team builder for paid PVP
+              setScreen('team-builder');
             }
           }}
           aria-label="Enter the Arena"
