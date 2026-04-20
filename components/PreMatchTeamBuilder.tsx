@@ -108,7 +108,7 @@ export default function PreMatchTeamBuilder() {
                     : 'border-slate-600 hover:border-slate-500'
                 }`}
               >
-                <div className="text-3xl mb-1">{creature.emoji}</div>
+                <div className="text-2xl mb-1">🐾</div>
                 <div className="text-white text-xs font-bold truncate">{creature.name}</div>
               </button>
             ))}
@@ -134,7 +134,7 @@ export default function PreMatchTeamBuilder() {
                   return (
                     <div key={position} className="flex items-center gap-4 bg-slate-700/50 p-3 rounded-lg">
                       <div className="text-slate-400 font-bold w-8">#{position + 1}</div>
-                      <div className="text-3xl">{creature?.emoji}</div>
+                      <div className="text-2xl">🐾</div>
                       <div className="flex-1 text-white font-bold">{creature?.name}</div>
                       <div className="flex gap-2">
                         <button
