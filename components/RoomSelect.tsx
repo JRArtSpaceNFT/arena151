@@ -9,6 +9,7 @@ import { useSolPrice } from '@/lib/useSolPrice';
 import { getBattlesTotal, getSessionsToday } from '@/lib/battleStats';
 import { haptic } from '@/lib/haptics';
 import { trackEvent } from '@/lib/analytics';
+import { supabase } from '@/lib/supabase';
 import type { BattleRoom } from '@/types';
 
 // Per-arena identity config — optimized WebP images (90%+ smaller)
