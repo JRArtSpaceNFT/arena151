@@ -32,21 +32,19 @@ export default function ArenaApp() {
   console.log('🎮 [App] Current screen:', currentScreen);
   const crowdRef = useRef<HTMLAudioElement | null>(null);
 
-  // Restore active paid match from sessionStorage on page load.
-  // Prevents refresh from creating a duplicate match and locking funds twice.
-  useEffect(() => {
-    if (typeof window === 'undefined') return // SSR guard
-    if (serverMatchId) return // already set (no-op)
-    const savedMatchId = sessionStorage.getItem('arena_matchId')
-    const savedSeed    = sessionStorage.getItem('arena_seed')
-    const savedJoiner  = sessionStorage.getItem('arena_isJoiner') === '1'
-    if (savedMatchId && savedSeed) {
-      console.log('[App] Restoring active paid match from sessionStorage:', savedMatchId)
-      setServerMatch(savedMatchId, savedSeed)
-      setIsMatchJoiner(savedJoiner)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  // DISABLED sessionStorage restore - causes stale match issues
+  // useEffect(() => {
+  //   if (typeof window === 'undefined') return
+  //   if (serverMatchId) return
+  //   const savedMatchId = sessionStorage.getItem('arena_matchId')
+  //   const savedSeed    = sessionStorage.getItem('arena_seed')
+  //   const savedJoiner  = sessionStorage.getItem('arena_isJoiner') === '1'
+  //   if (savedMatchId && savedSeed) {
+  //     console.log('[App] Restoring active paid match from sessionStorage:', savedMatchId)
+  //     setServerMatch(savedMatchId, savedSeed)
+  //     setIsMatchJoiner(savedJoiner)
+  //   }
+  // }, [])
 
   useEffect(() => {
     // Create the audio element once
