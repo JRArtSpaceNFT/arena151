@@ -228,7 +228,7 @@ export default function QueueScreen() {
       return () => clearTimeout(matchTimeout);
     }
 
-    // Real money matchmaking
+    // Real money matchmaking — NEW ATOMIC SERVER PATH
     let hasRun = false;  // ← Prevent double execution
     const run = async () => {
       if (hasRun) {
@@ -238,9 +238,10 @@ export default function QueueScreen() {
       hasRun = true;
       
       try {
-        // Use pre-configured Supabase client from lib/supabase
+        // Get auth token
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.access_token) {
+          console.error('[Queue] No auth session');
           return;
         }
         const token = session.access_token;
@@ -250,144 +251,72 @@ export default function QueueScreen() {
         if (!roomId) return;
         const roomTier = ROOM_TIERS[roomId];
         if (!roomTier) return;
-        const entryFeeSol = roomTier.entryFee;
 
-        // Small random delay (0-800ms) to reduce race condition when 2 players join simultaneously
-        const jitter = Math.floor(Math.random() * 800);
-        console.log(`[Queue] Waiting ${jitter}ms before checking for matches (anti-race jitter)`);
-        await new Promise(r => setTimeout(r, jitter));
+        console.log('[Queue] Calling atomic matchmaking endpoint for room:', roomId);
 
-        // Step 1: Check for an existing open match to join (P2 path)
-        console.log('[Queue] Step 1: Checking for open matches in room:', roomId);
-        const checkRes = await fetch(`/api/match/queue?roomId=${roomId}`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-        if (!checkRes.ok) {
-          console.error('[Queue] GET /queue failed:', checkRes.status);
-          return;
-        }
-        const checkData = await checkRes.json();
-        console.log('[Queue] GET /queue result:', checkData);
-
-        if (checkData.matchId) {
-          // P2: found an open match — JOIN IT via API call
-          console.log('[Queue] P2 found match:', checkData.matchId, '- calling /join API');
-          setIsMatchJoiner(true);
-          
-          // Call /api/match/[matchId]/join to lock funds + set player_b
-          const joinRes = await fetch(`/api/match/${checkData.matchId}/join`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
-            },
-            body: JSON.stringify({ teamB: null }), // Team will be drafted later
-          });
-          
-          if (!joinRes.ok) {
-            const errText = await joinRes.text();
-            console.error('[Queue] Join API failed:', joinRes.status, errText);
-            // Fall through to P1 path (create own match)
-          } else {
-            const joinData = await joinRes.json();
-            console.log('[Queue] P2 joined successfully:', joinData);
-            setServerMatch(checkData.matchId, joinData.battleSeed ?? '');
-            if (trainer) {
-              setMatch({
-                player1: trainer,
-                player2: GENERIC_RIVAL,
-                room: roomTier,
-                matchId: checkData.matchId,
-              });
-            }
-            setScreen('versus');
-            return;
-          }
-        }
-
-        // Step 2: No open match — wait briefly then check ONE MORE TIME (race condition mitigation)
-        console.log('[Queue] Step 2: No open match found. Waiting 500ms then rechecking before creating...');
-        await new Promise(r => setTimeout(r, 500));
-        
-        const recheckRes = await fetch(`/api/match/queue?roomId=${roomId}`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-        if (recheckRes.ok) {
-          const recheckData = await recheckRes.json();
-          if (recheckData.matchId) {
-            console.log('[Queue] RECHECK found match! Joining:', recheckData.matchId);
-            setIsMatchJoiner(true);
-            const joinRes = await fetch(`/api/match/${recheckData.matchId}/join`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-              },
-              body: JSON.stringify({ teamB: null }),
-            });
-            if (joinRes.ok) {
-              const joinData = await joinRes.json();
-              console.log('[Queue] P2 joined on recheck:', joinData);
-              setServerMatch(recheckData.matchId, joinData.battleSeed ?? '');
-              if (trainer) {
-                setMatch({
-                  player1: trainer,
-                  player2: GENERIC_RIVAL,
-                  room: roomTier,
-                  matchId: recheckData.matchId,
-                });
-              }
-              setScreen('versus');
-              return;
-            }
-          }
-        }
-        
-        // Step 3: Still no match after recheck — NOW create as P1
-        console.log('[Queue] Step 3: Recheck found nothing, creating new match as P1');
-        const queueRes = await fetch('/api/match/queue', {
+        // ── SINGLE SERVER CALL: atomic matchmaking ──
+        const matchmakingRes = await fetch('/api/matchmaking/paid/join', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
           },
-          body: JSON.stringify({ roomId, entryFeeSol }),
+          body: JSON.stringify({ roomId, teamA: null }),
         });
-        if (!queueRes.ok) {
-          console.error('[Queue] POST /queue failed:', queueRes.status, await queueRes.text());
+
+        if (!matchmakingRes.ok) {
+          const errorData = await matchmakingRes.json();
+          console.error('[Queue] Matchmaking failed:', errorData);
+          
+          if (errorData.code === 'INSUFFICIENT_FUNDS') {
+            alert('Insufficient funds. Please deposit more SOL.');
+            cancelQueue();
+            setScreen('room-select');
+          }
           return;
         }
-        const queueData = await queueRes.json();
-        console.log('[Queue] P1 match created:', queueData);
 
-        // Handle resumed match (idempotency: user had an active match already)
-        if (queueData.resumed) {
-          console.log('[Queue] Resuming existing match:', queueData.matchId, 'status:', queueData.status)
-          setServerMatch(queueData.matchId, queueData.battleSeed ?? '')
-          if (queueData.status === 'settlement_pending') {
-            // P2 already joined — go straight to versus/game
-            if (trainer) {
-              setMatch({ player1: trainer, player2: GENERIC_RIVAL, room: roomTier, matchId: queueData.matchId })
-            }
-            setScreen('versus')
-            return
-          }
-          // Still forming — fall through to poll as normal
+        const matchData = await matchmakingRes.json();
+        console.log('[Queue] Matchmaking SUCCESS:', matchData);
+
+        if (!matchData.success || !matchData.matchId) {
+          console.error('[Queue] Invalid matchmaking response:', matchData);
+          return;
         }
 
-        setQueueMatchId(queueData.matchId);
+        // Store match info
+        setQueueMatchId(matchData.matchId);
+        setServerMatch(matchData.matchId, matchData.battleSeed ?? '');
+        setIsMatchJoiner(matchData.role === 'player_b');
 
-        // Step 3: Subscribe to realtime match updates (replaces polling)
-        console.log('[Queue] Subscribing to realtime updates for match:', queueData.matchId);
+        console.log(`[Queue] Role: ${matchData.role} | Status: ${matchData.status} | Resumed: ${matchData.resumed}`);
+
+        // If match is already ready (player_b joined) or settlement_pending (resumed)
+        if (matchData.status === 'ready' || matchData.status === 'settlement_pending') {
+          console.log('[Queue] Match already ready — transitioning to versus');
+          if (trainer) {
+            setMatch({
+              player1: matchData.role === 'player_a' ? trainer : GENERIC_RIVAL,
+              player2: matchData.role === 'player_b' ? trainer : GENERIC_RIVAL,
+              room: roomTier,
+              matchId: matchData.matchId,
+            });
+          }
+          setScreen('versus');
+          return;
+        }
+
+        // Match is forming — subscribe to realtime updates for when player_b joins
+        console.log('[Queue] Match forming — subscribing to realtime updates');
         channelRef.current = supabase
-          .channel(`match:${queueData.matchId}`)
+          .channel(`match:${matchData.matchId}`)
           .on(
             'postgres_changes',
             {
               event: 'UPDATE',
               schema: 'public',
               table: 'matches',
-              filter: `id=eq.${queueData.matchId}`,
+              filter: `id=eq.${matchData.matchId}`,
             },
             (payload) => {
               console.log('[Queue] Realtime update received:', payload.new);
@@ -399,10 +328,10 @@ export default function QueueScreen() {
                 if (timeoutRef.current) clearTimeout(timeoutRef.current);
                 if (trainer) {
                   setMatch({
-                    player1: trainer,
-                    player2: GENERIC_RIVAL,
+                    player1: matchData.role === 'player_a' ? trainer : GENERIC_RIVAL,
+                    player2: matchData.role === 'player_b' ? trainer : GENERIC_RIVAL,
                     room: roomTier,
-                    matchId: queueData.matchId,
+                    matchId: matchData.matchId,
                   });
                 }
                 setScreen('versus');
@@ -421,7 +350,7 @@ export default function QueueScreen() {
           // Auto-abandon to unlock funds
           if (tokenRef.current) {
             try {
-              const abandonRes = await fetch(`/api/match/${queueData.matchId}/abandon`, {
+              const abandonRes = await fetch(`/api/match/${matchData.matchId}/abandon`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${tokenRef.current}` },
               });
@@ -437,8 +366,8 @@ export default function QueueScreen() {
           
           setNoOpponentFound(true);
         }, 5 * 60 * 1000);
-      } catch {
-        // Ignore top-level errors
+      } catch (err) {
+        console.error('[Queue] Unexpected error:', err);
       }
     };
 
