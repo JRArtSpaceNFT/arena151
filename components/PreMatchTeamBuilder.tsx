@@ -82,7 +82,11 @@ export default function PreMatchTeamBuilder() {
                     : 'border-slate-600 hover:border-slate-500'
                 }`}
               >
-                <div className="text-4xl mb-2">👤</div>
+                <img 
+                  src={trainer.spriteUrl} 
+                  alt={trainer.name}
+                  className="w-16 h-16 mx-auto mb-2 pixelated"
+                />
                 <div className="text-white font-bold text-sm">{trainer.name}</div>
               </button>
             ))}
@@ -108,7 +112,11 @@ export default function PreMatchTeamBuilder() {
                     : 'border-slate-600 hover:border-slate-500'
                 }`}
               >
-                <div className="text-2xl mb-1">🐾</div>
+                <img 
+                  src={creature.spriteUrl} 
+                  alt={creature.name}
+                  className="w-12 h-12 mx-auto mb-1 pixelated"
+                />
                 <div className="text-white text-xs font-bold truncate">{creature.name}</div>
               </button>
             ))}
@@ -134,7 +142,11 @@ export default function PreMatchTeamBuilder() {
                   return (
                     <div key={position} className="flex items-center gap-4 bg-slate-700/50 p-3 rounded-lg">
                       <div className="text-slate-400 font-bold w-8">#{position + 1}</div>
-                      <div className="text-2xl">🐾</div>
+                      <img 
+                        src={creature?.spriteUrl} 
+                        alt={creature?.name}
+                        className="w-12 h-12 pixelated"
+                      />
                       <div className="flex-1 text-white font-bold">{creature?.name}</div>
                       <div className="flex gap-2">
                         <button
