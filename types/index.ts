@@ -95,7 +95,7 @@ export type AppScreen =
   | 'signup'
   | 'profile'
   | 'draft-mode-intro'
-  | 'trainer-select'
+  | 'team-builder'  | 'trainer-select'
   | 'team-select'
   | 'room-select'
   | 'queue'
