@@ -53,6 +53,7 @@ interface MatchmakingResponse {
   createdNew?: boolean
   resumed?: boolean
   playerAId?: string
+  playerBId?: string
   error?: string
   code?: string
 }
@@ -177,6 +178,7 @@ export async function POST(req: NextRequest) {
       createdNew: rpcData.createdNew,
       resumed: rpcData.resumed,
       playerAId: rpcData.playerAId,
+      playerBId: rpcData.playerBId,
     }
 
     return NextResponse.json(response)

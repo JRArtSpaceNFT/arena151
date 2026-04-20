@@ -320,10 +320,41 @@ export default function QueueScreen() {
             return;
           }
           
+          // Fetch opponent profile before transitioning
+          const opponentId = matchData.role === 'player_a' ? matchData.playerBId : matchData.playerAId;
+          let opponentProfile = GENERIC_RIVAL;
+          
+          if (opponentId && token) {
+            try {
+              const profileRes = await fetch(`/api/profile/${opponentId}`, {
+                headers: { 'Authorization': `Bearer ${token}` },
+              });
+              if (profileRes.ok) {
+                const profileData = await profileRes.json();
+                opponentProfile = {
+                  id: profileData.id || opponentId,
+                  username: profileData.username || 'Unknown',
+                  displayName: profileData.display_name || profileData.username || 'Unknown Player',
+                  email: '',
+                  avatar: profileData.avatar || '🎮',
+                  favoritePokemon: trainer?.favoritePokemon || GENERIC_RIVAL.favoritePokemon,
+                  joinedDate: new Date(profileData.created_at || Date.now()),
+                  record: { wins: profileData.wins || 0, losses: profileData.losses || 0 },
+                  internalWalletId: '',
+                  balance: 0,
+                  earnings: 0,
+                  badges: profileData.badges || [],
+                };
+              }
+            } catch (err) {
+              console.error('[Queue] Failed to fetch opponent profile:', err);
+            }
+          }
+          
           if (trainer) {
             setMatch({
-              player1: matchData.role === 'player_a' ? trainer : GENERIC_RIVAL,
-              player2: matchData.role === 'player_b' ? trainer : GENERIC_RIVAL,
+              player1: matchData.role === 'player_a' ? trainer : opponentProfile,
+              player2: matchData.role === 'player_b' ? trainer : opponentProfile,
               room: roomTier,
               matchId: matchData.matchId,
             });

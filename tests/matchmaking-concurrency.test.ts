@@ -106,6 +106,7 @@ async function setupTestUsers() {
           balance: 10.0,  // 10 SOL for testing
           locked_balance: 0,
           email: `test_${userId}@arena151.test`,
+          internal_wallet_id: `test_wallet_${userId.slice(-4)}`,
         })
       
       if (insertError) {
@@ -263,6 +264,7 @@ async function testThreeConcurrentUsers() {
       balance: 10.0,
       locked_balance: 0,
       email: `test_${TEST_USER_3_ID}@arena151.test`,
+      internal_wallet_id: `test_wallet_${TEST_USER_3_ID.slice(-4)}`,
     })
   } else {
     await supabaseAdmin
