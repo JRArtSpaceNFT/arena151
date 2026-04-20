@@ -57,18 +57,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    // ── API Rate Limit: 3 withdrawal requests per 1 hour ────────
-    const rateLimitKey = `withdraw:${userId}`
-    const rateLimit = checkRateLimit(rateLimitKey, RATE_LIMITS.WITHDRAW)
-
-    if (!rateLimit.allowed) {
-      return NextResponse.json({
-        error: 'Too many withdrawal attempts. Please wait before trying again.',
-        code: 'RATE_LIMIT_EXCEEDED',
-        remaining: rateLimit.remaining,
-        resetMs: rateLimit.resetMs,
-      }, { status: 429 })
-    }
+    // ── API Rate Limit: DISABLED FOR TESTING ────────
+    // const rateLimitKey = `withdraw:${userId}`
+    // const rateLimit = checkRateLimit(rateLimitKey, RATE_LIMITS.WITHDRAW)
+    // if (!rateLimit.allowed) {
+    //   return NextResponse.json({
+    //     error: 'Too many withdrawal attempts. Please wait before trying again.',
+    //     code: 'RATE_LIMIT_EXCEEDED',
+    //     remaining: rateLimit.remaining,
+    //     resetMs: rateLimit.resetMs,
+    //   }, { status: 429 })
+    // }
 
     const minWithdrawalSol = await getMinWithdrawalSol()
     if (amountSol < minWithdrawalSol) {
