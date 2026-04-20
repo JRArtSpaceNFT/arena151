@@ -149,7 +149,7 @@ export default function ArenaRevealV2() {
           animate={{ opacity: 1, scale: isLocked ? 1 : 1.2 }}
           transition={{ duration: 0.5 }}
         >
-          <div className="text-6xl mb-4">{arena.emoji}</div>
+          <div className="text-6xl mb-4">🏟️</div>
           <div className="text-4xl font-bold text-white mb-2">
             {arena.name}
           </div>
