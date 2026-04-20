@@ -82,7 +82,7 @@ export default function PreMatchTeamBuilder() {
                     : 'border-slate-600 hover:border-slate-500'
                 }`}
               >
-                <div className="text-4xl mb-2">{trainer.emoji}</div>
+                <div className="text-4xl mb-2">👤</div>
                 <div className="text-white font-bold text-sm">{trainer.name}</div>
               </button>
             ))}
