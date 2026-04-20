@@ -171,9 +171,8 @@ export default function ArenaReveal() {
 
         const trainerSeedA = Math.abs((seedNum * 7 + 3) % TRAINERS.length)
         const trainerSeedB = Math.abs((seedNum * 13 + 7) % TRAINERS.length)
-        const state = gameStore.getState()
-        const trainerA = TRAINERS[trainerSeedA] ?? state.p1Trainer ?? TRAINERS[0]
-        const trainerB = TRAINERS[trainerSeedB !== trainerSeedA ? trainerSeedB : (trainerSeedB + 1) % TRAINERS.length] ?? state.p2Trainer ?? TRAINERS[1]
+        const trainerA = TRAINERS[trainerSeedA] ?? TRAINERS[0]
+        const trainerB = TRAINERS[trainerSeedB !== trainerSeedA ? trainerSeedB : (trainerSeedB + 1) % TRAINERS.length] ?? TRAINERS[1]
 
         const rng = mulberry32(seedFromMatchId(effectiveSeed))
         const battleState = resolveBattle(teamA, teamB, canonicalArena, trainerA, trainerB, rng)
