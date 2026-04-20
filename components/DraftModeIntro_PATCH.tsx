@@ -1,3 +1,4 @@
+// Add this at the end of DraftModeIntro component, before the closing </div>
 
       {/* Team Lock Modal */}
       {showTeamLock && (
@@ -5,7 +6,7 @@
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(0,0,0,0.85)',
+            background: 'rgba(0,0,0,0.8)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -24,6 +25,7 @@
                 setScreen('room-select');
               }}
             />
+            
             <button
               onClick={() => setShowTeamLock(false)}
               style={{
@@ -42,6 +44,3 @@
           </div>
         </div>
       )}
-    </div>
-  );
-}
