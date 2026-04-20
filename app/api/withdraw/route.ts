@@ -69,10 +69,11 @@ export async function POST(req: NextRequest) {
     //   }, { status: 429 })
     // }
 
-    const minWithdrawalSol = await getMinWithdrawalSol()
-    if (amountSol < minWithdrawalSol) {
-      return NextResponse.json({ error: 'Minimum withdrawal is $5 USD equivalent' }, { status: 400 })
-    }
+    // Minimum withdrawal check DISABLED - allow any amount
+    // const minWithdrawalSol = await getMinWithdrawalSol()
+    // if (amountSol < minWithdrawalSol) {
+    //   return NextResponse.json({ error: 'Minimum withdrawal is $5 USD equivalent' }, { status: 400 })
+    // }
 
     // ── Load profile ─────────────────────────────────────────────
     const { data: profile } = await supabaseAdmin
