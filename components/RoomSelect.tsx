@@ -49,7 +49,7 @@ export default function RoomSelect() {
   const getEntryFee = (tierUsd: number) => usdToSol(tierUsd, solPrice);
   const getPrizePool = (tierUsd: number) => usdToSol(tierUsd * 2 * 0.95, solPrice);
 
-  const handleRoomSelect = (roomId: BattleRoom) => {
+  const handleRoomSelect = async (roomId: BattleRoom) => {
     if (!currentTrainer) return;
     const room = ROOM_TIERS[roomId];
     const entryFee = getEntryFee(room.tier);
@@ -57,6 +57,40 @@ export default function RoomSelect() {
       haptic.error();
       return;
     }
+    
+    // Lock team before queueing for paid PVP
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        console.error('[RoomSelect] Not authenticated');
+        return;
+      }
+
+      // Call team lock endpoint with placeholder data
+      // TODO: Get real trainer/team selection from user
+      const lockRes = await fetch('/api/team/lock', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          trainerId: currentTrainer.id,
+          team: [1, 2, 3, 4, 5, 6], // Placeholder
+          lockedOrder: [0, 1, 2, 3, 4, 5], // Placeholder
+        }),
+      });
+
+      if (!lockRes.ok) {
+        const errorData = await lockRes.json();
+        console.error('[RoomSelect] Team lock failed:', errorData);
+        // Continue anyway for now
+      }
+    } catch (err) {
+      console.error('[RoomSelect] Team lock error:', err);
+      // Continue anyway for now
+    }
+
     haptic.medium();
     trackEvent.roomSelected(roomId);
     startQueue(roomId, currentTrainer);
