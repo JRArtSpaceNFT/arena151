@@ -215,6 +215,10 @@ export default function QueueScreen() {
 
   // Real matchmaking effect
   useEffect(() => {
+    console.log('[Queue] ===== MATCHMAKING EFFECT v2.0 =====');
+    console.log('[Queue] testingMode:', testingMode);
+    console.log('[Queue] queueState:', queueState);
+    
     // Guard: only run if actually searching
     if (!queueState.isSearching || !queueState.roomId) {
       console.log('[Queue] useEffect guard: not searching or no roomId');
@@ -223,13 +227,14 @@ export default function QueueScreen() {
     
     if (testingMode) {
       // Testing mode: auto-resolve to bot after random delay
+      console.log('[Queue] TESTING MODE ACTIVE - creating bot match');
       const matchTimeout = setTimeout(() => {
         setScreen('match-found');
       }, Math.random() * 7000 + 8000);
       return () => clearTimeout(matchTimeout);
     }
 
-    console.log('[Queue] useEffect triggered - queueState:', queueState);
+    console.log('[Queue] REAL MONEY MODE - calling atomic matchmaking endpoint');
 
     // Real money matchmaking — NEW ATOMIC SERVER PATH
     const run = async () => {
