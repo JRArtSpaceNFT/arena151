@@ -79,9 +79,8 @@ export function validateCanonicalPayload(payload: any): string | null {
     return 'Invalid playerA.team (must be array of 6)'
   }
   
-  // PlayerB and opponent are optional when status='queueing' (no match yet)
-  // Check if playerB actually exists (userId is not null)
-  if (payload.status !== 'queueing' || (payload.playerB && payload.playerB.userId !== null)) {
+  // PlayerB and opponent are only required when NOT queueing
+  if (payload.status !== 'queueing') {
     if (!payload.playerB) return 'Missing playerB'
     if (!payload.playerB.userId) return 'Missing playerB.userId'
     if (!payload.playerB.username) return 'Missing playerB.username'
