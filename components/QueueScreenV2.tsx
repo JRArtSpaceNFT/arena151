@@ -55,9 +55,12 @@ export default function QueueScreenV2() {
         }
         tokenRef.current = session.access_token
 
-        const requestPayload = { roomId: queueState.roomId }
+        const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+        const requestPayload = { roomId: queueState.roomId, requestId }
         
-        console.log('MATCHMAKING REQUEST PAYLOAD', requestPayload)
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+        console.log('MATCHMAKING REQUEST ID:', requestId)
+        console.log('MATCHMAKING REQUEST PAYLOAD:', requestPayload)
 
         const res = await fetch('/api/matchmaking/paid/join', {
           method: 'POST',
@@ -68,12 +71,14 @@ export default function QueueScreenV2() {
           body: JSON.stringify(requestPayload),
         })
 
-        console.log('MATCHMAKING RESPONSE STATUS', res.status)
+        console.log('MATCHMAKING RESPONSE STATUS:', res.status)
 
         let data
         try {
-          data = await res.json()
-          console.log('MATCHMAKING RESPONSE BODY', data)
+          const rawText = await res.text()
+          console.log('MATCHMAKING RESPONSE RAW JSON:', rawText)
+          data = JSON.parse(rawText)
+          console.log('MATCHMAKING RESPONSE AFTER NORMALIZATION:', JSON.stringify(data, null, 2))
         } catch (parseError) {
           console.error('Failed to parse response JSON:', parseError)
           setError(`Failed to parse server response (HTTP ${res.status})`)
@@ -116,11 +121,14 @@ export default function QueueScreenV2() {
 
         // Validate payload
         const validationError = validateCanonicalPayload(data)
+        console.log('MATCHMAKING VALIDATION RESULT:', validationError ? `FAILED: ${validationError}` : 'PASSED')
         if (validationError) {
           console.error('[QueueV2] Invalid payload:', validationError)
+          console.error('Full payload that failed validation:', JSON.stringify(data, null, 2))
           setError(`Invalid match data: ${validationError}`)
           return
         }
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
 
         setPayload(data)
 

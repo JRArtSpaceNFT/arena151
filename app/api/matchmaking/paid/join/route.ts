@@ -20,7 +20,7 @@ const supabaseAnon = createClient(
 
 export async function POST(req: NextRequest) {
   const startTime = Date.now()
-  const requestId = Math.random().toString(36).slice(2, 10)
+  let requestId = `srv_${Math.random().toString(36).slice(2, 10)}`
   
   console.log(`[Matchmaking ${requestId}] ==================== START V2 ====================`)
 
@@ -54,6 +54,13 @@ export async function POST(req: NextRequest) {
 
     // Parse request
     const body = await req.json()
+    
+    // Use client requestId if provided
+    if (body.requestId) {
+      requestId = body.requestId
+      console.log(`[Matchmaking ${requestId}] 🔗 Using client requestId`)
+    }
+    
     console.log(`[Matchmaking ${requestId}] 📥 Request body:`, JSON.stringify(body, null, 2))
 
     const { roomId } = body
@@ -92,14 +99,16 @@ export async function POST(req: NextRequest) {
       entryFeeSol = 0.05
     }
 
-    console.log(`[Matchmaking ${requestId}] 🎯 Room: ${roomId} | Entry fee: ${entryFeeSol} SOL | Tier: ${roomTier.tier}`)
+    console.log(`[Matchmaking ${requestId}] ✅ Authenticated user: ${userId}`)
+    console.log(`[Matchmaking ${requestId}] 🎯 Room: ${roomId}`)
+    console.log(`[Matchmaking ${requestId}] 💰 Entry fee: ${entryFeeSol} SOL`)
+    console.log(`[Matchmaking ${requestId}] 🏆 Tier: ${roomTier.tier}`)
 
     // Call atomic RPC V2
-    console.log(`[Matchmaking ${requestId}] 🔄 Calling RPC with:`, {
-      p_user_id: userId,
-      p_room_id: roomId,
-      p_entry_fee: entryFeeSol
-    })
+    console.log(`[Matchmaking ${requestId}] 🔄 Calling atomic_join_or_create_paid_match_v2`)
+    console.log(`[Matchmaking ${requestId}]   - p_user_id: ${userId}`)
+    console.log(`[Matchmaking ${requestId}]   - p_room_id: ${roomId}`)
+    console.log(`[Matchmaking ${requestId}]   - p_entry_fee: ${entryFeeSol}`)
 
     const { data: payload, error: rpcError } = await supabaseAdmin.rpc(
       'atomic_join_or_create_paid_match_v2',
@@ -131,7 +140,8 @@ export async function POST(req: NextRequest) {
       }, { status: 500 })
     }
 
-    console.log(`[Matchmaking ${requestId}] 📦 RPC Response:`, JSON.stringify(payload, null, 2))
+    console.log(`[Matchmaking ${requestId}] 📦 RPC Response received`)
+    console.log(`[Matchmaking ${requestId}] Full payload:`, JSON.stringify(payload, null, 2))
 
     // Check for errors from RPC
     if (payload.error) {
@@ -149,9 +159,19 @@ export async function POST(req: NextRequest) {
 
     const elapsed = Date.now() - startTime
     console.log(`[Matchmaking ${requestId}] ✅ SUCCESS in ${elapsed}ms`)
-    console.log(`[Matchmaking ${requestId}]   status: ${payload.status}`)
-    console.log(`[Matchmaking ${requestId}]   matchId: ${payload.matchId}`)
-    console.log(`[Matchmaking ${requestId}]   role: ${payload.role}`)
+    console.log(`[Matchmaking ${requestId}]   - status: ${payload.status}`)
+    console.log(`[Matchmaking ${requestId}]   - matchId: ${payload.matchId}`)
+    console.log(`[Matchmaking ${requestId}]   - myRole: ${payload.myRole}`)
+    console.log(`[Matchmaking ${requestId}]   - playerA.userId: ${payload.playerA?.userId}`)
+    console.log(`[Matchmaking ${requestId}]   - playerA.trainerId: ${payload.playerA?.trainerId}`)
+    console.log(`[Matchmaking ${requestId}]   - playerA.team: ${payload.playerA?.team ? `[${payload.playerA.team.length} Pokemon]` : 'null'}`)
+    console.log(`[Matchmaking ${requestId}]   - playerB.userId: ${payload.playerB?.userId}`)
+    console.log(`[Matchmaking ${requestId}]   - playerB.trainerId: ${payload.playerB?.trainerId}`)
+    console.log(`[Matchmaking ${requestId}]   - playerB.team: ${payload.playerB?.team ? `[${payload.playerB.team.length} Pokemon]` : 'null'}`)
+    console.log(`[Matchmaking ${requestId}]   - opponent.userId: ${payload.opponent?.userId}`)
+    console.log(`[Matchmaking ${requestId}]   - arenaId: ${payload.arenaId}`)
+    console.log(`[Matchmaking ${requestId}]   - battleSeed: ${payload.battleSeed}`)
+    console.log(`[Matchmaking ${requestId}] RETURNED JSON TO CLIENT:`, JSON.stringify(payload, null, 2))
     console.log(`[Matchmaking ${requestId}] ==================== END ====================`)
 
     return NextResponse.json(payload)

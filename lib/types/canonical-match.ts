@@ -64,37 +64,124 @@ export interface CanonicalMatchPayload {
  * Returns error message if invalid, null if valid
  */
 export function validateCanonicalPayload(payload: any): string | null {
-  if (!payload) return 'Payload is null or undefined'
-  if (!payload.matchId) return 'Missing matchId'
-  if (!payload.status) return 'Missing status'
-  if (!payload.arenaId) return 'Missing arenaId'
-  if (!payload.battleSeed) return 'Missing battleSeed'
-  if (!payload.myRole) return 'Missing myRole'
+  console.log('[Validator] Starting validation...')
   
-  if (!payload.playerA) return 'Missing playerA'
-  if (!payload.playerA.userId) return 'Missing playerA.userId'
-  if (!payload.playerA.username) return 'Missing playerA.username'
-  if (!payload.playerA.trainerId) return 'Missing playerA.trainerId'
+  if (!payload) {
+    console.error('[Validator] FAIL: payload is null or undefined')
+    return 'Payload is null or undefined'
+  }
+  
+  if (!payload.matchId) {
+    console.error('[Validator] FAIL: missing field "matchId"')
+    return 'Missing matchId'
+  }
+  
+  if (!payload.status) {
+    console.error('[Validator] FAIL: missing field "status"')
+    return 'Missing status'
+  }
+  
+  console.log(`[Validator] status = "${payload.status}"`)
+  
+  if (!payload.arenaId) {
+    console.error('[Validator] FAIL: missing field "arenaId"')
+    return 'Missing arenaId'
+  }
+  
+  if (!payload.battleSeed) {
+    console.error('[Validator] FAIL: missing field "battleSeed"')
+    return 'Missing battleSeed'
+  }
+  
+  if (!payload.myRole) {
+    console.error('[Validator] FAIL: missing field "myRole"')
+    return 'Missing myRole'
+  }
+  
+  if (!payload.playerA) {
+    console.error('[Validator] FAIL: missing field "playerA"')
+    return 'Missing playerA'
+  }
+  
+  if (!payload.playerA.userId) {
+    console.error('[Validator] FAIL: missing field "playerA.userId"')
+    return 'Missing playerA.userId'
+  }
+  
+  if (!payload.playerA.username) {
+    console.error('[Validator] FAIL: missing field "playerA.username"')
+    return 'Missing playerA.username'
+  }
+  
+  if (!payload.playerA.trainerId) {
+    console.error('[Validator] FAIL: missing field "playerA.trainerId"')
+    return 'Missing playerA.trainerId'
+  }
+  
   if (!Array.isArray(payload.playerA.team) || payload.playerA.team.length !== 6) {
+    console.error('[Validator] FAIL: field "playerA.team" invalid:', payload.playerA.team)
     return 'Invalid playerA.team (must be array of 6)'
   }
   
+  console.log('[Validator] playerA validated ✓')
+  
   // PlayerB and opponent are only required when NOT queueing
   if (payload.status !== 'queueing') {
-    if (!payload.playerB) return 'Missing playerB'
-    if (!payload.playerB.userId) return 'Missing playerB.userId'
-    if (!payload.playerB.username) return 'Missing playerB.username'
-    if (!payload.playerB.trainerId) return 'Missing playerB.trainerId'
+    console.log('[Validator] status is NOT queueing, validating playerB...')
+    
+    if (!payload.playerB) {
+      console.error('[Validator] FAIL: missing field "playerB" (status is not queueing)')
+      return 'Missing playerB'
+    }
+    
+    if (!payload.playerB.userId) {
+      console.error('[Validator] FAIL: missing field "playerB.userId"')
+      return 'Missing playerB.userId'
+    }
+    
+    if (!payload.playerB.username) {
+      console.error('[Validator] FAIL: missing field "playerB.username"')
+      return 'Missing playerB.username'
+    }
+    
+    if (!payload.playerB.trainerId) {
+      console.error('[Validator] FAIL: missing field "playerB.trainerId"')
+      return 'Missing playerB.trainerId'
+    }
+    
     if (!Array.isArray(payload.playerB.team) || payload.playerB.team.length !== 6) {
+      console.error('[Validator] FAIL: field "playerB.team" invalid:', payload.playerB.team)
       return 'Invalid playerB.team (must be array of 6)'
     }
     
-    if (!payload.opponent) return 'Missing opponent'
-    if (!payload.opponent.userId) return 'Missing opponent.userId'
-    if (!payload.opponent.username) return 'Missing opponent.username'
-    if (!payload.opponent.trainerId) return 'Missing opponent.trainerId'
+    console.log('[Validator] playerB validated ✓')
+    
+    if (!payload.opponent) {
+      console.error('[Validator] FAIL: missing field "opponent"')
+      return 'Missing opponent'
+    }
+    
+    if (!payload.opponent.userId) {
+      console.error('[Validator] FAIL: missing field "opponent.userId"')
+      return 'Missing opponent.userId'
+    }
+    
+    if (!payload.opponent.username) {
+      console.error('[Validator] FAIL: missing field "opponent.username"')
+      return 'Missing opponent.username'
+    }
+    
+    if (!payload.opponent.trainerId) {
+      console.error('[Validator] FAIL: missing field "opponent.trainerId"')
+      return 'Missing opponent.trainerId'
+    }
+    
+    console.log('[Validator] opponent validated ✓')
+  } else {
+    console.log('[Validator] status is queueing, skipping playerB/opponent validation')
   }
   
+  console.log('[Validator] ✓ ALL VALIDATION PASSED')
   return null // Valid
 }
 // Cache bust Mon Apr 20 19:06:28 PDT 2026
