@@ -281,42 +281,71 @@ export default function QueueScreen() {
         const matchData = await matchmakingRes.json();
         console.log('[Queue] Matchmaking SUCCESS:', matchData);
 
-        if (!matchData.success || !matchData.matchId) {
-          console.error('[Queue] Invalid matchmaking response:', matchData);
+        // Validate response structure
+        if (!matchData.success || !matchData.matchId || !matchData.status) {
+          console.error('[Queue] Invalid matchmaking response - missing required fields:', matchData);
+          return;
+        }
+        
+        // Log detailed response analysis
+        console.log('[Queue] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log(`[Queue] Status: ${matchData.status}`);
+        console.log(`[Queue] Requested roomId: ${roomId}`);
+        console.log(`[Queue] Returned roomId: ${matchData.roomId}`);
+        console.log(`[Queue] Room match: ${matchData.roomId === roomId ? '✅' : '❌ MISMATCH!'}`);        
+        console.log(`[Queue] arenaId: ${matchData.arenaId ?? 'null'}`);
+        console.log(`[Queue] battleSeed: ${matchData.battleSeed ?? 'null'}`);
+        console.log(`[Queue] playerB: ${matchData.playerB ? 'present' : 'null'}`);
+        console.log(`[Queue] opponent: ${matchData.opponent ? 'present' : 'null'}`);
+        console.log('[Queue] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        
+        // Validate roomId match
+        if (matchData.roomId && matchData.roomId !== roomId) {
+          console.error('[Queue] ❌ CRITICAL: Server returned wrong roomId!');
+          console.error(`[Queue]   Requested: ${roomId}`);
+          console.error(`[Queue]   Received: ${matchData.roomId}`);
+          alert(`Server error: joined wrong room (${matchData.roomId} instead of ${roomId}). Please try again.`);
+          cancelQueue();
+          setScreen('room-select');
           return;
         }
 
         // Store match info
         setQueueMatchId(matchData.matchId);
         setServerMatch(matchData.matchId, matchData.battleSeed ?? '');
-        setIsMatchJoiner(matchData.role === 'player_b');
+        setIsMatchJoiner(matchData.myRole === 'player_b');
 
-        console.log(`[Queue] Role: ${matchData.role} | Status: ${matchData.status} | Resumed: ${matchData.resumed}`);
+        console.log(`[Queue] Role: ${matchData.myRole} | Status: ${matchData.status}`);
 
-        // If match is already ready (player_b joined) or settlement_pending (resumed)
-        if (matchData.status === 'ready' || matchData.status === 'settlement_pending') {
-          console.log('[Queue] Match already ready — transitioning to versus');
+        // PHASE 1: QUEUEING - Stay on queue screen, wait for player_b
+        if (matchData.status === 'queueing') {
+          console.log('[Queue] 🔵 QUEUEING - waiting for opponent...');
+          // Validation: queueing response should NOT have battleSeed/opponent/playerB
+          if (matchData.battleSeed && matchData.opponent && matchData.playerB) {
+            console.warn('[Queue] ⚠️  Server returned full data during queueing phase - this is a bug but will work');
+          }
+          // Continue to realtime subscription below
+        }
+        
+        // PHASE 2: BATTLE_READY - Both players matched, proceed
+        else if (matchData.status === 'arena_ready' || matchData.status === 'battle_ready' || matchData.status === 'settlement_pending') {
+          console.log('[Queue] ✅ BATTLE_READY - transitioning to versus');
           
-          // CRITICAL FIX: If resumed=true but status=ready, this is a stale match
-          // Don't transition immediately - the match is corrupt. Cancel and retry.
-          if (matchData.resumed) {
-            console.warn('[Queue] STALE MATCH DETECTED - voiding and retrying');
-            // Clear the corrupted match from sessionStorage
-            if (typeof window !== 'undefined') {
-              sessionStorage.removeItem('arena_matchId');
-              sessionStorage.removeItem('arena_seed');
-              sessionStorage.removeItem('arena_isJoiner');
-            }
-            // Abandon the match to unlock funds
-            if (tokenRef.current) {
-              fetch(`/api/match/${matchData.matchId}/abandon`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${tokenRef.current}` },
-              }).catch(() => {});
-            }
-            alert('Found a stale match. Please try joining again.');
-            cancelQueue();
-            setScreen('room-select');
+          // Validate battle_ready response has required fields
+          if (!matchData.battleSeed) {
+            console.error('[Queue] ❌ Battle-ready response missing battleSeed!');
+            return;
+          }
+          if (!matchData.arenaId) {
+            console.error('[Queue] ❌ Battle-ready response missing arenaId!');
+            return;
+          }
+          if (!matchData.opponent) {
+            console.error('[Queue] ❌ Battle-ready response missing opponent!');
+            return;
+          }
+          if (!matchData.playerB) {
+            console.error('[Queue] ❌ Battle-ready response missing playerB!');
             return;
           }
           
@@ -362,9 +391,15 @@ export default function QueueScreen() {
           setScreen('versus');
           return;
         }
+        
+        // Unknown status
+        else {
+          console.error(`[Queue] ❌ Unknown match status: ${matchData.status}`);
+          return;
+        }
 
-        // Match is forming — subscribe to realtime updates for when player_b joins
-        console.log('[Queue] Match forming — subscribing to realtime updates');
+        // REALTIME SUBSCRIPTION: Subscribe to updates for when player_b joins
+        console.log('[Queue] 🔔 Subscribing to realtime updates for match', matchData.matchId);
         channelRef.current = supabase
           .channel(`match:${matchData.matchId}`)
           .on(
@@ -375,23 +410,73 @@ export default function QueueScreen() {
               table: 'matches',
               filter: `id=eq.${matchData.matchId}`,
             },
-            (payload) => {
-              console.log('[Queue] Realtime update received:', payload.new);
+            async (payload) => {
+              console.log('[Queue] 🔔 Realtime update received:', payload.new);
               const newStatus = payload.new.status;
               
-              if (newStatus === 'ready' || newStatus === 'settlement_pending') {
-                console.log('[Queue] Match ready! Transitioning to versus screen');
+              // When status changes to matched/arena_ready/battle_ready, fetch full match data
+              if (newStatus === 'matched' || newStatus === 'arena_ready' || newStatus === 'battle_ready' || newStatus === 'settlement_pending') {
+                console.log(`[Queue] ✅ Match status changed to ${newStatus} - fetching full match data`);
                 if (channelRef.current) channelRef.current.unsubscribe();
                 if (timeoutRef.current) clearTimeout(timeoutRef.current);
-                if (trainer) {
-                  setMatch({
-                    player1: matchData.role === 'player_a' ? trainer : GENERIC_RIVAL,
-                    player2: matchData.role === 'player_b' ? trainer : GENERIC_RIVAL,
-                    room: roomTier,
-                    matchId: matchData.matchId,
+                
+                // Fetch canonical match payload to get opponent info
+                try {
+                  const statusRes = await fetch(`/api/match/${matchData.matchId}/status`, {
+                    headers: { 'Authorization': `Bearer ${token}` },
                   });
+                  
+                  if (!statusRes.ok) {
+                    console.error('[Queue] Failed to fetch match status:', await statusRes.text());
+                    return;
+                  }
+                  
+                  const fullMatchData = await statusRes.json();
+                  console.log('[Queue] Full match data:', fullMatchData);
+                  
+                  // Fetch opponent profile
+                  const opponentId = fullMatchData.myRole === 'player_a' ? fullMatchData.playerB?.userId : fullMatchData.playerA?.userId;
+                  let opponentProfile = GENERIC_RIVAL;
+                  
+                  if (opponentId && token) {
+                    try {
+                      const profileRes = await fetch(`/api/profile/${opponentId}`, {
+                        headers: { 'Authorization': `Bearer ${token}` },
+                      });
+                      if (profileRes.ok) {
+                        const profileData = await profileRes.json();
+                        opponentProfile = {
+                          id: profileData.id || opponentId,
+                          username: profileData.username || 'Unknown',
+                          displayName: profileData.display_name || profileData.username || 'Unknown Player',
+                          email: '',
+                          avatar: profileData.avatar || '🎮',
+                          favoritePokemon: trainer?.favoritePokemon || GENERIC_RIVAL.favoritePokemon,
+                          joinedDate: new Date(profileData.created_at || Date.now()),
+                          record: { wins: profileData.wins || 0, losses: profileData.losses || 0 },
+                          internalWalletId: '',
+                          balance: 0,
+                          earnings: 0,
+                          badges: profileData.badges || [],
+                        };
+                      }
+                    } catch (err) {
+                      console.error('[Queue] Failed to fetch opponent profile:', err);
+                    }
+                  }
+                  
+                  if (trainer) {
+                    setMatch({
+                      player1: fullMatchData.myRole === 'player_a' ? trainer : opponentProfile,
+                      player2: fullMatchData.myRole === 'player_b' ? trainer : opponentProfile,
+                      room: roomTier,
+                      matchId: fullMatchData.matchId,
+                    });
+                  }
+                  setScreen('versus');
+                } catch (err) {
+                  console.error('[Queue] Error processing match ready:', err);
                 }
-                setScreen('versus');
               }
             }
           )
