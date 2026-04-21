@@ -58,7 +58,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: `Invalid roomId: ${roomId}` }, { status: 400 })
     }
 
-    const entryFeeSol = roomTier.entryFee
+    let entryFeeSol = roomTier.entryFee
+    
+    // TEMPORARY: Fallback if entryFee is NaN or undefined
+    if (!entryFeeSol || isNaN(entryFeeSol)) {
+      console.warn(`[Matchmaking ${requestId}] Invalid entryFee ${entryFeeSol}, using fallback 0.05`)
+      entryFeeSol = 0.05
+    }
 
     console.log(`[Matchmaking ${requestId}] Room: ${roomId} | Entry fee: ${entryFeeSol} SOL`)
 
