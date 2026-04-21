@@ -138,10 +138,10 @@ export default function VersusScreenV2() {
           >
             <div className="text-6xl mb-4">⚔️</div>
             <div className="text-2xl font-bold text-white mb-2">
-              {opponentData.username}
+              {opponentData?.username || 'Opponent'}
             </div>
             <div className="text-slate-400">
-              Trainer: {opponentData.trainerId}
+              Trainer: {opponentData?.trainerId || 'Unknown'}
             </div>
           </motion.div>
         </motion.div>
