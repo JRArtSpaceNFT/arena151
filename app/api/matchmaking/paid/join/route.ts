@@ -45,13 +45,17 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { roomId } = body
 
+    console.log(`[Matchmaking ${requestId}] Body:`, JSON.stringify(body))
+
     if (!roomId || typeof roomId !== 'string') {
+      console.error(`[Matchmaking ${requestId}] Invalid roomId:`, roomId)
       return NextResponse.json({ success: false, error: 'Missing or invalid roomId' }, { status: 400 })
     }
 
     const roomTier = ROOM_TIERS[roomId]
     if (!roomTier) {
-      return NextResponse.json({ success: false, error: 'Invalid roomId' }, { status: 400 })
+      console.error(`[Matchmaking ${requestId}] Room not found:`, roomId, 'Available:', Object.keys(ROOM_TIERS))
+      return NextResponse.json({ success: false, error: `Invalid roomId: ${roomId}` }, { status: 400 })
     }
 
     const entryFeeSol = roomTier.entryFee
