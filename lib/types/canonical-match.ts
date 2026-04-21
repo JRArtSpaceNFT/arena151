@@ -61,6 +61,7 @@ export type CanonicalMatchPayload = QueueingMatchPayload | ActiveMatchPayload
  */
 export function validateCanonicalPayload(payload: any): string | null {
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+  console.log('[VALIDATOR_BUILD_2026_04_20_2004] UNIQUE BUILD MARKER')
   console.log('[Validator] Starting validation...')
   console.log('CANONICAL MATCH RESPONSE:', JSON.stringify(payload, null, 2))
   console.log('CANONICAL MATCH STATUS:', payload?.status)
