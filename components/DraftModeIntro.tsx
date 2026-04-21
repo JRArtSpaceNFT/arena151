@@ -49,7 +49,8 @@ export default function DraftModeIntro() {
   const [isTeamLocked, setIsTeamLocked] = useState(false);
   
   // Real trainer and team data from game store
-  const selectedTrainer = p1Trainer?.id || currentTrainer?.id || null;
+  // TEMP FIX: Hardcode ash until we fix trainer ID issue
+  const selectedTrainer = 'ash';  // TODO: Fix p1Trainer?.id (returns UUID instead of trainer name)
   const selectedTeam = draftTeamA.length > 0 ? draftTeamA.map(c => c.id) : [];
   const lockedOrder = lineupA.length > 0 ? lineupA.map((_, idx) => idx) : [];
 
