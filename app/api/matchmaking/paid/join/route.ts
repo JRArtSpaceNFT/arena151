@@ -157,6 +157,19 @@ export async function POST(req: NextRequest) {
     }
 
     const elapsed = Date.now() - startTime
+    
+    // PROOF LOG
+    console.log("[MM_SERVER]", {
+      currentUserId: userId,
+      requestedRoomId: roomId,
+      action: payload.action ?? 'unknown',
+      returnedMatchId: payload.matchId,
+      returnedRole: payload.myRole,
+      returnedStatus: payload.status,
+      playerAUserId: payload.playerA?.userId ?? null,
+      playerBUserId: payload.playerB?.userId ?? null
+    })
+    
     console.log(`[Matchmaking ${requestId}] ✅ SUCCESS in ${elapsed}ms`)
     console.log(`[Matchmaking ${requestId}]   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`)
     console.log(`[Matchmaking ${requestId}]   REQUESTED:`)

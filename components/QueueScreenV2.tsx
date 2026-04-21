@@ -119,6 +119,18 @@ export default function QueueScreenV2() {
 
         console.log('[QueueV2] ✅ Matchmaking success:', data)
 
+        // PROOF LOG
+        console.log("MATCH_PROOF", {
+          matchId: data.matchId,
+          myRole: data.myRole,
+          status: data.status,
+          roomId: data.roomId,
+          playerAUserId: data.playerA?.userId ?? null,
+          playerBUserId: data.playerB?.userId ?? null,
+          opponent: data.opponent ?? null,
+          battleSeed: data.battleSeed ?? null
+        })
+
         // Validate payload
         const validationError = validateCanonicalPayload(data)
         console.log('MATCHMAKING VALIDATION RESULT:', validationError ? `FAILED: ${validationError}` : 'PASSED')
@@ -172,6 +184,7 @@ export default function QueueScreenV2() {
         },
         async (update) => {
           console.log('[QueueV2] Match update:', update.new)
+          console.log("MATCH_REALTIME", update)
           const newStatus = update.new.status
 
           if (newStatus === 'matched') {
