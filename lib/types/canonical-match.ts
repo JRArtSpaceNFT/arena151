@@ -80,7 +80,8 @@ export function validateCanonicalPayload(payload: any): string | null {
   }
   
   // PlayerB and opponent are optional when status='queueing' (no match yet)
-  if (payload.status !== 'queueing') {
+  // Check if playerB actually exists (userId is not null)
+  if (payload.status !== 'queueing' || (payload.playerB && payload.playerB.userId !== null)) {
     if (!payload.playerB) return 'Missing playerB'
     if (!payload.playerB.userId) return 'Missing playerB.userId'
     if (!payload.playerB.username) return 'Missing playerB.username'
