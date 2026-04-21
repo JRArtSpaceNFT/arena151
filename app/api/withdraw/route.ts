@@ -29,7 +29,7 @@ const supabaseAnon = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-const FIRST_WITHDRAWAL_ACCOUNT_AGE_HOURS = 24
+const FIRST_WITHDRAWAL_ACCOUNT_AGE_HOURS = 0  // DISABLED - allow same-day withdrawals
 const WITHDRAWAL_VELOCITY_LIMIT = 3  // max withdrawals per 24h
 const WITHDRAWAL_VELOCITY_WINDOW_MS = 24 * 60 * 60 * 1000
 
