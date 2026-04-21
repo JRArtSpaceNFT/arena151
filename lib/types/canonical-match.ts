@@ -1,12 +1,5 @@
 /**
- * Canonical Match Payload - Single source of truth for paid PVP matches
- * 
- * This is the ONLY data structure that should be used to render:
- * - Versus screen
- * - Arena reveal
- * - Battle
- * 
- * All screens must validate this payload is complete before rendering.
+ * Canonical Match Payload - Discriminated union by status
  */
 
 export type MatchStatus = 
@@ -22,35 +15,21 @@ export type MatchStatus =
   | 'cancelled'
   | 'voided'
 
-export interface CanonicalMatchPayload {
+export interface PopulatedPlayer {
+  userId: string
+  username: string
+  trainerId: string
+  trainerName?: string
+  team: number[]
+  lockedOrder: number[]
+}
+
+export interface BaseMatchPayload {
   matchId: string
-  status: MatchStatus
   arenaId: string
-  battleSeed: string
   entryFeeSol: number
-  playerA: {
-    userId: string
-    username: string
-    trainerId: string
-    trainerName?: string
-    team: number[]  // pokemon IDs
-    lockedOrder: number[]  // battle order
-  }
-  playerB: {
-    userId: string
-    username: string
-    trainerId: string
-    trainerName?: string
-    team: number[]
-    lockedOrder: number[]
-  }
   myRole: 'player_a' | 'player_b'
-  opponent: {
-    userId: string
-    username: string
-    trainerId: string
-    trainerName?: string
-  }
+  playerA: PopulatedPlayer
   acks: {
     playerAMatchAck: boolean
     playerBMatchAck: boolean
@@ -59,12 +38,34 @@ export interface CanonicalMatchPayload {
   }
 }
 
+// Queueing: waiting for opponent
+export interface QueueingMatchPayload extends BaseMatchPayload {
+  status: 'queueing'
+  playerB: null
+  opponent: null
+  battleSeed: null
+}
+
+// Matched/Ready/Battling/Settled: both players present
+export interface ActiveMatchPayload extends BaseMatchPayload {
+  status: 'matched' | 'arena_reveal' | 'battle_ready' | 'battling' | 'settlement_pending' | 'settled'
+  playerB: PopulatedPlayer
+  opponent: PopulatedPlayer
+  battleSeed: string
+}
+
+export type CanonicalMatchPayload = QueueingMatchPayload | ActiveMatchPayload
+
 /**
- * Validate canonical payload has all required fields
- * Returns error message if invalid, null if valid
+ * Validate canonical payload using discriminated union
  */
 export function validateCanonicalPayload(payload: any): string | null {
   console.log('[Validator] Starting validation...')
+  console.log('CANONICAL MATCH RESPONSE:', payload)
+  console.log('CANONICAL MATCH STATUS:', payload?.status)
+  console.log('CANONICAL PLAYER_B:', payload?.playerB)
+  console.log('CANONICAL OPPONENT:', payload?.opponent)
+  console.log('CANONICAL BATTLE_SEED:', payload?.battleSeed)
   
   if (!payload) {
     console.error('[Validator] FAIL: payload is null or undefined')
@@ -86,11 +87,6 @@ export function validateCanonicalPayload(payload: any): string | null {
   if (!payload.arenaId) {
     console.error('[Validator] FAIL: missing field "arenaId"')
     return 'Missing arenaId'
-  }
-  
-  if (!payload.battleSeed) {
-    console.error('[Validator] FAIL: missing field "battleSeed"')
-    return 'Missing battleSeed'
   }
   
   if (!payload.myRole) {
@@ -125,9 +121,33 @@ export function validateCanonicalPayload(payload: any): string | null {
   
   console.log('[Validator] playerA validated ✓')
   
-  // PlayerB and opponent are only required when NOT queueing
-  if (payload.status !== 'queueing') {
-    console.log('[Validator] status is NOT queueing, validating playerB...')
+  // DISCRIMINATED UNION VALIDATION
+  if (payload.status === 'queueing') {
+    console.log('[Validator] Validating QUEUEING payload...')
+    
+    if (payload.playerB !== null) {
+      console.error('[Validator] FAIL: playerB must be null when status=queueing, got:', payload.playerB)
+      return 'playerB must be null when status is queueing'
+    }
+    
+    if (payload.opponent !== null) {
+      console.error('[Validator] FAIL: opponent must be null when status=queueing, got:', payload.opponent)
+      return 'opponent must be null when status is queueing'
+    }
+    
+    if (payload.battleSeed !== null) {
+      console.error('[Validator] FAIL: battleSeed must be null when status=queueing, got:', payload.battleSeed)
+      return 'battleSeed must be null when status is queueing'
+    }
+    
+    console.log('[Validator] ✓ QUEUEING validation passed')
+  } else {
+    console.log('[Validator] Validating ACTIVE match payload...')
+    
+    if (!payload.battleSeed || typeof payload.battleSeed !== 'string') {
+      console.error('[Validator] FAIL: battleSeed must be string when not queueing, got:', payload.battleSeed)
+      return 'battleSeed required for active matches'
+    }
     
     if (!payload.playerB) {
       console.error('[Validator] FAIL: missing field "playerB" (status is not queueing)')
@@ -177,11 +197,9 @@ export function validateCanonicalPayload(payload: any): string | null {
     }
     
     console.log('[Validator] opponent validated ✓')
-  } else {
-    console.log('[Validator] status is queueing, skipping playerB/opponent validation')
+    console.log('[Validator] ✓ ACTIVE match validation passed')
   }
   
   console.log('[Validator] ✓ ALL VALIDATION PASSED')
   return null // Valid
 }
-// Cache bust Mon Apr 20 19:06:28 PDT 2026
