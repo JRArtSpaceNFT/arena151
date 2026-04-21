@@ -55,7 +55,9 @@ export default function QueueScreenV2() {
         }
         tokenRef.current = session.access_token
 
-        console.log('[QueueV2] Calling matchmaking endpoint...')
+        const requestPayload = { roomId: queueState.roomId }
+        
+        console.log('MATCHMAKING REQUEST PAYLOAD', requestPayload)
 
         const res = await fetch('/api/matchmaking/paid/join', {
           method: 'POST',
@@ -63,24 +65,42 @@ export default function QueueScreenV2() {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${session.access_token}`,
           },
-          body: JSON.stringify({ roomId: queueState.roomId }),
+          body: JSON.stringify(requestPayload),
         })
 
+        console.log('MATCHMAKING RESPONSE STATUS', res.status)
+
+        let data
+        try {
+          data = await res.json()
+          console.log('MATCHMAKING RESPONSE BODY', data)
+        } catch (parseError) {
+          console.error('Failed to parse response JSON:', parseError)
+          setError(`Failed to parse server response (HTTP ${res.status})`)
+          return
+        }
+
         if (!res.ok) {
-          const errorData = await res.json()
-          console.error('[QueueV2] Matchmaking failed:', errorData)
+          // Throw detailed error using server-returned code and message
+          const errorCode = data.code || data.error || 'UNKNOWN_ERROR'
+          const errorMessage = data.message || data.error || 'Matchmaking failed'
           
-          if (errorData.error === 'TEAM_NOT_LOCKED') {
-            setError('You must lock your team before joining matchmaking')
+          console.error(`MATCHMAKING ERROR [${errorCode}]:`, errorMessage)
+          console.error('Full error details:', data)
+          
+          // Display detailed error on screen
+          setError(`[${errorCode}] ${errorMessage}`)
+          
+          // Handle specific error codes
+          if (errorCode === 'TEAM_NOT_LOCKED') {
             setTimeout(() => {
               cancelQueue()
               setScreen('draft-mode-intro')
-            }, 2000)
+            }, 3000)
             return
           }
           
-          if (errorData.error === 'INSUFFICIENT_FUNDS') {
-            setError('Insufficient funds')
+          if (errorCode === 'INSUFFICIENT_FUNDS') {
             setTimeout(() => {
               cancelQueue()
               setScreen('room-select')
@@ -88,12 +108,11 @@ export default function QueueScreenV2() {
             return
           }
           
-          setError(errorData.message || errorData.error)
+          // Don't proceed - error is already displayed
           return
         }
 
-        const data = await res.json()
-        console.log('[QueueV2] Matchmaking response:', data)
+        console.log('[QueueV2] ✅ Matchmaking success:', data)
 
         // Validate payload
         const validationError = validateCanonicalPayload(data)
