@@ -140,8 +140,7 @@ export async function POST(req: NextRequest) {
       }, { status: 500 })
     }
 
-    console.log(`[Matchmaking ${requestId}] 📦 RPC Response received`)
-    console.log(`[Matchmaking ${requestId}] Full payload:`, JSON.stringify(payload, null, 2))
+    console.log(`[Matchmaking ${requestId}] 📦 RAW RPC RESPONSE (UNMODIFIED):`, JSON.stringify(payload, null, 2))
 
     // Check for errors from RPC
     if (payload.error) {

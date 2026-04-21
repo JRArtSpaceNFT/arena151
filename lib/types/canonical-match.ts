@@ -60,12 +60,14 @@ export type CanonicalMatchPayload = QueueingMatchPayload | ActiveMatchPayload
  * Validate canonical payload using discriminated union
  */
 export function validateCanonicalPayload(payload: any): string | null {
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
   console.log('[Validator] Starting validation...')
-  console.log('CANONICAL MATCH RESPONSE:', payload)
+  console.log('CANONICAL MATCH RESPONSE:', JSON.stringify(payload, null, 2))
   console.log('CANONICAL MATCH STATUS:', payload?.status)
   console.log('CANONICAL PLAYER_B:', payload?.playerB)
   console.log('CANONICAL OPPONENT:', payload?.opponent)
   console.log('CANONICAL BATTLE_SEED:', payload?.battleSeed)
+  console.log('CANONICAL ACKS:', payload?.acks)
   
   if (!payload) {
     console.error('[Validator] FAIL: payload is null or undefined')
@@ -201,5 +203,6 @@ export function validateCanonicalPayload(payload: any): string | null {
   }
   
   console.log('[Validator] ✓ ALL VALIDATION PASSED')
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
   return null // Valid
 }
