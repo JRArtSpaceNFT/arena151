@@ -7,7 +7,7 @@ import SignupFlow from '@/components/SignupFlow';
 import TrainerProfile from '@/components/TrainerProfile';
 import DraftModeIntro from '@/components/DraftModeIntro';
 import RoomSelect from '@/components/RoomSelect';
-import QueueScreenV2 from '@/components/QueueScreenV2';
+import QueueScreen from '@/components/QueueScreen';
 import MatchFound from '@/components/MatchFound';
 import VersusScreen from '@/components/VersusScreen';
 import ResultScreen from '@/components/ResultScreen';
@@ -89,7 +89,7 @@ export default function ArenaApp() {
         {currentScreen === 'profile' && <TrainerProfile />}
         {currentScreen === 'draft-mode-intro' && <DraftModeIntro />}
         {currentScreen === 'room-select' && <RoomSelect />}
-        {currentScreen === 'queue' && <QueueScreenV2 />}
+        {currentScreen === 'queue' && <QueueScreen />}
         {currentScreen === 'match-found' && <MatchFound />}
         {currentScreen === 'versus' && <VersusScreen />}
         {currentScreen === 'game' && <GameWrapper />}
