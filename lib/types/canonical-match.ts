@@ -79,18 +79,21 @@ export function validateCanonicalPayload(payload: any): string | null {
     return 'Invalid playerA.team (must be array of 6)'
   }
   
-  if (!payload.playerB) return 'Missing playerB'
-  if (!payload.playerB.userId) return 'Missing playerB.userId'
-  if (!payload.playerB.username) return 'Missing playerB.username'
-  if (!payload.playerB.trainerId) return 'Missing playerB.trainerId'
-  if (!Array.isArray(payload.playerB.team) || payload.playerB.team.length !== 6) {
-    return 'Invalid playerB.team (must be array of 6)'
+  // PlayerB and opponent are optional when status='queueing' (no match yet)
+  if (payload.status !== 'queueing') {
+    if (!payload.playerB) return 'Missing playerB'
+    if (!payload.playerB.userId) return 'Missing playerB.userId'
+    if (!payload.playerB.username) return 'Missing playerB.username'
+    if (!payload.playerB.trainerId) return 'Missing playerB.trainerId'
+    if (!Array.isArray(payload.playerB.team) || payload.playerB.team.length !== 6) {
+      return 'Invalid playerB.team (must be array of 6)'
+    }
+    
+    if (!payload.opponent) return 'Missing opponent'
+    if (!payload.opponent.userId) return 'Missing opponent.userId'
+    if (!payload.opponent.username) return 'Missing opponent.username'
+    if (!payload.opponent.trainerId) return 'Missing opponent.trainerId'
   }
-  
-  if (!payload.opponent) return 'Missing opponent'
-  if (!payload.opponent.userId) return 'Missing opponent.userId'
-  if (!payload.opponent.username) return 'Missing opponent.username'
-  if (!payload.opponent.trainerId) return 'Missing opponent.trainerId'
   
   return null // Valid
 }
