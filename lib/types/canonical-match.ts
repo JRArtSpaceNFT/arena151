@@ -101,6 +101,9 @@ export function validateCanonicalPayload(payload: any): string | null {
     return 'Missing playerA'
   }
   
+  console.log('[Validator] playerA keys:', Object.keys(payload.playerA))
+  console.log('[Validator] acks keys:', Object.keys(payload.acks || {}))
+  
   if (!payload.playerA.userId) {
     console.error('[Validator] FAIL: missing field "playerA.userId"')
     return 'Missing playerA.userId'
