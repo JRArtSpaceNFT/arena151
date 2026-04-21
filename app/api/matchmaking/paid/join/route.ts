@@ -157,7 +157,6 @@ export async function POST(req: NextRequest) {
     }
 
     const elapsed = Date.now() - startTime
-    const elapsed = Date.now() - startTime
     console.log(`[Matchmaking ${requestId}] ✅ SUCCESS in ${elapsed}ms`)
     console.log(`[Matchmaking ${requestId}]   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`)
     console.log(`[Matchmaking ${requestId}]   REQUESTED:`)
