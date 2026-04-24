@@ -141,6 +141,12 @@ function initBCS(ac: ActiveCreature): BattleCreatureState {
 
 // ── PASSIVE EFFECT ON DAMAGE ──────────────────────────────────
 function applyPassiveBonus(bcs: BattleCreatureState, moveType: PokemonType): number {
+  // Safety check
+  if (!bcs?.ac?.creature?.passive) {
+    console.error('[BATTLE ERROR] applyPassiveBonus called with invalid bcs')
+    return 0
+  }
+  
   const ek = bcs.ac.creature.passive.effectKey
   const hp = bcs.ac.currentHp
   const maxHp = bcs.ac.maxHp
@@ -1114,6 +1120,32 @@ export function resolveBattle(
   trainerB: Trainer,
   rng?: () => number,
 ): BattleState {
+  // CRITICAL: Validate inputs before starting battle
+  if (!teamA || teamA.length === 0) {
+    throw new Error(`[BATTLE ERROR] Team A invalid: ${teamA?.length ?? 0} creatures`)
+  }
+  if (!teamB || teamB.length === 0) {
+    throw new Error(`[BATTLE ERROR] Team B invalid: ${teamB?.length ?? 0} creatures`)
+  }
+  if (!arena) {
+    throw new Error(`[BATTLE ERROR] Arena is undefined`)
+  }
+  if (!trainerA || !trainerB) {
+    throw new Error(`[BATTLE ERROR] Trainer undefined: A=${!!trainerA} B=${!!trainerB}`)
+  }
+  
+  // Validate all creatures have required fields
+  teamA.forEach((ac, idx) => {
+    if (!ac?.creature?.id || !ac?.maxHp || !ac?.assignedMoves) {
+      throw new Error(`[BATTLE ERROR] Team A slot ${idx} invalid creature: ${JSON.stringify(ac)}`)
+    }
+  })
+  teamB.forEach((ac, idx) => {
+    if (!ac?.creature?.id || !ac?.maxHp || !ac?.assignedMoves) {
+      throw new Error(`[BATTLE ERROR] Team B slot ${idx} invalid creature: ${JSON.stringify(ac)}`)
+    }
+  })
+  
   const _rng: () => number = rng ?? Math.random.bind(Math)
   _logId = 0
   const log: BattleLogEntry[] = []
@@ -1124,7 +1156,8 @@ export function resolveBattle(
     ac.creature = { ...ac.creature }
   }
 
-  // ── ASH + PIKACHU EASTER EGG ──────────────────────────────────
+  // ── EASTER EGGS (wrapped in try-catch for safety) ────────────
+  try {
   // If Ash is trainer A and Pikachu is in slot 0 → special sprite + 5% stat boost
   console.log('[PIKACHU EGG] trainerA.id=', trainerA.id, 'slot0 id=', teamA[0]?.creature?.id, 'slot0 name=', teamA[0]?.creature?.name)
   const ashPikachuEgg =
@@ -1212,6 +1245,10 @@ export function resolveBattle(
   }
 
   // (Team Rocket Meowth easter egg removed)
+  } catch (eggErr) {
+    console.error('[BATTLE] Easter egg logic failed (non-fatal):', eggErr)
+    // Continue without easter eggs
+  }
 
   // Ditto enters as himself — Transform happens live on first move (see simulateAttack)
 
@@ -1294,6 +1331,13 @@ export function resolveBattle(
     defBCS: BattleCreatureState,
     attkSide: 'A' | 'B',
   ): boolean {
+    // Validate inputs
+    if (!attBCS?.ac || !defBCS?.ac) {
+      console.error(`[BATTLE ERROR] executeTurnAttempt called with undefined state: att=${!!attBCS} attAc=${!!attBCS?.ac} def=${!!defBCS} defAc=${!!defBCS?.ac}`)
+      if (attBCS) attBCS.roundTurnConsumed = true // Prevent infinite loop
+      return false
+    }
+    
     // INVARIANT: should never be called twice per round for the same side
     if (attBCS.roundTurnConsumed) {
       console.error(`[BATTLE INVARIANT] executeTurnAttempt called twice for side ${attkSide} in round ${turn}!`)
@@ -1439,8 +1483,20 @@ export function resolveBattle(
     turn++
     if (turn > 500) break // safety limit
 
+    // Bounds check before accessing states
+    if (activeA >= statesA.length || activeB >= statesB.length) {
+      console.error(`[BATTLE ERROR] Index out of bounds at turn ${turn}: activeA=${activeA}/${statesA.length} activeB=${activeB}/${statesB.length}`)
+      break
+    }
+
     const bcsA = statesA[activeA]
     const bcsB = statesB[activeB]
+    
+    // Validate both states exist
+    if (!bcsA || !bcsB || !bcsA.ac || !bcsB.ac) {
+      console.error(`[BATTLE ERROR] Invalid state at turn ${turn}: bcsA=${!!bcsA} bcsA.ac=${!!bcsA?.ac} bcsB=${!!bcsB} bcsB.ac=${!!bcsB?.ac}`)
+      break
+    }
 
     // ── ROUND SETUP ───────────────────────────────────────────────────────────
     // Reset round-level flags. Both must reach true by end of round (or battle ends).
