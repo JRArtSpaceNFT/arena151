@@ -349,46 +349,120 @@ export default function QueueScreen() {
             return;
           }
           
-          // Fetch opponent profile before transitioning
+          // ══════════════════════════════════════════════════════════════════
+          // CRITICAL PAID PVP VALIDATION - NEVER FALL BACK TO AI
+          // ══════════════════════════════════════════════════════════════════
+          
+          // Expected matchmaking response shape (validated by TypeScript):
+          // {
+          //   opponent: { userId: string, trainerId: string },
+          //   playerA: { userId: string, trainerId: string },
+          //   playerB: { userId: string, trainerId: string },
+          //   myRole: 'player_a' | 'player_b',
+          //   matchId: string,
+          //   battleSeed: string
+          // }
+          
           const opponentId = matchData.opponent?.userId;
-          let opponentProfile = GENERIC_RIVAL;
           
-          console.log(`[Queue] Opponent userId from matchData: ${opponentId}`);
+          // HARD STOP: Paid PvP MUST have real opponent ID
+          if (!opponentId) {
+            console.error('╔═══════════════════════════════════════════════════════════════╗');
+            console.error('║ ❌ CRITICAL: PAID PVP MISSING OPPONENT USER ID               ║');
+            console.error('╚═══════════════════════════════════════════════════════════════╝');
+            console.error('[Queue] matchData.opponent?.userId is UNDEFINED');
+            console.error('[Queue] This is a REGRESSION - paid PvP must never fall back to AI');
+            console.error('[Queue] Full matchData shape:', JSON.stringify(matchData, null, 2));
+            console.error('[Queue] Expected: matchData.opponent.userId');
+            console.error('[Queue] Got: matchData.opponent =', matchData.opponent);
+            alert('❌ Matchmaking Error\n\nOpponent data missing from server response.\nThis is a bug - paid PvP cannot proceed without real opponent.\n\nPlease report this error.');
+            cancelQueue();
+            setScreen('room-select');
+            return;
+          }
           
-          if (opponentId && token) {
-            try {
-              const profileRes = await fetch(`/api/profile/${opponentId}`, {
-                headers: { 'Authorization': `Bearer ${token}` },
-              });
-              if (profileRes.ok) {
-                const profileData = await profileRes.json();
-                opponentProfile = {
-                  id: profileData.id || opponentId,
-                  username: profileData.username || 'Unknown',
-                  displayName: profileData.display_name || profileData.username || 'Unknown Player',
-                  email: '',
-                  avatar: profileData.avatar || '🎮',
-                  favoritePokemon: trainer?.favoritePokemon || GENERIC_RIVAL.favoritePokemon,
-                  joinedDate: new Date(profileData.created_at || Date.now()),
-                  record: { wins: profileData.wins || 0, losses: profileData.losses || 0 },
-                  internalWalletId: '',
-                  balance: 0,
-                  earnings: 0,
-                  badges: profileData.badges || [],
-                };
-              }
-            } catch (err) {
-              console.error('[Queue] Failed to fetch opponent profile:', err);
+          console.log('╔═══════════════════════════════════════════════════════════════╗');
+          console.log('║ ✅ PAID PVP OPPONENT VALIDATION PASSED                        ║');
+          console.log('╚═══════════════════════════════════════════════════════════════╝');
+          console.log(`[Queue] Match ID: ${matchData.matchId}`);
+          console.log(`[Queue] Opponent User ID: ${opponentId}`);
+          console.log(`[Queue] My Role: ${matchData.myRole}`);
+          
+          // Fetch opponent profile (REQUIRED - no fallback allowed)
+          let opponentProfile = null;
+          
+          try {
+            console.log(`[Queue] Fetching opponent profile: /api/profile/${opponentId}`);
+            const profileRes = await fetch(`/api/profile/${opponentId}`, {
+              headers: { 'Authorization': `Bearer ${token}` },
+            });
+            
+            if (!profileRes.ok) {
+              const errorText = await profileRes.text();
+              console.error('[Queue] ❌ Opponent profile fetch failed:', profileRes.status, errorText);
+              throw new Error(`Profile fetch failed: ${profileRes.status}`);
             }
+            
+            const profileData = await profileRes.json();
+            console.log('[Queue] ✅ Opponent profile loaded:', profileData.username);
+            
+            opponentProfile = {
+              id: profileData.id || opponentId,
+              username: profileData.username || 'Unknown',
+              displayName: profileData.display_name || profileData.username || 'Unknown Player',
+              email: '',
+              avatar: profileData.avatar || '🎮',
+              favoritePokemon: trainer?.favoritePokemon || GENERIC_RIVAL.favoritePokemon,
+              joinedDate: new Date(profileData.created_at || Date.now()),
+              record: { wins: profileData.wins || 0, losses: profileData.losses || 0 },
+              internalWalletId: '',
+              balance: 0,
+              earnings: 0,
+              badges: profileData.badges || [],
+            };
+            
+            console.log(`[Queue] ✅ Resolved opponent: @${opponentProfile.username} (${opponentProfile.displayName})`);
+            
+          } catch (err) {
+            console.error('╔═══════════════════════════════════════════════════════════════╗');
+            console.error('║ ❌ CRITICAL: FAILED TO LOAD OPPONENT PROFILE                 ║');
+            console.error('╚═══════════════════════════════════════════════════════════════╝');
+            console.error('[Queue] Error:', err);
+            console.error('[Queue] Opponent ID:', opponentId);
+            console.error('[Queue] PAID PVP CANNOT PROCEED WITHOUT OPPONENT PROFILE');
+            alert('❌ Failed to load opponent profile\n\nCannot start paid PvP battle without opponent data.\n\nPlease try again or contact support.');
+            cancelQueue();
+            setScreen('room-select');
+            return;
+          }
+          
+          // FINAL VALIDATION: Opponent profile must exist
+          if (!opponentProfile) {
+            console.error('[Queue] ❌ CRITICAL: opponentProfile is null after fetch attempt');
+            alert('❌ Opponent profile validation failed\n\nCannot proceed with paid PvP.');
+            cancelQueue();
+            setScreen('room-select');
+            return;
+          }
+          
+          // SANITY CHECK: Never use GENERIC_RIVAL in paid PvP
+          if (opponentProfile.id === 'rival' || opponentProfile.username === 'rival') {
+            console.error('[Queue] ❌ CRITICAL REGRESSION: GENERIC_RIVAL detected in paid PvP!');
+            console.error('[Queue] This should be IMPOSSIBLE - hard stop');
+            alert('❌ Critical Error: AI fallback detected in paid PvP\n\nThis is a bug. Match cancelled.');
+            cancelQueue();
+            setScreen('room-select');
+            return;
           }
           
           if (trainer) {
             setMatch({
-              player1: matchData.role === 'player_a' ? trainer : opponentProfile,
-              player2: matchData.role === 'player_b' ? trainer : opponentProfile,
+              player1: matchData.myRole === 'player_a' ? trainer : opponentProfile,
+              player2: matchData.myRole === 'player_b' ? trainer : opponentProfile,
               room: roomTier,
               matchId: matchData.matchId,
             });
+            console.log(`[Queue] ✅ Match set: ${trainer.username} vs ${opponentProfile.username}`);
           }
           setScreen('versus');
           return;
@@ -436,35 +510,81 @@ export default function QueueScreen() {
                   const fullMatchData = await statusRes.json();
                   console.log('[Queue] Full match data:', fullMatchData);
                   
-                  // Fetch opponent profile
+                  // CRITICAL: Extract opponent ID from realtime update
                   const opponentId = fullMatchData.myRole === 'player_a' ? fullMatchData.playerB?.userId : fullMatchData.playerA?.userId;
-                  let opponentProfile = GENERIC_RIVAL;
                   
-                  if (opponentId && token) {
-                    try {
-                      const profileRes = await fetch(`/api/profile/${opponentId}`, {
-                        headers: { 'Authorization': `Bearer ${token}` },
-                      });
-                      if (profileRes.ok) {
-                        const profileData = await profileRes.json();
-                        opponentProfile = {
-                          id: profileData.id || opponentId,
-                          username: profileData.username || 'Unknown',
-                          displayName: profileData.display_name || profileData.username || 'Unknown Player',
-                          email: '',
-                          avatar: profileData.avatar || '🎮',
-                          favoritePokemon: trainer?.favoritePokemon || GENERIC_RIVAL.favoritePokemon,
-                          joinedDate: new Date(profileData.created_at || Date.now()),
-                          record: { wins: profileData.wins || 0, losses: profileData.losses || 0 },
-                          internalWalletId: '',
-                          balance: 0,
-                          earnings: 0,
-                          badges: profileData.badges || [],
-                        };
-                      }
-                    } catch (err) {
-                      console.error('[Queue] Failed to fetch opponent profile:', err);
+                  // HARD STOP: Paid PvP MUST have real opponent ID (realtime path)
+                  if (!opponentId) {
+                    console.error('╔═══════════════════════════════════════════════════════════════╗');
+                    console.error('║ ❌ CRITICAL: REALTIME UPDATE MISSING OPPONENT ID            ║');
+                    console.error('╚═══════════════════════════════════════════════════════════════╝');
+                    console.error('[Queue] fullMatchData shape:', JSON.stringify(fullMatchData, null, 2));
+                    console.error('[Queue] Expected: playerA.userId or playerB.userId');
+                    alert('❌ Matchmaking Error (Realtime)\n\nOpponent data missing from match update.\nPaid PvP cannot proceed.');
+                    cancelQueue();
+                    setScreen('room-select');
+                    return;
+                  }
+                  
+                  console.log(`[Queue] [Realtime] ✅ Opponent ID: ${opponentId}`);
+                  
+                  // Fetch opponent profile (REQUIRED - no fallback)
+                  let opponentProfile = null;
+                  
+                  try {
+                    console.log(`[Queue] [Realtime] Fetching opponent profile: ${opponentId}`);
+                    const profileRes = await fetch(`/api/profile/${opponentId}`, {
+                      headers: { 'Authorization': `Bearer ${token}` },
+                    });
+                    
+                    if (!profileRes.ok) {
+                      console.error('[Queue] [Realtime] ❌ Profile fetch failed:', profileRes.status);
+                      throw new Error(`Profile fetch failed: ${profileRes.status}`);
                     }
+                    
+                    const profileData = await profileRes.json();
+                    console.log('[Queue] [Realtime] ✅ Opponent profile loaded:', profileData.username);
+                    
+                    opponentProfile = {
+                      id: profileData.id || opponentId,
+                      username: profileData.username || 'Unknown',
+                      displayName: profileData.display_name || profileData.username || 'Unknown Player',
+                      email: '',
+                      avatar: profileData.avatar || '🎮',
+                      favoritePokemon: trainer?.favoritePokemon || GENERIC_RIVAL.favoritePokemon,
+                      joinedDate: new Date(profileData.created_at || Date.now()),
+                      record: { wins: profileData.wins || 0, losses: profileData.losses || 0 },
+                      internalWalletId: '',
+                      balance: 0,
+                      earnings: 0,
+                      badges: profileData.badges || [],
+                    };
+                    
+                  } catch (err) {
+                    console.error('[Queue] [Realtime] ❌ Failed to load opponent profile:', err);
+                    console.error('[Queue] [Realtime] PAID PVP CANNOT PROCEED');
+                    alert('❌ Failed to load opponent profile (Realtime)\n\nCannot start paid PvP.');
+                    cancelQueue();
+                    setScreen('room-select');
+                    return;
+                  }
+                  
+                  // FINAL VALIDATION
+                  if (!opponentProfile) {
+                    console.error('[Queue] [Realtime] ❌ opponentProfile is null');
+                    alert('❌ Opponent validation failed (Realtime)');
+                    cancelQueue();
+                    setScreen('room-select');
+                    return;
+                  }
+                  
+                  // SANITY CHECK: Never use GENERIC_RIVAL
+                  if (opponentProfile.id === 'rival' || opponentProfile.username === 'rival') {
+                    console.error('[Queue] [Realtime] ❌ GENERIC_RIVAL detected - CRITICAL REGRESSION!');
+                    alert('❌ Critical Error: AI fallback in paid PvP (Realtime)');
+                    cancelQueue();
+                    setScreen('room-select');
+                    return;
                   }
                   
                   if (trainer) {
