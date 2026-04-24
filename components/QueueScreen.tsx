@@ -350,8 +350,10 @@ export default function QueueScreen() {
           }
           
           // Fetch opponent profile before transitioning
-          const opponentId = matchData.role === 'player_a' ? matchData.playerBId : matchData.playerAId;
+          const opponentId = matchData.opponent?.userId;
           let opponentProfile = GENERIC_RIVAL;
+          
+          console.log(`[Queue] Opponent userId from matchData: ${opponentId}`);
           
           if (opponentId && token) {
             try {
