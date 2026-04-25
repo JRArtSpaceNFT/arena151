@@ -20,6 +20,7 @@ import FriendBattle from '@/components/FriendBattle';
 import Leaderboard from '@/components/Leaderboard';
 import BattleGuide from '@/components/BattleGuide';
 import FairGaming from '@/components/FairGaming';
+import WaitingForOpponent from '@/components/WaitingForOpponent';
 
 const CROWD_SCREENS = new Set(['draft-mode-intro', 'profile', 'leaderboard']);
 
@@ -92,6 +93,7 @@ export default function ArenaApp() {
         {currentScreen === 'queue' && <QueueScreen />}
         {currentScreen === 'match-found' && <MatchFound />}
         {currentScreen === 'versus' && <VersusScreen />}
+        {currentScreen === 'waiting-for-opponent' && <WaitingForOpponent />}
         {currentScreen === 'game' && <GameWrapper />}
         {currentScreen === 'practice-game' && <PracticeGameWrapper />}
         {currentScreen === 'friend-game' && <FriendGameWrapper />}

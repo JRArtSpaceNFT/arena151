@@ -84,7 +84,7 @@ export interface GameState {
   setDraftTeamOrder: (team: Creature[], player: 'p1' | 'p2') => void
   moveCreatureUp: (index: number, player: 'p1' | 'p2') => void
   moveCreatureDown: (index: number, player: 'p1' | 'p2') => void
-  confirmLineup: (player: 'p1' | 'p2') => void
+  confirmLineup: (player: 'p1' | 'p2') => Promise<void> | void
   proceedFromArenaReveal: () => void
   proceedFromPretalk: () => void
   setP1Bet: (bet: BetInfo) => void
@@ -423,11 +423,97 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
   },
 
-  confirmLineup: (player) => {
-    const { lineupPhase, gameMode } = get()
+  confirmLineup: async (player) => {
+    const { lineupPhase, gameMode, lineupA, p1Trainer } = get()
+    
     if (player === 'p1') {
-      if (gameMode === 'paid_pvp' || gameMode === 'friend_battle') {
-        // paid_pvp / friend_battle: P1 confirms lineup → arena_reveal.
+      if (gameMode === 'paid_pvp') {
+        // ════════════════════════════════════════════════════════════════
+        // PAID PVP: SERVER-CONTROLLED LINEUP LOCKING
+        // ════════════════════════════════════════════════════════════════
+        
+        console.log('╔═══════════════════════════════════════════════════════════════╗')
+        console.log('║ PAID PVP: Locking lineup via server                    ║')
+        console.log('╚═══════════════════════════════════════════════════════════════╝')
+        
+        const { serverMatchId } = useArenaStore.getState()
+        if (!serverMatchId) {
+          console.error('[confirmLineup] ❌ CRITICAL: No serverMatchId - cannot lock lineup')
+          alert('Error: Match ID missing. Cannot lock lineup.')
+          return
+        }
+        
+        if (!p1Trainer) {
+          console.error('[confirmLineup] ❌ CRITICAL: No p1Trainer')
+          alert('Error: Trainer not selected')
+          return
+        }
+        
+        // Extract lineup IDs
+        const lineupIds = lineupA.map(ac => ac.creature.id)
+        console.log(`[confirmLineup] Trainer: ${p1Trainer.id}`)
+        console.log(`[confirmLineup] Lineup IDs: [${lineupIds.join(', ')}]`)
+        
+        set({ lineupPhase: 'done' })
+        
+        try {
+          // Get auth token
+          const { supabase } = await import('@/lib/supabase')
+          const { data: { session } } = await supabase.auth.getSession()
+          if (!session?.access_token) {
+            throw new Error('Not authenticated')
+          }
+          
+          console.log(`[confirmLineup] Calling POST /api/match/${serverMatchId}/lock-lineup`)
+          
+          const response = await fetch(`/api/match/${serverMatchId}/lock-lineup`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              trainerId: p1Trainer.id,
+              lineupIds,
+            }),
+          })
+          
+          if (!response.ok) {
+            const errorData = await response.json()
+            console.error('[confirmLineup] ❌ Server error:', errorData)
+            throw new Error(errorData.error || 'Failed to lock lineup')
+          }
+          
+          const result = await response.json()
+          console.log('[confirmLineup] ✅ Server response:', result)
+          console.log('[confirmLineup] Both Locked:', result.bothLineupsLocked)
+          console.log('[confirmLineup] Arena Assigned:', result.arenaAssigned)
+          console.log('[confirmLineup] Arena ID:', result.arenaId)
+          console.log('[confirmLineup] Status:', result.status)
+          
+          // If both lineups locked AND arena assigned, load server arena and proceed
+          if (result.bothLineupsLocked && result.arenaAssigned && result.arenaId) {
+            console.log(`[confirmLineup] ✅ Both lineups locked - arena assigned: ${result.arenaId}`)
+            const arena = getArenaById(result.arenaId)
+            if (!arena) {
+              console.error(`[confirmLineup] ❌ Arena ${result.arenaId} not found`)
+              throw new Error(`Arena ${result.arenaId} not found`)
+            }
+            console.log('[confirmLineup] ✅ Loaded server arena - proceeding to arena reveal')
+            set({ arena, screen: 'arena_reveal' })
+          } else {
+            // Only one lineup locked - show waiting screen
+            console.log('[confirmLineup] ⏳ Lineup locked - waiting for opponent')
+            const { setScreen } = useArenaStore.getState()
+            setScreen('waiting-for-opponent')
+          }
+        } catch (error: any) {
+          console.error('[confirmLineup] ❌ Exception:', error)
+          alert(`Failed to lock lineup: ${error.message}`)
+          set({ lineupPhase: 'p1' }) // Reset to allow retry
+        }
+      } else if (gameMode === 'friend_battle') {
+        // friend_battle: P1 confirms lineup → arena_reveal.
         // No AI lineup shuffle. lineupB is NOT touched here.
         // ArenaReveal (paid_pvp) or FriendGameWrapper sync (friend_battle) fills lineupB.
         set({ lineupPhase: 'done' })

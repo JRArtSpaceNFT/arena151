@@ -101,6 +101,7 @@ export type AppScreen =
   | 'queue'
   | 'match-found'
   | 'versus'
+  | 'waiting-for-opponent'
   | 'game'
   | 'battle'
   | 'result'

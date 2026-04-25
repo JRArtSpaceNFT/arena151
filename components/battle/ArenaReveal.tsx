@@ -32,7 +32,7 @@ function isMobileDevice() {
 }
 
 export default function ArenaReveal() {
-  const { arena, proceedFromArenaReveal, lineupA } = useGameStore()
+  const { arena, proceedFromArenaReveal, lineupA, gameMode } = useGameStore()
   const { currentMatch, currentTrainer, serverMatchId, setServerMatch, isMatchJoiner, clearServerMatch } = useArenaStore()
   const [paidMatchError, setPaidMatchError] = useState<string | null>(null)
   const [isPaidMatchLoading, setIsPaidMatchLoading] = useState(false)
@@ -42,6 +42,38 @@ export default function ArenaReveal() {
   const [sequenceBuilt, setSequenceBuilt] = useState<number[]>([])
   const stepRef = useRef(0)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  
+  // ════════════════════════════════════════════════════════════════
+  // CRITICAL VALIDATION: Paid PVP must have server-assigned arena
+  // ════════════════════════════════════════════════════════════════
+  
+  useEffect(() => {
+    if (gameMode !== 'paid_pvp') return
+    
+    console.log('╔═══════════════════════════════════════════════════════════════╗')
+    console.log('║ ARENA_SYNC: Paid PVP Arena Validation                   ║')
+    console.log('╚═══════════════════════════════════════════════════════════════╝')
+    console.log(`[ARENA_SYNC] matchId: ${serverMatchId ?? 'null'}`)
+    console.log(`[ARENA_SYNC] myUserId: ${currentTrainer?.id ?? 'null'}`)
+    console.log(`[ARENA_SYNC] arenaId: ${arena?.id ?? 'null'}`)
+    console.log(`[ARENA_SYNC] arenaName: ${arena?.name ?? 'null'}`)
+    console.log(`[ARENA_SYNC] source: ${arena ? 'server' : 'MISSING'}`)
+    
+    if (!arena) {
+      console.error('[ARENA_SYNC] ❌ CRITICAL: No arena assigned - paid PvP cannot proceed')
+      console.error('[ARENA_SYNC] This should be impossible - arena must be assigned by server')
+      setPaidMatchError('Arena not assigned. Please contact support.')
+      return
+    }
+    
+    if (!serverMatchId) {
+      console.error('[ARENA_SYNC] ❌ CRITICAL: No serverMatchId - cannot track match')
+      setPaidMatchError('Match ID missing. Cannot proceed.')
+      return
+    }
+    
+    console.log('[ARENA_SYNC] ✅ Validation passed - arena loaded from server')
+  }, [gameMode, arena, serverMatchId, currentTrainer])
 
   useEffect(() => {
     resumeAudioContext()

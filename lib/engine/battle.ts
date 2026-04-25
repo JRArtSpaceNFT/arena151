@@ -1112,6 +1112,117 @@ function checkAshBoost(bcs: BattleCreatureState, trainer: Trainer): void {
 }
 
 // ── RESOLVE FULL BATTLE ───────────────────────────────────────
+// ════════════════════════════════════════════════════════════════
+// BATTLE PAYLOAD VALIDATION
+// ════════════════════════════════════════════════════════════════
+
+interface BattlePayloadValidationError {
+  valid: false
+  missingFields: string[]
+  details: Record<string, unknown>
+}
+
+interface BattlePayloadValidationSuccess {
+  valid: true
+}
+
+type BattlePayloadValidationResult = BattlePayloadValidationSuccess | BattlePayloadValidationError
+
+export function validateBattlePayload(
+  teamA: ActiveCreature[] | undefined | null,
+  teamB: ActiveCreature[] | undefined | null,
+  arena: Arena | undefined | null,
+  trainerA: Trainer | undefined | null,
+  trainerB: Trainer | undefined | null,
+): BattlePayloadValidationResult {
+  const missing: string[] = []
+  const details: Record<string, unknown> = {}
+  
+  // Validate teams exist
+  if (!teamA || !Array.isArray(teamA)) {
+    missing.push('teamA')
+    details.teamA = teamA
+  } else if (teamA.length === 0) {
+    missing.push('teamA.length')
+    details.teamALength = 0
+  }
+  
+  if (!teamB || !Array.isArray(teamB)) {
+    missing.push('teamB')
+    details.teamB = teamB
+  } else if (teamB.length === 0) {
+    missing.push('teamB.length')
+    details.teamBLength = 0
+  }
+  
+  // Validate arena
+  if (!arena) {
+    missing.push('arena')
+    details.arena = arena
+  } else {
+    if (!arena.id) missing.push('arena.id')
+    if (!arena.name) missing.push('arena.name')
+  }
+  
+  // Validate trainers
+  if (!trainerA) {
+    missing.push('trainerA')
+    details.trainerA = trainerA
+  } else {
+    if (!trainerA.id) missing.push('trainerA.id')
+    if (!trainerA.name) missing.push('trainerA.name')
+  }
+  
+  if (!trainerB) {
+    missing.push('trainerB')
+    details.trainerB = trainerB
+  } else {
+    if (!trainerB.id) missing.push('trainerB.id')
+    if (!trainerB.name) missing.push('trainerB.name')
+  }
+  
+  // Validate creatures in teams
+  if (teamA && Array.isArray(teamA)) {
+    teamA.forEach((ac, idx) => {
+      if (!ac) {
+        missing.push(`teamA[${idx}]`)
+        details[`teamA[${idx}]`] = null
+      } else {
+        if (!ac.creature) missing.push(`teamA[${idx}].creature`)
+        if (!ac.creature?.id) missing.push(`teamA[${idx}].creature.id`)
+        if (!ac.creature?.name) missing.push(`teamA[${idx}].creature.name`)
+        if (!ac.maxHp) missing.push(`teamA[${idx}].maxHp`)
+        if (!ac.assignedMoves || ac.assignedMoves.length === 0) missing.push(`teamA[${idx}].assignedMoves`)
+      }
+    })
+  }
+  
+  if (teamB && Array.isArray(teamB)) {
+    teamB.forEach((ac, idx) => {
+      if (!ac) {
+        missing.push(`teamB[${idx}]`)
+        details[`teamB[${idx}]`] = null
+      } else {
+        if (!ac.creature) missing.push(`teamB[${idx}].creature`)
+        if (!ac.creature?.id) missing.push(`teamB[${idx}].creature.id`)
+        if (!ac.creature?.name) missing.push(`teamB[${idx}].creature.name`)
+        if (!ac.maxHp) missing.push(`teamB[${idx}].maxHp`)
+        if (!ac.assignedMoves || ac.assignedMoves.length === 0) missing.push(`teamB[${idx}].assignedMoves`)
+      }
+    })
+  }
+  
+  if (missing.length > 0) {
+    return { valid: false, missingFields: missing, details }
+  }
+  
+  return { valid: true }
+}
+
+// ════════════════════════════════════════════════════════════════
+// RESOLVE BATTLE
+// ════════════════════════════════════════════════════════════════
+
 export function resolveBattle(
   teamA: ActiveCreature[],
   teamB: ActiveCreature[],
@@ -1120,30 +1231,38 @@ export function resolveBattle(
   trainerB: Trainer,
   rng?: () => number,
 ): BattleState {
-  // CRITICAL: Validate inputs before starting battle
-  if (!teamA || teamA.length === 0) {
-    throw new Error(`[BATTLE ERROR] Team A invalid: ${teamA?.length ?? 0} creatures`)
-  }
-  if (!teamB || teamB.length === 0) {
-    throw new Error(`[BATTLE ERROR] Team B invalid: ${teamB?.length ?? 0} creatures`)
-  }
-  if (!arena) {
-    throw new Error(`[BATTLE ERROR] Arena is undefined`)
-  }
-  if (!trainerA || !trainerB) {
-    throw new Error(`[BATTLE ERROR] Trainer undefined: A=${!!trainerA} B=${!!trainerB}`)
+  // ════════════════════════════════════════════════════════════════
+  // CRITICAL VALIDATION: Validate all inputs before starting battle
+  // ════════════════════════════════════════════════════════════════
+  
+  const validation = validateBattlePayload(teamA, teamB, arena, trainerA, trainerB)
+  
+  if (!validation.valid) {
+    console.error('╔═══════════════════════════════════════════════════════════════╗')
+    console.error('║ CANONICAL_PAYLOAD_INVALID: Battle cannot proceed         ║')
+    console.error('╚═══════════════════════════════════════════════════════════════╝')
+    console.error('[CANONICAL_PAYLOAD_INVALID] Missing fields:', validation.missingFields)
+    console.error('[CANONICAL_PAYLOAD_INVALID] Details:', JSON.stringify(validation.details, null, 2))
+    console.error('[CANONICAL_PAYLOAD_INVALID] Full payload summary:')
+    console.error('  teamA:', teamA?.map(ac => ({ id: ac?.creature?.id, name: ac?.creature?.name, hp: ac?.maxHp })))
+    console.error('  teamB:', teamB?.map(ac => ({ id: ac?.creature?.id, name: ac?.creature?.name, hp: ac?.maxHp })))
+    console.error('  arena:', arena ? { id: arena.id, name: arena.name } : null)
+    console.error('  trainerA:', trainerA ? { id: trainerA.id, name: trainerA.name } : null)
+    console.error('  trainerB:', trainerB ? { id: trainerB.id, name: trainerB.name } : null)
+    
+    throw new Error(
+      `[BATTLE ERROR] Invalid battle payload - missing required fields: ${validation.missingFields.join(', ')}. ` +
+      `Check console for full details.`
+    )
   }
   
-  // Validate all creatures have required fields
-  teamA.forEach((ac, idx) => {
-    if (!ac?.creature?.id || !ac?.maxHp || !ac?.assignedMoves) {
-      throw new Error(`[BATTLE ERROR] Team A slot ${idx} invalid creature: ${JSON.stringify(ac)}`)
-    }
-  })
-  teamB.forEach((ac, idx) => {
-    if (!ac?.creature?.id || !ac?.maxHp || !ac?.assignedMoves) {
-      throw new Error(`[BATTLE ERROR] Team B slot ${idx} invalid creature: ${JSON.stringify(ac)}`)
-    }
+  console.log('[BATTLE] ✅ Payload validation passed')
+  console.log('[BATTLE] Starting battle:', {
+    teamASize: teamA.length,
+    teamBSize: teamB.length,
+    arenaId: arena.id,
+    trainerAId: trainerA.id,
+    trainerBId: trainerB.id,
   })
   
   const _rng: () => number = rng ?? Math.random.bind(Math)
@@ -1156,19 +1275,24 @@ export function resolveBattle(
     ac.creature = { ...ac.creature }
   }
 
-  // ── EASTER EGGS (wrapped in try-catch for safety) ────────────
-  try {
-  // If Ash is trainer A and Pikachu is in slot 0 → special sprite + 5% stat boost
-  console.log('[PIKACHU EGG] trainerA.id=', trainerA.id, 'slot0 id=', teamA[0]?.creature?.id, 'slot0 name=', teamA[0]?.creature?.name)
-  const ashPikachuEgg =
-    trainerA.id === 'ash' &&
-    teamA.length > 0 &&
-    teamA[0].creature.id === 25
+  // ══ EASTER EGGS (wrapped in try-catch for safety) ════════════════
+  // Skip easter eggs in paid PvP (when using deterministic RNG)
+  // Easter eggs can cause unexpected state changes that may differ between clients
+  const isPaidPvP = rng !== undefined // deterministic RNG = paid PvP
+  const rngFn = _rng // bind locally for closures
+  let ashPikachuEgg = false // declare outside if block for later reference
+  
+  if (!isPaidPvP) {
+    console.log('[BATTLE] Running easter egg logic (practice/AI mode)')
+    try {
+      // If Ash is trainer A and Pikachu is in slot 0 → special sprite + 5% stat boost
+      console.log('[PIKACHU EGG] trainerA.id=', trainerA.id, 'slot0 id=', teamA[0]?.creature?.id, 'slot0 name=', teamA[0]?.creature?.name)
+      ashPikachuEgg =
+        trainerA.id === 'ash' &&
+        teamA.length > 0 &&
+        teamA[0].creature.id === 25
 
-  // Bind _rng locally so it can be captured in closures below
-  const rngFn = _rng
-
-  console.log('[PIKACHU EGG] ashPikachuEgg=', ashPikachuEgg)
+      console.log('[PIKACHU EGG] ashPikachuEgg=', ashPikachuEgg)
 
   if (ashPikachuEgg) {
     const pika = teamA[0]
@@ -1245,9 +1369,12 @@ export function resolveBattle(
   }
 
   // (Team Rocket Meowth easter egg removed)
-  } catch (eggErr) {
-    console.error('[BATTLE] Easter egg logic failed (non-fatal):', eggErr)
-    // Continue without easter eggs
+    } catch (eggErr) {
+      console.error('[BATTLE] Easter egg logic failed (non-fatal):', eggErr)
+      // Continue without easter eggs
+    }
+  } else {
+    console.log('[BATTLE] Skipping easter eggs (paid PvP mode - must be deterministic)')
   }
 
   // Ditto enters as himself — Transform happens live on first move (see simulateAttack)
