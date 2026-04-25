@@ -242,11 +242,12 @@ export default function QueueScreen() {
       try {
         // Get auth token
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.access_token) {
+        if (!session?.access_token || !session?.user?.id) {
           console.error('[Queue] No auth session');
           return;
         }
         const token = session.access_token;
+        const userId = session.user.id;
         tokenRef.current = token;
 
         const roomId = queueState.roomId;
