@@ -511,7 +511,9 @@ export default function QueueScreen() {
                   console.log('[Queue] Full match data:', fullMatchData);
                   
                   // CRITICAL: Extract opponent ID from realtime update
-                  const opponentId = fullMatchData.myRole === 'player_a' ? fullMatchData.playerB?.userId : fullMatchData.playerA?.userId;
+                  // Note: status endpoint returns playerAId/playerBId (not playerA.userId)
+                  const myRole = fullMatchData.playerAId === userId ? 'player_a' : 'player_b';
+                  const opponentId = myRole === 'player_a' ? fullMatchData.playerBId : fullMatchData.playerAId;
                   
                   // HARD STOP: Paid PvP MUST have real opponent ID (realtime path)
                   if (!opponentId) {
