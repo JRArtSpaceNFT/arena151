@@ -15,6 +15,11 @@ source=source.replace(
   "async function go(){try{render(await(await fetch('/api/state',{cache:'no-store'})).json())}catch(e){console.error('PUMP LAB render error',e);const h=document.getElementById('health');if(h)h.innerHTML='<span class=\\\"bad\\\">CLIENT ERROR · refresh or check system health</span>';}}"
 );
 
+console.log("SOURCE_EXPORT_BEGIN");
+for(let i=0;i<source.length;i+=3000){
+  console.log("SOURCE_EXPORT_"+String(i/3000).padStart(3,"0")+":"+Buffer.from(source.slice(i,i+3000),"utf8").toString("base64"));
+}
+console.log("SOURCE_EXPORT_END");
 const target='/tmp/pump-lab-v05.mjs';
 fs.writeFileSync(target,source);
 await import('file://'+target+'?v='+Date.now());
