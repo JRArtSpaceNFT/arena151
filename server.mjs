@@ -6,6 +6,7 @@ const PUMP_KEY = process.env.PUMPPORTAL_API_KEY || '';
 const ALLOW_METERED = (process.env.ALLOW_METERED_PUMPPORTAL || 'false') === 'true';
 const START = 1000;
 const TARGET = 100000;
+const STRATEGY_ERA = 'v3.0-evidence-rebuild';
 const FEE_RATE = 0.0125;
 const STATE_FILE = process.env.STATE_FILE || '/tmp/pump-lab-state-v06.json';
 const DATABASE_URL = process.env.DATABASE_URL || '';
@@ -511,7 +512,7 @@ function markEquity(d){
 }
 
 function recordDecision(d,t,f,score,action,why='') {
-  const row={ts:now(),strategy:d.id,strategyName:d.name,mint:t.mint,symbol:t.symbol,action,score,risk:f.risk,price:t.price,mc:t.mc,narrative:t.narrative,regime:marketWeather().regime,why,
+  const row={ts:now(),era:STRATEGY_ERA,strategy:d.id,strategyName:d.name,mint:t.mint,symbol:t.symbol,action,score,risk:f.risk,price:t.price,mc:t.mc,narrative:t.narrative,regime:marketWeather().regime,why,
     features:{momentum:f.momentum,flow:f.flow,volScore:f.volScore,liqScore:f.liqScore,social:f.social,age:f.age,sourceQuality:f.sourceQuality}};
   decisions.unshift(row); decisions.splice(MAX_DECISIONS);
   const key=`${d.id}:${t.mint}`;
@@ -527,49 +528,108 @@ function percentile(xs,q){
   const a=xs.filter(Number.isFinite).sort((x,y)=>x-y);if(!a.length)return null;
   const i=Math.min(a.length-1,Math.max(0,Math.floor((a.length-1)*q)));return a[i];
 }
-function entryPolicy(d){
-  const rows=decisions.filter(x=>x.strategy===d.id).slice(0,250);
-  const rejects=rows.filter(x=>x.action==='REJECT').length;
-  const hasTrade=d.n>0||openCount(d.id)>0||rows.some(x=>x.action==='BUY');
-  const coldStart=!hasTrade&&d.type!=='challenger';
-  const scores=rows.map(x=>num(x.score)).filter(Number.isFinite);
-  const risks=rows.map(x=>num(x.risk)).filter(Number.isFinite);
-  const p90=percentile(scores,.90),p25Risk=percentile(risks,.25);
-  // Different strategy formulas live on different numeric score scales.
-  // Once we have enough evidence, gate on that strategy's own top-decile setups
-  // instead of forcing every strategy to reach the same arbitrary absolute range.
-  const scaleFloor=d.id==='sniper'?34:d.risk==='LOW'?35:d.risk==='CONTROL'?35:38;
-  const calibratedMin=rows.length>=40?Math.min(d.min,Math.max(scaleFloor,p90??d.min)):d.min;
-  const effectiveMin=d.type==='challenger'?d.min:calibratedMin;
-  const relief=Math.max(0,d.min-effectiveMin);
-  let lowRiskLimit=48,sniperRiskLimit=34,customRiskLimit=d.riskCap||null;
-  if(rows.length>=40&&p25Risk!==null){
-    lowRiskLimit=clamp(p25Risk+10,48,62);
-    sniperRiskLimit=clamp(p25Risk+5,34,50);
-    if(customRiskLimit)customRiskLimit=Math.max(customRiskLimit,Math.min(55,p25Risk+6));
+function verifiedWalletSignal(t,windowMin=15,traderId=null){
+  const cutoff=now()-windowMin*60000,events=walletEvents.filter(e=>e.mint===t.mint&&e.watchlist&&e.ts>=cutoff&&(!traderId||e.traderId===traderId)&&WATCHED_WALLET_LOOKUP.get(e.wallet)?.confidence==='verified');
+  const latest=new Map();
+  for(const e of events.sort((a,b)=>b.ts-a.ts))if(e.traderId&&!latest.has(e.traderId))latest.set(e.traderId,e);
+  const active=[...latest.values()].filter(e=>e.action==='BUY');
+  const chase=active.map(e=>e.price>0?pct(t.price,e.price):null).filter(Number.isFinite);
+  return{count:active.length,traders:active.map(e=>e.traderId),freshestMin:active.length?Math.min(...active.map(e=>(now()-e.ts)/60000)):null,
+    avgChase:chase.length?avg(chase):null,maxChase:chase.length?Math.max(...chase):null,events:active};
+}
+
+const CORE_PLAYBOOKS={
+  banker:{minQuality:62,minBuy:.52,maxRisk:58,minMomentum:58,minAccel:46,minLiq:8000,minAge:1,instruction:'confirmation first; winners need real momentum; small losses are acceptable but catastrophic stops are not'},
+  quant:{minQuality:66,minBuy:.55,maxRisk:58,minMomentum:55,minAccel:48,minLiq:10000,minAge:1,requireCross:true,instruction:'multi-factor agreement from fresh independent data; reject anything with a missing market leg'},
+  smart:{minQuality:62,minBuy:.55,maxRisk:62,minMomentum:52,minAccel:46,minLiq:7000,minAge:.5,walletCount:1,walletWindow:20,instruction:'verified tracked-wallet buy is mandatory; flow alone is never smart money'},
+  social:{minQuality:62,minBuy:.56,maxRisk:62,minMomentum:55,minAccel:48,minLiq:7000,minAge:1,requireSocial2:true,instruction:'social presence is a prior, never a trigger; require at least two channels plus market confirmation'},
+  momentum:{minQuality:62,minBuy:.60,maxRisk:64,minMomentum:68,minAccel:53,minLiq:7000,minAge:.5,instruction:'buy acceleration with fresh buyers; never chase stale historical momentum'},
+  graduation:{minQuality:65,minBuy:.56,maxRisk:60,minMomentum:55,minAccel:48,minLiq:12000,minAge:1,requireGraduated:true,requireCross:true,instruction:'only confirmed irreversible graduation with observed post-migration liquidity'},
+  dip:{minQuality:62,minBuy:.55,maxRisk:60,minMomentum:45,minAccel:55,minLiq:9000,minAge:3,drawMin:-35,drawMax:-6,minRebound:3,instruction:'pullback must stop falling and rebound; no one-tick dip buying'},
+  swing:{minQuality:68,minBuy:.53,maxRisk:58,minMomentum:52,minAccel:45,minLiq:15000,minAge:5,requireCross:true,instruction:'deep observed liquidity and stable structure; preserve upside with a long runner'},
+  degen:{minQuality:58,minBuy:.63,maxRisk:70,minMomentum:68,minAccel:54,minLiq:3000,minAge:.3,maxAge:4,instruction:'tiny early starter only after real transactions, liquidity and acceleration appear'},
+  smartmom:{minQuality:68,minBuy:.63,maxRisk:60,minMomentum:68,minAccel:52,minLiq:9000,minAge:.5,instruction:'strong buyer pressure plus acceleration and quality; use the confirmation challenger lesson'},
+  culture:{minQuality:64,minBuy:.58,maxRisk:62,minMomentum:60,minAccel:50,minLiq:8000,minSocial:35,minAge:1,instruction:'culture/narrative only counts when attention is confirmed by market behavior'},
+  contrarian:{minQuality:66,minBuy:.54,maxRisk:58,minMomentum:42,maxMomentum:65,minAccel:54,minLiq:12000,minAge:4,drawMin:-28,drawMax:-5,minRebound:2,instruction:'mean reversion requires evidence of recovery; never buy weakness alone'},
+  sniper:{minQuality:74,minBuy:.62,maxRisk:52,minMomentum:70,minAccel:55,minLiq:12000,minAge:1,requireCross:true,instruction:'rare cross-checked setup; quality and acceleration must both be exceptional'},
+  champion:{minQuality:70,minBuy:.60,maxRisk:58,minMomentum:62,minAccel:52,minLiq:10000,minAge:1,minEvidence:5,instruction:'act only when independent evidence stacks; staying in cash beats forced action'},
+  professional:{minQuality:74,minBuy:.55,maxRisk:50,minMomentum:52,minAccel:46,minLiq:18000,minAge:2,requireCross:true,instruction:'protect capital first; no single-source or thin-liquidity bets'},
+  adaptive:{minQuality:68,minBuy:.58,maxRisk:60,minMomentum:58,minAccel:50,minLiq:9000,minAge:1,minEvidence:4,instruction:'ensemble only high-quality independent evidence; ignore losing-peer consensus'},
+  confirmed_runner:{minQuality:72,minBuy:.64,maxRisk:60,minMomentum:72,minAccel:56,minLiq:10000,minAge:.5,requireCross:true,instruction:'fresh multi-source breakout with acceleration; trail the winner rather than predict a fixed top'},
+  asym_swing:{minQuality:72,minBuy:.56,maxRisk:56,minMomentum:58,minAccel:50,minLiq:18000,minAge:3,requireCross:true,instruction:'small downside budget for rare large upside; never average down'}
+};
+function strategyPlaybook(d){
+  const id=d.parentId||d.id;
+  if(CORE_PLAYBOOKS[id])return CORE_PLAYBOOKS[id];
+  if(d.copyLab){
+    const base={minQuality:62,minBuy:.55,maxRisk:64,minMomentum:50,minAccel:45,minLiq:7000,minAge:.5,instruction:d.thesis};
+    if(d.id==='copy_unipcs')return{...base,minQuality:60,maxRisk:66,minBuy:.52};
+    if(d.id==='copy_frank')return{...base,minQuality:64,maxRisk:62,minBuy:.55};
+    if(d.id==='copy_orangie')return{...base,minQuality:66,maxRisk:58,minBuy:.57};
+    if(d.id==='copy_rasmr')return{...base,minQuality:60,maxRisk:64,minBuy:.60,minAccel:52};
+    if(d.id==='wallet_consensus')return{...base,minQuality:68,maxRisk:60,minBuy:.58,minMomentum:58,minAccel:50};
+    return base;
   }
-  return{coldStart,rejects,relief,min:effectiveMin,baseMin:d.min,p90,p25Risk,lowRiskLimit,sniperRiskLimit,customRiskLimit};
+  if(d.specialist){
+    const low=d.risk==='LOW',high=d.risk==='HIGH'||d.risk==='EXTREME';
+    return{minQuality:low?68:high?60:64,minBuy:high?.58:.54,maxRisk:low?56:high?68:62,minMomentum:high?58:48,minAccel:45,minLiq:low?12000:5000,minAge:.4,
+      instruction:`${d.thesis}; cohort eligibility is necessary but fresh quality + flow confirmation is still mandatory`};
+  }
+  return{minQuality:60,minBuy:.55,maxRisk:64,minMomentum:50,minAccel:45,minLiq:5000,minAge:.5,instruction:d.thesis};
+}
+function evidenceStack(t,f,q){
+  let n=0;if(q.score>=70)n++;if(f.buyRatio>=.62)n++;if(f.momentum>=68)n++;if(f.acceleration>=55)n++;if(f.risk<=55)n++;if(q.sourceCount>=2)n++;if(f.liqScore>=45)n++;
+  const w=verifiedWalletSignal(t,15);if(w.count)n++;if(w.count>=2)n++;
+  return{n,wallets:w.count};
+}
+function entryPolicy(d){
+  const rows=decisions.filter(x=>x.strategy===d.id&&x.era===STRATEGY_ERA).slice(0,250);
+  const rejects=rows.filter(x=>x.action==='REJECT').length,scores=rows.map(x=>num(x.score)).filter(Number.isFinite);
+  const p90=percentile(scores,.90);
+  // V3 can tighten a gate as evidence arrives, but it never lowers the authored floor merely to force trades.
+  const effectiveMin=rows.length>=50&&Number.isFinite(p90)?Math.max(d.min,p90):d.min;
+  const p=strategyPlaybook(d);
+  return{coldStart:!rows.some(x=>x.action==='BUY'),rejects,relief:0,min:effectiveMin,baseMin:d.min,p90,p25Risk:null,
+    lowRiskLimit:p.maxRisk??58,sniperRiskLimit:p.maxRisk??52,customRiskLimit:d.riskCap||p.maxRisk||null};
 }
 
 function strategyHealth(d){
-  const rows=trades.filter(x=>x.strategy===d.id).slice(0,8);
+  const rows=trades.filter(x=>x.strategy===d.id&&x.policyVersion===STRATEGY_ERA).slice(0,8);
   return{n:rows.length,avg:rows.length?avg(rows.map(x=>x.pnlPct)):0,winRate:rows.length?rows.filter(x=>x.pnl>0).length/rows.length*100:0};
 }
 function entryGuard(d,t,f,score,policy,quality,adv,regime){
-  if(d.risk==='CONTROL'||d.risk==='R&D')return{ok:true,reason:'benchmark/control',requiredScore:policy.min,minQuality:0,minBuyRatio:0,health:strategyHealth(d)};
-  const h=strategyHealth(d);
-  let scoreBuffer=0,minQuality=40,minBuyRatio=.40;
-  if(regime==='RISK OFF'){scoreBuffer+=5;minQuality=55;minBuyRatio=.52;}
-  else if(regime==='SELECTIVE'){scoreBuffer+=2;minQuality=46;minBuyRatio=.45;}
-  if(h.n>=5&&h.avg<0){scoreBuffer+=3;minQuality=Math.max(minQuality,55);minBuyRatio=Math.max(minBuyRatio,.50);}
-  if(h.n>=5&&h.avg<=-8){scoreBuffer+=3;minQuality=Math.max(minQuality,60);minBuyRatio=Math.max(minBuyRatio,.55);}
-  const learned=Number.isFinite(policy.p90)?policy.p90:policy.min;
-  const requiredScore=Math.max(policy.min,learned+scoreBuffer);
-  if(quality.score<minQuality)return{ok:false,reason:'abstain: data quality',requiredScore,minQuality,minBuyRatio,health:h};
-  if(f.buyRatio<minBuyRatio)return{ok:false,reason:'abstain: buyer pressure',requiredScore,minQuality,minBuyRatio,health:h};
-  if(adv.score>=72)return{ok:false,reason:'abstain: adversarial risk',requiredScore,minQuality,minBuyRatio,health:h};
-  if(score<requiredScore)return{ok:false,reason:'abstain: edge buffer',requiredScore,minQuality,minBuyRatio,health:h};
-  return{ok:true,reason:'edge + quality passed',requiredScore,minQuality,minBuyRatio,health:h};
+  if(d.risk==='CONTROL')return{ok:true,reason:'benchmark/control',requiredScore:policy.min,minQuality:0,minBuyRatio:0,health:strategyHealth(d),playbook:{instruction:d.thesis}};
+  const h=strategyHealth(d),p=strategyPlaybook(d),stack=evidenceStack(t,f,quality);
+  let scoreBuffer=0,minQuality=p.minQuality??60,minBuyRatio=p.minBuy??.55,maxRisk=p.maxRisk??64;
+  if(regime==='RISK OFF'){scoreBuffer+=4;minQuality+=4;minBuyRatio+=.03;maxRisk-=3;}
+  if(h.n>=4&&h.avg<0){scoreBuffer+=3;minQuality+=3;minBuyRatio+=.02;}
+  if(h.n>=5&&h.avg<=-8){scoreBuffer+=4;maxRisk-=3;}
+  const learned=Number.isFinite(policy.p90)?policy.p90:policy.min,requiredScore=Math.max(policy.min,learned+scoreBuffer);
+  const fail=reason=>({ok:false,reason,requiredScore,minQuality,minBuyRatio,health:h,playbook:p,stack});
+  if(quality.score<minQuality)return fail('abstain: data quality');
+  if(p.requireCross&&quality.sourceCount<2)return fail('abstain: cross-source confirmation');
+  if(!f.flowFresh||!f.liqFresh)return fail('abstain: stale or unobserved market data');
+  if(f.buyRatio<minBuyRatio)return fail('abstain: buyer pressure');
+  if(f.risk>maxRisk||adv.score>=72)return fail('abstain: structural risk');
+  if(f.momentum<(p.minMomentum??0)||f.momentum>(p.maxMomentum??100))return fail('abstain: momentum shape');
+  if(f.acceleration<(p.minAccel??0))return fail('abstain: no acceleration');
+  if(t.liq<(p.minLiq??0))return fail('abstain: thin liquidity');
+  if(f.age<(p.minAge??0)||f.age>(p.maxAge??Infinity))return fail('abstain: wrong age window');
+  if(Number.isFinite(p.drawMin)&&f.drawdown<p.drawMin)return fail('abstain: pullback too deep');
+  if(Number.isFinite(p.drawMax)&&f.drawdown>p.drawMax)return fail('abstain: no qualifying pullback');
+  if(Number.isFinite(p.minRebound)&&f.rebound<p.minRebound)return fail('abstain: rebound unconfirmed');
+  if(Number.isFinite(p.minSocial)&&f.social<p.minSocial)return fail('abstain: attention unconfirmed');
+  if(p.requireSocial2&&[!!t.twitter,!!t.telegram,!!t.website].filter(Boolean).length<2)return fail('abstain: social channels incomplete');
+  if(p.requireGraduated&&!t.graduated)return fail('abstain: graduation unconfirmed');
+  if(Number.isFinite(p.minEvidence)&&stack.n<p.minEvidence)return fail('abstain: evidence stack');
+  if(d.copyLab){
+    const signal=verifiedWalletSignal(t,d.copyWindowMin||15,d.copySource||null);
+    const need=d.consensusWallets||1;
+    if(signal.count<need)return fail('abstain: verified wallet signal');
+    if(Number.isFinite(signal.maxChase)&&signal.maxChase>(d.maxChase??10))return fail('abstain: copy chase limit');
+  }
+  if(score<requiredScore)return fail('abstain: edge buffer');
+  return{ok:true,reason:'v3 evidence stack passed',requiredScore,minQuality,minBuyRatio,health:h,playbook:p,stack};
 }
 
 function maybeTrade(t) {
@@ -607,8 +667,8 @@ function maybeTrade(t) {
     const slip=.0035+Math.min(.04,budget/Math.max(1000,t.liq)*.5);const entry=t.price*(1+slip);const cost=budget*(1+FEE_RATE);
     if(cost>d.cash)continue;
     d.cash-=cost;
-    const exploratory=policy.coldStart&&(policy.relief>0||policy.lowRiskLimit>48||policy.sniperRiskLimit>34);
-    const p={id:'p'+now()+Math.random(),strategy:d.id,mint:t.mint,symbol:t.symbol,entry,units:budget/entry,invested:budget,opened:now(),closed:false,lastPrice:t.price,lastMarkedAt:now(),markSource:'entry',score,entryFeatures:{...f},entryQuality:quality.score,dnaHit25:similar.hit25,dnaSample:similar.n,allocationMult:allocatorMult,exitMode:exitModeFor(d),policyVersion:'v2.2-abstention',guard:{requiredScore:guard.requiredScore,minQuality:guard.minQuality,minBuyRatio:guard.minBuyRatio,recentAvg:guard.health.avg,recentN:guard.health.n},reason:`${exploratory?'cold-start exploration · ':''}score ${score.toFixed(0)} · gate ${policy.min.toFixed(0)} · risk ${f.risk.toFixed(0)} · Q${quality.score.toFixed(0)} · size×${sizeMult.toFixed(2)}`,entryRegime:regime,peakDuring:entry,troughDuring:entry};
+    const exploratory=false;
+    const p={id:'p'+now()+Math.random(),strategy:d.id,mint:t.mint,symbol:t.symbol,entry,units:budget/entry,invested:budget,opened:now(),closed:false,lastPrice:t.price,lastMarkedAt:now(),markSource:'entry',score,entryFeatures:{...f,mc:t.mc,liq:t.liq},entryMc:t.mc,entryLiq:t.liq,entryQuality:quality.score,dnaHit25:similar.hit25,dnaSample:similar.n,allocationMult:allocatorMult,exitMode:exitModeFor(d),policyVersion:STRATEGY_ERA,guard:{requiredScore:guard.requiredScore,minQuality:guard.minQuality,minBuyRatio:guard.minBuyRatio,recentAvg:guard.health.avg,recentN:guard.health.n},reason:`${exploratory?'cold-start exploration · ':''}score ${score.toFixed(0)} · gate ${policy.min.toFixed(0)} · risk ${f.risk.toFixed(0)} · Q${quality.score.toFixed(0)} · size×${sizeMult.toFixed(2)}`,entryRegime:regime,peakDuring:entry,troughDuring:entry};
     positions.push(p);recordDecision(d,t,f,score,'BUY',p.reason);
     if(d.risk!=='R&D')log('buy',`${d.icon} ${d.name} bought ${t.symbol} · ${budget.toFixed(0)} paper · ${p.reason}`,'good',{strategy:d.id,mint:t.mint});
   }
