@@ -33,4 +33,21 @@ if (/sid==='random'\)s=Math\.random\(\)\*100/.test(src)) {
   console.error('PUMP LAB AUDIT STATIC CHECK FAILED\n - nondeterministic random-control regression');
   process.exit(1);
 }
-console.log('PUMP LAB audit static checks passed: ' + checks.length);
+
+// Visual identity regression: all 25 primary traders must keep unique fixed art profiles.
+const artMapMatch = src.match(/const TRADER_ART_PROFILES=\{([\s\S]*?)\};/);
+if (!artMapMatch) {
+  console.error('PUMP LAB AUDIT STATIC CHECK FAILED\n - trader art profile map missing');
+  process.exit(1);
+}
+const artPairs = [...artMapMatch[1].matchAll(/([A-Za-z0-9_]+):'([^']+)'/g)].map(m=>[m[1],m[2]]);
+if (artPairs.length !== 25 || new Set(artPairs.map(x=>x[1])).size !== 25) {
+  console.error('PUMP LAB AUDIT STATIC CHECK FAILED\n - unique trader visual identities must remain 25/25');
+  process.exit(1);
+}
+if (src.includes("agentVisual v'+(i%5)")) {
+  console.error('PUMP LAB AUDIT STATIC CHECK FAILED\n - recycled five-card art renderer returned');
+  process.exit(1);
+}
+
+console.log('PUMP LAB audit static checks passed: ' + checks.length + ' + 25 unique trader visuals');
