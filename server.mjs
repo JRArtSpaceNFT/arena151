@@ -539,30 +539,30 @@ function verifiedWalletSignal(t,windowMin=15,traderId=null){
 }
 
 const CORE_PLAYBOOKS={
-  banker:{minQuality:62,minBuy:.52,maxRisk:58,minMomentum:58,minAccel:46,minLiq:8000,minAge:1,instruction:'confirmation first; winners need real momentum; small losses are acceptable but catastrophic stops are not'},
-  quant:{minQuality:66,minBuy:.55,maxRisk:58,minMomentum:55,minAccel:48,minLiq:10000,minAge:1,requireCross:true,instruction:'multi-factor agreement from fresh independent data; reject anything with a missing market leg'},
-  smart:{minQuality:62,minBuy:.55,maxRisk:62,minMomentum:52,minAccel:46,minLiq:7000,minAge:.5,walletCount:1,walletWindow:20,instruction:'verified tracked-wallet buy is mandatory; flow alone is never smart money'},
-  social:{minQuality:62,minBuy:.56,maxRisk:62,minMomentum:55,minAccel:48,minLiq:7000,minAge:1,requireSocial2:true,instruction:'social presence is a prior, never a trigger; require at least two channels plus market confirmation'},
-  momentum:{minQuality:62,minBuy:.60,maxRisk:64,minMomentum:68,minAccel:53,minLiq:7000,minAge:.5,instruction:'buy acceleration with fresh buyers; never chase stale historical momentum'},
-  graduation:{minQuality:65,minBuy:.56,maxRisk:60,minMomentum:55,minAccel:48,minLiq:12000,minAge:1,requireGraduated:true,requireCross:true,instruction:'only confirmed irreversible graduation with observed post-migration liquidity'},
-  dip:{minQuality:62,minBuy:.55,maxRisk:60,minMomentum:45,minAccel:55,minLiq:9000,minAge:3,drawMin:-35,drawMax:-6,minRebound:3,instruction:'pullback must stop falling and rebound; no one-tick dip buying'},
-  swing:{minQuality:68,minBuy:.53,maxRisk:58,minMomentum:52,minAccel:45,minLiq:15000,minAge:5,requireCross:true,instruction:'deep observed liquidity and stable structure; preserve upside with a long runner'},
-  degen:{minQuality:58,minBuy:.63,maxRisk:70,minMomentum:68,minAccel:54,minLiq:3000,minAge:.3,maxAge:4,instruction:'tiny early starter only after real transactions, liquidity and acceleration appear'},
-  smartmom:{minQuality:68,minBuy:.63,maxRisk:60,minMomentum:68,minAccel:52,minLiq:9000,minAge:.5,instruction:'strong buyer pressure plus acceleration and quality; use the confirmation challenger lesson'},
-  culture:{minQuality:64,minBuy:.58,maxRisk:62,minMomentum:60,minAccel:50,minLiq:8000,minSocial:35,minAge:1,instruction:'culture/narrative only counts when attention is confirmed by market behavior'},
-  contrarian:{minQuality:66,minBuy:.54,maxRisk:58,minMomentum:42,maxMomentum:65,minAccel:54,minLiq:12000,minAge:4,drawMin:-28,drawMax:-5,minRebound:2,instruction:'mean reversion requires evidence of recovery; never buy weakness alone'},
-  sniper:{minQuality:74,minBuy:.62,maxRisk:52,minMomentum:70,minAccel:55,minLiq:12000,minAge:1,requireCross:true,instruction:'rare cross-checked setup; quality and acceleration must both be exceptional'},
-  champion:{minQuality:70,minBuy:.60,maxRisk:58,minMomentum:62,minAccel:52,minLiq:10000,minAge:1,minEvidence:5,instruction:'act only when independent evidence stacks; staying in cash beats forced action'},
-  professional:{minQuality:74,minBuy:.55,maxRisk:50,minMomentum:52,minAccel:46,minLiq:18000,minAge:2,requireCross:true,instruction:'protect capital first; no single-source or thin-liquidity bets'},
-  adaptive:{minQuality:68,minBuy:.58,maxRisk:60,minMomentum:58,minAccel:50,minLiq:9000,minAge:1,minEvidence:4,instruction:'ensemble only high-quality independent evidence; ignore losing-peer consensus'},
-  confirmed_runner:{minQuality:72,minBuy:.64,maxRisk:60,minMomentum:72,minAccel:56,minLiq:10000,minAge:.5,requireCross:true,instruction:'fresh multi-source breakout with acceleration; trail the winner rather than predict a fixed top'},
-  asym_swing:{minQuality:72,minBuy:.56,maxRisk:56,minMomentum:58,minAccel:50,minLiq:18000,minAge:3,requireCross:true,instruction:'small downside budget for rare large upside; never average down'}
+  banker:{minQuality:62,minBuy:.49,maxBuy:.78,minTx:8,maxRisk:58,minMomentum:58,minAccel:46,minLiq:8000,minAge:1,instruction:'confirmation first; winners need real momentum; small losses are acceptable but catastrophic stops are not'},
+  quant:{minQuality:66,minBuy:.49,maxBuy:.78,minTx:10,maxRisk:58,minMomentum:55,minAccel:48,minLiq:10000,minAge:1,requireCross:true,instruction:'multi-factor agreement from fresh independent data; reject anything with a missing market leg'},
+  smart:{minQuality:62,minBuy:.56,maxBuy:.82,minTx:8,maxRisk:62,minMomentum:52,minAccel:46,minLiq:7000,minAge:.5,walletCount:1,walletWindow:20,instruction:'verified tracked-wallet buy is mandatory; flow alone is never smart money'},
+  social:{minQuality:62,minBuy:.56,maxBuy:.82,minTx:8,maxRisk:62,minMomentum:55,minAccel:48,minLiq:7000,minAge:1,requireSocial2:true,instruction:'social presence is a prior, never a trigger; require at least two channels plus market confirmation'},
+  momentum:{minQuality:62,minBuy:.52,maxBuy:.82,minTx:10,maxRisk:64,minMomentum:72,minAccel:55,minLiq:7000,minAge:.5,instruction:'buy acceleration with fresh buyers; never chase stale historical momentum'},
+  graduation:{minQuality:65,minBuy:.52,maxBuy:.82,minTx:8,maxRisk:60,minMomentum:55,minAccel:48,minLiq:12000,minAge:1,requireGraduated:true,requireCross:true,instruction:'only confirmed irreversible graduation with observed post-migration liquidity'},
+  dip:{minQuality:62,minBuy:.52,maxBuy:.80,minTx:10,maxRisk:60,minMomentum:45,minAccel:55,minLiq:9000,minAge:3,drawMin:-35,drawMax:-6,minRebound:3,instruction:'pullback must stop falling and rebound; no one-tick dip buying'},
+  swing:{minQuality:68,minBuy:.50,maxBuy:.78,minTx:10,maxRisk:58,minMomentum:52,minAccel:45,minLiq:15000,minAge:5,requireCross:true,instruction:'deep observed liquidity and stable structure; preserve upside with a long runner'},
+  degen:{minQuality:58,minBuy:.58,maxBuy:.86,minTx:5,maxRisk:70,minMomentum:72,minAccel:55,minLiq:3000,minAge:.3,maxAge:4,instruction:'tiny early starter only after real transactions, liquidity and acceleration appear'},
+  smartmom:{minQuality:68,minBuy:.61,maxBuy:.86,minTx:10,maxRisk:60,minMomentum:68,minAccel:52,minLiq:9000,minAge:.5,instruction:'strong buyer pressure plus acceleration and quality; use the confirmation challenger lesson'},
+  culture:{minQuality:64,minBuy:.52,maxBuy:.78,minTx:8,maxRisk:62,minMomentum:60,minAccel:50,minLiq:8000,minSocial:35,minAge:1,instruction:'culture/narrative only counts when attention is confirmed by market behavior'},
+  contrarian:{minQuality:66,minBuy:.50,maxBuy:.75,minTx:8,maxRisk:58,minMomentum:42,maxMomentum:65,minAccel:54,minLiq:12000,minAge:4,drawMin:-28,drawMax:-5,minRebound:2,instruction:'mean reversion requires evidence of recovery; never buy weakness alone'},
+  sniper:{minQuality:74,minBuy:.60,maxBuy:.82,minTx:12,maxRisk:52,minMomentum:70,minAccel:55,minLiq:12000,minAge:1,requireCross:true,instruction:'rare cross-checked setup; quality and acceleration must both be exceptional'},
+  champion:{minQuality:70,minBuy:.55,maxBuy:.82,minTx:10,maxRisk:58,minMomentum:62,minAccel:52,minLiq:10000,minAge:1,minEvidence:5,instruction:'act only when independent evidence stacks; staying in cash beats forced action'},
+  professional:{minQuality:74,minBuy:.49,maxBuy:.76,minTx:12,maxRisk:50,minMomentum:52,minAccel:46,minLiq:18000,minAge:2,requireCross:true,instruction:'protect capital first; no single-source or thin-liquidity bets'},
+  adaptive:{minQuality:68,minBuy:.54,maxBuy:.82,minTx:10,maxRisk:60,minMomentum:58,minAccel:50,minLiq:9000,minAge:1,minEvidence:4,instruction:'ensemble only high-quality independent evidence; ignore losing-peer consensus'},
+  confirmed_runner:{minQuality:72,minBuy:.58,maxBuy:.82,minTx:10,maxRisk:60,minMomentum:72,minAccel:56,minLiq:10000,minAge:.5,requireCross:true,instruction:'fresh multi-source breakout with acceleration; trail the winner rather than predict a fixed top'},
+  asym_swing:{minQuality:72,minBuy:.50,maxBuy:.78,minTx:12,maxRisk:56,minMomentum:58,minAccel:50,minLiq:18000,minAge:3,requireCross:true,instruction:'small downside budget for rare large upside; never average down'}
 };
 function strategyPlaybook(d){
   const id=d.parentId||d.id;
   if(CORE_PLAYBOOKS[id])return CORE_PLAYBOOKS[id];
   if(d.copyLab){
-    const base={minQuality:62,minBuy:.55,maxRisk:64,minMomentum:50,minAccel:45,minLiq:7000,minAge:.5,instruction:d.thesis};
+    const base={minQuality:62,minBuy:.52,maxBuy:.86,minTx:5,maxRisk:64,minMomentum:50,minAccel:45,minLiq:7000,minAge:.5,instruction:d.thesis};
     if(d.id==='copy_unipcs')return{...base,minQuality:60,maxRisk:66,minBuy:.52};
     if(d.id==='copy_frank')return{...base,minQuality:64,maxRisk:62,minBuy:.55};
     if(d.id==='copy_orangie')return{...base,minQuality:66,maxRisk:58,minBuy:.57};
@@ -571,9 +571,13 @@ function strategyPlaybook(d){
     return base;
   }
   if(d.specialist){
-    const low=d.risk==='LOW',high=d.risk==='HIGH'||d.risk==='EXTREME';
-    return{minQuality:low?68:high?60:64,minBuy:high ? .58 : .54,maxRisk:low?56:high?68:62,minMomentum:high?58:48,minAccel:45,minLiq:low?12000:5000,minAge:.4,
-      instruction:`${d.thesis}; cohort eligibility is necessary but fresh quality + flow confirmation is still mandatory`};
+    const low=d.risk==='LOW',high=d.risk==='HIGH'||d.risk==='EXTREME',cohort=d.cohort||'';
+    let minBuy=.50,maxBuy=.86,minMomentum=high?56:46,minAccel=44,minTx=6;
+    if(cohort==='ORDER FLOW'){minBuy=0;maxBuy=1;minMomentum=45;}
+    if(cohort==='TOKEN AGE'){minBuy=.48;minAccel=48;}
+    if(cohort==='METADATA'||cohort==='CREATOR DNA'){minBuy=.50;minMomentum=50;}
+    return{minQuality:low?68:high?60:64,minBuy,maxBuy,minTx,maxRisk:low?56:high?68:62,minMomentum,minAccel,minLiq:low?12000:5000,minAge:.4,
+      instruction:`${d.thesis}; cohort eligibility is necessary but fresh observed liquidity, transaction depth and confirmation are still mandatory`};
   }
   return{minQuality:60,minBuy:.55,maxRisk:64,minMomentum:50,minAccel:45,minLiq:5000,minAge:.5,instruction:d.thesis};
 }
@@ -609,7 +613,8 @@ function entryGuard(d,t,f,score,policy,quality,adv,regime){
   if(quality.score<minQuality)return fail('abstain: data quality');
   if(p.requireCross&&quality.sourceCount<2)return fail('abstain: cross-source confirmation');
   if(!f.flowFresh||!f.liqFresh)return fail('abstain: stale or unobserved market data');
-  if(f.buyRatio<minBuyRatio)return fail('abstain: buyer pressure');
+  if(f.totalTx<(p.minTx??0))return fail('abstain: insufficient transaction depth');
+  if(f.buyRatio<minBuyRatio||f.buyRatio>(p.maxBuy??1))return fail('abstain: buyer pressure shape');
   if(f.risk>maxRisk||adv.score>=72)return fail('abstain: structural risk');
   if(f.momentum<(p.minMomentum??0)||f.momentum>(p.maxMomentum??100))return fail('abstain: momentum shape');
   if(f.acceleration<(p.minAccel??0))return fail('abstain: no acceleration');
