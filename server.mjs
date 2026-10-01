@@ -812,7 +812,19 @@ function solDeltaFor(tx,wallet){
   if(i<0)return 0;const pre=tx?.meta?.preBalances?.[i],post=tx?.meta?.postBalances?.[i];
   return Number.isFinite(pre)&&Number.isFinite(post)?(post-pre)/1e9:0;
 }
-function parseWalletTx(sig,tx){
+async function hydrateWalletMint(mint){
+  try{
+    const p=await fetchJson('https://frontend-api-v3.pump.fun/coins/'+encodeURIComponent(mint));
+    if(p&&typeof p==='object')ingest(p,'pump.fun-wallet');
+  }catch{}
+  try{
+    const pairs=await fetchJson('https://api.dexscreener.com/tokens/v1/solana/'+encodeURIComponent(mint));
+    const best=(Array.isArray(pairs)?pairs:[]).sort((a,b)=>(b.liquidity?.usd||0)-(a.liquidity?.usd||0))[0];
+    if(best)ingest({...best,mint},'dexscreener-wallet');
+  }catch{}
+  return tokens.get(mint)||null;
+}
+async function parseWalletTx(sig,tx){
   const keys=tx?.transaction?.message?.accountKeys||[]; const signerKeys=keys.filter(k=>typeof k==='object'&&k.signer).map(k=>k.pubkey);
   if(!signerKeys.length&&typeof keys[0]==='string')signerKeys.push(keys[0]);
   const allKeys=new Set(keys.map(keyText).filter(Boolean));const hasPump=allKeys.has(PUMP_PROGRAM);
@@ -823,25 +835,30 @@ function parseWalletTx(sig,tx){
   let found=0;
   for(const x of idx.values()){
     if(!x.owner||!signerKeys.includes(x.owner))continue; const delta=x.post-x.pre;if(Math.abs(delta)<1e-12)continue;
-    const tok=tokens.get(x.mint);const watch=WATCHED_WALLET_LOOKUP.get(x.owner);const solDelta=solDeltaFor(tx,x.owner);
+    const watch=WATCHED_WALLET_LOOKUP.get(x.owner);let tok=tokens.get(x.mint);
+    if(watch?.confidence==='verified')tok=await hydrateWalletMint(x.mint)||tok;
+    const solDelta=solDeltaFor(tx,x.owner);
     let action=delta>0?'BUY':'SELL',classification='token-balance delta';
     if(watch&&!hasPump){
       if(delta>0&&solDelta>=-.0001)action='TOKEN_IN';
       if(delta<0&&solDelta<=.0001)action='TOKEN_OUT';
       classification=(action==='BUY'||action==='SELL')?'token + native SOL delta':'direction observed; trade not yet proven';
     }else if(hasPump)classification='Pump.fun program + token delta';
-    const event={ts:now(),blockTime:tx?.blockTime?tx.blockTime*1000:null,slot:tx?.slot||null,signature:sig,wallet:x.owner,mint:x.mint,symbol:tok?.symbol||x.mint.slice(0,5),action,tokenDelta:delta,solDelta,price:tok?.price||0,mc:tok?.mc||0,classification,source:'Solana RPC',watchlist:!!watch,traderId:watch?.traderId||null,traderName:watch?.traderName||null,walletLabel:watch?.label||null};
+    const event={ts:now(),blockTime:tx?.blockTime?tx.blockTime*1000:null,slot:tx?.slot||null,signature:sig,wallet:x.owner,mint:x.mint,symbol:tok?.symbol||x.mint.slice(0,5),action,tokenDelta:delta,solDelta,price:tok?.price||0,mc:tok?.mc||0,classification,source:'Solana RPC',watchlist:!!watch,traderId:watch?.traderId||null,traderName:watch?.traderName||null,walletLabel:watch?.label||null,confidence:watch?.confidence||null};
     walletEvents.unshift(event);walletEvents.splice(1200); found++;
-    if(watch)log('smart-wallet',`👀 ${watch.traderName} · ${action} · ${event.symbol}`,'info',{traderId:watch.traderId,wallet:x.owner,mint:x.mint,signature:sig});
-    if(tok){tok.chainBuys=num(tok.chainBuys)+(action==='BUY'?1:0);tok.chainSells=num(tok.chainSells)+(action==='SELL'?1:0);tok.chainTx=num(tok.chainTx)+1;tok.lastChainAt=now();}
+    if(watch)log('smart-wallet',`👀 ${watch.traderName} · ${action} · ${event.symbol}`,'info',{traderId:watch.traderId,wallet:x.owner,mint:x.mint,signature:sig,confidence:watch.confidence});
+    if(tok){tok.chainBuys=num(tok.chainBuys)+(action==='BUY'?1:0);tok.chainSells=num(tok.chainSells)+(action==='SELL'?1:0);tok.chainTx=num(tok.chainTx)+1;tok.lastChainAt=now();
+      if(watch?.confidence==='verified'&&(action==='BUY'||action==='SELL'))maybeTrade(tok);
+    }
   }
   if(found)solanaResolved++;
 }
 async function drainSolanaQueue(){
   const sig=solanaQueue.shift(); if(!sig)return;
-  try{const tx=await rpcTransaction(sig);if(tx)parseWalletTx(sig,tx);setHealth('wallet-intel','ok',`Observed on-chain wallet activity · ${solanaResolved} resolved Pump transactions`,{truth:'observed'});}
-  catch(e){if(/429/.test(e.message))setHealth('wallet-intel','warn','Public RPC rate limited · queue retained',{truth:'observed'});}
+  try{const tx=await rpcTransaction(sig);if(tx)await parseWalletTx(sig,tx);setHealth('wallet-intel','ok',`Observed on-chain wallet activity · ${solanaResolved} resolved transactions`,{truth:'observed'});}
+  catch(e){if(/429/.test(e.message))setHealth('wallet-intel','warn','Public RPC rate limited · queue retained',{truth:'observed'});else setHealth('wallet-intel','warn','Wallet resolver: '+e.message,{truth:'observed'});}
 }
+
 function walletLeaderboard(){
   const m=new Map();
   for(const e of walletEvents){let w=m.get(e.wallet);if(!w)w={wallet:e.wallet,buys:0,sells:0,events:0,mints:new Set(),marked:[],last:0};w.events++;w.mints.add(e.mint);w.last=Math.max(w.last,e.ts);if(e.action==='BUY'){w.buys++;if(e.price>0){const t=tokens.get(e.mint);if(t?.price>0)w.marked.push(pct(t.price,e.price));}}else w.sells++;m.set(e.wallet,w);}
