@@ -60,7 +60,7 @@ const strategyDefs = [
   ['champion','👑','Champion','EXTREME',.15,67,20,68,2,'maximize terminal paper wealth'],
   ['professional','🛡','Professional','LOW',.055,80,18,65,1,'risk-adjusted return'],
   ['adaptive','🧭','Adaptive Master','MED',.09,74,20,72,2,'regime-aware ensemble'],
-  ['random','🎲','Random Control','CONTROL',.05,999,22,45,1,'random baseline'],
+  ['random','🎲','Random Control','CONTROL',.05,70,22,45,1,'random baseline'],
   ['volume','📊','Volume Control','CONTROL',.06,68,22,50,1,'simple volume baseline'],
   ['launchctl','🧱','Every Launch Control','CONTROL',.035,0,30,50,3,'buy-everything launch baseline'],
   ['socialctl','📣','Social Metadata Control','CONTROL',.04,58,25,55,2,'simple social-metadata baseline']
