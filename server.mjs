@@ -73,7 +73,7 @@ function makeChallenger(parentId,id,name,mutation,mods={}) {
     equity:START,cash:START,peak:START,dd:0,wins:0,losses:0,n:0,version:p.version+0.1};
 }
 
-const allTraders = () => [...strategyDefs, ...challengers];
+const allTraders = () => [...strategyDefs, ...challengers.filter(c=>!c.graveyardAt&&!c.promotedAt)];
 const now = () => Date.now();
 const clamp = (x,a=0,b=100) => Math.max(a, Math.min(b, Number.isFinite(x)?x:0));
 const num = x => Number.isFinite(Number(x)) ? Number(x) : 0;
@@ -191,33 +191,34 @@ function strategyRegimeWeight(id,regime){
 }
 
 function strategyScore(d,f,t) {
+  const sid=d.parentId||d.id;
   let s=f.score;
-  if(d.id==='banker')s=f.liqScore*.28+f.flow*.18+f.volScore*.20+(100-f.risk)*.34;
-  else if(d.id==='quant')s=f.score+(f.buyRatio>.62?8:-4)+(f.sourceQuality>45?4:0);
-  else if(d.id==='smart')s=f.flow*.34+f.volScore*.24+f.momentum*.18+(100-f.risk)*.24;
-  else if(d.id==='social')s=f.social*.40+f.momentum*.24+f.flow*.18+f.volScore*.18;
-  else if(d.id==='momentum')s=f.momentum*.45+f.flow*.22+f.volScore*.23+f.liqScore*.10;
-  else if(d.id==='graduation')s=f.graduation*.45+f.flow*.20+f.volScore*.20+(100-f.risk)*.15;
-  else if(d.id==='dip')s=(pct(t.price,(t.history.at(-1)||t).price)<0?70:38)*.35+f.flow*.25+f.liqScore*.20+(100-f.risk)*.20;
-  else if(d.id==='swing')s=f.liqScore*.28+f.volScore*.24+f.flow*.18+(100-f.risk)*.30;
-  else if(d.id==='degen')s=f.early*.35+f.momentum*.25+f.flow*.20+f.volScore*.20;
-  else if(d.id==='smartmom')s=f.momentum*.34+f.flow*.27+f.volScore*.22+(100-f.risk)*.17;
-  else if(d.id==='culture')s=f.social*.30+f.momentum*.28+f.flow*.22+f.volScore*.20;
-  else if(d.id==='contrarian')s=(f.momentum>38&&f.momentum<58?76:32)*.40+(100-f.risk)*.30+f.liqScore*.30;
-  else if(d.id==='sniper')s=f.score+(f.risk<35?12:-14)+(f.sourceQuality>50?4:0);
-  else if(d.id==='champion')s=f.momentum*.38+f.flow*.24+f.volScore*.22+f.early*.16;
-  else if(d.id==='professional')s=f.liqScore*.30+f.volScore*.20+f.flow*.18+(100-f.risk)*.32;
-  else if(d.id==='adaptive'){
+  if(sid==='banker')s=f.liqScore*.28+f.flow*.18+f.volScore*.20+(100-f.risk)*.34;
+  else if(sid==='quant')s=f.score+(f.buyRatio>.62?8:-4)+(f.sourceQuality>45?4:0);
+  else if(sid==='smart')s=f.flow*.34+f.volScore*.24+f.momentum*.18+(100-f.risk)*.24;
+  else if(sid==='social')s=f.social*.40+f.momentum*.24+f.flow*.18+f.volScore*.18;
+  else if(sid==='momentum')s=f.momentum*.45+f.flow*.22+f.volScore*.23+f.liqScore*.10;
+  else if(sid==='graduation')s=f.graduation*.45+f.flow*.20+f.volScore*.20+(100-f.risk)*.15;
+  else if(sid==='dip')s=(pct(t.price,(t.history.at(-1)||t).price)<0?70:38)*.35+f.flow*.25+f.liqScore*.20+(100-f.risk)*.20;
+  else if(sid==='swing')s=f.liqScore*.28+f.volScore*.24+f.flow*.18+(100-f.risk)*.30;
+  else if(sid==='degen')s=f.early*.35+f.momentum*.25+f.flow*.20+f.volScore*.20;
+  else if(sid==='smartmom')s=f.momentum*.34+f.flow*.27+f.volScore*.22+(100-f.risk)*.17;
+  else if(sid==='culture')s=f.social*.30+f.momentum*.28+f.flow*.22+f.volScore*.20;
+  else if(sid==='contrarian')s=(f.momentum>38&&f.momentum<58?76:32)*.40+(100-f.risk)*.30+f.liqScore*.30;
+  else if(sid==='sniper')s=f.score+(f.risk<35?12:-14)+(f.sourceQuality>50?4:0);
+  else if(sid==='champion')s=f.momentum*.38+f.flow*.24+f.volScore*.22+f.early*.16;
+  else if(sid==='professional')s=f.liqScore*.30+f.volScore*.20+f.flow*.18+(100-f.risk)*.32;
+  else if(sid==='adaptive'){
     const regime=marketWeather().regime;
     const peers=strategyDefs.filter(p=>p.risk!=='CONTROL'&&!['adaptive','champion','professional'].includes(p.id));
     let total=0,weight=0,agree=0;
     for(const p of peers){const ps=strategyScore(p,f,t),w=strategyRegimeWeight(p.id,regime)*diversityWeight(p.id);total+=ps*w;weight+=w;if(ps>=p.min)agree++;}
     s=(weight?total/weight:f.score)+Math.min(12,agree*1.15)+(regime==='HOT'?f.momentum*.04:(100-f.risk)*.04);
   }
-  else if(d.id==='volume')s=f.volScore*.70+f.liqScore*.30;
-  else if(d.id==='launchctl')s=100;
-  else if(d.id==='socialctl')s=f.social;
-  else if(d.id==='random')s=Math.random()*100;
+  else if(sid==='volume')s=f.volScore*.70+f.liqScore*.30;
+  else if(sid==='launchctl')s=100;
+  else if(sid==='socialctl')s=f.social;
+  else if(sid==='random')s=Math.random()*100;
   return clamp(s);
 }
 
@@ -361,7 +362,7 @@ function ingest(raw,source){
   maybeTrade(t);broadcast('tick',{mint:t.mint});
 }
 
-async function fetchJson(url){const r=await fetch(url,{headers:{accept:'application/json','user-agent':'PUMP-LAB-LIVE/0.8'}});if(!r.ok)throw Error(`HTTP ${r.status}`);return r.json();}
+async function fetchJson(url){const r=await fetch(url,{headers:{accept:'application/json','user-agent':'PUMP-LAB-LIVE/0.9'}});if(!r.ok)throw Error(`HTTP ${r.status}`);return r.json();}
 async function pumpPoll(){
   try{const u='https://frontend-api-v3.pump.fun/coins?offset=0&limit=60&sort=created_timestamp&order=DESC&includeNsfw=false';const j=await fetchJson(u);const rows=Array.isArray(j)?j:(j.data||j.coins||[]);if(!rows.length)throw Error('no rows');rows.forEach(x=>ingest(x,'pump.fun'));setHealth('pump.fun','ok',`Live launch/state snapshots · ${rows.length} coins`,{truth:'observed'});}catch(e){setHealth('pump.fun','warn',`Snapshot feed unavailable: ${e.message}`);}
 }
@@ -526,8 +527,24 @@ function evaluateEvolution(){
 }
 function familyTree(){return strategyDefs.filter(p=>p.risk!=='CONTROL').map(p=>({parent:p.name,version:p.version||1,children:challengers.filter(c=>c.parentId===p.id).map(c=>({name:c.name,n:c.n,equity:c.equity,dd:c.dd,promotedAt:c.promotedAt||0,graveyardAt:c.graveyardAt||0,mutation:c.mutation}))})).filter(x=>x.children.length);}
 
+
+function spawnResearchChallenger(){
+  const active=challengers.filter(c=>!c.promotedAt&&!c.graveyardAt);if(active.length>=8||challengers.length>=30)return null;
+  strategyDefs.filter(d=>d.risk!=='CONTROL').forEach(markEquity);
+  const exit=exitLab(),noTrade=noTradeAlpha(),risk=riskScoreboard();
+  let parentId='momentum',mutation='longer winners',mods={takeDelta:15};
+  if(noTrade.n>=20&&noTrade.falseRejectRate>20){parentId='quant';mutation='looser entry threshold from missed-monster evidence';mods={minDelta:-3,takeDelta:5};}
+  else if(risk[0]&&risk[0].dd>25){parentId='professional';mutation='defensive drawdown response';mods={minDelta:3,stopDelta:-3,riskCap:34};}
+  else if(exit.n>=10&&exit.capture>70){parentId='smartmom';mutation='tighter profit capture';mods={takeDelta:-8,minDelta:2};}
+  const duplicate=challengers.find(c=>c.parentId===parentId&&c.mutation===mutation&&!c.graveyardAt);if(duplicate)return null;
+  const seq=challengers.filter(c=>c.parentId===parentId).length+1,id=`${parentId}-auto-${seq}`;
+  const p=strategyDefs.find(x=>x.id===parentId),c=makeChallenger(parentId,id,`${p.name} Mutation ${seq}`,mutation,mods);c.bornAt=now();c.auto=true;challengers.push(c);
+  log('evolution',`🧬 Research Director spawned ${c.name}: ${mutation}`,'system',{parentId,id,mods});return c;
+}
+
 function researchCycle(){
   evaluateEvolution();
+  spawnResearchChallenger();
   const recent=trades.filter(t=>now()-t.closedAt<3600000&&!t.strategy.includes('-c'));const wins=recent.filter(t=>t.pnl>0);const avg=recent.length?recent.reduce((a,t)=>a+t.pnlPct,0)/recent.length:0;
   const prod=strategyDefs.filter(d=>d.risk!=='CONTROL');prod.forEach(markEquity);const best=[...prod].sort((a,b)=>b.equity-a.equity)[0];
   const misses=missedMonsters().slice(0,5);const hypotheses=[];
@@ -549,15 +566,15 @@ async function initDb(){
   try{const {Client}=await import('pg');db=new Client({connectionString:DATABASE_URL,ssl:DATABASE_URL.includes('render.com')?{rejectUnauthorized:false}:undefined});await db.connect();await db.query('CREATE TABLE IF NOT EXISTS pump_lab_state (id text primary key, payload jsonb not null, updated_at timestamptz default now())');const r=await db.query("SELECT payload FROM pump_lab_state WHERE id='main'");if(r.rows[0]?.payload)restore(r.rows[0].payload);setHealth('research-memory','ok','Postgres durable memory online',{truth:'observed'});}catch(e){db=null;setHealth('research-memory','warn','Postgres connection failed: '+e.message);}
 }
 function serialize(){return{strategies:strategyDefs.map(stripTrader),challengers:challengers.map(stripTrader),positions,trades,activity,decisions,opportunities:[...opportunities],research,timeline,replayFrames,autopsies,promotions,graveyard,creators:[...creators].map(([k,v])=>[k,{...v,tokens:[...v.tokens]}])};}
-function stripTrader(d){return{id:d.id,cash:d.cash,peak:d.peak,dd:d.dd,wins:d.wins,losses:d.losses,n:d.n,version:d.version,min:d.min,stop:d.stop,take:d.take,size:d.size,riskCap:d.riskCap,promotedAt:d.promotedAt,graveyardAt:d.graveyardAt};}
-function restore(s){try{for(const x of s.strategies||[]){const d=strategyDefs.find(q=>q.id===x.id);if(d)Object.assign(d,x)}for(const x of s.challengers||[]){const d=challengers.find(q=>q.id===x.id);if(d)Object.assign(d,x)}positions.splice(0,positions.length,...(s.positions||[]));trades.splice(0,trades.length,...(s.trades||[]));activity.splice(0,activity.length,...(s.activity||[]));decisions.splice(0,decisions.length,...(s.decisions||[]));opportunities.clear();for(const [k,v] of s.opportunities||[])opportunities.set(k,v);research=s.research||research;timeline.splice(0,timeline.length,...(s.timeline||[]));replayFrames.splice(0,replayFrames.length,...(s.replayFrames||[]));autopsies.splice(0,autopsies.length,...(s.autopsies||[]));promotions.splice(0,promotions.length,...(s.promotions||[]));graveyard.splice(0,graveyard.length,...(s.graveyard||[]));creators.clear();for(const [k,v] of s.creators||[])creators.set(k,{...v,tokens:new Set(v.tokens||[])});}catch{}}
+function stripTrader(d){return{id:d.id,name:d.name,icon:d.icon,risk:d.risk,type:d.type,parentId:d.parentId,mutation:d.mutation,auto:d.auto,bornAt:d.bornAt,cash:d.cash,peak:d.peak,dd:d.dd,wins:d.wins,losses:d.losses,n:d.n,version:d.version,min:d.min,stop:d.stop,take:d.take,size:d.size,maxOpen:d.maxOpen,riskCap:d.riskCap,promotedAt:d.promotedAt,graveyardAt:d.graveyardAt};}
+function restore(s){try{for(const x of s.strategies||[]){const d=strategyDefs.find(q=>q.id===x.id);if(d)Object.assign(d,x)}for(const x of s.challengers||[]){let d=challengers.find(q=>q.id===x.id);if(!d&&x.parentId&&strategyDefs.some(q=>q.id===x.parentId)){d=makeChallenger(x.parentId,x.id,x.name||x.id,x.mutation||'restored mutation',{});challengers.push(d)}if(d)Object.assign(d,x)}positions.splice(0,positions.length,...(s.positions||[]));trades.splice(0,trades.length,...(s.trades||[]));activity.splice(0,activity.length,...(s.activity||[]));decisions.splice(0,decisions.length,...(s.decisions||[]));opportunities.clear();for(const [k,v] of s.opportunities||[])opportunities.set(k,v);research=s.research||research;timeline.splice(0,timeline.length,...(s.timeline||[]));replayFrames.splice(0,replayFrames.length,...(s.replayFrames||[]));autopsies.splice(0,autopsies.length,...(s.autopsies||[]));promotions.splice(0,promotions.length,...(s.promotions||[]));graveyard.splice(0,graveyard.length,...(s.graveyard||[]));creators.clear();for(const [k,v] of s.creators||[])creators.set(k,{...v,tokens:new Set(v.tokens||[])});}catch{}}
 async function save(){const s=serialize();try{fs.writeFileSync(STATE_FILE,JSON.stringify(s));}catch{}if(db){try{await db.query("INSERT INTO pump_lab_state(id,payload,updated_at) VALUES('main',$1,now()) ON CONFLICT(id) DO UPDATE SET payload=$1,updated_at=now()",[s]);}catch(e){setHealth('research-memory','warn','Postgres save failed: '+e.message);}}}
 function loadLocal(){try{restore(JSON.parse(fs.readFileSync(STATE_FILE,'utf8')));}catch{}}
 
 function snapshot(){
   allTraders().forEach(markEquity);const active=[...tokens.values()].filter(t=>now()-t.updatedAt<900000).sort((a,b)=>b.updatedAt-a.updatedAt).slice(0,80).map(t=>({...t,features:features(t),detective:detective(t),consensus:consensus(t),dna:creatorDNA(t),quality:tokenDataQuality(t)}));
   const prod=strategyDefs.filter(d=>d.risk!=='CONTROL');const weather=marketWeather();
-  return{now:now(),startedAt,paperOnly:true,mode:'LIVE ONLY',version:'0.8 Robustness Lab',target:TARGET,weather,providers:[...health.values()],
+  return{now:now(),startedAt,paperOnly:true,mode:'LIVE ONLY',version:'0.9 Genetics + World',target:TARGET,weather,providers:[...health.values()],
     summary:{capital:prod.reduce((a,d)=>a+d.equity,0),start:prod.length*START,trades:prod.reduce((a,d)=>a+d.n,0),open:positions.filter(p=>!p.closed&&prod.some(d=>d.id===p.strategy)).length,tokens:tokens.size,decisions:decisions.length},
     strategies:strategyDefs.map(d=>({...d,winRate:d.n?d.wins/d.n*100:0,open:openCount(d.id)})),experiments:experimentSnapshot(),tokens:active,
     narratives:narrativeStats().slice(0,15),creators:creatorLeaderboard(),positions:positions.filter(p=>!p.closed).slice(-120),trades:trades.slice(0,150),activity:activity.slice(0,140),research,
@@ -642,6 +659,6 @@ await initDb();
 setHealth('engine','ok','18 production/control portfolios + 4 R&D challengers online',{truth:'observed'});
 setHealth('x-social','standby','Full X stream not connected · social agent uses token social metadata only',{truth:'not connected'});
 setHealth('wallet-intel','standby','Full wallet/holder stream not connected · no fake wallet claims are generated',{truth:'not connected'});
-server.listen(PORT,'0.0.0.0',()=>{log('system','🚀 PUMP LAB v0.8 Robustness Lab started','system');connectPumpPortal();pumpPoll();dexPoll();console.log('PUMP LAB v0.8 on '+PORT);});
+server.listen(PORT,'0.0.0.0',()=>{log('system','🚀 PUMP LAB v0.9 Genetics + World started','system');connectPumpPortal();pumpPoll();dexPoll();console.log('PUMP LAB v0.9 on '+PORT);});
 setInterval(pumpPoll,7000).unref?.();setInterval(dexPoll,20000).unref?.();setInterval(takeTimeline,30000).unref?.();setInterval(takeReplay,30000).unref?.();setInterval(researchCycle,3600000).unref?.();setInterval(()=>save(),30000).unref?.();takeTimeline();takeReplay();
 process.on('SIGTERM',async()=>{await save();server.close(()=>process.exit(0));});process.on('SIGINT',async()=>{await save();server.close(()=>process.exit(0));});
