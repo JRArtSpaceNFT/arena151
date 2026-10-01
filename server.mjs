@@ -662,6 +662,64 @@ function entryGuard(d,t,f,score,policy,quality,adv,regime){
   return{ok:true,reason:'v3 evidence stack passed',requiredScore,minQuality,minBuyRatio,health:h,playbook:p,stack};
 }
 
+
+function recentLossStreak(d,limit=6){
+  const rows=trades.filter(x=>x.strategy===d.id&&x.policyVersion===STRATEGY_ERA).slice(0,limit);
+  let n=0;for(const r of rows){if(num(r.pnl)<0)n++;else break;}return n;
+}
+function recentRealizedPct(d,hours=6){
+  const cutoff=now()-hours*3600000,rows=trades.filter(x=>x.strategy===d.id&&x.policyVersion===STRATEGY_ERA&&num(x.closedAt)>=cutoff);
+  return rows.reduce((s,x)=>s+num(x.pnl),0)/Math.max(1,d.equity)*100;
+}
+function recentTokenVolatility(t){
+  const h=(t.history||[]).filter(x=>x.price>0).slice(-14);if(h.length<3)return 0;
+  const rs=[];for(let i=1;i<h.length;i++)rs.push(Math.abs(pct(h[i].price,h[i-1].price)));
+  return avg(rs);
+}
+function adaptivePositionSizing(d,t,f,score,policy,quality,similar,guard,adv,regime,allocatorMult=1){
+  const isProbe=!!d.copyLab||d.id==='megga_scout',h=guard.health||strategyHealth(d);
+  const basePct=isProbe?.05:d.risk==='R&D'?.07:.10;
+  const confidence=clamp(.82+(score-(guard.requiredScore||policy.min))/40,.72,1.18);
+  const qualityMult=clamp(.76+quality.score/300,.78,1.10);
+  const adverseMult=clamp(1.14-num(adv.score)/180,.62,1.05);
+  const regimeMult=regime==='HOT'?1.06:regime==='RISK OFF'?.70:regime==='OFFLINE'?.45:1;
+  const mcMult=t.mc>0?(t.mc<25000?.72:t.mc<50000?.86:t.mc<100000?.94:t.mc>=500000?1.04:1):.82;
+  const ageMult=f.age<.75?.72:f.age<2?.86:f.age>15?1.03:1;
+  const vol=recentTokenVolatility(t),volMult=vol>30?.62:vol>20?.72:vol>12?.84:vol>7?.93:1;
+  const dnaMult=similar.n>=6?clamp(.80+(similar.hit25/100)*.32,.80,1.12):.94;
+  const healthMult=h.n<4?.92:h.avg<=-10?.55:h.avg<0?.74:h.avg>=8&&h.winRate>=55?1.06:1;
+  const streak=recentLossStreak(d),streakMult=streak>=4?.45:streak===3?.58:streak===2?.72:streak===1?.88:1;
+  const currentDd=d.peak>0?Math.max(0,(1-d.equity/d.peak)*100):0;
+  const ddMult=currentDd>=12?.45:currentDd>=8?.60:currentDd>=5?.78:1;
+  const recent6h=recentRealizedPct(d,6),recentMult=recent6h<=-7?.50:recent6h<=-4?.70:recent6h>=5?1.04:1;
+  const learnedAlloc=clamp(allocatorMult,.70,1.18);
+  const mult=clamp(confidence*qualityMult*adverseMult*regimeMult*mcMult*ageMult*volMult*dnaMult*healthMult*streakMult*ddMult*recentMult*learnedAlloc,.35,1.28);
+
+  const stopFrac=clamp((num(d.stop)||14)/100,.07,.30);
+  const maxStopLossPct=d.risk==='LOW'?.012:d.risk==='HIGH'?.018:d.risk==='EXTREME'?.016:d.risk==='R&D'?.010:.015;
+  const stopRiskCap=d.equity*maxStopLossPct/stopFrac;
+  const positionCapPct=isProbe?.07:.15,portfolioCapPct=isProbe?.30:.35,narrativeCapPct=.20,creatorCapPct=.16;
+  const mine=positions.filter(p=>p.strategy===d.id&&!p.closed);
+  const markValue=p=>p.units*positionMarkPrice(p);
+  const openExposure=mine.reduce((s,p)=>s+markValue(p),0);
+  const narrativeExposure=t.narrative?mine.filter(p=>(tokens.get(p.mint)?.narrative||'')===t.narrative).reduce((s,p)=>s+markValue(p),0):0;
+  const creatorExposure=t.creator?mine.filter(p=>(tokens.get(p.mint)?.creator||'')===t.creator).reduce((s,p)=>s+markValue(p),0):0;
+  const exposureRoom=Math.max(0,d.equity*portfolioCapPct-openExposure);
+  const narrativeRoom=Math.max(0,d.equity*narrativeCapPct-narrativeExposure);
+  const creatorRoom=Math.max(0,d.equity*creatorCapPct-creatorExposure);
+  const minStake=d.equity*(isProbe?.01:.02);
+  const liquidityCap=t.liq>0?Math.max(minStake,t.liq*.015):0;
+  const desired=d.equity*basePct*mult;
+  const budget=Math.min(d.cash*.25,d.equity*positionCapPct,stopRiskCap,exposureRoom,narrativeRoom,creatorRoom,liquidityCap,Math.max(minStake,desired));
+  const live100Equivalent=budget*(100/START);
+  return{
+    ok:budget>=minStake&&budget>0,budget,basePct,mult,confidence,qualityMult,adverseMult,regimeMult,mcMult,ageMult,vol,volMult,dnaMult,
+    healthMult,streak,streakMult,currentDd,ddMult,recent6h,recentMult,learnedAlloc,stopFrac,maxStopLossPct,stopRiskCap,
+    openExposure,narrativeExposure,creatorExposure,portfolioCapPct,narrativeCapPct,creatorCapPct,liquidityCap,live100Equivalent,
+    reason:budget<minStake?'sizing guard: insufficient safe exposure room':'adaptive bankroll sizing'
+  };
+}
+
 function maybeTrade(t) {
   const f=features(t),adv=adversarialRisk(t),quality=tokenDataQuality(t),similar=dnaSimilarity(t);
   for(const d of allTraders()){
@@ -684,39 +742,15 @@ function maybeTrade(t) {
       if(!opportunities.has(`${d.id}:${t.mint}`))recordDecision(d,t,f,score,'REJECT',score<policy.min?'below threshold':adv.hardVeto?'adversarial veto':!guard.ok?guard.reason:'risk veto');
       continue;
     }
-    let sizeMult=1;
-    if(regime==='RISK OFF'){if(['degen','champion'].includes(d.id))sizeMult=.4;else if(d.risk==='LOW'||d.id==='professional')sizeMult=.65;else sizeMult=.5;}
-    if(regime==='HOT'&&['champion','momentum','smartmom'].includes(d.id))sizeMult=1.15;
-    if(guard.health.n>=5&&guard.health.avg<0)sizeMult*=.65;
-    if(guard.health.n>=5&&guard.health.avg<=-8)sizeMult*=.6;
-    const confidence=clamp((score-policy.min)/28+.75,.65,1.35);
-    const qualityMult=clamp(.7+quality.score/180,.7,1.22);
-    const dnaMult=similar.n>=6?clamp(.85+(similar.hit25/100)*.35,.85,1.2):1;
     const allocatorMult=d.type==='challenger'?1:allocationWeight(d.id);
-    if(d.id==='adaptive')sizeMult*=clamp(.65+(score-60)/45,.55,1.35);
-    sizeMult*=confidence*qualityMult*dnaMult*allocatorMult*(d.sizeBias||1);
-    sizeMult=clamp(sizeMult,.25,1.35);
-
-    // Risk-to-stop sizing: stake enough for wins/losses to matter, while defining
-    // the dollars at risk before the trade. Scouts/copy models stay deliberately smaller.
-    const stopFrac=clamp((num(d.stop)||14)/100,.07,.30);
-    const riskBudgetPct=d.risk==='LOW'?.008:d.risk==='MED'?.011:d.risk==='HIGH'?.014:d.risk==='EXTREME'?.012:d.risk==='R&D'?.0065:.010;
-    let targetPositionPct=riskBudgetPct/stopFrac;
-    if(d.copyLab)targetPositionPct=Math.min(targetPositionPct,d.id==='copy_megga'?.045:.065);
-    if(d.id==='megga_scout')targetPositionPct=Math.min(targetPositionPct,.045);
-    if(d.specialist)targetPositionPct=Math.min(targetPositionPct,.11);
-    if(d.risk==='CONTROL')targetPositionPct=clamp(d.size,.04,.08);
-    targetPositionPct=clamp(targetPositionPct,.03,d.risk==='HIGH'?.16:d.risk==='EXTREME'?.12:.13);
-    const positionCapPct=d.maxOpen>=6?.06:d.maxOpen>=3?.09:d.risk==='HIGH'?.16:.13;
-    const minStake=(d.copyLab||d.id==='megga_scout'||d.risk==='R&D')?15:25;
-    const liquidityCap=t.liq>0?Math.max(minStake,t.liq*.02):Infinity;
-    const desiredBudget=d.equity*targetPositionPct*sizeMult;
-    const budget=Math.min(d.cash*.25,d.equity*positionCapPct,liquidityCap,Math.max(minStake,desiredBudget));
+    const sizing=adaptivePositionSizing(d,t,f,score,policy,quality,similar,guard,adv,regime,allocatorMult);
+    if(!sizing.ok){recordDecision(d,t,f,score,'REJECT',sizing.reason);continue;}
+    const budget=sizing.budget;
     const slip=.0035+Math.min(.04,budget/Math.max(1000,t.liq)*.5);const entry=t.price*(1+slip);const cost=budget*(1+FEE_RATE);
     if(cost>d.cash)continue;
     d.cash-=cost;
     const exploratory=false;
-    const p={id:'p'+now()+Math.random(),strategy:d.id,mint:t.mint,symbol:t.symbol,entry,units:budget/entry,originalUnits:budget/entry,invested:budget,realizedProceeds:0,partialExits:[],scaleOutHits:[],sourceEntrySig:d.copyLab?(verifiedWalletSignal(t,d.copyWindowMin||15,d.copySource||null).events[0]?.signature||null):null,opened:now(),closed:false,lastPrice:t.price,lastMarkedAt:now(),markSource:'entry',score,entryFeatures:{...f,mc:t.mc,liq:t.liq},entryMc:t.mc,entryLiq:t.liq,entryQuality:quality.score,dnaHit25:similar.hit25,dnaSample:similar.n,allocationMult:allocatorMult,sizingMode:'risk-to-stop-v1',riskBudgetPct,targetPositionPct,budgetPct:d.equity>0?budget/d.equity:0,exitMode:exitModeFor(d),policyVersion:STRATEGY_ERA,guard:{requiredScore:guard.requiredScore,minQuality:guard.minQuality,minBuyRatio:guard.minBuyRatio,recentAvg:guard.health.avg,recentN:guard.health.n},reason:`${exploratory?'cold-start exploration · ':''}score ${score.toFixed(0)} · gate ${policy.min.toFixed(0)} · risk ${f.risk.toFixed(0)} · Q${quality.score.toFixed(0)} · stake ${(budget/Math.max(1,d.equity)*100).toFixed(1)}% · risk ${(riskBudgetPct*100).toFixed(1)}% · size×${sizeMult.toFixed(2)}`,entryRegime:regime,peakDuring:entry,troughDuring:entry};
+    const p={id:'p'+now()+Math.random(),strategy:d.id,mint:t.mint,symbol:t.symbol,entry,units:budget/entry,originalUnits:budget/entry,invested:budget,realizedProceeds:0,partialExits:[],scaleOutHits:[],sourceEntrySig:d.copyLab?(verifiedWalletSignal(t,d.copyWindowMin||15,d.copySource||null).events[0]?.signature||null):null,opened:now(),closed:false,lastPrice:t.price,lastMarkedAt:now(),markSource:'entry',score,entryFeatures:{...f,mc:t.mc,liq:t.liq},entryMc:t.mc,entryLiq:t.liq,entryQuality:quality.score,dnaHit25:similar.hit25,dnaSample:similar.n,allocationMult:allocatorMult,sizingMode:'adaptive-bankroll-v2',sizing,budgetPct:d.equity>0?budget/d.equity:0,live100Equivalent:sizing.live100Equivalent,exitMode:exitModeFor(d),policyVersion:STRATEGY_ERA,guard:{requiredScore:guard.requiredScore,minQuality:guard.minQuality,minBuyRatio:guard.minBuyRatio,recentAvg:guard.health.avg,recentN:guard.health.n},reason:`${exploratory?'cold-start exploration · ':''}score ${score.toFixed(0)} · gate ${policy.min.toFixed(0)} · risk ${f.risk.toFixed(0)} · Q${quality.score.toFixed(0)} · stake ${(budget/Math.max(1,d.equity)*100).toFixed(1)}% · $100≈${sizing.live100Equivalent.toFixed(2)} · size×${sizing.mult.toFixed(2)}`,entryRegime:regime,peakDuring:entry,troughDuring:entry};
     positions.push(p);recordDecision(d,t,f,score,'BUY',p.reason);
     if(d.risk!=='R&D')log('buy',`${d.icon} ${d.name} bought ${t.symbol} · ${budget.toFixed(0)} paper · ${p.reason}`,'good',{strategy:d.id,mint:t.mint});
   }
