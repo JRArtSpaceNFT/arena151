@@ -254,14 +254,17 @@ const challengers = [
   makeChallenger('momentum','momentum-c1','Momentum Challenger','stricter confirmation + fast invalidation',{minDelta:5,takeDelta:10,exitMode:'scalp',sizeBias:.75}),
   makeChallenger('professional','professional-c1','Professional Challenger','stricter risk / slightly larger winners',{minDelta:2,takeDelta:8,riskCap:38}),
   makeChallenger('degen','degen-c1','Degen Challenger','less trigger-happy early entries',{minDelta:6,stopDelta:-2}),
-  makeChallenger('smartmom','smartmom-c1','Smart Momentum Challenger','higher confirmation threshold',{minDelta:4,takeDelta:10})
+  makeChallenger('smartmom','smartmom-c1','Smart Momentum Challenger','higher confirmation threshold',{minDelta:4,takeDelta:10}),
+  makeChallenger('smartmom','sweetspot-c1','Sweet Spot Runner','quality-first anti-chase runner in the strongest observed early/mid-cap zone',{minDelta:-4,exitMode:'runner',maxHold:150,scaleOut:true,sizeBias:.55,playbook:{minQuality:80,minBuy:.52,maxBuy:.72,minTx:8,maxRisk:55,minMomentum:65,maxMomentum:90,minAccel:50,minLiq:10000,minAge:1,maxAge:6,mcMin:40000,mcMax:150000,requireCross:true,minEvidence:4,instruction:'target the observed quality sweet spot: strong but not exhausted flow, high quality, controlled risk and room for a runner'}}),
+  makeChallenger('graduation','transition-c1','Transition Runner','research the 50K–120K transition zone without chasing extreme buyer pressure',{minDelta:-2,exitMode:'runner',maxHold:120,scaleOut:true,sizeBias:.55,playbook:{minQuality:80,minBuy:.50,maxBuy:.72,minTx:8,maxRisk:56,minMomentum:64,maxMomentum:90,minAccel:48,minLiq:9000,minAge:.8,maxAge:8,mcMin:50000,mcMax:120000,requireCross:true,minEvidence:4,instruction:'trade the transition zone only when quality is high and buyer pressure is strong but not euphoric'}}),
+  makeChallenger('quant','antichase-c1','Anti-Chase Quality','cross-checked quality with explicit exhaustion avoidance',{minDelta:-2,exitMode:'balanced',maxHold:90,sizeBias:.50,playbook:{minQuality:82,minBuy:.50,maxBuy:.70,minTx:9,maxRisk:55,minMomentum:60,maxMomentum:88,minAccel:48,minLiq:10000,minAge:1,maxAge:8,requireCross:true,minEvidence:4,instruction:'prefer high-quality balanced pressure; reject euphoric buyer ratios and momentum exhaustion'}})
 ];
 
 function makeChallenger(parentId,id,name,mutation,mods={}) {
   const p = strategyDefs.find(x=>x.id===parentId);
   return {...p,id,name,icon:'🧪',risk:'R&D',type:'challenger',parentId,mutation,
     min:p.min+(mods.minDelta||0),stop:p.stop+(mods.stopDelta||0),take:p.take+(mods.takeDelta||0),riskCap:mods.riskCap,
-    exitMode:mods.exitMode||p.exitMode||null,sizeBias:mods.sizeBias||1,
+    exitMode:mods.exitMode||p.exitMode||null,sizeBias:mods.sizeBias||1,playbookOverride:mods.playbook||null,maxHold:mods.maxHold||p.maxHold||null,scaleOut:mods.scaleOut??p.scaleOut??false,
     equity:START,cash:START,peak:START,dd:0,wins:0,losses:0,n:0,version:p.version+0.1};
 }
 
@@ -675,6 +678,7 @@ const CORE_PLAYBOOKS={
   megga_scout:{minQuality:52,minBuy:.50,maxBuy:.90,minTx:4,maxRisk:70,minMomentum:55,minAccel:44,minLiq:2500,minAge:.05,maxAge:5,mcMin:3000,mcMax:100000,minEvidence:3,instruction:'tiny early micro-cap probes only; accept many small misses, never average down, scale out confirmed winners and preserve a runner'}
 };
 function strategyPlaybook(d){
+  if(d.playbookOverride)return{...d.playbookOverride,instruction:d.playbookOverride.instruction||d.thesis};
   const id=d.parentId||d.id;
   if(CORE_PLAYBOOKS[id])return CORE_PLAYBOOKS[id];
   if(d.copyLab){
@@ -761,6 +765,23 @@ function entryGuard(d,t,f,score,policy,quality,adv,regime){
   if(score<requiredScore)return fail('abstain: edge buffer');
   return{ok:true,reason:'v3 evidence stack passed',requiredScore,minQuality,minBuyRatio,health:h,playbook:p,stack};
 }
+function dormantExplorationGuard(d,t,f,score,policy,quality,adv,regime){
+  if(d.copyLab||d.specialist||d.risk==='CONTROL'||!policy.coldStart||policy.rejects<60||adv.hardVeto)return{ok:false};
+  const p=strategyPlaybook(d),stack=evidenceStack(t,f,quality),scoreFloor=Math.max(56,d.min-4);
+  const maxRisk=Math.min(60,(p.maxRisk??60)+2),minQuality=Math.max(72,(p.minQuality??60)-2);
+  const minBuy=Math.max(.49,(p.minBuy??.52)-.04),maxBuy=Math.min(.74,p.maxBuy??.74);
+  const minMom=Math.max(54,(p.minMomentum??55)-7),maxMom=Math.min(92,p.maxMomentum??92);
+  const minAccel=Math.max(44,(p.minAccel??48)-7),minLiq=Math.max(6000,(p.minLiq??7000)*.72);
+  const sourceNeed=p.requireCross?2:1;
+  if(quality.score<minQuality||quality.sourceCount<sourceNeed||!f.flowFresh||!f.liqFresh)return{ok:false};
+  if(f.totalTx<Math.max(6,(p.minTx??6)-2)||f.buyRatio<minBuy||f.buyRatio>maxBuy)return{ok:false};
+  if(f.risk>maxRisk||adv.score>=68||f.momentum<minMom||f.momentum>maxMom||f.acceleration<minAccel)return{ok:false};
+  if(t.liq<minLiq||score<scoreFloor)return{ok:false};
+  if(Number.isFinite(p.mcMin)&&t.mc<p.mcMin*.85)return{ok:false};
+  if(Number.isFinite(p.mcMax)&&t.mc>p.mcMax*1.15)return{ok:false};
+  if(Number.isFinite(p.minEvidence)&&stack.n<Math.max(3,p.minEvidence-1))return{ok:false};
+  return{ok:true,reason:'cold-start micro-probe',requiredScore:scoreFloor,minQuality,minBuyRatio:minBuy,health:strategyHealth(d),playbook:p,stack};
+}
 
 
 function recentLossStreak(d,limit=6){
@@ -812,9 +833,9 @@ function executionQuote(t,notional,side='buy'){
   return{side,feeRate,fixedCost,slippage,impact,volatilitySlip,rawPrice,fillPrice,liquidity:liq,volatility:vol,feeModel:t?.graduated?'pumpswap-canonical-or-conservative':'pump-bonding-curve'};
 }
 
-function adaptivePositionSizing(d,t,f,score,policy,quality,similar,guard,adv,regime,allocatorMult=1){
-  const isProbe=!!d.copyLab||d.id==='megga_scout',h=guard.health||strategyHealth(d);
-  const basePct=isProbe?.05:d.risk==='R&D'?.07:.10;
+function adaptivePositionSizing(d,t,f,score,policy,quality,similar,guard,adv,regime,allocatorMult=1,exploratory=false){
+  const isProbe=!!d.copyLab||d.id==='megga_scout'||exploratory,h=guard.health||strategyHealth(d);
+  const basePct=exploratory?.018:isProbe?.05:d.risk==='R&D'?.07:.10;
   const confidence=clamp(.82+(score-(guard.requiredScore||policy.min))/40,.72,1.18);
   const qualityMult=clamp(.76+quality.score/300,.78,1.10);
   const adverseMult=clamp(1.14-num(adv.score)/180,.62,1.05);
@@ -834,7 +855,7 @@ function adaptivePositionSizing(d,t,f,score,policy,quality,similar,guard,adv,reg
   const stopFrac=clamp((num(d.stop)||14)/100,.07,.30);
   const maxStopLossPct=d.risk==='LOW'?.012:d.risk==='HIGH'?.018:d.risk==='EXTREME'?.016:d.risk==='R&D'?.010:.015;
   const stopRiskCap=d.equity*maxStopLossPct/stopFrac;
-  const positionCapPct=isProbe?.07:.15,portfolioCapPct=isProbe?.30:.35,narrativeCapPct=.20,creatorCapPct=.16;
+  const positionCapPct=exploratory?.035:isProbe?.07:.15,portfolioCapPct=exploratory?.12:isProbe?.30:.35,narrativeCapPct=.20,creatorCapPct=.16;
   const mine=positions.filter(p=>p.strategy===d.id&&!p.closed);
   const markValue=p=>p.units*positionMarkPrice(p);
   const openExposure=mine.reduce((s,p)=>s+markValue(p),0);
@@ -843,7 +864,7 @@ function adaptivePositionSizing(d,t,f,score,policy,quality,similar,guard,adv,reg
   const exposureRoom=Math.max(0,d.equity*portfolioCapPct-openExposure);
   const narrativeRoom=Math.max(0,d.equity*narrativeCapPct-narrativeExposure);
   const creatorRoom=Math.max(0,d.equity*creatorCapPct-creatorExposure);
-  const minStake=d.equity*(isProbe?.01:.02);
+  const minStake=d.equity*(exploratory?.0075:isProbe?.01:.02);
   const liquidityCap=t.liq>0?Math.max(minStake,t.liq*.015):0;
   const desired=d.equity*basePct*mult;
   const budget=Math.min(d.cash*.25,d.equity*positionCapPct,stopRiskCap,exposureRoom,narrativeRoom,creatorRoom,liquidityCap,Math.max(minStake,desired));
@@ -880,23 +901,25 @@ function maybeTrade(t) {
     const sniperBlocked=(d.parentId==='sniper'||d.id==='sniper')&&f.risk>policy.sniperRiskLimit;
     const customBlocked=policy.customRiskLimit&&f.risk>policy.customRiskLimit;
     const guard=entryGuard(d,t,f,score,policy,quality,adv,regime);
-    if(score<policy.min||lowBlocked||sniperBlocked||customBlocked||adv.hardVeto||!guard.ok){
+    const exploration=dormantExplorationGuard(d,t,f,score,policy,quality,adv,regime);
+    const exploratory=(!guard.ok||score<policy.min)&&exploration.ok&&!lowBlocked&&!sniperBlocked&&!customBlocked&&!adv.hardVeto;
+    const activeGuard=exploratory?exploration:guard;
+    if(!exploratory&&(score<policy.min||lowBlocked||sniperBlocked||customBlocked||adv.hardVeto||!guard.ok)){
       if(!opportunities.has(`${d.id}:${t.mint}`))recordDecision(d,t,f,score,'REJECT',score<policy.min?'below threshold':adv.hardVeto?'adversarial veto':!guard.ok?guard.reason:'risk veto');
       continue;
     }
     const allocatorMult=d.type==='challenger'?1:allocationWeight(d.id);
-    const sizing=adaptivePositionSizing(d,t,f,score,policy,quality,similar,guard,adv,regime,allocatorMult);
+    const sizing=adaptivePositionSizing(d,t,f,score,policy,quality,similar,activeGuard,adv,regime,allocatorMult,exploratory);
     if(!sizing.ok){recordDecision(d,t,f,score,'REJECT',sizing.reason);continue;}
-    const alpha=alphaOS.evaluateCandidate({strategy:d,token:t,features:f,score,threshold:guard.requiredScore||policy.min,quality,similar,regime});
-    alphaOS.proposeCapital({strategy:d,token:t,features:f,score,threshold:guard.requiredScore||policy.min,quality,similar,regime});
+    const alpha=alphaOS.evaluateCandidate({strategy:d,token:t,features:f,score,threshold:activeGuard.requiredScore||policy.min,quality,similar,regime});
+    alphaOS.proposeCapital({strategy:d,token:t,features:f,score,threshold:activeGuard.requiredScore||policy.min,quality,similar,regime});
     if(alpha.veto){recordDecision(d,t,f,score,'REJECT','Alpha OS · '+alpha.vetoReason);continue;}
-    const budget=Math.min(sizing.budget*alpha.sizeMultiplier,d.cash*.25,d.equity*.15,t.liq>0?Math.max(d.equity*.02,t.liq*.015):sizing.budget);
-    if(budget<Math.max(5,d.equity*.02)){recordDecision(d,t,f,score,'REJECT','Alpha OS · stake below minimum after EV adjustment');continue;}
+    const budget=Math.min(sizing.budget*alpha.sizeMultiplier,d.cash*(exploratory?.08:.25),d.equity*(exploratory?.035:.15),t.liq>0?Math.max(d.equity*(exploratory?.0075:.02),t.liq*.015):sizing.budget);
+    if(budget<Math.max(exploratory?3:5,d.equity*(exploratory?.0075:.02))){recordDecision(d,t,f,score,'REJECT','Alpha OS · stake below minimum after EV adjustment');continue;}
     const entryExec=executionQuote(t,budget,'buy');entryExec.networkCostUsd=Number(alpha.execution?.networkCostUsd||0);entryExec.priorityLamports=Number(alpha.execution?.priorityLamports||0);entryExec.jitoTipLamports=Number(alpha.execution?.jitoTipLamports||0);entryExec.executionMode=alpha.execution?.mode||'STANDARD_RPC';if(entryExec.slippage>.065){recordDecision(d,t,f,score,'REJECT','execution veto: modeled slippage');continue;}const entry=entryExec.fillPrice;const cost=budget*(1+entryExec.feeRate)+entryExec.fixedCost+entryExec.networkCostUsd;
     if(cost>d.cash)continue;
     d.cash-=cost;
-    const exploratory=false;
-    const p={id:'p'+now()+Math.random(),strategy:d.id,mint:t.mint,symbol:t.symbol,entry,units:budget/entry,originalUnits:budget/entry,invested:budget,entryCost:cost,entryExecution:entryExec,realizedProceeds:0,partialExits:[],scaleOutHits:[],sourceEntrySig:d.copyLab?(verifiedWalletSignal(t,d.copyWindowMin||15,d.copySource||null).events[0]?.signature||null):null,opened:now(),closed:false,lastPrice:t.price,lastMarkedAt:now(),markSource:'entry',score,entryFeatures:{...f,mc:t.mc,liq:t.liq},entryMc:t.mc,entryLiq:t.liq,entryQuality:quality.score,dnaHit25:similar.hit25,dnaSample:similar.n,allocationMult:allocatorMult,sizingMode:'alpha-os-ev-v1',samplePartition:partitionForMint(t.mint),sizing,alphaOS:alpha,budgetPct:d.equity>0?budget/d.equity:0,live100Equivalent:sizing.live100Equivalent,exitMode:exitModeFor(d),policyVersion:STRATEGY_ERA,guard:{requiredScore:guard.requiredScore,minQuality:guard.minQuality,minBuyRatio:guard.minBuyRatio,recentAvg:guard.health.avg,recentN:guard.health.n},reason:`${exploratory?'cold-start exploration · ':''}score ${score.toFixed(0)} · gate ${policy.min.toFixed(0)} · risk ${f.risk.toFixed(0)} · Q${quality.score.toFixed(0)} · stake ${(budget/Math.max(1,d.equity)*100).toFixed(1)}% · $100≈${sizing.live100Equivalent.toFixed(2)} · size×${sizing.mult.toFixed(2)} · EV ${alpha.expectedValue.toFixed(1)} · tox ${alpha.toxicity.score.toFixed(0)}`,entryRegime:regime,peakDuring:entry,troughDuring:entry};
+    const p={id:'p'+now()+Math.random(),strategy:d.id,mint:t.mint,symbol:t.symbol,entry,units:budget/entry,originalUnits:budget/entry,invested:budget,entryCost:cost,entryExecution:entryExec,realizedProceeds:0,partialExits:[],scaleOutHits:[],sourceEntrySig:d.copyLab?(verifiedWalletSignal(t,d.copyWindowMin||15,d.copySource||null).events[0]?.signature||null):null,opened:now(),closed:false,lastPrice:t.price,lastMarkedAt:now(),markSource:'entry',score,entryFeatures:{...f,mc:t.mc,liq:t.liq},entryMc:t.mc,entryLiq:t.liq,entryQuality:quality.score,dnaHit25:similar.hit25,dnaSample:similar.n,allocationMult:allocatorMult,sizingMode:'alpha-os-ev-v1',samplePartition:partitionForMint(t.mint),sizing,alphaOS:alpha,budgetPct:d.equity>0?budget/d.equity:0,live100Equivalent:sizing.live100Equivalent,exitMode:exitModeFor(d),policyVersion:STRATEGY_ERA,guard:{requiredScore:activeGuard.requiredScore,minQuality:activeGuard.minQuality,minBuyRatio:activeGuard.minBuyRatio,recentAvg:activeGuard.health.avg,recentN:activeGuard.health.n,exploratory},reason:`${exploratory?'cold-start exploration · ':''}score ${score.toFixed(0)} · gate ${policy.min.toFixed(0)} · risk ${f.risk.toFixed(0)} · Q${quality.score.toFixed(0)} · stake ${(budget/Math.max(1,d.equity)*100).toFixed(1)}% · $100≈${sizing.live100Equivalent.toFixed(2)} · size×${sizing.mult.toFixed(2)} · EV ${alpha.expectedValue.toFixed(1)} · tox ${alpha.toxicity.score.toFixed(0)}`,entryRegime:regime,peakDuring:entry,troughDuring:entry};
     positions.push(p);alphaOS.recordShadowEntry({position:p,token:t,alpha});recordDecision(d,t,f,score,'BUY',p.reason);
     if(d.risk!=='R&D')log('buy',`${d.icon} ${d.name} bought ${t.symbol} · ${budget.toFixed(0)} paper · ${p.reason}`,'good',{strategy:d.id,mint:t.mint});
   }
@@ -1365,9 +1388,13 @@ function exitDecision(d,p,t,f){
   if(mode==='conviction')maxHold=Math.max(maxHold,720);
   const trailFrac=mode==='conviction' ? .48 : mode==='runner' ? .36 : .30;
   const trailing=peakPnl>=18&&drawFromPeak>=Math.max(7,peakPnl*trailFrac);
+  const deadOnArrival=hold>=1.25&&pnl<=-8&&peakPnl<6&&(f.acceleration<48||f.momentum<58||f.buyRatio<.50);
+  const failedBreakout=hold>=2.5&&pnl<=-6&&peakPnl<10&&f.acceleration<45;
   const catastrophic=(f.flowFresh&&f.buyRatio<.28)||(f.risk>=84);
   const fade=f.flowFresh&&f.acceleration<38&&f.momentum<42&&f.buyRatio<((mode==='runner'||mode==='conviction') ? .38 : .44);
   if(catastrophic&&hold>.75)return{exit:true,why:'catastrophic thesis break',mode};
+  if(deadOnArrival)return{exit:true,why:'dead-on-arrival invalidation',mode};
+  if(failedBreakout)return{exit:true,why:'failed breakout invalidation',mode};
   if(pnl<=-stop)return{exit:true,why:'stop',mode};
   if(pnl>=take&&!d.scaleOut)return{exit:true,why:'take profit',mode};
   if(trailing)return{exit:true,why:'trailing peak protection',mode};
