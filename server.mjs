@@ -322,8 +322,44 @@ function strategyRegimeWeight(id,regime){
   return learned*trust+1*(1-trust);
 }
 
+function specialistEligibility(d,t,f=features(t)){
+  if(!d.specialist)return{ok:true,reason:'core'};
+  const dna=creatorDNA(t),age=f.age,ratio=t.mc>0?t.liq/t.mc:0,regime=marketWeather().regime;
+  if(Number.isFinite(d.mcMin)&&t.mc<d.mcMin)return{ok:false,reason:'below market-cap floor'};
+  if(Number.isFinite(d.mcMax)&&t.mc>=d.mcMax)return{ok:false,reason:'above market-cap ceiling'};
+  if(Number.isFinite(d.tokenAgeMin)&&age<d.tokenAgeMin)return{ok:false,reason:'too young'};
+  if(Number.isFinite(d.tokenAgeMax)&&age>=d.tokenAgeMax)return{ok:false,reason:'too old'};
+  if(Number.isFinite(d.liqMin)&&t.liq<d.liqMin)return{ok:false,reason:'below liquidity floor'};
+  if(Number.isFinite(d.liqMax)&&t.liq>=d.liqMax)return{ok:false,reason:'above liquidity ceiling'};
+  if(Number.isFinite(d.liqMcRatioMin)&&ratio<d.liqMcRatioMin)return{ok:false,reason:'liquidity ratio too low'};
+  if(Number.isFinite(d.buyRatioMin)&&f.buyRatio<d.buyRatioMin)return{ok:false,reason:'buyer pressure too low'};
+  if(Number.isFinite(d.buyRatioMax)&&f.buyRatio>d.buyRatioMax)return{ok:false,reason:'buyer pressure too high'};
+  if(d.requireTwitter&&!t.twitter)return{ok:false,reason:'X metadata required'};
+  if(d.requireWebsite&&!t.website)return{ok:false,reason:'website required'};
+  if(d.noSocial&&(t.twitter||t.website))return{ok:false,reason:'metadata present'};
+  if(Number.isFinite(d.sourceMin)&&(t.sources?.length||0)<d.sourceMin)return{ok:false,reason:'not cross-checked'};
+  if(d.repeatCleanCreator&&!(dna.launches>=2&&dna.collapses===0))return{ok:false,reason:'creator DNA mismatch'};
+  if(d.firstObservedCreator&&dna.launches>1)return{ok:false,reason:'repeat creator'};
+  if(d.regime&&regime!==d.regime)return{ok:false,reason:'wrong market regime'};
+  if(d.requireGraduated===true&&!t.graduated)return{ok:false,reason:'not graduated'};
+  if(d.requireGraduated===false&&t.graduated)return{ok:false,reason:'already graduated'};
+  return{ok:true,reason:'specialist population match'};
+}
+
+function specialistScore(d,f,t){
+  const mode=d.scoreMode||'quality';
+  if(mode==='early')return clamp(f.early*.28+f.momentum*.24+f.flow*.22+f.volScore*.18+(100-f.risk)*.08);
+  if(mode==='momentum')return clamp(f.momentum*.36+f.flow*.26+f.volScore*.22+f.liqScore*.10+(100-f.risk)*.06);
+  if(mode==='flow')return clamp(f.flow*.42+f.momentum*.24+f.volScore*.20+f.liqScore*.08+(100-f.risk)*.06);
+  if(mode==='social')return clamp(f.social*.34+f.flow*.22+f.momentum*.20+f.volScore*.16+(100-f.risk)*.08);
+  if(mode==='contrarian')return clamp((f.momentum>35&&f.momentum<62?72:34)*.30+(100-f.risk)*.30+f.liqScore*.20+f.flow*.20);
+  if(mode==='creator')return clamp(f.flow*.24+f.momentum*.20+f.volScore*.18+f.liqScore*.12+(100-f.risk)*.20+f.sourceQuality*.06);
+  return clamp(f.liqScore*.24+f.volScore*.20+f.flow*.20+f.momentum*.14+(100-f.risk)*.22);
+}
+
 function strategyScore(d,f,t) {
   const sid=d.parentId||d.id;
+  if(d.specialist)return specialistScore(d,f,t);
   let s=f.score;
   if(sid==='banker')s=f.liqScore*.28+f.flow*.18+f.volScore*.20+(100-f.risk)*.34;
   else if(sid==='quant')s=f.score+(f.buyRatio>.62?8:-4)+(f.sourceQuality>45?4:0);
@@ -460,6 +496,8 @@ function maybeTrade(t) {
     if(existing){
       const ex=exitDecision(d,existing,t,f);if(ex.exit)closePos(d,existing,t,ex.why);continue;
     }
+    const eligibility=specialistEligibility(d,t,f);
+    if(!eligibility.ok)continue;
     if(openCount(d.id)>=d.maxOpen||d.cash<25||!(t.price>0))continue;
     const score=strategyScore(d,f,t);const policy=entryPolicy(d);
     const lowBlocked=d.risk==='LOW'&&f.risk>policy.lowRiskLimit;
