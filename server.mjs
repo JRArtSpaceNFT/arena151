@@ -558,6 +558,8 @@ function markEquity(d){
     const px=positionMarkPrice(p);if(px>0)e+=p.units*px;
   }
   d.equity=e;d.peak=Math.max(d.peak,e);d.dd=Math.max(d.dd,(1-e/d.peak)*100);
+  if(!(num(d.auditPeak)>0))d.auditPeak=e;
+  d.auditPeak=Math.max(d.auditPeak,e);d.auditDd=Math.max(num(d.auditDd),d.auditPeak>0?(1-e/d.auditPeak)*100:0);
 }
 
 function recordDecision(d,t,f,score,action,why='') {
@@ -761,7 +763,7 @@ function recentRealizedPct(d,hours=6){
 }
 function strategyRiskCircuit(d){
   markEquity(d);
-  const drawdown=d.peak>0?Math.max(0,(1-d.equity/d.peak)*100):0,recent24h=recentRealizedPct(d,24);
+  const peak=num(d.auditPeak)||d.equity,drawdown=peak>0?Math.max(0,(1-d.equity/peak)*100):0,recent24h=recentRealizedPct(d,24);
   if(drawdown>=PAPER_MAX_DRAWDOWN_PCT)return{ok:false,reason:`risk circuit: max drawdown ${drawdown.toFixed(1)}%`,drawdown,recent24h};
   if(recent24h<=-PAPER_DAILY_LOSS_LIMIT_PCT)return{ok:false,reason:`risk circuit: 24h loss ${recent24h.toFixed(1)}%`,drawdown,recent24h};
   return{ok:true,reason:'risk circuit clear',drawdown,recent24h};
@@ -813,7 +815,7 @@ function adaptivePositionSizing(d,t,f,score,policy,quality,similar,guard,adv,reg
   const dnaMult=similar.n>=6?clamp(.80+(similar.hit25/100)*.32,.80,1.12):.94;
   const healthMult=h.n<4?.92:h.avg<=-10?.55:h.avg<0?.74:h.avg>=8&&h.winRate>=55?1.06:1;
   const streak=recentLossStreak(d),streakMult=streak>=4?.45:streak===3?.58:streak===2?.72:streak===1?.88:1;
-  const currentDd=d.peak>0?Math.max(0,(1-d.equity/d.peak)*100):0;
+  const sizingPeak=num(d.auditPeak)||d.equity,currentDd=sizingPeak>0?Math.max(0,(1-d.equity/sizingPeak)*100):0;
   const ddMult=currentDd>=12?.45:currentDd>=8?.60:currentDd>=5?.78:1;
   const recent6h=recentRealizedPct(d,6),recentMult=recent6h<=-7?.50:recent6h<=-4?.70:recent6h>=5?1.04:1;
   const learnedAlloc=clamp(allocatorMult,.70,1.18);
@@ -1541,12 +1543,12 @@ async function initDb(restoreState=true){
   }finally{dbConnecting=false;}
 }
 function serialize(){return{auditVersion:AUDIT_VERSION,strategies:strategyDefs.map(stripTrader),challengers:challengers.map(stripTrader),positions:positions.filter(p=>!p.closed),trades,activity,decisions,opportunities:[...opportunities],research,timeline,replayFrames,autopsies,promotions,graveyard,walletEvents:walletEvents.slice(0,1200),marketEvents:marketEvents.slice(-1000),dnaArchive:[...dnaArchive],creators:[...creators].map(([k,v])=>[k,{...v,tokens:[...v.tokens]}])};}
-function stripTrader(d){return{id:d.id,name:d.name,icon:d.icon,risk:d.risk,type:d.type,parentId:d.parentId,mutation:d.mutation,auto:d.auto,bornAt:d.bornAt,cash:d.cash,peak:d.peak,dd:d.dd,wins:d.wins,losses:d.losses,n:d.n,version:d.version,min:d.min,stop:d.stop,take:d.take,size:d.size,maxOpen:d.maxOpen,riskCap:d.riskCap,exitMode:d.exitMode,sizeBias:d.sizeBias,promotionCandidateAt:d.promotionCandidateAt,promotedAt:d.promotedAt,graveyardAt:d.graveyardAt};}
+function stripTrader(d){return{id:d.id,name:d.name,icon:d.icon,risk:d.risk,type:d.type,parentId:d.parentId,mutation:d.mutation,auto:d.auto,bornAt:d.bornAt,cash:d.cash,peak:d.peak,dd:d.dd,auditPeak:d.auditPeak,auditDd:d.auditDd,wins:d.wins,losses:d.losses,n:d.n,version:d.version,min:d.min,stop:d.stop,take:d.take,size:d.size,maxOpen:d.maxOpen,riskCap:d.riskCap,exitMode:d.exitMode,sizeBias:d.sizeBias,promotionCandidateAt:d.promotionCandidateAt,promotedAt:d.promotedAt,graveyardAt:d.graveyardAt};}
 function restore(s){try{
   for(const x of s.strategies||[]){
     const d=strategyDefs.find(q=>q.id===x.id);if(!d)continue;
     const codeVersion=num(d.version)||1;
-    for(const k of ['cash','peak','dd','wins','losses','n','promotionCandidateAt','promotedAt','graveyardAt','bornAt','auto'])if(x[k]!==undefined)d[k]=x[k];
+    for(const k of ['cash','peak','dd','auditPeak','auditDd','wins','losses','n','promotionCandidateAt','promotedAt','graveyardAt','bornAt','auto'])if(x[k]!==undefined)d[k]=x[k];
     // Runtime memory must never silently overwrite newer code configuration.
     // Only restore strategy parameters when the persisted strategy is a genuinely evolved version.
     if(num(x.version)>codeVersion){
