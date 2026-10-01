@@ -721,6 +721,7 @@ function adaptivePositionSizing(d,t,f,score,policy,quality,similar,guard,adv,reg
 }
 
 function maybeTrade(t) {
+  if(DATABASE_URL&&!dbStateRestored)return;
   const f=features(t),adv=adversarialRisk(t),quality=tokenDataQuality(t),similar=dnaSimilarity(t);
   for(const d of allTraders()){
     markEquity(d);
@@ -1369,6 +1370,7 @@ async function initDb(restoreState=true){
       const r=await db.query("SELECT payload FROM pump_lab_state WHERE id='main'");
       if(r.rows[0]?.payload)restore(r.rows[0].payload);
       dbStateRestored=true;
+      console.log('STATE_LOCK unlocked · durable state restored');
       logStrategyDiagnostics();
     }
     setHealth('research-memory','ok','Postgres durable memory online',{truth:'observed'});
@@ -1493,7 +1495,7 @@ function snapshot(){
     features:features(t),detective:detective(t),adversarial:adversarialRisk(t),consensus:consensus(t),dna:creatorDNA(t),tokenDNA:tokenDNA(t),similarity:dnaSimilarity(t),quality:tokenDataQuality(t)
   }));
   const prod=strategyDefs.filter(d=>d.risk!=='CONTROL'&&!d.specialist),cohort=specialistStrategies();const weather=marketWeather();
-  return{now:now(),startedAt,paperOnly:true,mode:'LIVE + V3.1 EVIDENCE PLAYBOOKS + MEGGA COPY/SCOUT LAB + DURABLE REPLAY',version:'3.1 Megga Research',target:TARGET,weather,providers:[...health.values()],
+  return{now:now(),startedAt,paperOnly:true,stateLock:{databaseConfigured:!!DATABASE_URL,restored:dbStateRestored,tradingUnlocked:!DATABASE_URL||dbStateRestored},mode:'LIVE + V3.1 EVIDENCE PLAYBOOKS + MEGGA COPY/SCOUT LAB + DURABLE REPLAY',version:'3.1 Megga Research',target:TARGET,weather,providers:[...health.values()],
     summary:{capital:prod.reduce((a,d)=>a+d.equity,0),start:prod.length*START,trades:prod.reduce((a,d)=>a+d.n,0),open:positions.filter(p=>!p.closed&&prod.some(d=>d.id===p.strategy)).length,cohortCapital:cohort.reduce((a,d)=>a+d.equity,0),cohortStart:cohort.length*START,cohortTrades:cohort.reduce((a,d)=>a+d.n,0),cohortOpen:positions.filter(p=>!p.closed&&cohort.some(d=>d.id===p.strategy)).length,tokens:tokens.size,decisions:decisions.length},
     strategies:strategyDefs.map(d=>{const ep=entryPolicy(d),pb=strategyPlaybook(d),eraTrades=trades.filter(t=>t.strategy===d.id&&t.policyVersion===STRATEGY_ERA);return{...d,winRate:d.n?d.wins/d.n*100:0,open:openCount(d.id),effectiveMin:ep.min,coldStart:ep.coldStart,entryRejects:ep.rejects,thresholdRelief:ep.relief,playbook:pb.instruction,era:STRATEGY_ERA,eraN:eraTrades.length,eraWinRate:eraTrades.length?eraTrades.filter(t=>t.pnl>0).length/eraTrades.length*100:0,eraPnl:eraTrades.reduce((a,t)=>a+num(t.pnl),0),eraAvgPnl:eraTrades.length?avg(eraTrades.map(t=>t.pnlPct)):0}}),experiments:experimentSnapshot(),tokens:active,
     narratives:narrativeStats().slice(0,15),creators:creatorLeaderboard(),positions:positions.filter(p=>!p.closed).slice(-120),trades:trades.slice(0,150),activity:activity.slice(0,140),research,
@@ -1639,6 +1641,6 @@ setHealth('engine','ok','v3.1 evidence playbooks + Megga copy/scout lab + 31 spe
 setHealth('learning-core','ok','era-separated allocator + DNA memory + replay + exit optimizer + counterfactual lab online',{truth:'inferred'});
 setHealth('x-social','standby','Full X stream not connected · social agent uses token social metadata only',{truth:'not connected'});
 setHealth('wallet-intel','standby','Connecting Solana stream + verified Fomo wallet watchlist…',{truth:'not connected'});setHealth('fomo-watchlist','standby','Preparing verified public wallet subscriptions',{truth:'not connected'});
-server.listen(PORT,'0.0.0.0',()=>{log('system','🚀 PUMP LAB v3.1 Megga Research started','system');connectPumpPortal();connectSolanaStream();pumpPoll();dexPoll();console.log('PUMP LAB v3.1 on '+PORT);});
+server.listen(PORT,'0.0.0.0',()=>{if(DATABASE_URL&&!dbStateRestored)console.log('STATE_LOCK engaged · trading paused until durable state restore');log('system','🚀 PUMP LAB v3.1 Megga Research started','system');connectPumpPortal();connectSolanaStream();pumpPoll();dexPoll();console.log('PUMP LAB v3.1 on '+PORT);});
 setTimeout(stateSelfTest,5000).unref?.();setInterval(drainSolanaQueue,1100).unref?.();setInterval(pumpPoll,7000).unref?.();setInterval(dexPoll,20000).unref?.();setInterval(openPositionPoll,15000).unref?.();setInterval(takeTimeline,30000).unref?.();setInterval(takeReplay,30000).unref?.();setInterval(researchCycle,3600000).unref?.();setInterval(()=>save(),30000).unref?.();const diagTimer=setTimeout(()=>{logStrategyDiagnostics();logPerformanceSnapshot();logFullPostmortem();},20000);diagTimer.unref?.();const diagLoop=setInterval(()=>{logStrategyDiagnostics();logPerformanceSnapshot();logFullPostmortem();},300000);diagLoop.unref?.();takeTimeline();takeReplay();openPositionPoll();
 process.on('SIGTERM',async()=>{await save();server.close(()=>process.exit(0));});process.on('SIGINT',async()=>{await save();server.close(()=>process.exit(0));});
