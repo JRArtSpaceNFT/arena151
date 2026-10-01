@@ -268,12 +268,17 @@ function normalize(raw,source='live') {
   const ts=now(),src=canonicalSource(source);
   const symbol=(raw.symbol||raw.baseToken?.symbol||raw.name||'TOKEN').toString().slice(0,18).toUpperCase();
   const name=(raw.name||raw.baseToken?.name||symbol).toString().slice(0,64);
-  let mc=num(raw.usd_market_cap||raw.marketCapUsd||raw.marketCap||raw.fdv||0);
-  if(!(mc>0)&&num(raw.market_cap)>0)mc=num(raw.market_cap);
+  const usdMc=num(raw.usd_market_cap||raw.marketCapUsd||raw.marketCap||raw.fdv||0),solMc=num(raw.market_cap||raw.marketCapSol||0);
+  let mc=usdMc>0?usdMc:0;
+  const inferredSolUsd=usdMc>0&&solMc>0?usdMc/solMc:0;
+  if(!(mc>0)&&solMc>0&&inferredSolUsd>0)mc=solMc*inferredSolUsd;
   let price=num(raw.priceUsd||raw.price_usd||0); if(!price&&mc>0) price=mc/1e9;
   const rawLiq=raw.liquidity?.usd??raw.liquidityUsd??raw.liquidity;
-  const liqObserved=Number.isFinite(Number(rawLiq))&&Number(rawLiq)>0;
-  const liq=liqObserved?num(rawLiq):0;
+  const directLiq=Number.isFinite(Number(rawLiq))&&Number(rawLiq)>0?num(rawLiq):0;
+  const virtualSol=num(raw.virtual_sol_reserves||raw.virtualSolReserves||0)/1e9,realSol=num(raw.real_sol_reserves||raw.realSolReserves||0)/1e9;
+  const curveDepthUsd=inferredSolUsd>0?Math.max(virtualSol,realSol)*inferredSolUsd*2:0;
+  const liqObserved=directLiq>0||curveDepthUsd>0,liq=directLiq||curveDepthUsd;
+  const liquidityKind=directLiq>0?'dex-liquidity':curveDepthUsd>0?'pump-curve-depth':'unknown';
   const rawVol=raw.volume?.m5??raw.volume1m??raw.volume?.h1??raw.volume;
   const volumeObserved=Number.isFinite(Number(rawVol))&&Number(rawVol)>=0;
   const vol=volumeObserved?num(rawVol):0;
@@ -292,7 +297,7 @@ function normalize(raw,source='live') {
   return {mint,symbol,name,source,price,mc,liq,vol,buys,sells,createdAt,updatedAt:ts,narrative:narrativeFor({name,symbol}),graduated:!!raw.complete,
     twitter,telegram,website,image:raw.image_uri||raw.image||raw.info?.imageUrl||'',creator,boosts,history:[],sources:[src],sourceSeen:{[src]:ts},
     flowObserved,flowUpdatedAt:flowObserved?ts:0,flowSource:flowObserved?src:'',volumeObserved,volumeUpdatedAt:volumeObserved?ts:0,volumeSource:volumeObserved?src:'',
-    liquidityObserved:liqObserved,liquidityUpdatedAt:liqObserved?ts:0,liquiditySource:liqObserved?src:'',
+    liquidityObserved:liqObserved,liquidityUpdatedAt:liqObserved?ts:0,liquiditySource:liqObserved?src:'',liquidityKind,curveDepthUsd,inferredSolUsd,
     firstPrice:price,firstMc:mc,peakPrice:price,peakMc:mc,troughPrice:price||0,troughMc:mc||0};
 }
 
@@ -317,7 +322,8 @@ function mergeToken(old,t) {
     flowUpdatedAt:freshFlow?t.flowUpdatedAt:old.flowUpdatedAt,flowSource:freshFlow?t.flowSource:old.flowSource,
     vol:freshVol?t.vol:old.vol,volumeObserved:freshVol||old.volumeObserved,volumeUpdatedAt:freshVol?t.volumeUpdatedAt:old.volumeUpdatedAt,volumeSource:freshVol?t.volumeSource:old.volumeSource,
     liq:freshLiq?t.liq:old.liq,liquidityObserved:freshLiq||old.liquidityObserved,liquidityUpdatedAt:freshLiq?t.liquidityUpdatedAt:old.liquidityUpdatedAt,liquiditySource:freshLiq?t.liquiditySource:old.liquiditySource,
-    boosts:Math.max(t.boosts||0,old.boosts||0)
+    liquidityKind:freshLiq?t.liquidityKind:old.liquidityKind,curveDepthUsd:t.curveDepthUsd||old.curveDepthUsd||0,inferredSolUsd:t.inferredSolUsd||old.inferredSolUsd||0,
+    chainFlow:old.chainFlow||[],boosts:Math.max(t.boosts||0,old.boosts||0)
   };
 }
 
@@ -345,11 +351,14 @@ function features(t) {
   const shortRet=pct(t.price,one.price),mediumRet=pct(t.price,five.price),longRet=pct(t.price,twenty.price);
   const momentum=clamp(50+Math.tanh(shortRet/12)*24+Math.tanh(mediumRet/35)*26);
   const acceleration=clamp(50+Math.tanh((shortRet-mediumRet/Math.max(1,Math.min(5,hist.length)))/10)*50);
-  const flowFresh=!!t.flowObserved&&ts-num(t.flowUpdatedAt)<90000,volumeFresh=!!t.volumeObserved&&ts-num(t.volumeUpdatedAt)<90000,liqFresh=!!t.liquidityObserved&&ts-num(t.liquidityUpdatedAt)<180000;
-  const total=flowFresh?t.buys+t.sells:0; const buyRatio=total?t.buys/total:.5;
+  const chain=(t.chainFlow||[]).filter(e=>ts-e.ts<90000),chainBuys=chain.filter(e=>e.action==='BUY').length,chainSells=chain.filter(e=>e.action==='SELL').length,chainVol=chain.reduce((a,e)=>a+num(e.notionalUsd),0);
+  const windowFlowFresh=!!t.flowObserved&&ts-num(t.flowUpdatedAt)<90000,chainFresh=chain.length>0,flowFresh=windowFlowFresh||chainFresh;
+  const volumeFresh=(!!t.volumeObserved&&ts-num(t.volumeUpdatedAt)<90000)||chainVol>0,liqFresh=!!t.liquidityObserved&&ts-num(t.liquidityUpdatedAt)<180000;
+  const buys=windowFlowFresh?t.buys:chainBuys,sells=windowFlowFresh?t.sells:chainSells,total=buys+sells; const buyRatio=total?buys/total:.5;
   const flow=clamp(buyRatio*100);
   const liqScore=liqFresh&&t.liq>0?clamp(Math.log10(Math.max(10,t.liq))*18-30):0;
-  const volScore=volumeFresh&&t.vol>0?clamp(Math.log10(Math.max(10,t.vol))*17-25):0;
+  const activeVol=(!!t.volumeObserved&&ts-num(t.volumeUpdatedAt)<90000)?t.vol:chainVol;
+  const volScore=volumeFresh&&activeVol>0?clamp(Math.log10(Math.max(10,activeVol))*17-25):0;
   const early=clamp(100-age*2.6);
   const graduation=t.graduated?100:clamp((t.mc/69000)*100);
   const social=clamp((t.twitter?20:0)+(t.telegram?16:0)+(t.website?9:0)+Math.min(20,t.boosts*3)+(flowFresh?Math.min(20,total*.9):0));
@@ -854,7 +863,10 @@ async function parseWalletTx(sig,tx){
     const event={ts:now(),blockTime:tx?.blockTime?tx.blockTime*1000:null,slot:tx?.slot||null,signature:sig,wallet:x.owner,mint:x.mint,symbol:tok?.symbol||x.mint.slice(0,5),action,tokenDelta:delta,solDelta,price:tok?.price||0,mc:tok?.mc||0,classification,source:'Solana RPC',watchlist:!!watch,traderId:watch?.traderId||null,traderName:watch?.traderName||null,walletLabel:watch?.label||null,confidence:watch?.confidence||null};
     walletEvents.unshift(event);walletEvents.splice(1200); found++;
     if(watch)log('smart-wallet',`👀 ${watch.traderName} · ${action} · ${event.symbol}`,'info',{traderId:watch.traderId,wallet:x.owner,mint:x.mint,signature:sig,confidence:watch.confidence});
-    if(tok){tok.chainBuys=num(tok.chainBuys)+(action==='BUY'?1:0);tok.chainSells=num(tok.chainSells)+(action==='SELL'?1:0);tok.chainTx=num(tok.chainTx)+1;tok.lastChainAt=now();
+    if(tok){
+      tok.chainBuys=num(tok.chainBuys)+(action==='BUY'?1:0);tok.chainSells=num(tok.chainSells)+(action==='SELL'?1:0);tok.chainTx=num(tok.chainTx)+1;tok.lastChainAt=now();
+      tok.chainFlow=(tok.chainFlow||[]).filter(e=>now()-e.ts<120000);
+      if(action==='BUY'||action==='SELL')tok.chainFlow.push({ts:now(),action,notionalUsd:Math.abs(delta)*num(tok.price),watchlist:!!watch,traderId:watch?.traderId||null});
       if(watch?.confidence==='verified'&&(action==='BUY'||action==='SELL'))maybeTrade(tok);
     }
   }
