@@ -9,6 +9,7 @@ const TARGET = 100000;
 const FEE_RATE = 0.0125;
 const STATE_FILE = process.env.STATE_FILE || '/tmp/pump-lab-state-v06.json';
 const DATABASE_URL = process.env.DATABASE_URL || '';
+const MIRROR_SOURCE = process.env.MIRROR_SOURCE || '';
 const PUMP_PROGRAM = '6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P';
 const SOLANA_RPC_HTTP = process.env.SOLANA_RPC_HTTP || 'https://api.mainnet-beta.solana.com';
 const SOLANA_RPC_WSS = process.env.SOLANA_RPC_WSS || 'wss://api.mainnet-beta.solana.com';
@@ -1260,11 +1261,21 @@ async function go(){
 }
 go();setInterval(go,5000);const es=new EventSource('/api/events');es.addEventListener('tick',()=>go());document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab,.pane').forEach(x=>x.classList.remove('on'));t.classList.add('on');$(t.dataset.p).classList.add('on')});</script></body></html>`;
 
-const server=http.createServer((req,res)=>{
+const server=http.createServer(async(req,res)=>{
   if(req.url==='/api/state'){
     try{
+      if(MIRROR_SOURCE){
+        try{
+          const upstream=await fetch(MIRROR_SOURCE.replace(/\/$/,'')+'/api/state',{headers:{'accept':'application/json'}});
+          if(!upstream.ok)throw new Error('canonical state HTTP '+upstream.status);
+          const json=await upstream.text();
+          JSON.parse(json);
+          res.writeHead(200,{'content-type':'application/json','cache-control':'no-store','x-pump-lab-source':'canonical-production','content-length':Buffer.byteLength(json)});
+          return res.end(json);
+        }catch(e){console.warn('MIRROR_STATE_FALLBACK '+e.message);}
+      }
       const json=getStateJsonCached();
-      res.writeHead(200,{'content-type':'application/json','cache-control':'no-store','content-length':Buffer.byteLength(json)});
+      res.writeHead(200,{'content-type':'application/json','cache-control':'no-store','x-pump-lab-source':'local-fallback','content-length':Buffer.byteLength(json)});
       return res.end(json);
     }catch(e){
       console.error('STATE_API_ERROR '+(e?.stack||e));
@@ -1284,6 +1295,6 @@ setHealth('engine','ok','core portfolios + 31 specialist cohorts + controls + ad
 setHealth('learning-core','ok','DNA memory + replay + allocator + exit optimizer + counterfactual lab online',{truth:'inferred'});
 setHealth('x-social','standby','Full X stream not connected · social agent uses token social metadata only',{truth:'not connected'});
 setHealth('wallet-intel','standby','Connecting Solana stream + verified Fomo wallet watchlist…',{truth:'not connected'});setHealth('fomo-watchlist','standby','Preparing verified public wallet subscriptions',{truth:'not connected'});
-server.listen(PORT,'0.0.0.0',()=>{log('system','🚀 PUMP LAB v2.1 Cohort Matrix started','system');connectPumpPortal();connectSolanaStream();pumpPoll();dexPoll();console.log('PUMP LAB v2.1 on '+PORT);});
+server.listen(PORT,'0.0.0.0',()=>{log('system','🚀 PUMP LAB v2.1 Cohort Matrix started','system');connectPumpPortal();connectSolanaStream();pumpPoll();dexPoll();console.log('PUMP LAB v2.1 on '+PORT+(MIRROR_SOURCE?' · dashboard mirrors '+MIRROR_SOURCE:''));});
 setTimeout(stateSelfTest,5000).unref?.();setInterval(drainSolanaQueue,1100).unref?.();setInterval(pumpPoll,7000).unref?.();setInterval(dexPoll,20000).unref?.();setInterval(takeTimeline,30000).unref?.();setInterval(takeReplay,30000).unref?.();setInterval(researchCycle,3600000).unref?.();setInterval(()=>save(),30000).unref?.();const diagTimer=setTimeout(logStrategyDiagnostics,20000);diagTimer.unref?.();const diagLoop=setInterval(logStrategyDiagnostics,300000);diagLoop.unref?.();takeTimeline();takeReplay();
 process.on('SIGTERM',async()=>{await save();server.close(()=>process.exit(0));});process.on('SIGINT',async()=>{await save();server.close(()=>process.exit(0));});
