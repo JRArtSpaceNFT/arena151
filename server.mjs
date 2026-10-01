@@ -401,7 +401,7 @@ function features(t) {
 }
 
 function strategyRegimeWeight(id,regime){
-  const rows=trades.filter(t=>t.strategy===id&&t.policyVersion===STRATEGY_ERA&&(t.entryRegime||'UNKNOWN')===regime).slice(0,120);
+  const rows=trades.filter(t=>t.strategy===id&&t.policyVersion===STRATEGY_ERA&&(t.samplePartition||partitionForMint(t.mint))==='train'&&(t.entryRegime||'UNKNOWN')===regime).slice(0,120);
   if(rows.length<3)return 1;
   const edge=rows.reduce((a,t)=>a+t.pnlPct,0)/rows.length;
   const learned=clamp(1+edge/45,.45,2.0);const trust=rows.length/(rows.length+12);
@@ -551,7 +551,7 @@ function markEquity(d){
 }
 
 function recordDecision(d,t,f,score,action,why='') {
-  const row={ts:now(),era:STRATEGY_ERA,strategy:d.id,strategyName:d.name,mint:t.mint,symbol:t.symbol,action,score,risk:f.risk,price:t.price,mc:t.mc,narrative:t.narrative,regime:marketWeather().regime,why,
+  const row={ts:now(),era:STRATEGY_ERA,samplePartition:partitionForMint(t.mint),strategy:d.id,strategyName:d.name,mint:t.mint,symbol:t.symbol,action,score,risk:f.risk,price:t.price,mc:t.mc,narrative:t.narrative,regime:marketWeather().regime,why,
     features:{momentum:f.momentum,acceleration:f.acceleration,flow:f.flow,buyRatio:f.buyRatio,volScore:f.volScore,liqScore:f.liqScore,drawdown:f.drawdown,rebound:f.rebound,social:f.social,age:f.age,sourceQuality:f.sourceQuality}};
   decisions.unshift(row); decisions.splice(MAX_DECISIONS);
   const key=`${d.id}:${t.mint}`;
@@ -682,7 +682,7 @@ function evidenceStack(t,f,q){
   return{n,wallets:w.count};
 }
 function entryPolicy(d){
-  const rows=decisions.filter(x=>x.strategy===d.id&&x.era===STRATEGY_ERA).slice(0,250);
+  const rows=decisions.filter(x=>x.strategy===d.id&&x.era===STRATEGY_ERA&&(x.samplePartition||partitionForMint(x.mint))==='train').slice(0,250);
   const rejects=rows.filter(x=>x.action==='REJECT').length,scores=rows.map(x=>num(x.score)).filter(Number.isFinite);
   const p90=percentile(scores,.90);
   // V3 can tighten a gate as evidence arrives, but it never lowers the authored floor merely to force trades.
@@ -693,7 +693,7 @@ function entryPolicy(d){
 }
 
 function strategyHealth(d){
-  const rows=trades.filter(x=>x.strategy===d.id&&x.policyVersion===STRATEGY_ERA).slice(0,8);
+  const rows=trades.filter(x=>x.strategy===d.id&&x.policyVersion===STRATEGY_ERA&&(x.samplePartition||partitionForMint(x.mint))==='train').slice(0,8);
   return{n:rows.length,avg:rows.length?avg(rows.map(x=>x.pnlPct)):0,winRate:rows.length?rows.filter(x=>x.pnl>0).length/rows.length*100:0};
 }
 function entryGuard(d,t,f,score,policy,quality,adv,regime){
@@ -1229,11 +1229,13 @@ function walletGraphSnapshot(){
 }
 function strategyStatistics(){
   return strategyDefs.filter(d=>d.risk!=='CONTROL'&&!d.specialist).map(d=>{
-    const all=trades.filter(t=>t.strategy===d.id),a=all.filter(t=>t.policyVersion===STRATEGY_ERA),rets=a.map(t=>t.pnlPct).filter(Number.isFinite),m=avg(rets),sd=stdev(rets),se=rets.length?sd/Math.sqrt(rets.length):0;
-    const grossWin=a.filter(t=>t.pnl>0).reduce((sum,t)=>sum+t.pnl,0),grossLoss=Math.abs(a.filter(t=>t.pnl<0).reduce((sum,t)=>sum+t.pnl,0));
-    const shrink=rets.length/(rets.length+20),shrunkMean=m*shrink;
-    return{id:d.id,name:d.name,n:rets.length,legacyN:all.length-rets.length,mean:m,median:median(rets),stdev:sd,ciLow:m-1.96*se,ciHigh:m+1.96*se,shrunkMean,
-      winRate:rets.length?a.filter(t=>t.pnlPct>0).length/rets.length*100:0,profitFactor:grossLoss?grossWin/grossLoss:grossWin>0?9.99:0,dd:d.dd,equity:d.equity};
+    const all=trades.filter(t=>t.strategy===d.id),era=all.filter(t=>t.policyVersion===STRATEGY_ERA);
+    const train=era.filter(t=>(t.samplePartition||partitionForMint(t.mint))==='train'),holdout=era.filter(t=>(t.samplePartition||partitionForMint(t.mint))==='holdout');
+    const summarize=a=>{const rets=a.map(t=>t.pnlPct).filter(Number.isFinite),m=avg(rets),sd=stdev(rets),se=rets.length?sd/Math.sqrt(rets.length):0,grossWin=a.filter(t=>t.pnl>0).reduce((s,t)=>s+num(t.pnl),0),grossLoss=Math.abs(a.filter(t=>t.pnl<0).reduce((s,t)=>s+num(t.pnl),0));return{n:rets.length,mean:m,median:median(rets),stdev:sd,ciLow:m-1.96*se,ciHigh:m+1.96*se,winRate:rets.length?a.filter(t=>t.pnlPct>0).length/rets.length*100:0,profitFactor:grossLoss?grossWin/grossLoss:grossWin>0?9.99:0};};
+    const tr=summarize(train),ho=summarize(holdout),overall=summarize(era),shrink=tr.n/(tr.n+20),shrunkMean=tr.mean*shrink;
+    return{id:d.id,name:d.name,n:overall.n,trainN:tr.n,holdoutN:ho.n,legacyN:all.length-era.length,mean:overall.mean,median:overall.median,stdev:overall.stdev,ciLow:overall.ciLow,ciHigh:overall.ciHigh,
+      trainMean:tr.mean,trainCiLow:tr.ciLow,trainCiHigh:tr.ciHigh,holdoutMean:ho.mean,holdoutCiLow:ho.ciLow,holdoutCiHigh:ho.ciHigh,holdoutWinRate:ho.winRate,
+      shrunkMean,winRate:overall.winRate,profitFactor:overall.profitFactor,trainProfitFactor:tr.profitFactor,holdoutProfitFactor:ho.profitFactor,dd:d.dd,equity:d.equity};
   }).sort((a,b)=>b.shrunkMean-a.shrunkMean);
 }
 function dynamicAllocator(){
@@ -1391,24 +1393,32 @@ function tournament(){
   return[...map].map(([id,x])=>{const d=strategyDefs.find(q=>q.id===id);return{id,name:d?.name||id,pnl:x.pnl,n:x.n,winRate:x.n?x.wins/x.n*100:0,era:STRATEGY_ERA};}).sort((a,b)=>b.pnl-a.pnl);
 }
 
-function eraPerformance(id){
-  const rows=trades.filter(t=>t.strategy===id&&t.policyVersion===STRATEGY_ERA),rets=rows.map(t=>t.pnlPct).filter(Number.isFinite);
-  const mean=avg(rets),wins=rows.filter(t=>t.pnl>0),losses=rows.filter(t=>t.pnl<0),grossWin=wins.reduce((z,t)=>z+t.pnl,0),grossLoss=Math.abs(losses.reduce((z,t)=>z+t.pnl,0));
-  return{n:rows.length,mean,total:rows.reduce((z,t)=>z+(t.pnl||0),0),winRate:rows.length?wins.length/rows.length*100:0,
-    profitFactor:grossLoss?grossWin/grossLoss:grossWin>0?9.99:0,tail:rets.length?percentile(rets,.10):0};
+function eraPerformance(id,partition=null){
+  const rows=trades.filter(t=>t.strategy===id&&t.policyVersion===STRATEGY_ERA&&(!partition||(t.samplePartition||partitionForMint(t.mint))===partition));
+  const rets=rows.map(t=>t.pnlPct).filter(Number.isFinite),mean=avg(rets),sd=stdev(rets),se=rets.length?sd/Math.sqrt(rets.length):0,wins=rows.filter(t=>t.pnl>0),losses=rows.filter(t=>t.pnl<0),grossWin=wins.reduce((z,t)=>z+num(t.pnl),0),grossLoss=Math.abs(losses.reduce((z,t)=>z+num(t.pnl),0));
+  return{n:rows.length,mean,total:rows.reduce((z,t)=>z+num(t.pnl),0),winRate:rows.length?wins.length/rows.length*100:0,
+    profitFactor:grossLoss?grossWin/grossLoss:grossWin>0?9.99:0,tail:rets.length?percentile(rets,.10):0,ciLow:mean-1.96*se,ciHigh:mean+1.96*se};
 }
 function evaluateEvolution(){
-  for(const c of challengers){
-    const p=strategyDefs.find(x=>x.id===c.parentId);if(!p)continue;
-    const child=eraPerformance(c.id),parent=eraPerformance(p.id);if(child.n<30)continue;
-    const edge=child.mean-(parent.n>=10?parent.mean:0),tailOk=child.tail>=(parent.n>=10?parent.tail-5:-25);
-    if(!c.promotedAt&&edge>5&&child.profitFactor>1.15&&tailOk){
-      p.min=c.min;p.stop=c.stop;p.take=c.take;if(c.riskCap)p.riskCap=c.riskCap;if(c.exitMode)p.exitMode=c.exitMode;if(c.sizeBias)p.sizeBias=c.sizeBias;
-      p.version=(p.version||3)+1;c.promotedAt=now();const row={ts:now(),era:STRATEGY_ERA,child:c.name,parent:p.name,edge,sample:child.n,profitFactor:child.profitFactor,newVersion:p.version};
-      promotions.unshift(row);promotions.splice(100);log('evolution',`🏆 ${c.name} promoted into ${p.name} v${p.version}`,'system',row);
-    }else if(!c.graveyardAt&&edge<-8){
-      c.graveyardAt=now();const row={ts:now(),era:STRATEGY_ERA,child:c.name,parent:p.name,edge,sample:child.n,reason:'failed v3 forward challenge'};
-      graveyard.unshift(row);graveyard.splice(100);log('evolution',`☠️ ${c.name} moved to the Strategy Graveyard`,'system',row);
+  for(const childDef of challengers){
+    const parentDef=strategyDefs.find(x=>x.id===childDef.parentId);if(!parentDef)continue;
+    const child=eraPerformance(childDef.id),parent=eraPerformance(parentDef.id),childHold=eraPerformance(childDef.id,'holdout'),parentHold=eraPerformance(parentDef.id,'holdout');
+    if(child.n<60||childHold.n<12)continue;
+    const baseline=parentHold.n>=8?parentHold.mean:(parent.n>=20?parent.mean:0),edge=childHold.mean-baseline,tailOk=childHold.tail>=(parentHold.n>=8?parentHold.tail-5:-25);
+    const candidate=edge>3&&childHold.mean>0&&childHold.profitFactor>1.20&&tailOk&&childHold.ciLow>-8;
+    if(candidate&&!childDef.promotedAt){
+      if(!childDef.promotionCandidateAt){
+        childDef.promotionCandidateAt=now();
+        const row={ts:now(),era:STRATEGY_ERA,child:childDef.name,parent:parentDef.name,edge,totalSample:child.n,holdoutSample:childHold.n,holdoutMean:childHold.mean,holdoutProfitFactor:childHold.profitFactor,autoPromotion:ALLOW_AUTO_PROMOTION};
+        promotions.unshift({...row,status:'CANDIDATE'});promotions.splice(100);log('evolution',`🏆 ${childDef.name} earned holdout promotion-candidate status`,'system',row);
+      }
+      if(ALLOW_AUTO_PROMOTION){
+        parentDef.min=childDef.min;parentDef.stop=childDef.stop;parentDef.take=childDef.take;if(childDef.riskCap)parentDef.riskCap=childDef.riskCap;if(childDef.exitMode)parentDef.exitMode=childDef.exitMode;if(childDef.sizeBias)parentDef.sizeBias=childDef.sizeBias;
+        parentDef.version=(parentDef.version||3)+1;childDef.promotedAt=now();log('evolution',`🏆 ${childDef.name} auto-promoted into ${parentDef.name} v${parentDef.version}`,'system',{edge,holdoutSample:childHold.n});
+      }
+    }else if(!candidate&&!childDef.graveyardAt&&child.n>=60&&childHold.n>=12&&edge<-8&&childHold.mean<0){
+      childDef.graveyardAt=now();const row={ts:now(),era:STRATEGY_ERA,child:childDef.name,parent:parentDef.name,edge,totalSample:child.n,holdoutSample:childHold.n,reason:'failed out-of-sample holdout'};
+      graveyard.unshift(row);graveyard.splice(100);log('evolution',`☠️ ${childDef.name} moved to the Strategy Graveyard after holdout failure`,'system',row);
     }
   }
 }
@@ -1446,9 +1456,10 @@ function researchCycle(){
 }
 
 function experimentSnapshot(){
-  return challengers.map(c=>{const p=strategyDefs.find(x=>x.id===c.parentId),child=eraPerformance(c.id),parent=eraPerformance(p.id),edge=child.mean-(parent.n>=10?parent.mean:0);let status='COLLECTING';
-    if(child.n>=30&&edge>5&&child.profitFactor>1.15)status='PROMOTION CANDIDATE';else if(child.n>=30&&edge<-8)status='GRAVEYARD CANDIDATE';
-    return{id:c.id,name:c.name,parent:p.name,mutation:c.mutation,era:STRATEGY_ERA,equity:c.equity,parentEquity:p.equity,edge,sample:child.n,profitFactor:child.profitFactor,status};
+  return challengers.map(ch=>{const p=strategyDefs.find(x=>x.id===ch.parentId),child=eraPerformance(ch.id),parent=eraPerformance(p.id),ho=eraPerformance(ch.id,'holdout'),pho=eraPerformance(p.id,'holdout');
+    const baseline=pho.n>=8?pho.mean:(parent.n>=20?parent.mean:0),edge=ho.mean-baseline;let status='COLLECTING';
+    if(ch.promotedAt)status='PROMOTED';else if(ch.promotionCandidateAt)status='HOLDOUT CANDIDATE';else if(child.n>=60&&ho.n>=12&&edge>3&&ho.mean>0&&ho.profitFactor>1.2)status='PROMOTION CANDIDATE';else if(child.n>=60&&ho.n>=12&&edge<-8)status='GRAVEYARD CANDIDATE';
+    return{id:ch.id,name:ch.name,parent:p.name,mutation:ch.mutation,era:STRATEGY_ERA,equity:ch.equity,parentEquity:p.equity,edge,sample:child.n,holdoutSample:ho.n,holdoutMean:ho.mean,holdoutProfitFactor:ho.profitFactor,profitFactor:child.profitFactor,status,autoPromotion:ALLOW_AUTO_PROMOTION};
   });
 }
 
@@ -1489,12 +1500,12 @@ async function initDb(restoreState=true){
   }finally{dbConnecting=false;}
 }
 function serialize(){return{auditVersion:AUDIT_VERSION,strategies:strategyDefs.map(stripTrader),challengers:challengers.map(stripTrader),positions:positions.filter(p=>!p.closed),trades,activity,decisions,opportunities:[...opportunities],research,timeline,replayFrames,autopsies,promotions,graveyard,walletEvents:walletEvents.slice(0,1200),marketEvents:marketEvents.slice(-1000),dnaArchive:[...dnaArchive],creators:[...creators].map(([k,v])=>[k,{...v,tokens:[...v.tokens]}])};}
-function stripTrader(d){return{id:d.id,name:d.name,icon:d.icon,risk:d.risk,type:d.type,parentId:d.parentId,mutation:d.mutation,auto:d.auto,bornAt:d.bornAt,cash:d.cash,peak:d.peak,dd:d.dd,wins:d.wins,losses:d.losses,n:d.n,version:d.version,min:d.min,stop:d.stop,take:d.take,size:d.size,maxOpen:d.maxOpen,riskCap:d.riskCap,exitMode:d.exitMode,sizeBias:d.sizeBias,promotedAt:d.promotedAt,graveyardAt:d.graveyardAt};}
+function stripTrader(d){return{id:d.id,name:d.name,icon:d.icon,risk:d.risk,type:d.type,parentId:d.parentId,mutation:d.mutation,auto:d.auto,bornAt:d.bornAt,cash:d.cash,peak:d.peak,dd:d.dd,wins:d.wins,losses:d.losses,n:d.n,version:d.version,min:d.min,stop:d.stop,take:d.take,size:d.size,maxOpen:d.maxOpen,riskCap:d.riskCap,exitMode:d.exitMode,sizeBias:d.sizeBias,promotionCandidateAt:d.promotionCandidateAt,promotedAt:d.promotedAt,graveyardAt:d.graveyardAt};}
 function restore(s){try{
   for(const x of s.strategies||[]){
     const d=strategyDefs.find(q=>q.id===x.id);if(!d)continue;
     const codeVersion=num(d.version)||1;
-    for(const k of ['cash','peak','dd','wins','losses','n','promotedAt','graveyardAt','bornAt','auto'])if(x[k]!==undefined)d[k]=x[k];
+    for(const k of ['cash','peak','dd','wins','losses','n','promotionCandidateAt','promotedAt','graveyardAt','bornAt','auto'])if(x[k]!==undefined)d[k]=x[k];
     // Runtime memory must never silently overwrite newer code configuration.
     // Only restore strategy parameters when the persisted strategy is a genuinely evolved version.
     if(num(x.version)>codeVersion){
@@ -1618,7 +1629,7 @@ function snapshot(){
     features:features(t),detective:detective(t),adversarial:adversarialRisk(t),consensus:consensus(t),dna:creatorDNA(t),tokenDNA:tokenDNA(t),similarity:dnaSimilarity(t),quality:tokenDataQuality(t)
   }));
   const prod=strategyDefs.filter(d=>d.risk!=='CONTROL'&&!d.specialist),cohort=specialistStrategies();const weather=marketWeather();
-  return{now:now(),startedAt,paperOnly:true,executionAssumptions:{fallbackFeeRate:FEE_RATE,fixedTxCostUsd:PAPER_FIXED_TX_COST_USD,feeSource:'pump.fun docs 2026-05-20',maxModeledSlippagePct:8},stateLock:{databaseConfigured:!!DATABASE_URL,restored:dbStateRestored,tradingUnlocked:durableTradingReady(),dbConnected:!!db,lastDurableSaveAt,lastDurableRestoreAt,graceMs:DURABLE_WRITE_GRACE_MS},mode:'LIVE + V3.1 EVIDENCE PLAYBOOKS + MEGGA COPY/SCOUT LAB + DURABLE REPLAY',version:'3.1 Megga Research',target:TARGET,weather,providers:[...health.values()],
+  return{now:now(),startedAt,paperOnly:true,executionAssumptions:{fallbackFeeRate:FEE_RATE,fixedTxCostUsd:PAPER_FIXED_TX_COST_USD,feeSource:'pump.fun docs 2026-05-20',maxModeledSlippagePct:8},researchGovernance:{partition:'deterministic 80/20 by mint',learningSet:'train only',autoPromotion:ALLOW_AUTO_PROMOTION,minPromotionTrades:60,minHoldoutTrades:12},stateLock:{databaseConfigured:!!DATABASE_URL,restored:dbStateRestored,tradingUnlocked:durableTradingReady(),dbConnected:!!db,lastDurableSaveAt,lastDurableRestoreAt,graceMs:DURABLE_WRITE_GRACE_MS},mode:'LIVE + V3.1 EVIDENCE PLAYBOOKS + MEGGA COPY/SCOUT LAB + DURABLE REPLAY',version:'3.1 Megga Research',target:TARGET,weather,providers:[...health.values()],
     summary:{capital:prod.reduce((a,d)=>a+d.equity,0),start:prod.length*START,trades:prod.reduce((a,d)=>a+d.n,0),open:positions.filter(p=>!p.closed&&prod.some(d=>d.id===p.strategy)).length,cohortCapital:cohort.reduce((a,d)=>a+d.equity,0),cohortStart:cohort.length*START,cohortTrades:cohort.reduce((a,d)=>a+d.n,0),cohortOpen:positions.filter(p=>!p.closed&&cohort.some(d=>d.id===p.strategy)).length,tokens:tokens.size,decisions:decisions.length},
     strategies:strategyDefs.map(d=>{const ep=entryPolicy(d),pb=strategyPlaybook(d),eraTrades=trades.filter(t=>t.strategy===d.id&&t.policyVersion===STRATEGY_ERA);return{...d,winRate:d.n?d.wins/d.n*100:0,open:openCount(d.id),effectiveMin:ep.min,coldStart:ep.coldStart,entryRejects:ep.rejects,thresholdRelief:ep.relief,playbook:pb.instruction,era:STRATEGY_ERA,eraN:eraTrades.length,eraWinRate:eraTrades.length?eraTrades.filter(t=>t.pnl>0).length/eraTrades.length*100:0,eraPnl:eraTrades.reduce((a,t)=>a+num(t.pnl),0),eraAvgPnl:eraTrades.length?avg(eraTrades.map(t=>t.pnlPct)):0}}),experiments:experimentSnapshot(),tokens:active,
     narratives:narrativeStats().slice(0,15),creators:creatorLeaderboard(),positions:positions.filter(p=>!p.closed).slice(-120),trades:trades.slice(0,150),activity:activity.slice(0,140),research,
