@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "start": "npm run check && node server.mjs",
-    "check": "node --check server.mjs",
-    "test": "node --check server.mjs"
+    "check": "node --check server.mjs && node scripts/pump-lab-audit-check.mjs",
+    "test": "npm run check"
   },
   "dependencies": {
     "pg": "^8.16.3"
