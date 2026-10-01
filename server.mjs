@@ -1372,6 +1372,27 @@ function traderPostmortem(d){
 function logFullPostmortem(){
   for(const d of allTraders())console.log('TRADER_POSTMORTEM_ITEM '+JSON.stringify(traderPostmortem(d)));
 }
+function v3SelfTest(){
+  const issues=[];
+  const production=strategyDefs.filter(d=>d.risk!=='CONTROL');
+  for(const d of production){
+    const p=strategyPlaybook(d);
+    if(!p||!p.instruction)issues.push(d.id+': missing playbook');
+    if(!d.specialist&&!d.copyLab&&d.size>.04)issues.push(d.id+': authored size above v3 cap');
+  }
+  for(const d of strategyDefs.filter(x=>x.copyLab&&x.copySource)){
+    const trader=FOMO_WATCHLIST.find(x=>x.id===d.copySource);
+    const verified=(trader?.wallets||[]).some(w=>w.confidence==='verified');
+    if(!verified)issues.push(d.id+': copy source is not verified');
+  }
+  const mac=FOMO_WATCHLIST.find(x=>x.id==='macdegods');
+  if((mac?.wallets||[]).some(w=>w.confidence==='verified'))issues.push('macdegods: review direct-copy eligibility; mapping changed');
+  const graduation=strategyDefs.find(x=>x.id==='graduation');
+  if(!CORE_PLAYBOOKS.graduation?.requireGraduated||!graduation)issues.push('graduation: confirmed state guard missing');
+  return{pass:issues.length===0,era:STRATEGY_ERA,production:production.length,controls:strategyDefs.filter(d=>d.risk==='CONTROL').length,
+    copyModels:strategyDefs.filter(d=>d.copyLab).map(d=>d.id),issues};
+}
+function logV3SelfTest(){console.log('V3_SELFTEST '+JSON.stringify(v3SelfTest()));}
 
 function snapshot(){
   allTraders().forEach(markEquity);const active=[...tokens.values()].filter(t=>now()-t.updatedAt<900000).sort((a,b)=>b.updatedAt-a.updatedAt).slice(0,80).map(t=>({...t,features:features(t),detective:detective(t),adversarial:adversarialRisk(t),consensus:consensus(t),dna:creatorDNA(t),tokenDNA:tokenDNA(t),similarity:dnaSimilarity(t),quality:tokenDataQuality(t)}));
@@ -1472,6 +1493,7 @@ const server=http.createServer((req,res)=>{
 loadLocal();
 await initDb();
 if(dbStateRestored)logStrategyDiagnostics();
+logV3SelfTest();
 setHealth('engine','ok','v3 evidence playbooks + 31 specialist cohorts + verified copy lab + controls online',{truth:'observed'});
 setHealth('learning-core','ok','era-separated allocator + DNA memory + replay + exit optimizer + counterfactual lab online',{truth:'inferred'});
 setHealth('x-social','standby','Full X stream not connected · social agent uses token social metadata only',{truth:'not connected'});
