@@ -1202,7 +1202,7 @@ function spawnResearchChallenger(){
   strategyDefs.filter(d=>d.risk!=='CONTROL'&&!d.specialist).forEach(markEquity);
   const exit=exitOptimizer(),noTrade=noTradeAlpha(),risk=riskScoreboard();
   let parentId='momentum',mutation='longer winners',mods={takeDelta:15};
-  if(noTrade.n>=20&&noTrade.falseRejectRate>20){parentId='quant';mutation='looser entry threshold from missed-monster evidence';mods={minDelta:-3,takeDelta:5};}
+  if(noTrade.n>=30&&noTrade.falseRejectRate>25){parentId='quant';mutation='confirmation-preserving runner for missed upside';mods={minDelta:2,takeDelta:15,exitMode:'runner'};}
   else if(risk[0]&&risk[0].dd>25){parentId='professional';mutation='defensive drawdown response';mods={minDelta:3,stopDelta:-3,riskCap:34};}
   else if(exit.n>=10&&exit.direction==='TEST LONGER HOLDS'){parentId='smartmom';mutation='runner exit from post-exit continuation evidence';mods={takeDelta:12,exitMode:'runner'};}
   else if(exit.n>=10&&exit.direction==='TEST TIGHTER RISK'){parentId='professional';mutation='defensive exit from adverse-excursion evidence';mods={stopDelta:-3,exitMode:'defensive',riskCap:36};}
@@ -1215,7 +1215,7 @@ function spawnResearchChallenger(){
 function researchCycle(){
   evaluateEvolution();
   spawnResearchChallenger();
-  const recent=trades.filter(t=>now()-t.closedAt<3600000&&!t.strategy.includes('-c'));const wins=recent.filter(t=>t.pnl>0);const avg=recent.length?recent.reduce((a,t)=>a+t.pnlPct,0)/recent.length:0;
+  const recent=trades.filter(t=>t.policyVersion===STRATEGY_ERA&&now()-t.closedAt<3600000&&!t.strategy.includes('-c'));const wins=recent.filter(t=>t.pnl>0);const avg=recent.length?recent.reduce((a,t)=>a+t.pnlPct,0)/recent.length:0;
   const prod=strategyDefs.filter(d=>d.risk!=='CONTROL'&&!d.specialist);prod.forEach(markEquity);const best=[...prod].sort((a,b)=>b.equity-a.equity)[0];
   const misses=missedMonsters().slice(0,5);const hypotheses=[];
   if(misses.length>=3)hypotheses.push('Rejection thresholds may be too strict for a subset of high-upside tokens; keep testing with challengers rather than relaxing production rules.');
@@ -1228,7 +1228,10 @@ function researchCycle(){
 }
 
 function experimentSnapshot(){
-  return challengers.map(c=>{markEquity(c);const p=strategyDefs.find(x=>x.id===c.parentId);markEquity(p);const sample=c.n;const edge=c.equity-p.equity;let status='COLLECTING';if(sample>=25&&edge>50&&c.dd<=p.dd+8)status='PROMOTION CANDIDATE';else if(sample>=25&&edge<-50)status='GRAVEYARD CANDIDATE';return{id:c.id,name:c.name,parent:p.name,mutation:c.mutation,equity:c.equity,parentEquity:p.equity,edge,sample,dd:c.dd,status};});
+  return challengers.map(c=>{const p=strategyDefs.find(x=>x.id===c.parentId),child=eraPerformance(c.id),parent=eraPerformance(p.id),edge=child.mean-(parent.n>=10?parent.mean:0);let status='COLLECTING';
+    if(child.n>=30&&edge>5&&child.profitFactor>1.15)status='PROMOTION CANDIDATE';else if(child.n>=30&&edge<-8)status='GRAVEYARD CANDIDATE';
+    return{id:c.id,name:c.name,parent:p.name,mutation:c.mutation,era:STRATEGY_ERA,equity:c.equity,parentEquity:p.equity,edge,sample:child.n,profitFactor:child.profitFactor,status};
+  });
 }
 
 function takeTimeline(){const w=marketWeather();strategyDefs.forEach(markEquity);timeline.push({ts:now(),regime:w.regime,temperature:w.temperature,capital:strategyDefs.filter(x=>x.risk!=='CONTROL'&&!x.specialist).reduce((a,d)=>a+d.equity,0),champion:strategyDefs.find(x=>x.id==='champion').equity,tokens:tokens.size,topNarrative:narrativeStats()[0]?.name||'n/a'});while(timeline.length>MAX_TIMELINE)timeline.shift();}
