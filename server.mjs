@@ -1639,7 +1639,7 @@ function strategyDiagnostics(){
 function logPerformanceSnapshot(){
   allTraders().forEach(markEquity);const core=strategyDefs.filter(d=>d.risk!=='CONTROL'&&!d.specialist),controls=strategyDefs.filter(d=>d.risk==='CONTROL'),spec=specialistStrategies();
   const pack=rows=>({count:rows.length,capital:rows.reduce((a,d)=>a+d.equity,0),start:rows.length*START,pnl:rows.reduce((a,d)=>a+d.equity-START,0),green:rows.filter(d=>d.equity>=START).length,red:rows.filter(d=>d.equity<START).length,trades:rows.reduce((a,d)=>a+d.n,0),open:rows.reduce((a,d)=>a+openCount(d.id),0)});
-  console.log('PERFORMANCE_SNAPSHOT '+JSON.stringify({ts:now(),version:'3.1 Megga Research',weather:marketWeather(),core:pack(core),controls:pack(controls),specialists:pack(spec)}));
+  console.log('PERFORMANCE_SNAPSHOT '+JSON.stringify({ts:now(),version:'3.3 Alpha OS',weather:marketWeather(),core:pack(core),controls:pack(controls),specialists:pack(spec)}));
 }
 function logStrategyDiagnostics(){
   console.log('STRATEGY_DIAGNOSTICS '+JSON.stringify(strategyDiagnostics()));
@@ -1922,6 +1922,19 @@ async function loadDeepResearch(){
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab,.pane').forEach(x=>x.classList.remove('on'));t.classList.add('on');$(t.dataset.p).classList.add('on');if(['intel','research','time'].includes(t.dataset.p))loadDeepResearch();});</script></body></html>`;
 
 const server=http.createServer((req,res)=>{
+  {const u=new URL(req.url,'http://pump-lab.local');if(u.pathname==='/api/bot'){
+    const id=u.searchParams.get('id')||'',d=allTraders().find(x=>x.id===id);
+    if(!d){res.writeHead(404,{'content-type':'application/json','cache-control':'no-store'});return res.end(JSON.stringify({ok:false,error:'bot not found'}));}
+    markEquity(d);
+    const botTrades=trades.filter(t=>t.strategy===id).slice().sort((a,b)=>num(b.closedAt)-num(a.closedAt));
+    const wins=botTrades.filter(t=>num(t.pnl)>0),losses=botTrades.filter(t=>num(t.pnl)<=0),grossWin=wins.reduce((s,t)=>s+num(t.pnl),0),grossLoss=Math.abs(losses.reduce((s,t)=>s+num(t.pnl),0));
+    const openPositions=positions.filter(p=>!p.closed&&p.strategy===id).map(p=>{const mark=positionMarkPrice(p);return{...p,mark,unrealizedPct:p.entry>0?pct(mark,p.entry):0};});
+    const ep=entryPolicy(d),pb=strategyPlaybook(d),eraTrades=botTrades.filter(t=>t.policyVersion===STRATEGY_ERA);
+    const payload={ok:true,era:STRATEGY_ERA,bot:{...stripTrader(d),equity:d.equity,open:openPositions.length,effectiveMin:ep.min,playbook:pb.instruction,thesis:d.thesis||''},
+      stats:{trades:botTrades.length,wins:wins.length,losses:losses.length,winRate:botTrades.length?wins.length/botTrades.length*100:0,totalPnl:botTrades.reduce((s,t)=>s+num(t.pnl),0),avgPnlPct:botTrades.length?avg(botTrades.map(t=>num(t.pnlPct))):0,profitFactor:grossLoss?grossWin/grossLoss:grossWin>0?9.99:0,eraTrades:eraTrades.length,bestTrade:botTrades.length?botTrades.reduce((a,b)=>num(b.pnlPct)>num(a.pnlPct)?b:a):null,worstTrade:botTrades.length?botTrades.reduce((a,b)=>num(b.pnlPct)<num(a.pnlPct)?b:a):null},
+      openPositions,trades:botTrades};
+    const json=JSON.stringify(payload);res.writeHead(200,{'content-type':'application/json','cache-control':'no-store','content-length':Buffer.byteLength(json)});return res.end(json);
+  }}
   if(req.url==='/api/state'){
     try{
       const json=getStateJsonCached();
