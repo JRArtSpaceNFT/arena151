@@ -342,12 +342,11 @@ function entryPolicy(d){
   const scores=rows.map(x=>num(x.score)).filter(Number.isFinite);
   const risks=rows.map(x=>num(x.risk)).filter(Number.isFinite);
   const p90=percentile(scores,.90),p25Risk=percentile(risks,.25);
-  let calibrationBand=25;
-  if(d.risk==='LOW')calibrationBand=30;
-  if(d.id==='sniper')calibrationBand=32;
-  if(d.risk==='CONTROL')calibrationBand=20;
-  const floor=Math.max(35,d.min-calibrationBand);
-  const calibratedMin=rows.length>=40?Math.min(d.min,Math.max(floor,p90??d.min)):d.min;
+  // Different strategy formulas live on different numeric score scales.
+  // Once we have enough evidence, gate on that strategy's own top-decile setups
+  // instead of forcing every strategy to reach the same arbitrary absolute range.
+  const scaleFloor=d.id==='sniper'?34:d.risk==='LOW'?35:d.risk==='CONTROL'?35:38;
+  const calibratedMin=rows.length>=40?Math.min(d.min,Math.max(scaleFloor,p90??d.min)):d.min;
   const effectiveMin=d.type==='challenger'?d.min:calibratedMin;
   const relief=Math.max(0,d.min-effectiveMin);
   let lowRiskLimit=48,sniperRiskLimit=34,customRiskLimit=d.riskCap||null;
