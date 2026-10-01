@@ -1,0 +1,32 @@
+import fs from 'node:fs';
+
+const src = fs.readFileSync(new URL('../server.mjs', import.meta.url), 'utf8');
+const checks = [
+  ['durable startup gate', "STARTUP_STATE_GATE waiting for durable restore"],
+  ['durable trading gate', 'durableTradingReady()'],
+  ['deterministic control', "deterministicScore('random-control:'"],
+  ['holdout partition', "partitionForMint(mint)"],
+  ['auto promotion off by default', "process.env.ALLOW_AUTO_PROMOTION || 'false'"],
+  ['adaptive bankroll sizing', "sizingMode:'adaptive-bankroll-v2'"],
+  ['stale mark decay', 'STALE_MARK_ZERO_MS'],
+  ['stale position sweep', 'stalePositionSweep()'],
+  ['execution quote model', "executionQuote(t,budget,'buy')"],
+  ['lifecycle fee model', 'platformFeeRate(t)'],
+  ['risk circuit', 'strategyRiskCircuit(d)'],
+  ['live launch audit gate', 'function systemAudit()'],
+  ['lazy deep research endpoint', "req.url==='/api/research'"],
+  ['serialized state writes', 'if(saveInProgress){saveQueued=true;return;}'],
+  ['read-only analytical era', "v3.2-process-audit"]
+];
+
+const failures = checks.filter(([, needle]) => !src.includes(needle));
+if (failures.length) {
+  console.error('PUMP LAB AUDIT STATIC CHECK FAILED');
+  for (const [name] of failures) console.error(' - ' + name);
+  process.exit(1);
+}
+if (/sid==='random'\)s=Math\.random\(\)\*100/.test(src)) {
+  console.error('PUMP LAB AUDIT STATIC CHECK FAILED\n - nondeterministic random-control regression');
+  process.exit(1);
+}
+console.log('PUMP LAB audit static checks passed: ' + checks.length);
