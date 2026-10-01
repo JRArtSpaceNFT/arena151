@@ -72,6 +72,17 @@ let dbStateRestored = false;
 let research = { last: 0, notes: [], hypotheses: [] };
 let startedAt = Date.now();
 
+// PUMP LAB v2 learning memory. In-memory structures are bounded; the durable event
+// ledger is also flushed to Postgres so research survives process restarts.
+const MAX_MARKET_EVENTS = 6000;
+const MAX_DNA_ARCHIVE = 2500;
+const marketEvents = [];
+const dnaArchive = new Map();
+const marketEventClock = new Map();
+const pendingDbEvents = [];
+let lastDbEventFlush = 0;
+let lastScientistRun = 0;
+
 const strategyDefs = [
   ['banker','🏦','The Banker','LOW',.04,78,18,55,1,'capital preservation + confirmation'],
   ['quant','∑','The Quant','LOW',.05,76,20,65,1,'multi-factor statistical confirmation'],
@@ -108,6 +119,7 @@ function makeChallenger(parentId,id,name,mutation,mods={}) {
   const p = strategyDefs.find(x=>x.id===parentId);
   return {...p,id,name,icon:'🧪',risk:'R&D',type:'challenger',parentId,mutation,
     min:p.min+(mods.minDelta||0),stop:p.stop+(mods.stopDelta||0),take:p.take+(mods.takeDelta||0),riskCap:mods.riskCap,
+    exitMode:mods.exitMode||p.exitMode||null,sizeBias:mods.sizeBias||1,
     equity:START,cash:START,peak:START,dd:0,wins:0,losses:0,n:0,version:p.version+0.1};
 }
 
@@ -629,6 +641,140 @@ function tokenDataQuality(t){
   const ageSec=Math.max(0,(now()-t.updatedAt)/1000);const sourceCount=(t.sources||[]).length;const tx=(t.buys||0)+(t.sells||0);
   const freshness=clamp(100-ageSec*2);const multi=sourceCount>=2?100:sourceCount?55:0;const market=clamp(features(t).liqScore*.65+Math.min(35,tx*1.5));
   return{score:clamp(freshness*.35+multi*.3+market*.35),freshness,sourceCount,ageSec,market,level:ageSec>90?'STALE':sourceCount>=2?'CROSS-CHECKED':'SINGLE SOURCE'};
+}
+
+
+function median(xs){
+  const a=xs.filter(Number.isFinite).slice().sort((x,y)=>x-y);if(!a.length)return 0;
+  const m=Math.floor(a.length/2);return a.length%2?a[m]:(a[m-1]+a[m])/2;
+}
+function stdev(xs){
+  const a=xs.filter(Number.isFinite);if(a.length<2)return 0;const m=avg(a);
+  return Math.sqrt(a.reduce((s,x)=>s+(x-m)*(x-m),0)/(a.length-1));
+}
+function tokenDNA(t){
+  const f=features(t),dna=creatorDNA(t),q=tokenDataQuality(t),tx=(t.buys||0)+(t.sells||0);
+  return{
+    momentum:f.momentum,flow:f.flow,liquidity:f.liqScore,volume:f.volScore,early:f.early,
+    graduation:f.graduation,social:f.social,risk:f.risk,sourceQuality:f.sourceQuality,
+    dataQuality:q.score,creatorRisk:f.creatorRisk,buyPressure:f.buyRatio*100,
+    txDepth:clamp(Math.log10(1+tx)*32),marketCap:clamp(Math.log10(Math.max(1,t.mc))*13-25),
+    repeatCreator:dna.repeatCreator?100:0,hasTwitter:t.twitter?100:0,hasWebsite:t.website?100:0
+  };
+}
+function dnaDistance(a,b){
+  const weights={momentum:1.2,flow:1.3,liquidity:1,volume:1.15,early:.9,graduation:.8,social:.8,risk:1.35,sourceQuality:.75,dataQuality:1,creatorRisk:1.2,buyPressure:1.3,txDepth:.8,marketCap:.9,repeatCreator:.55,hasTwitter:.3,hasWebsite:.3};
+  let s=0,w=0;for(const [k,v] of Object.entries(weights)){const d=(num(a?.[k])-num(b?.[k]))/100;s+=v*d*d;w+=v;}
+  return Math.sqrt(s/Math.max(.001,w));
+}
+function updateDnaArchive(t){
+  if(!(t.price>0))return;let a=dnaArchive.get(t.mint);
+  if(!a){a={mint:t.mint,symbol:t.symbol,name:t.name,firstTs:now(),firstPrice:t.price,firstMc:t.mc,narrative:t.narrative,creator:t.creator||'',dna:tokenDNA(t),peakReturn:0,worstReturn:0,lastReturn:0,graduated:!!t.graduated,observations:0};dnaArchive.set(t.mint,a);}
+  const r=pct(t.price,a.firstPrice);a.peakReturn=Math.max(a.peakReturn,r);a.worstReturn=Math.min(a.worstReturn,r);a.lastReturn=r;a.graduated=a.graduated||!!t.graduated;a.observations++;
+  if(dnaArchive.size>MAX_DNA_ARCHIVE){const oldest=[...dnaArchive.values()].sort((x,y)=>x.firstTs-y.firstTs)[0];if(oldest)dnaArchive.delete(oldest.mint);}
+}
+function dnaSimilarity(t,limit=12){
+  const q=tokenDNA(t);const rows=[...dnaArchive.values()].filter(x=>x.mint!==t.mint&&x.observations>=2&&now()-x.firstTs>=5*60000)
+    .map(x=>({...x,distance:dnaDistance(q,x.dna),similarity:clamp((1-dnaDistance(q,x.dna))*100)})).sort((a,b)=>a.distance-b.distance).slice(0,limit);
+  return{n:rows.length,avgSimilarity:avg(rows.map(x=>x.similarity)),hit25:rows.length?rows.filter(x=>x.peakReturn>=25).length/rows.length*100:0,
+    hit100:rows.length?rows.filter(x=>x.peakReturn>=100).length/rows.length*100:0,avgPeak:avg(rows.map(x=>x.peakReturn)),avgWorst:avg(rows.map(x=>x.worstReturn)),
+    matches:rows.slice(0,6).map(x=>({mint:x.mint,symbol:x.symbol,similarity:x.similarity,peakReturn:x.peakReturn,worstReturn:x.worstReturn,narrative:x.narrative}))};
+}
+function adversarialRisk(t){
+  const f=features(t),dna=creatorDNA(t),q=tokenDataQuality(t),flags=[];let score=f.risk;
+  if(q.score<35){score+=12;flags.push('weak data quality');}
+  if((t.sources||[]).length<2){score+=5;flags.push('single source');}
+  if(dna.launches>=5&&dna.collapses>=2){score+=18;flags.push('repeat creator with multiple observed collapses');}
+  if((t.buys+t.sells)>=8&&f.buyRatio<.34){score+=15;flags.push('sell pressure dominates');}
+  if(t.liq>0&&t.mc/t.liq>35){score+=12;flags.push('market cap / liquidity imbalance');}
+  score=clamp(score);return{score,flags,hardVeto:score>=82,reason:flags.join(' · ')||'no independent hard veto'};
+}
+function recordMarketEvent(t,source){
+  const ts=now(),last=marketEventClock.get(t.mint)||0;if(ts-last<7000)return;marketEventClock.set(t.mint,ts);
+  const f=features(t),dna=tokenDNA(t),quality=tokenDataQuality(t),regime=marketWeather().regime;
+  const scores={};for(const d of strategyDefs.filter(x=>x.risk!=='CONTROL'))scores[d.id]=strategyScore(d,f,t);
+  const row={ts,mint:t.mint,symbol:t.symbol,source,price:t.price,mc:t.mc,liq:t.liq,vol:t.vol,buys:t.buys,sells:t.sells,narrative:t.narrative,regime,features:{...f},dna,quality:quality.score,scores};
+  marketEvents.push(row);while(marketEvents.length>MAX_MARKET_EVENTS)marketEvents.shift();
+  pendingDbEvents.push(row);if(pendingDbEvents.length>1500)pendingDbEvents.shift();
+}
+function replayLab(){
+  const rows=[...dnaArchive.values()].filter(x=>x.observations>=2&&now()-x.firstTs>=5*60000);const out=[];
+  for(const d of strategyDefs.filter(x=>x.risk!=='CONTROL')){
+    const seen=new Set(),signals=[];
+    for(const e of marketEvents){if(seen.has(e.mint)||e.scores?.[d.id]==null)continue;const gate=Math.max(0,entryPolicy(d).min);if(e.scores[d.id]>=gate){seen.add(e.mint);const o=dnaArchive.get(e.mint);if(o&&o.observations>=2)signals.push(o);}}
+    out.push({id:d.id,name:d.name,n:signals.length,hit25:signals.length?signals.filter(x=>x.peakReturn>=25).length/signals.length*100:0,hit100:signals.length?signals.filter(x=>x.peakReturn>=100).length/signals.length*100:0,avgPeak:avg(signals.map(x=>x.peakReturn)),avgWorst:avg(signals.map(x=>x.worstReturn))});
+  }
+  return{events:marketEvents.length,archive:rows.length,strategies:out.sort((a,b)=>(b.hit25-a.hit25)||(b.avgPeak-a.avgPeak)).slice(0,12)};
+}
+function walletGraphSnapshot(){
+  const byMint=new Map();for(const e of walletEvents){if(!e.wallet||!e.mint)continue;if(!byMint.has(e.mint))byMint.set(e.mint,[]);byMint.get(e.mint).push(e);}
+  const edges=new Map(),nodes=new Map();
+  for(const e of walletEvents){let n=nodes.get(e.wallet)||{wallet:e.wallet,events:0,mints:new Set(),watchlist:!!e.watchlist,traderName:e.traderName||null,last:0};n.events++;n.mints.add(e.mint);n.last=Math.max(n.last,e.ts);nodes.set(e.wallet,n);}
+  for(const es of byMint.values()){const wallets=[...new Set(es.map(x=>x.wallet))];for(let i=0;i<wallets.length;i++)for(let j=i+1;j<wallets.length;j++){const a=wallets[i],b=wallets[j],key=[a,b].sort().join('|');const prev=edges.get(key)||{a,b,shared:0,mints:new Set()};prev.shared++;for(const e of es)prev.mints.add(e.mint);edges.set(key,prev);}}
+  const eout=[...edges.values()].map(x=>({a:x.a,b:x.b,shared:x.shared,mints:x.mints.size,aName:nodes.get(x.a)?.traderName||null,bName:nodes.get(x.b)?.traderName||null})).sort((a,b)=>b.shared-a.shared).slice(0,40);
+  const nout=[...nodes.values()].map(x=>({wallet:x.wallet,events:x.events,mints:x.mints.size,watchlist:x.watchlist,traderName:x.traderName,last:x.last,degree:eout.filter(e=>e.a===x.wallet||e.b===x.wallet).length})).sort((a,b)=>b.degree-a.degree||b.events-a.events).slice(0,40);
+  return{nodes:nout,edges:eout,clusters:eout.filter(x=>x.shared>=2).length};
+}
+function strategyStatistics(){
+  return strategyDefs.filter(d=>d.risk!=='CONTROL').map(d=>{
+    const a=trades.filter(t=>t.strategy===d.id),rets=a.map(t=>t.pnlPct).filter(Number.isFinite),m=avg(rets),sd=stdev(rets),se=rets.length?sd/Math.sqrt(rets.length):0;
+    const grossWin=a.filter(t=>t.pnl>0).reduce((s,t)=>s+t.pnl,0),grossLoss=Math.abs(a.filter(t=>t.pnl<0).reduce((s,t)=>s+t.pnl,0));
+    const shrink=rets.length/(rets.length+20),shrunkMean=m*shrink;
+    return{id:d.id,name:d.name,n:rets.length,mean:m,median:median(rets),stdev:sd,ciLow:m-1.96*se,ciHigh:m+1.96*se,shrunkMean,winRate:rets.length?a.filter(t=>t.pnlPct>0).length/rets.length*100:0,profitFactor:grossLoss?grossWin/grossLoss:grossWin>0?9.99:0,dd:d.dd,equity:d.equity};
+  }).sort((a,b)=>b.shrunkMean-a.shrunkMean);
+}
+function dynamicAllocator(){
+  const regime=marketWeather().regime,stats=strategyStatistics();const rows=stats.map(s=>{
+    const d=strategyDefs.find(x=>x.id===s.id),reg=strategyRegimeWeight(s.id,regime),sample=s.n/(s.n+20),quality=clamp(50+s.shrunkMean*1.5-s.dd*.8,10,90)/50;
+    const independence=diversityWeight(s.id);const raw=Math.max(.05,reg*(.55+.45*sample)*quality*independence);
+    return{id:s.id,name:s.name,raw,n:s.n,shrunkMean:s.shrunkMean,dd:s.dd,risk:d?.risk||'MED'};
+  });const sum=rows.reduce((a,x)=>a+x.raw,0)||1;
+  return{regime,weights:rows.map(x=>({...x,pct:x.raw/sum*100})).sort((a,b)=>b.pct-a.pct),concentration:rows.length?Math.max(...rows.map(x=>x.raw/sum*100)):0};
+}
+function allocationWeight(id){
+  const a=dynamicAllocator(),w=a.weights.find(x=>x.id===id);if(!w)return 1;
+  const equal=100/Math.max(1,a.weights.length);return clamp(w.pct/equal,.55,1.65);
+}
+function exitModeFor(d){
+  if(d.exitMode)return d.exitMode;
+  const id=d.parentId||d.id;if(['banker','professional','sniper'].includes(id))return'defensive';
+  if(['momentum','smartmom','champion','degen'].includes(id))return'runner';
+  if(['swing','dip','contrarian'].includes(id))return'structure';
+  return'balanced';
+}
+function exitDecision(d,p,t,f){
+  const mode=exitModeFor(d),pnl=pct(t.price,p.entry),hold=(now()-p.opened)/60000,peakPnl=pct(p.peakDuring||t.price,p.entry),drawFromPeak=peakPnl-pnl;
+  let stop=d.stop,take=d.take,maxHold=d.id==='swing'?90:d.type==='challenger'?55:40;
+  if(mode==='defensive'){stop*=.82;take*=.82;maxHold=Math.min(maxHold,28);}
+  if(mode==='runner'){take*=1.35;maxHold=Math.max(maxHold,55);}
+  if(mode==='structure'){stop*=1.05;take*=1.08;maxHold=Math.max(maxHold,65);}
+  const trailing=peakPnl>=22&&drawFromPeak>=Math.max(8,peakPnl*.38);
+  const fade=f.momentum<(mode==='runner'?32:38)||f.buyRatio<(mode==='runner'?.34:.38);
+  if(pnl<=-stop)return{exit:true,why:'stop',mode};
+  if(pnl>=take)return{exit:true,why:'take profit',mode};
+  if(trailing)return{exit:true,why:'trailing peak protection',mode};
+  if(hold>maxHold)return{exit:true,why:'time exit',mode};
+  if(fade&&hold>1.5)return{exit:true,why:'thesis broke',mode};
+  return{exit:false,mode};
+}
+function exitOptimizer(){
+  const e=exitLab(),rows=productionTrades().filter(t=>t.counterfactual);const one=avg(rows.map(t=>t.counterfactual?.holdAfterExit?.oneMin).filter(Number.isFinite)),five=avg(rows.map(t=>t.counterfactual?.holdAfterExit?.fiveMin).filter(Number.isFinite));
+  const early=rows.filter(t=>(t.counterfactual?.bestObservedAfterExit||0)>=25&&t.pnlPct<15).length;
+  const late=rows.filter(t=>t.mae<=-25&&t.pnlPct<0).length;
+  let direction='COLLECTING';if(rows.length>=8){if(five>8&&early>late)direction='TEST LONGER HOLDS';else if(late>early)direction='TEST TIGHTER RISK';else direction='CURRENT MIX BALANCED';}
+  return{n:rows.length,direction,capture:e.capture,oneMin:one,fiveMin:five,earlyExitCandidates:early,lateExitCandidates:late,modes:['defensive','balanced','runner','structure']};
+}
+function opportunityCostLab(){
+  const rows=productionTrades().slice(0,250).map(t=>{const missed=[...opportunities.values()].filter(o=>o.strategy===t.strategy&&o.action==='REJECT'&&o.firstTs>=t.opened&&o.firstTs<=t.closedAt);const best=missed.length?Math.max(...missed.map(o=>o.bestReturn||0)):0;return{strategy:t.strategy,symbol:t.symbol,actual:t.pnlPct,bestMissed:best,cost:Math.max(0,best-t.pnlPct)};});
+  return{n:rows.length,avgCost:avg(rows.map(x=>x.cost)),highCost:rows.filter(x=>x.cost>=50).length,worst:rows.sort((a,b)=>b.cost-a.cost).slice(0,10)};
+}
+function scientistInsights(){
+  const hypotheses=[];const stats=strategyStatistics(),replay=replayLab(),op=opportunityCostLab(),ex=exitOptimizer();
+  const bestReplay=replay.strategies.find(x=>x.n>=5);if(bestReplay)hypotheses.push({kind:'entry',text:`${bestReplay.name} replay signals currently show ${bestReplay.hit25.toFixed(0)}% reaching +25% in the captured archive.`,evidence:{n:bestReplay.n,avgPeak:bestReplay.avgPeak}});
+  if(ex.n>=8&&ex.direction!=='CURRENT MIX BALANCED')hypotheses.push({kind:'exit',text:`${ex.direction}: post-exit continuation and adverse excursion evidence justify a controlled exit challenger.`,evidence:{n:ex.n,capture:ex.capture,fiveMin:ex.fiveMin}});
+  if(op.n>=8&&op.avgCost>15)hypotheses.push({kind:'capital',text:`Observed opportunity cost is elevated at ${op.avgCost.toFixed(1)} percentage points on average; allocator should penalize long low-edge holds.`,evidence:{n:op.n,highCost:op.highCost}});
+  const proven=stats.filter(x=>x.n>=10&&x.ciLow>0);if(proven.length)hypotheses.push({kind:'statistics',text:`${proven[0].name} has a positive 95% mean-return interval in the current sample; keep validating before promotion.`,evidence:{n:proven[0].n,ciLow:proven[0].ciLow,ciHigh:proven[0].ciHigh}});
+  return hypotheses.slice(0,8);
 }
 function providerAudit(){
   const rows=[...health.values()].map(x=>{const ageSec=Math.max(0,(now()-x.ts)/1000);const live=x.status==='ok';const score=live?clamp(100-ageSec*1.5):(x.status==='standby'?25:10);return{...x,ageSec,score};});
