@@ -362,8 +362,9 @@ function features(t) {
   const early=clamp(100-age*2.6);
   const graduation=t.graduated?100:clamp((t.mc/69000)*100);
   const social=clamp((t.twitter?20:0)+(t.telegram?16:0)+(t.website?9:0)+Math.min(20,t.boosts*3)+(flowFresh?Math.min(20,total*.9):0));
-  const freshSources=Object.values(t.sourceSeen||{}).filter(x=>ts-num(x)<180000).length;
-  const sourceQuality=clamp(freshSources*34);
+  const sourceSet=Object.entries(t.sourceSeen||{}).filter(([,v])=>ts-num(v)<180000).map(([k])=>k);
+  if(chainFresh&&!sourceSet.includes('solana-rpc'))sourceSet.push('solana-rpc');
+  const freshSources=sourceSet.length,sourceQuality=clamp(freshSources*34);
   const dna=creatorDNA(t);
   const creatorRisk=clamp((dna.launches>=4?12:0)+(dna.collapses>=2?20:0)-(dna.graduates?10:0));
   const drawdown=t.peakPrice>0?pct(t.price,t.peakPrice):0;
@@ -465,16 +466,14 @@ function detective(t,f=features(t)) {
 }
 
 function consensus(t) {
-  const f=features(t),adv=adversarialRisk(t); const votes=[];
+  const f=features(t),adv=adversarialRisk(t),q=tokenDataQuality(t),regime=marketWeather().regime,votes=[];
   for(const d of strategyDefs.filter(x=>x.risk!=='CONTROL'&&!x.specialist)){
-    const score=strategyScore(d,f,t),p=entryPolicy(d),weight=strategyRegimeWeight(d.id,marketWeather().regime)*diversityWeight(d.id);
-    const blocked=adv.hardVeto||(d.risk==='LOW'&&f.risk>p.lowRiskLimit)||(d.id==='sniper'&&f.risk>p.sniperRiskLimit)||(p.customRiskLimit&&f.risk>p.customRiskLimit);
-    votes.push({id:d.id,name:d.name,icon:d.icon,score,yes:score>=p.min&&!blocked,threshold:p.min,baseThreshold:d.min,blocked,weight});
+    const score=strategyScore(d,f,t),p=entryPolicy(d),g=entryGuard(d,t,f,score,p,q,adv,regime),weight=strategyRegimeWeight(d.id,regime)*diversityWeight(d.id);
+    votes.push({id:d.id,name:d.name,icon:d.icon,score,yes:g.ok&&score>=p.min,threshold:g.requiredScore||p.min,baseThreshold:d.min,blocked:!g.ok,why:g.reason,weight});
   }
   const yes=votes.filter(v=>v.yes).length,totalWeight=votes.reduce((a,v)=>a+v.weight,0)||1,yesWeight=votes.filter(v=>v.yes).reduce((a,v)=>a+v.weight,0);
-  return {yes,total:votes.length,pct:yes/votes.length*100,weightedPct:yesWeight/totalWeight*100,hardVeto:adv.hardVeto,votes};
+  return {yes,total:votes.length,pct:votes.length?yes/votes.length*100:0,weightedPct:yesWeight/totalWeight*100,hardVeto:adv.hardVeto,votes};
 }
-
 function marketWeather() {
   const recent=[...tokens.values()].filter(t=>now()-t.updatedAt<180000);
   if(!recent.length)return{regime:'OFFLINE',temperature:0,buyPressure:0,launchVelocity:0,collapseRate:0,risk:0,graduations:0};
@@ -522,7 +521,7 @@ function markEquity(d){
 
 function recordDecision(d,t,f,score,action,why='') {
   const row={ts:now(),era:STRATEGY_ERA,strategy:d.id,strategyName:d.name,mint:t.mint,symbol:t.symbol,action,score,risk:f.risk,price:t.price,mc:t.mc,narrative:t.narrative,regime:marketWeather().regime,why,
-    features:{momentum:f.momentum,flow:f.flow,volScore:f.volScore,liqScore:f.liqScore,social:f.social,age:f.age,sourceQuality:f.sourceQuality}};
+    features:{momentum:f.momentum,acceleration:f.acceleration,flow:f.flow,buyRatio:f.buyRatio,volScore:f.volScore,liqScore:f.liqScore,drawdown:f.drawdown,rebound:f.rebound,social:f.social,age:f.age,sourceQuality:f.sourceQuality}};
   decisions.unshift(row); decisions.splice(MAX_DECISIONS);
   const key=`${d.id}:${t.mint}`;
   if(!opportunities.has(key)) opportunities.set(key,{...row,firstTs:row.ts,firstPrice:t.price,bestReturn:0,worstReturn:0,latestReturn:0,entered:action==='BUY'});
@@ -974,6 +973,7 @@ function diversityWeight(id){
 function tokenDataQuality(t){
   const ts=now(),ageSec=Math.max(0,(ts-t.updatedAt)/1000),f=features(t);
   const freshSources=Object.entries(t.sourceSeen||{}).filter(([,v])=>ts-num(v)<180000).map(([k])=>k);
+  if((t.chainFlow||[]).some(e=>ts-e.ts<90000)&&!freshSources.includes('solana-rpc'))freshSources.push('solana-rpc');
   const freshness=clamp(100-ageSec*2),cross=freshSources.length>=2?100:freshSources.length?45:0;
   const liq=f.liqFresh?100:0,flow=f.flowFresh?100:0,volume=f.volumeFresh?100:0,depth=clamp(Math.log10(1+f.totalTx)*45);
   const score=clamp(freshness*.20+cross*.20+liq*.20+flow*.18+volume*.12+depth*.10);
