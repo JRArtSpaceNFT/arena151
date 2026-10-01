@@ -50,7 +50,9 @@ const strategyDefs = [
   ['professional','🛡','Professional','LOW',.055,80,18,65,1,'risk-adjusted return'],
   ['adaptive','🧭','Adaptive Master','MED',.09,74,20,72,2,'regime-aware ensemble'],
   ['random','🎲','Random Control','CONTROL',.05,999,22,45,1,'random baseline'],
-  ['volume','📊','Volume Control','CONTROL',.06,68,22,50,1,'simple volume baseline']
+  ['volume','📊','Volume Control','CONTROL',.06,68,22,50,1,'simple volume baseline'],
+  ['launchctl','🧱','Every Launch Control','CONTROL',.035,0,30,50,3,'buy-everything launch baseline'],
+  ['socialctl','📣','Social Metadata Control','CONTROL',.04,58,25,55,2,'simple social-metadata baseline']
 ].map(([id,icon,name,risk,size,min,stop,take,maxOpen,thesis]) => ({
   id,icon,name,risk,size,min,stop,take,maxOpen,thesis,version:1,equity:START,cash:START,peak:START,dd:0,wins:0,losses:0,n:0
 }));
@@ -178,6 +180,14 @@ function features(t) {
   return {momentum,flow,buyRatio,age,liqScore,volScore,early,graduation,social,risk,score,sourceQuality,creatorRisk};
 }
 
+function strategyRegimeWeight(id,regime){
+  const rows=trades.filter(t=>t.strategy===id&&(t.entryRegime||'UNKNOWN')===regime).slice(0,120);
+  if(!rows.length)return 1;
+  const edge=rows.reduce((a,t)=>a+t.pnlPct,0)/rows.length;
+  const learned=clamp(1+edge/45,.35,2.5);const trust=rows.length/(rows.length+10);
+  return learned*trust+1*(1-trust);
+}
+
 function strategyScore(d,f,t) {
   let s=f.score;
   if(d.id==='banker')s=f.liqScore*.28+f.flow*.18+f.volScore*.20+(100-f.risk)*.34;
@@ -195,8 +205,16 @@ function strategyScore(d,f,t) {
   else if(d.id==='sniper')s=f.score+(f.risk<35?12:-14)+(f.sourceQuality>50?4:0);
   else if(d.id==='champion')s=f.momentum*.38+f.flow*.24+f.volScore*.22+f.early*.16;
   else if(d.id==='professional')s=f.liqScore*.30+f.volScore*.20+f.flow*.18+(100-f.risk)*.32;
-  else if(d.id==='adaptive')s=f.score+(marketWeather().regime==='HOT'?f.momentum*.08:(100-f.risk)*.08);
+  else if(d.id==='adaptive'){
+    const regime=marketWeather().regime;
+    const peers=strategyDefs.filter(p=>p.risk!=='CONTROL'&&!['adaptive','champion','professional'].includes(p.id));
+    let total=0,weight=0,agree=0;
+    for(const p of peers){const ps=strategyScore(p,f,t),w=strategyRegimeWeight(p.id,regime);total+=ps*w;weight+=w;if(ps>=p.min)agree++;}
+    s=(weight?total/weight:f.score)+Math.min(12,agree*1.15)+(regime==='HOT'?f.momentum*.04:(100-f.risk)*.04);
+  }
   else if(d.id==='volume')s=f.volScore*.70+f.liqScore*.30;
+  else if(d.id==='launchctl')s=100;
+  else if(d.id==='socialctl')s=f.social;
   else if(d.id==='random')s=Math.random()*100;
   return clamp(s);
 }
@@ -288,11 +306,15 @@ function maybeTrade(t) {
       if(!opportunities.has(`${d.id}:${t.mint}`))recordDecision(d,t,f,score,'REJECT',score<d.min?'below threshold':'risk veto');
       continue;
     }
-    const budget=Math.min(d.cash*.45,Math.max(12,d.equity*d.size));
+    const regime=marketWeather().regime;let sizeMult=1;
+    if(regime==='RISK OFF'){if(['degen','champion'].includes(d.id))sizeMult=.5;else if(d.risk==='LOW'||d.id==='professional')sizeMult=.8;else sizeMult=.65;}
+    if(regime==='HOT'&&['champion','momentum','smartmom'].includes(d.id))sizeMult=1.15;
+    if(d.id==='adaptive')sizeMult*=clamp(.65+(score-60)/45,.55,1.35);
+    const budget=Math.min(d.cash*.45,Math.max(12,d.equity*d.size*sizeMult));
     const slip=.0035+Math.min(.04,budget/Math.max(1000,t.liq)*.5);const entry=t.price*(1+slip);const cost=budget*(1+FEE_RATE);
     if(cost>d.cash)continue;
     d.cash-=cost;
-    const p={id:'p'+now()+Math.random(),strategy:d.id,mint:t.mint,symbol:t.symbol,entry,units:budget/entry,invested:budget,opened:now(),closed:false,score,entryFeatures:{...f},reason:`score ${score.toFixed(0)} · risk ${f.risk.toFixed(0)} · flow ${(f.buyRatio*100).toFixed(0)}%`,peakDuring:entry,troughDuring:entry};
+    const p={id:'p'+now()+Math.random(),strategy:d.id,mint:t.mint,symbol:t.symbol,entry,units:budget/entry,invested:budget,opened:now(),closed:false,score,entryFeatures:{...f},reason:`score ${score.toFixed(0)} · risk ${f.risk.toFixed(0)} · flow ${(f.buyRatio*100).toFixed(0)}%`,entryRegime:regime,peakDuring:entry,troughDuring:entry};
     positions.push(p);recordDecision(d,t,f,score,'BUY',p.reason);
     if(d.risk!=='R&D')log('buy',`${d.icon} ${d.name} bought $${t.symbol} · $${budget.toFixed(0)} paper · ${p.reason}`,'good',{strategy:d.id,mint:t.mint});
   }
@@ -337,7 +359,7 @@ function ingest(raw,source){
   maybeTrade(t);broadcast('tick',{mint:t.mint});
 }
 
-async function fetchJson(url){const r=await fetch(url,{headers:{accept:'application/json','user-agent':'PUMP-LAB-LIVE/0.6'}});if(!r.ok)throw Error(`HTTP ${r.status}`);return r.json();}
+async function fetchJson(url){const r=await fetch(url,{headers:{accept:'application/json','user-agent':'PUMP-LAB-LIVE/0.7'}});if(!r.ok)throw Error(`HTTP ${r.status}`);return r.json();}
 async function pumpPoll(){
   try{const u='https://frontend-api-v3.pump.fun/coins?offset=0&limit=60&sort=created_timestamp&order=DESC&includeNsfw=false';const j=await fetchJson(u);const rows=Array.isArray(j)?j:(j.data||j.coins||[]);if(!rows.length)throw Error('no rows');rows.forEach(x=>ingest(x,'pump.fun'));setHealth('pump.fun','ok',`Live launch/state snapshots · ${rows.length} coins`,{truth:'observed'});}catch(e){setHealth('pump.fun','warn',`Snapshot feed unavailable: ${e.message}`);}
 }
@@ -407,7 +429,7 @@ function executionLab(){
 }
 function benchmarkStats(){
   strategyDefs.forEach(markEquity);
-  const ids=['champion','professional','adaptive','random','volume'];
+  const ids=['champion','professional','adaptive','random','volume','launchctl','socialctl'];
   return ids.map(id=>{const d=strategyDefs.find(x=>x.id===id);return{id,name:d.name,equity:d.equity,returnPct:(d.equity/START-1)*100,dd:d.dd,n:d.n,winRate:d.n?d.wins/d.n*100:0};});
 }
 function godBot(){
@@ -421,6 +443,33 @@ function archetypeMemory(){
   const groups=new Map();for(const o of opportunities.values()){if(!Number.isFinite(o.bestReturn))continue;const key=`${o.narrative||'Memes'} · ${o.regime||'UNKNOWN'} · ${o.score>=80?'80+':o.score>=70?'70-79':'<70'}`;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(o);}
   return[...groups].map(([name,a])=>({name,n:a.length,hitRate:a.filter(o=>o.bestReturn>=25).length/a.length*100,avgBest:avg(a.map(o=>o.bestReturn)),avgWorst:avg(a.map(o=>o.worstReturn))})).filter(x=>x.n>=3).sort((a,b)=>b.hitRate-a.hitRate||b.avgBest-a.avgBest).slice(0,15);
 }
+
+function holdTimeLab(){
+  const rows=productionTrades().map(t=>({...t,holdMin:(t.closedAt-t.opened)/60000}));
+  return bandStats(rows,t=>t.holdMin<3?'<3m':t.holdMin<10?'3-10m':t.holdMin<30?'10-30m':'30m+');
+}
+function coalitionStats(){
+  const byMint=new Map();for(const d of decisions){if(d.action!=='BUY'||['random','volume','launchctl','socialctl'].includes(d.strategy)||d.strategy.includes('-c'))continue;if(!byMint.has(d.mint))byMint.set(d.mint,[]);byMint.get(d.mint).push(d);}
+  const pairs=new Map();
+  for(const [mint,a0] of byMint){const a=[...new Map(a0.map(x=>[x.strategy,x])).values()].sort((x,y)=>x.ts-y.ts);for(let i=0;i<a.length;i++)for(let j=i+1;j<a.length;j++){if(Math.abs(a[i].ts-a[j].ts)>120000)continue;const ids=[a[i].strategy,a[j].strategy].sort();const key=ids.join('+');const o1=opportunities.get(a[i].strategy+':'+mint),o2=opportunities.get(a[j].strategy+':'+mint);const best=Math.max(o1?.bestReturn||0,o2?.bestReturn||0),worst=Math.min(o1?.worstReturn||0,o2?.worstReturn||0);if(!pairs.has(key))pairs.set(key,[]);pairs.get(key).push({best,worst});}}
+  return[...pairs].map(([pair,a])=>({pair,n:a.length,hitRate:a.filter(x=>x.best>=25).length/a.length*100,avgBest:avg(a.map(x=>x.best)),avgWorst:avg(a.map(x=>x.worst))})).filter(x=>x.n>=2).sort((a,b)=>b.hitRate-a.hitRate||b.avgBest-a.avgBest).slice(0,15);
+}
+function regimeMatrix(){
+  const regimes=['HOT','SELECTIVE','RISK OFF'];return regimes.map(regime=>{const rows=strategyDefs.filter(d=>d.risk!=='CONTROL').map(d=>{const a=trades.filter(t=>t.strategy===d.id&&(t.entryRegime||'UNKNOWN')===regime);return{name:d.name,id:d.id,n:a.length,avgPnl:avg(a.map(t=>t.pnlPct)),winRate:a.length?a.filter(t=>t.pnlPct>0).length/a.length*100:0};}).filter(x=>x.n>0).sort((a,b)=>b.avgPnl-a.avgPnl);return{regime,leaders:rows.slice(0,5)};});
+}
+function masterAllocation(){
+  const regime=marketWeather().regime;const peers=strategyDefs.filter(d=>d.risk!=='CONTROL'&&!['adaptive','champion','professional'].includes(d.id));
+  const raw=peers.map(d=>({id:d.id,name:d.name,weight:strategyRegimeWeight(d.id,regime)}));const sum=raw.reduce((a,x)=>a+x.weight,0)||1;
+  return{regime,weights:raw.map(x=>({...x,pct:x.weight/sum*100})).sort((a,b)=>b.pct-a.pct).slice(0,10)};
+}
+function riskScoreboard(){
+  strategyDefs.forEach(markEquity);return strategyDefs.filter(d=>d.risk!=='CONTROL').map(d=>{const ret=(d.equity/START-1)*100;const rows=trades.filter(t=>t.strategy===d.id);const losses=rows.filter(t=>t.pnlPct<0);const avgLoss=Math.abs(avg(losses.map(t=>t.pnlPct)));const riskAdjusted=ret/Math.max(5,d.dd||0);const ruinProxy=clamp((d.dd||0)*1.4+avgLoss*.7+(d.risk==='EXTREME'?12:d.risk==='HIGH'?6:0));return{id:d.id,name:d.name,ret,dd:d.dd,riskAdjusted,ruinProxy,n:d.n};}).sort((a,b)=>b.riskAdjusted-a.riskAdjusted);
+}
+function tournament(){
+  const since=now()-24*3600000;const map=new Map();for(const t of trades.filter(t=>t.closedAt>=since&&!t.strategy.includes('-c'))){if(!map.has(t.strategy))map.set(t.strategy,{pnl:0,n:0,wins:0});const x=map.get(t.strategy);x.pnl+=t.pnl||0;x.n++;if(t.pnl>0)x.wins++;}
+  return[...map].map(([id,x])=>{const d=strategyDefs.find(q=>q.id===id);return{id,name:d?.name||id,pnl:x.pnl,n:x.n,winRate:x.n?x.wins/x.n*100:0};}).sort((a,b)=>b.pnl-a.pnl);
+}
+
 function evaluateEvolution(){
   for(const c of challengers){const p=strategyDefs.find(x=>x.id===c.parentId);if(!p||c.n<50)continue;markEquity(c);markEquity(p);const edge=c.equity-p.equity;
     if(!c.promotedAt&&edge>125&&c.dd<=p.dd+5){p.min=c.min;p.stop=c.stop;p.take=c.take;if(c.riskCap)p.riskCap=c.riskCap;p.version=(p.version||1)+1;c.promotedAt=now();const row={ts:now(),child:c.name,parent:p.name,edge,sample:c.n,newVersion:p.version};promotions.unshift(row);promotions.splice(100);log('evolution',`🏆 ${c.name} promoted into ${p.name} v${p.version}`,'system',row);}
@@ -460,11 +509,11 @@ function loadLocal(){try{restore(JSON.parse(fs.readFileSync(STATE_FILE,'utf8')))
 function snapshot(){
   allTraders().forEach(markEquity);const active=[...tokens.values()].filter(t=>now()-t.updatedAt<900000).sort((a,b)=>b.updatedAt-a.updatedAt).slice(0,80).map(t=>({...t,features:features(t),detective:detective(t),consensus:consensus(t),dna:creatorDNA(t)}));
   const prod=strategyDefs.filter(d=>d.risk!=='CONTROL');const weather=marketWeather();
-  return{now:now(),startedAt,paperOnly:true,mode:'LIVE ONLY',version:'0.6 Research Engine',target:TARGET,weather,providers:[...health.values()],
+  return{now:now(),startedAt,paperOnly:true,mode:'LIVE ONLY',version:'0.7 Meta Tournament',target:TARGET,weather,providers:[...health.values()],
     summary:{capital:prod.reduce((a,d)=>a+d.equity,0),start:prod.length*START,trades:prod.reduce((a,d)=>a+d.n,0),open:positions.filter(p=>!p.closed&&prod.some(d=>d.id===p.strategy)).length,tokens:tokens.size,decisions:decisions.length},
     strategies:strategyDefs.map(d=>({...d,winRate:d.n?d.wins/d.n*100:0,open:openCount(d.id)})),experiments:experimentSnapshot(),tokens:active,
     narratives:narrativeStats().slice(0,15),creators:creatorLeaderboard(),positions:positions.filter(p=>!p.closed).slice(-120),trades:trades.slice(0,150),activity:activity.slice(0,140),research,
-    missed:missedMonsters(),saved:savedMyAss(),hall:hallOfFame(),worst:worstTrades(),autopsies:autopsies.slice(0,30),timeline:timeline.slice(-120),decisions:decisions.slice(0,160),calibration:confidenceCalibration(),entryLab:entryLab(),exitLab:exitLab(),sizingLab:sizingLab(),executionLab:executionLab(),benchmarks:benchmarkStats(),godBot:godBot(),archetypes:archetypeMemory(),evolution:{family:familyTree(),promotions:promotions.slice(0,20),graveyard:graveyard.slice(0,20)}};
+    missed:missedMonsters(),saved:savedMyAss(),hall:hallOfFame(),worst:worstTrades(),autopsies:autopsies.slice(0,30),timeline:timeline.slice(-120),decisions:decisions.slice(0,160),calibration:confidenceCalibration(),entryLab:entryLab(),exitLab:exitLab(),sizingLab:sizingLab(),executionLab:executionLab(),benchmarks:benchmarkStats(),godBot:godBot(),archetypes:archetypeMemory(),evolution:{family:familyTree(),promotions:promotions.slice(0,20),graveyard:graveyard.slice(0,20)},holdTime:holdTimeLab(),coalitions:coalitionStats(),regimeMatrix:regimeMatrix(),masterAllocation:masterAllocation(),riskBoard:riskScoreboard(),tournament:tournament()};
 }
 
 const HTML=`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>PUMP LAB / LIVE</title><style>
@@ -480,7 +529,9 @@ const HTML=`<!doctype html><html><head><meta charset="utf-8"><meta name="viewpor
 <div class="three" style="margin-top:12px"><div class="card"><h3>🎯 CONFIDENCE CALIBRATION</h3><div id="calibration"></div></div><div class="card"><h3>🆚 BENCHMARKS</h3><div id="benchmarks"></div></div><div class="card"><h3>🧬 EVOLUTION</h3><div id="evolution"></div></div></div>
 <div class="grid4" style="margin-top:12px"><div class="card"><h3>ENTRY LAB</h3><div id="entryLab"></div></div><div class="card"><h3>EXIT LAB</h3><div id="exitLab"></div></div><div class="card"><h3>SIZING LAB</h3><div id="sizingLab"></div></div><div class="card"><h3>EXECUTION STRESS</h3><div id="executionLab"></div></div></div>
 <div class="two" style="margin-top:12px"><div class="card"><h3>👁 GOD BOT · UPPER BOUND</h3><div id="godBot"></div></div><div class="card"><h3>🧠 MARKET ARCHETYPE MEMORY</h3><div id="archetypes"></div></div></div>
-<div class="card" style="margin-top:12px"><h3>☠️ STRATEGY GRAVEYARD / PROMOTIONS</h3><div id="graveyard"></div></div></div>
+<div class="card" style="margin-top:12px"><h3>☠️ STRATEGY GRAVEYARD / PROMOTIONS</h3><div id="graveyard"></div></div>
+<div class="three" style="margin-top:12px"><div class="card"><h3>🧭 ADAPTIVE MASTER ALLOCATION</h3><div id="masterAllocation"></div></div><div class="card"><h3>🤝 SIGNAL COALITIONS</h3><div id="coalitions"></div></div><div class="card"><h3>⏱ HOLD-TIME LAB</h3><div id="holdTime"></div></div></div>
+<div class="two" style="margin-top:12px"><div class="card"><h3>🌦 REGIME LEADERBOARD</h3><div id="regimeMatrix"></div></div><div class="card"><h3>🏁 24H GRAND PRIX / RISK BOARD</h3><div id="tournament"></div><hr style="border-color:#223047"><div id="riskBoard"></div></div></div></div>
 <div class="pane" id="time"><div class="card"><div class="sectionTitle"><h2>⏪ Time Machine</h2><p>Immutable periodic snapshots of what the lab knew then.</p></div><div class="controls"><select id="timeSelect"></select><span class="muted" id="timeView"></span></div><div id="timeCards" class="grid4"></div></div><div class="card" style="margin-top:12px"><h3>TRUTH LEDGER · RECENT DECISIONS</h3><div class="scroll"><table class="table"><thead><tr><th>Time</th><th>Agent</th><th>Token</th><th>Decision</th><th>Score</th><th>Risk</th><th>Why</th></tr></thead><tbody id="ledger"></tbody></table></div></div></div>
 </div><div class="drawer" id="drawer"><button class="close" onclick="closeDrawer()">Close</button><div id="drawerBody"></div></div><script>
 const $=x=>document.getElementById(x);const money=n=>'$'+Number(n||0).toLocaleString(undefined,{maximumFractionDigits:0});const one=n=>Number(n||0).toFixed(1);let S=null;
@@ -510,6 +561,13 @@ $('executionLab').innerHTML='<div class="smallcard"><b>EASY</b><span style="floa
 $('godBot').innerHTML='<div class="big">'+one(s.godBot.capture)+'%</div><div class="mini">of observed favorable excursion captured · avg available '+one(s.godBot.avgAvailable)+'%</div>'+(s.godBot.bestTheoretical?'<p>Best theoretical held move: <b>$'+esc(s.godBot.bestTheoretical.symbol)+'</b> '+one(s.godBot.bestTheoretical.mfe)+'% MFE vs '+one(s.godBot.bestTheoretical.pnl)+'% captured</p>':'')+(s.godBot.biggestMiss?'<p>Biggest rejected opportunity: <b>$'+esc(s.godBot.biggestMiss.symbol)+'</b> '+one(s.godBot.biggestMiss.bestReturn)+'%</p>':'');
 $('archetypes').innerHTML=(s.archetypes||[]).slice(0,10).map(x=>'<div class="smallcard" style="margin:6px 0"><b>'+esc(x.name)+'</b><span style="float:right">'+one(x.hitRate)+'%</span><div class="mini">n='+x.n+' · avg best '+one(x.avgBest)+'% · avg worst '+one(x.avgWorst)+'%</div></div>').join('')||'<div class="muted">Pattern memory needs more observations.</div>';
 $('graveyard').innerHTML='<div class="two"><div><b class="green">PROMOTIONS</b>'+((s.evolution.promotions||[]).map(x=>'<div class="smallcard" style="margin:6px 0">🏆 '+esc(x.child)+' → '+esc(x.parent)+' v'+x.newVersion+' · n='+x.sample+'</div>').join('')||'<div class="muted">No promotions yet.</div>')+'</div><div><b class="red">GRAVEYARD</b>'+((s.evolution.graveyard||[]).map(x=>'<div class="smallcard" style="margin:6px 0">☠️ '+esc(x.child)+' · '+esc(x.reason)+' · n='+x.sample+'</div>').join('')||'<div class="muted">No dead challengers yet.</div>')+'</div></div>';
+$('masterAllocation').innerHTML='<div class="mini">Current regime: <b>'+esc(s.masterAllocation.regime)+'</b></div>'+(s.masterAllocation.weights||[]).slice(0,8).map(x=>'<div class="smallcard" style="margin:6px 0"><b>'+esc(x.name)+'</b><span style="float:right">'+one(x.pct)+'%</span><div class="meter" style="margin-top:5px"><i style="width:'+Math.min(100,x.pct*4)+'%"></i></div></div>').join('');
+$('coalitions').innerHTML=(s.coalitions||[]).slice(0,10).map(x=>'<div class="smallcard" style="margin:6px 0"><b>'+esc(x.pair)+'</b><span style="float:right">'+one(x.hitRate)+'% hit</span><div class="mini">n='+x.n+' · best '+one(x.avgBest)+'% · worst '+one(x.avgWorst)+'%</div></div>').join('')||'<div class="muted">Waiting for repeated co-signals.</div>';
+$('holdTime').innerHTML=(s.holdTime||[]).map(x=>'<div class="smallcard" style="margin:6px 0"><b>'+esc(x.band)+'</b><span style="float:right" class="'+(x.avgPnl>=0?'green':'red')+'">'+(x.avgPnl>=0?'+':'')+one(x.avgPnl)+'%</span><div class="mini">n='+x.n+' · '+one(x.winRate)+'% wins · MFE '+one(x.avgMfe)+'%</div></div>').join('')||'<div class="muted">Need closed trades.</div>';
+$('regimeMatrix').innerHTML=(s.regimeMatrix||[]).map(r=>'<div class="smallcard" style="margin:7px 0"><b>'+esc(r.regime)+'</b><div class="mini">'+(r.leaders.length?r.leaders.map(x=>esc(x.name)+' '+(x.avgPnl>=0?'+':'')+one(x.avgPnl)+'% n='+x.n).join(' · '):'collecting data')+'</div></div>').join('');
+$('tournament').innerHTML=(s.tournament||[]).slice(0,8).map((x,i)=>'<div class="smallcard" style="margin:6px 0"><b>'+(i+1)+'. '+esc(x.name)+'</b><span style="float:right" class="'+(x.pnl>=0?'green':'red')+'">'+(x.pnl>=0?'+':'')+money(x.pnl)+'</span><div class="mini">24h · '+x.n+' exits · '+one(x.winRate)+'% wins</div></div>').join('')||'<div class="muted">Grand Prix collecting first exits.</div>';
+$('riskBoard').innerHTML=(s.riskBoard||[]).slice(0,6).map(x=>'<div class="mini" style="margin:5px 0">'+esc(x.name)+' · risk-adj '+one(x.riskAdjusted)+' · ruin proxy '+one(x.ruinProxy)+'/100</div>').join('');
+
 $('researchText').innerHTML='<p><b>Last cycle:</b> '+(s.research.last?new Date(s.research.last).toLocaleString():'collecting first hour')+'</p>'+s.research.notes.map(n=>'<p>• '+esc(n)+'</p>').join('')+(s.research.hypotheses.length?'<hr style="border-color:#223047"><b>Hypotheses under test</b>'+s.research.hypotheses.map(n=>'<p>🧠 '+esc(n)+'</p>').join(''):'');
 renderTime(s.timeline);$('ledger').innerHTML=s.decisions.slice(0,120).map(d=>'<tr><td>'+new Date(d.ts).toLocaleTimeString()+'</td><td>'+esc(d.strategyName)+'</td><td>$'+esc(d.symbol)+'</td><td class="'+(d.action==='BUY'?'green':'muted')+'">'+d.action+'</td><td>'+one(d.score)+'</td><td>'+one(d.risk)+'</td><td class="muted">'+esc(d.why)+'</td></tr>').join('');}
 function listOpp(a,key,positive,empty){return a.slice(0,10).map(o=>'<div class="smallcard" style="margin:7px 0"><b>$'+esc(o.symbol)+' · '+esc(o.strategyName)+'</b><span style="float:right" class="'+(positive?'green':'red')+'">'+(o[key]>=0?'+':'')+one(o[key])+'%</span><div class="mini">rejected: '+esc(o.why)+'</div></div>').join('')||'<div class="muted">'+empty+'</div>'}
@@ -529,6 +587,6 @@ await initDb();
 setHealth('engine','ok','18 production/control portfolios + 4 R&D challengers online',{truth:'observed'});
 setHealth('x-social','standby','Full X stream not connected · social agent uses token social metadata only',{truth:'not connected'});
 setHealth('wallet-intel','standby','Full wallet/holder stream not connected · no fake wallet claims are generated',{truth:'not connected'});
-server.listen(PORT,'0.0.0.0',()=>{log('system','🚀 PUMP LAB v0.6 Research Engine started','system');connectPumpPortal();pumpPoll();dexPoll();console.log('PUMP LAB v0.6 on '+PORT);});
+server.listen(PORT,'0.0.0.0',()=>{log('system','🚀 PUMP LAB v0.7 Meta Tournament started','system');connectPumpPortal();pumpPoll();dexPoll();console.log('PUMP LAB v0.7 on '+PORT);});
 setInterval(pumpPoll,7000).unref?.();setInterval(dexPoll,20000).unref?.();setInterval(takeTimeline,30000).unref?.();setInterval(researchCycle,3600000).unref?.();setInterval(()=>save(),30000).unref?.();takeTimeline();
 process.on('SIGTERM',async()=>{await save();server.close(()=>process.exit(0));});process.on('SIGINT',async()=>{await save();server.close(()=>process.exit(0));});
