@@ -1,10 +1,10 @@
 {
   "name": "pump-lab-live",
-  "version": "0.6.0",
+  "version": "0.9.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node pump-lab.mjs"
+    "start": "node server.mjs"
   },
   "dependencies": {
     "pg": "^8.16.3"
