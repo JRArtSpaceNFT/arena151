@@ -1897,6 +1897,28 @@ body:before{
 .mastwords{position:absolute;right:12px;top:56px;font:10px/1.25 ui-monospace,SFMono-Regular,Menlo,monospace;color:#80878f;text-align:right;text-transform:uppercase}
 .maststatement{position:absolute;right:0;bottom:40px;width:170px;font-size:16px;font-weight:900;line-height:1.02;text-transform:uppercase}
 .mastline{position:absolute;right:0;bottom:18px;width:118px;height:1px;background:#0d0f12}
+.magicOrb{cursor:pointer;outline:none;user-select:none}
+.magicOrb:focus-visible{outline:1px solid #8d949b;outline-offset:-8px}
+.magicOrb:active:before{transform:translate(-50%,-48%) scale(.985)!important}
+.magicOrb:before{z-index:1;transition:transform .38s cubic-bezier(.2,.8,.2,1),filter .38s,box-shadow .38s}
+.magicOrb:after{z-index:2}
+.magicOrb:hover:before{filter:blur(.2px) brightness(1.035);box-shadow:-34px 48px 88px rgba(20,25,30,.22),inset 30px -35px 80px rgba(255,255,255,.62)}
+.oracleAnswer{
+  position:absolute;left:46%;top:49%;transform:translate(-50%,-50%) scale(.82);z-index:4;
+  min-width:210px;max-width:290px;text-align:center;color:rgba(255,255,255,.98);
+  font-size:clamp(24px,2.35vw,42px);font-weight:950;line-height:.92;letter-spacing:-.055em;text-transform:uppercase;
+  opacity:0;filter:blur(18px);text-shadow:0 2px 18px rgba(0,0,0,.58);pointer-events:none;
+  transition:opacity 1.05s ease,filter 1.15s ease,transform 1.15s cubic-bezier(.18,.75,.22,1)
+}
+.oracleAnswer.show{opacity:1;filter:blur(0);transform:translate(-50%,-50%) scale(1)}
+.oracleHint{
+  position:absolute;left:46%;bottom:15px;transform:translateX(-50%);z-index:5;white-space:nowrap;
+  font:8px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.18em;text-transform:uppercase;color:#969da4;
+  opacity:.72;transition:opacity .2s
+}
+.magicOrb:hover .oracleHint{opacity:1;color:#545b62}
+.magicOrb.answered .oracleHint{opacity:.42}
+
 .hero{
   margin:22px 0 16px;padding:0;border:0;border-radius:0;background:none;display:grid;grid-template-columns:1.35fr 1fr;gap:12px
 }
@@ -2025,9 +2047,11 @@ hr{border-color:#e0e3e5!important}
     <p class="mastlede">A living market laboratory where autonomous agents study Pump.fun and Solana, compete for edge, learn from mistakes, and evolve in public.</p>
     <div class="statusrail"><div class="statusswitch"><i></i> Live market data</div><div class="statusswitch">Paper only</div><span class="statusnote">AI agents · market memory · shadow execution · evolution</span></div>
   </div>
-  <div class="mastart" aria-hidden="true">
+  <div class="mastart magicOrb" id="magicOrb" role="button" tabindex="0" aria-label="Ask the Pump Lab oracle" title="Ask the Pump Lab oracle">
     <div class="mastindex">01 / SYSTEM<br>02 / AGENTS<br>03 / MARKETS<br>04 / MEMORY</div>
     <div class="mastwords">DATA<br>AGENTS<br>MARKETS<br>IDEAS<br>SIMULATION<br>EVOLUTION</div>
+    <div class="oracleAnswer" id="oracleAnswer" aria-live="polite"></div>
+    <div class="oracleHint">Click the object · ask anything</div>
     <div class="maststatement">Trading the next generation of tokens.</div><div class="mastline"></div>
   </div>
 </section>
@@ -2148,6 +2172,19 @@ async function loadDeepResearch(){
   finally{deepLoading=false;}
 }
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab,.pane').forEach(x=>x.classList.remove('on'));t.classList.add('on');$(t.dataset.p).classList.add('on');if(['intel','research','time'].includes(t.dataset.p))loadDeepResearch();});document.addEventListener('pointermove',e=>{const el=e.target.closest('.card,.smallcard,.hero>div');if(!el)return;const r=el.getBoundingClientRect();el.style.setProperty('--mx',((e.clientX-r.left)/Math.max(1,r.width)*100)+'%');el.style.setProperty('--my',((e.clientY-r.top)/Math.max(1,r.height)*100)+'%');}); // PUMP LAB tactile pointer lighting
+const ORACLE_ANSWERS=['YES','NO','MAYBE','IDK','ASK AGAIN','VERY LIKELY','DOUBTFUL','ABSOLUTELY','NOT YET','SIGNS POINT YES',"DON'T COUNT ON IT",'OUTLOOK GOOD','UNCLEAR','TRY LATER','WITHOUT A DOUBT','BETTER NOT TELL YOU'];
+function askMagicOrb(){
+  const orb=$('magicOrb'),answer=$('oracleAnswer');if(!orb||!answer)return;
+  const next=ORACLE_ANSWERS[Math.floor(Math.random()*ORACLE_ANSWERS.length)];
+  answer.classList.remove('show');orb.classList.remove('answered');
+  window.clearTimeout(orb._oracleTimer);
+  orb._oracleTimer=window.setTimeout(()=>{answer.textContent=next;answer.classList.add('show');orb.classList.add('answered');},180);
+}
+const magicOrb=$('magicOrb');
+if(magicOrb){
+  magicOrb.addEventListener('click',askMagicOrb);
+  magicOrb.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();askMagicOrb();}});
+}
 </script></body></html>`;
 
 const server=http.createServer((req,res)=>{
