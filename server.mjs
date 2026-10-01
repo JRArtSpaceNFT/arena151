@@ -435,12 +435,14 @@ function connectSolanaStream(){
   try{
     solanaWs=new WebSocket(SOLANA_RPC_WSS);
     solanaWs.addEventListener('open',()=>{
-      setHealth('solana-stream','ok','Direct Pump.fun program log stream connected',{truth:'observed'});
+      const watched=[...WATCHED_WALLET_LOOKUP.keys()];
+      setHealth('solana-stream','ok',`Pump.fun + ${watched.length} verified Fomo wallet subscriptions connected`,{truth:'observed'});
       solanaWs.send(JSON.stringify({jsonrpc:'2.0',id:901,method:'logsSubscribe',params:[{mentions:[PUMP_PROGRAM]},{commitment:'confirmed'}]}));
+      watched.forEach((address,i)=>solanaWs.send(JSON.stringify({jsonrpc:'2.0',id:1000+i,method:'logsSubscribe',params:[{mentions:[address]},{commitment:'confirmed'}]})));
     });
     solanaWs.addEventListener('message',ev=>{try{const m=JSON.parse(String(ev.data));const sig=m?.params?.result?.value?.signature;if(sig)queueSolanaSignature(sig);}catch{}});
-    solanaWs.addEventListener('close',()=>{setHealth('solana-stream','warn','Public Solana websocket disconnected · reconnecting',{truth:'observed'});setTimeout(connectSolanaStream,5000);});
-    solanaWs.addEventListener('error',()=>setHealth('solana-stream','warn','Public Solana websocket error',{truth:'observed'}));
+    solanaWs.addEventListener('close',()=>{setHealth('solana-stream','warn','Solana websocket disconnected · reconnecting',{truth:'observed'});setTimeout(connectSolanaStream,5000);});
+    solanaWs.addEventListener('error',()=>setHealth('solana-stream','warn','Solana websocket error',{truth:'observed'}));
   }catch(e){setHealth('solana-stream','warn','Solana stream setup failed: '+e.message,{truth:'observed'});}
 }
 async function rpcTransaction(sig){
@@ -448,9 +450,16 @@ async function rpcTransaction(sig){
   if(!r.ok)throw Error('RPC '+r.status); const j=await r.json(); return j.result||null;
 }
 function uiAmt(x){return num(x?.uiTokenAmount?.uiAmountString??x?.uiTokenAmount?.uiAmount??0);}
+function keyText(k){return typeof k==='string'?k:(k?.pubkey||'');}
+function solDeltaFor(tx,wallet){
+  const keys=tx?.transaction?.message?.accountKeys||[];const i=keys.findIndex(k=>keyText(k)===wallet);
+  if(i<0)return 0;const pre=tx?.meta?.preBalances?.[i],post=tx?.meta?.postBalances?.[i];
+  return Number.isFinite(pre)&&Number.isFinite(post)?(post-pre)/1e9:0;
+}
 function parseWalletTx(sig,tx){
   const keys=tx?.transaction?.message?.accountKeys||[]; const signerKeys=keys.filter(k=>typeof k==='object'&&k.signer).map(k=>k.pubkey);
   if(!signerKeys.length&&typeof keys[0]==='string')signerKeys.push(keys[0]);
+  const allKeys=new Set(keys.map(keyText).filter(Boolean));const hasPump=allKeys.has(PUMP_PROGRAM);
   const pre=tx?.meta?.preTokenBalances||[], post=tx?.meta?.postTokenBalances||[];
   const idx=new Map();
   for(const b of pre){const k=(b.owner||'')+':'+b.mint;idx.set(k,{owner:b.owner,mint:b.mint,pre:uiAmt(b),post:0});}
@@ -458,9 +467,16 @@ function parseWalletTx(sig,tx){
   let found=0;
   for(const x of idx.values()){
     if(!x.owner||!signerKeys.includes(x.owner))continue; const delta=x.post-x.pre;if(Math.abs(delta)<1e-12)continue;
-    const tok=tokens.get(x.mint); const action=delta>0?'BUY':'SELL'; const price=tok?.price||0;
-    walletEvents.unshift({ts:now(),signature:sig,wallet:x.owner,mint:x.mint,symbol:tok?.symbol||x.mint.slice(0,5),action,tokenDelta:delta,price,mc:tok?.mc||0});
-    walletEvents.splice(1200); found++;
+    const tok=tokens.get(x.mint);const watch=WATCHED_WALLET_LOOKUP.get(x.owner);const solDelta=solDeltaFor(tx,x.owner);
+    let action=delta>0?'BUY':'SELL',classification='token-balance delta';
+    if(watch&&!hasPump){
+      if(delta>0&&solDelta>=-.0001)action='TOKEN_IN';
+      if(delta<0&&solDelta<=.0001)action='TOKEN_OUT';
+      classification=(action==='BUY'||action==='SELL')?'token + native SOL delta':'direction observed; trade not yet proven';
+    }else if(hasPump)classification='Pump.fun program + token delta';
+    const event={ts:now(),blockTime:tx?.blockTime?tx.blockTime*1000:null,slot:tx?.slot||null,signature:sig,wallet:x.owner,mint:x.mint,symbol:tok?.symbol||x.mint.slice(0,5),action,tokenDelta:delta,solDelta,price:tok?.price||0,mc:tok?.mc||0,classification,source:'Solana RPC',watchlist:!!watch,traderId:watch?.traderId||null,traderName:watch?.traderName||null,walletLabel:watch?.label||null};
+    walletEvents.unshift(event);walletEvents.splice(1200); found++;
+    if(watch)log('smart-wallet',`👀 ${watch.traderName} · ${action} · ${event.symbol}`,'info',{traderId:watch.traderId,wallet:x.owner,mint:x.mint,signature:sig});
     if(tok){tok.chainBuys=num(tok.chainBuys)+(action==='BUY'?1:0);tok.chainSells=num(tok.chainSells)+(action==='SELL'?1:0);tok.chainTx=num(tok.chainTx)+1;tok.lastChainAt=now();}
   }
   if(found)solanaResolved++;
