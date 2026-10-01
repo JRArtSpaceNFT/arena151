@@ -68,6 +68,7 @@ let solanaObserved = 0;
 let solanaResolved = 0;
 let solanaSubAcks = 0;
 let db = null;
+let dbConnecting = false;
 let research = { last: 0, notes: [], hypotheses: [] };
 let startedAt = Date.now();
 
@@ -688,9 +689,30 @@ function experimentSnapshot(){
 
 function takeTimeline(){const w=marketWeather();strategyDefs.forEach(markEquity);timeline.push({ts:now(),regime:w.regime,temperature:w.temperature,capital:strategyDefs.filter(x=>x.risk!=='CONTROL').reduce((a,d)=>a+d.equity,0),champion:strategyDefs.find(x=>x.id==='champion').equity,tokens:tokens.size,topNarrative:narrativeStats()[0]?.name||'n/a'});while(timeline.length>MAX_TIMELINE)timeline.shift();}
 
-async function initDb(){
+async function initDb(restoreState=true){
   if(!DATABASE_URL){setHealth('research-memory','standby','Render Postgres provisioned but DATABASE_URL is not attached to this service yet',{truth:'not connected'});return;}
-  try{const {Client}=await import('pg');db=new Client({connectionString:DATABASE_URL,ssl:DATABASE_URL.includes('render.com')?{rejectUnauthorized:false}:undefined});await db.connect();await db.query('CREATE TABLE IF NOT EXISTS pump_lab_state (id text primary key, payload jsonb not null, updated_at timestamptz default now())');const r=await db.query("SELECT payload FROM pump_lab_state WHERE id='main'");if(r.rows[0]?.payload)restore(r.rows[0].payload);setHealth('research-memory','ok','Postgres durable memory online',{truth:'observed'});}catch(e){db=null;setHealth('research-memory','warn','Postgres connection failed: '+e.message);}
+  if(db||dbConnecting)return;dbConnecting=true;let client=null;
+  try{
+    const {Client}=await import('pg');
+    client=new Client({connectionString:DATABASE_URL,ssl:DATABASE_URL.includes('render.com')?{rejectUnauthorized:false}:undefined});
+    client.on('error',e=>{
+      if(db===client)db=null;
+      setHealth('research-memory','warn','Postgres connection interrupted · reconnecting',{truth:'observed'});
+      console.warn('Postgres connection interrupted:',e.message);
+      const timer=setTimeout(()=>initDb(false),5000);timer.unref?.();
+    });
+    await client.connect();db=client;
+    await db.query('CREATE TABLE IF NOT EXISTS pump_lab_state (id text primary key, payload jsonb not null, updated_at timestamptz default now())');
+    if(restoreState){const r=await db.query("SELECT payload FROM pump_lab_state WHERE id='main'");if(r.rows[0]?.payload)restore(r.rows[0].payload);}
+    setHealth('research-memory','ok','Postgres durable memory online',{truth:'observed'});
+    console.log('Postgres durable memory online');
+  }catch(e){
+    if(db===client)db=null;
+    try{await client?.end();}catch{}
+    setHealth('research-memory','warn','Postgres connection failed · retrying: '+e.message,{truth:'observed'});
+    console.warn('Postgres connection failed:',e.message);
+    const timer=setTimeout(()=>initDb(false),10000);timer.unref?.();
+  }finally{dbConnecting=false;}
 }
 function serialize(){return{strategies:strategyDefs.map(stripTrader),challengers:challengers.map(stripTrader),positions,trades,activity,decisions,opportunities:[...opportunities],research,timeline,replayFrames,autopsies,promotions,graveyard,walletEvents:walletEvents.slice(0,1200),creators:[...creators].map(([k,v])=>[k,{...v,tokens:[...v.tokens]}])};}
 function stripTrader(d){return{id:d.id,name:d.name,icon:d.icon,risk:d.risk,type:d.type,parentId:d.parentId,mutation:d.mutation,auto:d.auto,bornAt:d.bornAt,cash:d.cash,peak:d.peak,dd:d.dd,wins:d.wins,losses:d.losses,n:d.n,version:d.version,min:d.min,stop:d.stop,take:d.take,size:d.size,maxOpen:d.maxOpen,riskCap:d.riskCap,promotedAt:d.promotedAt,graveyardAt:d.graveyardAt};}
