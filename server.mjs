@@ -6,8 +6,9 @@ const PUMP_KEY = process.env.PUMPPORTAL_API_KEY || '';
 const ALLOW_METERED = (process.env.ALLOW_METERED_PUMPPORTAL || 'false') === 'true';
 const START = 1000;
 const TARGET = 100000;
-const STRATEGY_ERA = 'v3.1-megga-research';
-const FEE_RATE = 0.0125;
+const STRATEGY_ERA = 'v3.2-process-audit';
+const FEE_RATE = 0.0125; // conservative fallback for unknown venue/lifecycle
+const PAPER_FIXED_TX_COST_USD = Number(process.env.PAPER_FIXED_TX_COST_USD || 0.02);
 const STATE_FILE = process.env.STATE_FILE || '/tmp/pump-lab-state-v06.json';
 const DATABASE_URL = process.env.DATABASE_URL || '';
 const AUDIT_VERSION = '2026-10-01-process-audit';
@@ -314,8 +315,10 @@ function normalize(raw,source='live') {
   const website=raw.website||raw.info?.websites?.[0]?.url||'';
   const creator=raw.creator||raw.traderPublicKey||raw.user||'';
   const boosts=num(raw.boosts?.active||raw.boostAmount||0);
+  const quoteSymbol=(raw.quoteToken?.symbol||raw.quoteSymbol||'').toString().toUpperCase();
+  const dexId=(raw.dexId||raw.dex||'').toString().toLowerCase(),pairAddress=raw.pairAddress||raw.pair||'';
   return {mint,symbol,name,source,price,mc,liq,vol,buys,sells,createdAt,updatedAt:ts,narrative:narrativeFor({name,symbol}),graduated:!!raw.complete,
-    twitter,telegram,website,image:raw.image_uri||raw.image||raw.info?.imageUrl||'',creator,boosts,history:[],sources:[src],sourceSeen:{[src]:ts},
+    twitter,telegram,website,image:raw.image_uri||raw.image||raw.info?.imageUrl||'',creator,boosts,quoteSymbol,dexId,pairAddress,history:[],sources:[src],sourceSeen:{[src]:ts},
     flowObserved,flowUpdatedAt:flowObserved?ts:0,flowSource:flowObserved?src:'',volumeObserved,volumeUpdatedAt:volumeObserved?ts:0,volumeSource:volumeObserved?src:'',
     liquidityObserved:liqObserved,liquidityUpdatedAt:liqObserved?ts:0,liquiditySource:liqObserved?src:'',liquidityKind,curveDepthUsd,inferredSolUsd,
     firstPrice:price,firstMc:mc,peakPrice:price,peakMc:mc,troughPrice:price||0,troughMc:mc||0};
@@ -343,6 +346,7 @@ function mergeToken(old,t) {
     vol:freshVol?t.vol:old.vol,volumeObserved:freshVol||old.volumeObserved,volumeUpdatedAt:freshVol?t.volumeUpdatedAt:old.volumeUpdatedAt,volumeSource:freshVol?t.volumeSource:old.volumeSource,
     liq:freshLiq?t.liq:old.liq,liquidityObserved:freshLiq||old.liquidityObserved,liquidityUpdatedAt:freshLiq?t.liquidityUpdatedAt:old.liquidityUpdatedAt,liquiditySource:freshLiq?t.liquiditySource:old.liquiditySource,
     liquidityKind:freshLiq?t.liquidityKind:old.liquidityKind,curveDepthUsd:t.curveDepthUsd||old.curveDepthUsd||0,inferredSolUsd:t.inferredSolUsd||old.inferredSolUsd||0,
+    quoteSymbol:t.quoteSymbol||old.quoteSymbol||'',dexId:t.dexId||old.dexId||'',pairAddress:t.pairAddress||old.pairAddress||'',
     chainFlow:old.chainFlow||[],boosts:Math.max(t.boosts||0,old.boosts||0)
   };
 }
@@ -748,6 +752,35 @@ function recentTokenVolatility(t){
   const rs=[];for(let i=1;i<h.length;i++)rs.push(Math.abs(pct(h[i].price,h[i-1].price)));
   return avg(rs);
 }
+const SOL_CANONICAL_FEE_TIERS=[
+  [420,.0125],[1470,.0120],[2460,.0115],[3440,.0110],[4420,.0105],[9820,.0100],[14740,.0095],[19650,.0090],[24560,.0085],[29470,.0080],
+  [34380,.0075],[39300,.0070],[44210,.0065],[49120,.0060],[54030,.0055],[58940,.00525],[63860,.0050],[68770,.00475],[73681,.0045],
+  [78590,.00425],[83500,.0040],[88400,.00375],[93330,.0035],[98240,.00325],[Infinity,.0030]
+];
+const USDC_CANONICAL_FEE_TIERS=[
+  [59000,.0125],[300000,.0120],[500000,.0115],[700000,.0110],[900000,.0105],[2000000,.0100],[3000000,.0095],[4000000,.0090],
+  [5000000,.0085],[6000000,.0080],[7000000,.0075],[8000000,.0070],[9000000,.0065],[10000000,.0060],[11000000,.0055],
+  [12000000,.0053],[13000000,.0050],[14000000,.0048],[15000000,.0045],[16000000,.0043],[17000000,.0040],[18000000,.0038],
+  [19000000,.0035],[20000000,.0033],[Infinity,.0030]
+];
+function feeTier(value,tiers){for(const [max,rate] of tiers)if(value<max)return rate;return FEE_RATE;}
+function platformFeeRate(t){
+  if(!t?.graduated)return FEE_RATE;
+  const quote=(t.quoteSymbol||'').toUpperCase();
+  if(quote==='USDC'&&t.mc>0)return feeTier(t.mc,USDC_CANONICAL_FEE_TIERS);
+  if(quote==='SOL'&&t.mc>0&&t.inferredSolUsd>0)return feeTier(t.mc/t.inferredSolUsd,SOL_CANONICAL_FEE_TIERS);
+  return FEE_RATE;
+}
+function executionQuote(t,notional,side='buy'){
+  const liq=Math.max(1000,num(t?.liq)),vol=recentTokenVolatility(t);
+  const impact=Math.min(.06,Math.max(0,num(notional))/liq*.5);
+  const volatilitySlip=Math.min(.015,Math.max(0,vol)/100*.05);
+  const slippage=clamp(.0035+impact+volatilitySlip,0,.08);
+  const feeRate=platformFeeRate(t),fixedCost=Math.max(0,PAPER_FIXED_TX_COST_USD);
+  const rawPrice=num(t?.price),fillPrice=rawPrice*(side==='sell'?1-slippage:1+slippage);
+  return{side,feeRate,fixedCost,slippage,impact,volatilitySlip,rawPrice,fillPrice,liquidity:liq,volatility:vol,feeModel:t?.graduated?'pumpswap-canonical-or-conservative':'pump-bonding-curve'};
+}
+
 function adaptivePositionSizing(d,t,f,score,policy,quality,similar,guard,adv,regime,allocatorMult=1){
   const isProbe=!!d.copyLab||d.id==='megga_scout',h=guard.health||strategyHealth(d);
   const basePct=isProbe?.05:d.risk==='R&D'?.07:.10;
@@ -819,11 +852,11 @@ function maybeTrade(t) {
     const sizing=adaptivePositionSizing(d,t,f,score,policy,quality,similar,guard,adv,regime,allocatorMult);
     if(!sizing.ok){recordDecision(d,t,f,score,'REJECT',sizing.reason);continue;}
     const budget=sizing.budget;
-    const slip=.0035+Math.min(.04,budget/Math.max(1000,t.liq)*.5);const entry=t.price*(1+slip);const cost=budget*(1+FEE_RATE);
+    const entryExec=executionQuote(t,budget,'buy');const entry=entryExec.fillPrice;const cost=budget*(1+entryExec.feeRate)+entryExec.fixedCost;
     if(cost>d.cash)continue;
     d.cash-=cost;
     const exploratory=false;
-    const p={id:'p'+now()+Math.random(),strategy:d.id,mint:t.mint,symbol:t.symbol,entry,units:budget/entry,originalUnits:budget/entry,invested:budget,realizedProceeds:0,partialExits:[],scaleOutHits:[],sourceEntrySig:d.copyLab?(verifiedWalletSignal(t,d.copyWindowMin||15,d.copySource||null).events[0]?.signature||null):null,opened:now(),closed:false,lastPrice:t.price,lastMarkedAt:now(),markSource:'entry',score,entryFeatures:{...f,mc:t.mc,liq:t.liq},entryMc:t.mc,entryLiq:t.liq,entryQuality:quality.score,dnaHit25:similar.hit25,dnaSample:similar.n,allocationMult:allocatorMult,sizingMode:'adaptive-bankroll-v2',samplePartition:partitionForMint(t.mint),sizing,budgetPct:d.equity>0?budget/d.equity:0,live100Equivalent:sizing.live100Equivalent,exitMode:exitModeFor(d),policyVersion:STRATEGY_ERA,guard:{requiredScore:guard.requiredScore,minQuality:guard.minQuality,minBuyRatio:guard.minBuyRatio,recentAvg:guard.health.avg,recentN:guard.health.n},reason:`${exploratory?'cold-start exploration · ':''}score ${score.toFixed(0)} · gate ${policy.min.toFixed(0)} · risk ${f.risk.toFixed(0)} · Q${quality.score.toFixed(0)} · stake ${(budget/Math.max(1,d.equity)*100).toFixed(1)}% · $100≈${sizing.live100Equivalent.toFixed(2)} · size×${sizing.mult.toFixed(2)}`,entryRegime:regime,peakDuring:entry,troughDuring:entry};
+    const p={id:'p'+now()+Math.random(),strategy:d.id,mint:t.mint,symbol:t.symbol,entry,units:budget/entry,originalUnits:budget/entry,invested:budget,entryCost:cost,entryExecution:entryExec,realizedProceeds:0,partialExits:[],scaleOutHits:[],sourceEntrySig:d.copyLab?(verifiedWalletSignal(t,d.copyWindowMin||15,d.copySource||null).events[0]?.signature||null):null,opened:now(),closed:false,lastPrice:t.price,lastMarkedAt:now(),markSource:'entry',score,entryFeatures:{...f,mc:t.mc,liq:t.liq},entryMc:t.mc,entryLiq:t.liq,entryQuality:quality.score,dnaHit25:similar.hit25,dnaSample:similar.n,allocationMult:allocatorMult,sizingMode:'adaptive-bankroll-v2',samplePartition:partitionForMint(t.mint),sizing,budgetPct:d.equity>0?budget/d.equity:0,live100Equivalent:sizing.live100Equivalent,exitMode:exitModeFor(d),policyVersion:STRATEGY_ERA,guard:{requiredScore:guard.requiredScore,minQuality:guard.minQuality,minBuyRatio:guard.minBuyRatio,recentAvg:guard.health.avg,recentN:guard.health.n},reason:`${exploratory?'cold-start exploration · ':''}score ${score.toFixed(0)} · gate ${policy.min.toFixed(0)} · risk ${f.risk.toFixed(0)} · Q${quality.score.toFixed(0)} · stake ${(budget/Math.max(1,d.equity)*100).toFixed(1)}% · $100≈${sizing.live100Equivalent.toFixed(2)} · size×${sizing.mult.toFixed(2)}`,entryRegime:regime,peakDuring:entry,troughDuring:entry};
     positions.push(p);recordDecision(d,t,f,score,'BUY',p.reason);
     if(d.risk!=='R&D')log('buy',`${d.icon} ${d.name} bought ${t.symbol} · ${budget.toFixed(0)} paper · ${p.reason}`,'good',{strategy:d.id,mint:t.mint});
   }
@@ -832,10 +865,10 @@ function maybeTrade(t) {
 function updateOpenPositionExtremes(t){for(const p of positions){if(p.closed||p.mint!==t.mint)continue;p.lastPrice=t.price;p.lastMarkedAt=now();p.markSource=(t.sources||[]).join('+')||'live';p.peakDuring=Math.max(p.peakDuring||p.entry,t.price);p.troughDuring=Math.min(p.troughDuring||p.entry,t.price);}}
 
 function closePos(d,p,t,why){
-  const slip=.0035+Math.min(.04,p.invested/Math.max(1000,t.liq)*.5);const exit=t.price*(1-slip);const gross=p.units*exit;const proceeds=gross*(1-FEE_RATE);
-  d.cash+=proceeds;p.closed=true;p.closedAt=now();p.exit=exit;const totalProceeds=num(p.realizedProceeds)+proceeds;p.pnl=totalProceeds-p.invested*(1+FEE_RATE);p.pnlPct=p.pnl/(p.invested*(1+FEE_RATE))*100;p.why=why;
+  const notional=p.units*t.price,exec=executionQuote(t,notional,'sell'),exit=exec.fillPrice,gross=p.units*exit,proceeds=Math.max(0,gross*(1-exec.feeRate)-exec.fixedCost);
+  d.cash+=proceeds;p.closed=true;p.closedAt=now();p.exit=exit;p.exitExecution=exec;const totalProceeds=num(p.realizedProceeds)+proceeds,entryCost=num(p.entryCost)||p.invested*(1+FEE_RATE);p.pnl=totalProceeds-entryCost;p.pnlPct=p.pnl/Math.max(.000001,entryCost)*100;p.why=why;
   p.mfe=pct(p.peakDuring||exit,p.entry);p.mae=pct(p.troughDuring||exit,p.entry);p.counterfactual={exitNow:p.pnlPct,holdAfterExit:{oneMin:null,fiveMin:null,fifteenMin:null},bestObservedAfterExit:null};
-  const stressPenalty=2.5+Math.min(10,(p.invested/Math.max(1000,t.liq))*100);
+  const modeledRoundTrip=(num(p.entryExecution?.slippage)+num(p.exitExecution?.slippage)+num(p.entryExecution?.feeRate)+num(p.exitExecution?.feeRate))*100;const stressPenalty=Math.max(2.5,modeledRoundTrip+Math.min(8,(p.invested/Math.max(1000,t.liq))*100));
   p.executionStress={easy:p.pnlPct+1.5,realistic:p.pnlPct,nightmare:p.pnlPct-stressPenalty,penalty:stressPenalty};
   d.n++;if(p.pnl>0)d.wins++;else d.losses++;trades.unshift({...p,name:t.name,narrative:t.narrative});trades.splice(MAX_TRADES);const pi=positions.indexOf(p);if(pi>=0)positions.splice(pi,1);markEquity(d);
   const aut=buildAutopsy(d,p,t);autopsies.unshift(aut);autopsies.splice(250);
@@ -1226,9 +1259,9 @@ function exitModeFor(d){
 function partialClose(d,p,t,fraction,why){
   if(!(p.units>0)||!(t.price>0))return false;
   const frac=clamp(fraction,.05,.80),units=p.units*frac,notional=units*t.price;
-  const slip=.0035+Math.min(.04,notional/Math.max(1000,t.liq)*.5),exit=t.price*(1-slip),proceeds=units*exit*(1-FEE_RATE);
+  const exec=executionQuote(t,notional,'sell'),exit=exec.fillPrice,gross=units*exit,proceeds=Math.max(0,gross*(1-exec.feeRate)-exec.fixedCost);
   p.units=Math.max(0,p.units-units);p.realizedProceeds=num(p.realizedProceeds)+proceeds;
-  p.partialExits=p.partialExits||[];p.partialExits.push({ts:now(),why,fraction:frac,units,exit,proceeds});
+  p.partialExits=p.partialExits||[];p.partialExits.push({ts:now(),why,fraction:frac,units,exit,proceeds,execution:exec});
   d.cash+=proceeds;markEquity(d);
   if(d.risk!=='R&D')log('trim',`${d.icon} ${d.name} trimmed ${Math.round(frac*100)}% of ${t.symbol} · ${why}`,'good',{strategy:d.id,mint:t.mint});
   return true;
@@ -1585,7 +1618,7 @@ function snapshot(){
     features:features(t),detective:detective(t),adversarial:adversarialRisk(t),consensus:consensus(t),dna:creatorDNA(t),tokenDNA:tokenDNA(t),similarity:dnaSimilarity(t),quality:tokenDataQuality(t)
   }));
   const prod=strategyDefs.filter(d=>d.risk!=='CONTROL'&&!d.specialist),cohort=specialistStrategies();const weather=marketWeather();
-  return{now:now(),startedAt,paperOnly:true,stateLock:{databaseConfigured:!!DATABASE_URL,restored:dbStateRestored,tradingUnlocked:durableTradingReady(),dbConnected:!!db,lastDurableSaveAt,lastDurableRestoreAt,graceMs:DURABLE_WRITE_GRACE_MS},mode:'LIVE + V3.1 EVIDENCE PLAYBOOKS + MEGGA COPY/SCOUT LAB + DURABLE REPLAY',version:'3.1 Megga Research',target:TARGET,weather,providers:[...health.values()],
+  return{now:now(),startedAt,paperOnly:true,executionAssumptions:{fallbackFeeRate:FEE_RATE,fixedTxCostUsd:PAPER_FIXED_TX_COST_USD,feeSource:'pump.fun docs 2026-05-20',maxModeledSlippagePct:8},stateLock:{databaseConfigured:!!DATABASE_URL,restored:dbStateRestored,tradingUnlocked:durableTradingReady(),dbConnected:!!db,lastDurableSaveAt,lastDurableRestoreAt,graceMs:DURABLE_WRITE_GRACE_MS},mode:'LIVE + V3.1 EVIDENCE PLAYBOOKS + MEGGA COPY/SCOUT LAB + DURABLE REPLAY',version:'3.1 Megga Research',target:TARGET,weather,providers:[...health.values()],
     summary:{capital:prod.reduce((a,d)=>a+d.equity,0),start:prod.length*START,trades:prod.reduce((a,d)=>a+d.n,0),open:positions.filter(p=>!p.closed&&prod.some(d=>d.id===p.strategy)).length,cohortCapital:cohort.reduce((a,d)=>a+d.equity,0),cohortStart:cohort.length*START,cohortTrades:cohort.reduce((a,d)=>a+d.n,0),cohortOpen:positions.filter(p=>!p.closed&&cohort.some(d=>d.id===p.strategy)).length,tokens:tokens.size,decisions:decisions.length},
     strategies:strategyDefs.map(d=>{const ep=entryPolicy(d),pb=strategyPlaybook(d),eraTrades=trades.filter(t=>t.strategy===d.id&&t.policyVersion===STRATEGY_ERA);return{...d,winRate:d.n?d.wins/d.n*100:0,open:openCount(d.id),effectiveMin:ep.min,coldStart:ep.coldStart,entryRejects:ep.rejects,thresholdRelief:ep.relief,playbook:pb.instruction,era:STRATEGY_ERA,eraN:eraTrades.length,eraWinRate:eraTrades.length?eraTrades.filter(t=>t.pnl>0).length/eraTrades.length*100:0,eraPnl:eraTrades.reduce((a,t)=>a+num(t.pnl),0),eraAvgPnl:eraTrades.length?avg(eraTrades.map(t=>t.pnlPct)):0}}),experiments:experimentSnapshot(),tokens:active,
     narratives:narrativeStats().slice(0,15),creators:creatorLeaderboard(),positions:positions.filter(p=>!p.closed).slice(-120),trades:trades.slice(0,150),activity:activity.slice(0,140),research,
