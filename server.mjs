@@ -1031,7 +1031,7 @@ async function go(){try{render(await(await fetch('/api/state',{cache:'no-store'}
 
 const server=http.createServer((req,res)=>{
   if(req.url==='/api/state'){res.writeHead(200,{'content-type':'application/json','cache-control':'no-store'});return res.end(JSON.stringify(snapshot()));}
-  if(req.url==='/api/health'){res.writeHead(200,{'content-type':'application/json','cache-control':'no-store'});return res.end(JSON.stringify({ok:true,paperOnly:true,version:'1.2 Strategy Calibration',weather:marketWeather(),providers:[...health.values()]}));}
+  if(req.url==='/api/health'){res.writeHead(200,{'content-type':'application/json','cache-control':'no-store'});return res.end(JSON.stringify({ok:true,paperOnly:true,version:'2.0 Learning Architecture',weather:marketWeather(),providers:[...health.values()]}));}
   if(req.url==='/api/events'){res.writeHead(200,{'content-type':'text/event-stream','cache-control':'no-cache','connection':'keep-alive'});res.write('data: {}\n\n');clients.add(res);req.on('close',()=>clients.delete(res));return;}
   res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store'});res.end(HTML);
 });
@@ -1039,9 +1039,10 @@ const server=http.createServer((req,res)=>{
 loadLocal();
 await initDb();
 if(dbStateRestored)logStrategyDiagnostics();
-setHealth('engine','ok','18 production/control portfolios + 4 R&D challengers online',{truth:'observed'});
+setHealth('engine','ok','20 production/control portfolios + adaptive R&D challengers online',{truth:'observed'});
+setHealth('learning-core','ok','DNA memory + replay + allocator + exit optimizer + counterfactual lab online',{truth:'inferred'});
 setHealth('x-social','standby','Full X stream not connected · social agent uses token social metadata only',{truth:'not connected'});
 setHealth('wallet-intel','standby','Connecting Solana stream + verified Fomo wallet watchlist…',{truth:'not connected'});setHealth('fomo-watchlist','standby','Preparing verified public wallet subscriptions',{truth:'not connected'});
-server.listen(PORT,'0.0.0.0',()=>{log('system','🚀 PUMP LAB v1.2 Strategy Calibration started','system');connectPumpPortal();connectSolanaStream();pumpPoll();dexPoll();console.log('PUMP LAB v1.2 on '+PORT);});
+server.listen(PORT,'0.0.0.0',()=>{log('system','🚀 PUMP LAB v2.0 Learning Architecture started','system');connectPumpPortal();connectSolanaStream();pumpPoll();dexPoll();console.log('PUMP LAB v2.0 on '+PORT);});
 setInterval(drainSolanaQueue,1100).unref?.();setInterval(pumpPoll,7000).unref?.();setInterval(dexPoll,20000).unref?.();setInterval(takeTimeline,30000).unref?.();setInterval(takeReplay,30000).unref?.();setInterval(researchCycle,3600000).unref?.();setInterval(()=>save(),30000).unref?.();const diagTimer=setTimeout(logStrategyDiagnostics,20000);diagTimer.unref?.();const diagLoop=setInterval(logStrategyDiagnostics,300000);diagLoop.unref?.();takeTimeline();takeReplay();
 process.on('SIGTERM',async()=>{await save();server.close(()=>process.exit(0));});process.on('SIGINT',async()=>{await save();server.close(()=>process.exit(0));});
