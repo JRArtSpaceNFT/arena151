@@ -7,7 +7,7 @@ const checks = [
   ['deterministic control', "deterministicScore('random-control:'"],
   ['holdout partition', "partitionForMint(mint)"],
   ['auto promotion off by default', "process.env.ALLOW_AUTO_PROMOTION || 'false'"],
-  ['adaptive bankroll sizing', "sizingMode:'adaptive-bankroll-v2'"],
+  ['Alpha OS EV sizing', "sizingMode:'alpha-os-ev-v1'"],
   ['stale mark decay', 'STALE_MARK_ZERO_MS'],
   ['stale position sweep', 'stalePositionSweep()'],
   ['execution quote model', "executionQuote(t,budget,'buy')"],
@@ -16,7 +16,11 @@ const checks = [
   ['live launch audit gate', 'function systemAudit()'],
   ['lazy deep research endpoint', "req.url==='/api/research'"],
   ['serialized state writes', 'if(saveInProgress){saveQueued=true;return;}'],
-  ['read-only analytical era', "v3.2-process-audit"]
+  ['Alpha OS analytical era', "v3.3-alpha-os"],
+  ['Alpha OS integration', 'alphaOS.evaluateCandidate'],
+  ['CIO capital auction', 'alphaOS.runCapitalAuction'],
+  ['adaptive exit intelligence', 'alphaOS.exitPlan'],
+  ['shadow execution twin', 'alphaOS.recordShadowEntry']
 ];
 
 const failures = checks.filter(([, needle]) => !src.includes(needle));
