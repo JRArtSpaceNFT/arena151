@@ -1640,7 +1640,7 @@ function strategyDiagnostics(){
 function logPerformanceSnapshot(){
   allTraders().forEach(markEquity);const core=strategyDefs.filter(d=>d.risk!=='CONTROL'&&!d.specialist),controls=strategyDefs.filter(d=>d.risk==='CONTROL'),spec=specialistStrategies();
   const pack=rows=>({count:rows.length,capital:rows.reduce((a,d)=>a+d.equity,0),start:rows.length*START,pnl:rows.reduce((a,d)=>a+d.equity-START,0),green:rows.filter(d=>d.equity>=START).length,red:rows.filter(d=>d.equity<START).length,trades:rows.reduce((a,d)=>a+d.n,0),open:rows.reduce((a,d)=>a+openCount(d.id),0)});
-  console.log('PERFORMANCE_SNAPSHOT '+JSON.stringify({ts:now(),version:'3.3 Alpha OS',weather:marketWeather(),core:pack(core),controls:pack(controls),specialists:pack(spec)}));
+  console.log('PERFORMANCE_SNAPSHOT '+JSON.stringify({ts:now(),version:'3.3 Alpha OS · Future Lab UI',weather:marketWeather(),core:pack(core),controls:pack(controls),specialists:pack(spec)}));
 }
 function logStrategyDiagnostics(){
   console.log('STRATEGY_DIAGNOSTICS '+JSON.stringify(strategyDiagnostics()));
@@ -1814,7 +1814,223 @@ function stateSelfTest(){
 
 const HTML=`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>PUMP LAB / LIVE</title><style>
 :root{--bg:#07090d;--card:#0f141d;--card2:#121925;--line:#253045;--muted:#8ea0bc;--text:#f4f7fb;--green:#4ff5a2;--red:#ff6d86;--blue:#7588ff;--amber:#ffcc66}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 50% -20%,#182136 0,#080b11 35%,#06080c 72%);color:var(--text);font:14px Inter,ui-sans-serif,system-ui,-apple-system,sans-serif}.wrap{max-width:1560px;margin:auto;padding:22px 28px 60px}.top{display:flex;justify-content:space-between;gap:18px;align-items:center}.brand{font-size:27px;font-weight:950;letter-spacing:-1.1px}.sub{color:#8bb0e8;font-size:13px;margin-top:2px}.badges{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.badge,.pill{font-size:11px;border:1px solid #2c394f;padding:5px 8px;border-radius:99px;background:#111827}.live{border-color:#00dc70;color:#64f9aa;background:#071a13}.hero{margin-top:18px;padding:20px;border:1px solid #2a3850;border-radius:18px;background:linear-gradient(135deg,#121a27,#0d1119);display:grid;grid-template-columns:1.4fr 1fr;gap:18px}.big{font-size:28px;font-weight:900;letter-spacing:-.6px}.muted{color:var(--muted)}.green{color:var(--green)}.red{color:var(--red)}.amber{color:var(--amber)}.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:14px 0}.card{background:linear-gradient(180deg,#10151e,#0c1119);border:1px solid var(--line);border-radius:14px;padding:14px;box-shadow:0 12px 30px #0002}.card h3{margin:0 0 9px;font-size:13px;color:#cbd6e8}.health{display:flex;gap:7px;flex-wrap:wrap}.health span{border:1px solid #29354a;padding:6px 9px;border-radius:8px;background:#0c121b}.tabs{display:flex;gap:8px;margin:16px 0;flex-wrap:wrap}.tab{padding:9px 13px;border-radius:9px;background:#111824;border:1px solid #293349;cursor:pointer}.tab.on{background:#f7f9fd;color:#080b10;border-color:#fff}.pane{display:none}.pane.on{display:block}.strategies{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.strategy{cursor:pointer;transition:.15s}.strategy:hover{transform:translateY(-2px);border-color:#405373}.strategy .topline{display:flex;align-items:center;justify-content:space-between}.strategy .money{font-size:24px;font-weight:900;margin:7px 0}.mini{font-size:12px;color:#91a7c9}.two{display:grid;grid-template-columns:1.5fr 1fr;gap:12px}.three{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.feed{max-height:510px;overflow:auto}.feedrow{display:grid;grid-template-columns:95px 1fr;gap:10px;padding:9px 2px;border-bottom:1px solid #1c2534}.table{width:100%;border-collapse:collapse}.table th,.table td{padding:9px 7px;text-align:left;border-bottom:1px solid #1d2737;font-size:12px}.table th{color:#8fa4c3;font-weight:650;position:sticky;top:0;background:#0f141d}.scroll{max-height:560px;overflow:auto}.heatwrap{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;min-height:190px}.bubble{display:flex;align-items:center;justify-content:center;border-radius:50%;border:1px solid #3a4967;background:radial-gradient(circle at 35% 30%,#26365b,#121827);text-align:center;font-size:11px;padding:9px}.meter{height:7px;background:#182131;border-radius:99px;overflow:hidden}.meter>i{display:block;height:100%;background:linear-gradient(90deg,#667cff,#4ff5a2)}.token{cursor:pointer}.token:hover{background:#141c29}.drawer{position:fixed;right:0;top:0;height:100vh;width:min(560px,96vw);background:#0a0f17;border-left:1px solid #2b3850;z-index:20;padding:20px;transform:translateX(102%);transition:.2s;overflow:auto;box-shadow:-25px 0 60px #0007}.drawer.on{transform:none}.close{float:right;border:1px solid #37445b;border-radius:9px;background:#111824;color:white;padding:6px 10px;cursor:pointer}.vote{display:inline-flex;gap:4px;align-items:center;padding:4px 7px;border-radius:7px;margin:3px;background:#121a27;border:1px solid #26354c}.vote.y{border-color:#16683f;color:#77f8ae}.vote.n{color:#a1aec2}.spark{width:100%;height:90px}.world{min-height:270px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:center}.worldGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(235px,1fr));gap:12px}.ecosystem{background:#0b111a;border:1px solid #253249;border-radius:14px;padding:12px;min-height:150px}.nodes{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}.worldNode{cursor:pointer;border:1px solid #2c3a51;background:#121b29;color:#dce8fa;border-radius:999px;padding:6px 9px;font-size:11px}.worldNode.hot{border-color:#1b7f50;color:#78f8b0}.worldNode.risky{border-color:#7b3043;color:#ff91a7}.worldNode:hover{transform:translateY(-1px);background:#182338}.smallcard{padding:10px;border:1px solid #253249;background:#0c121b;border-radius:10px}.sectionTitle{display:flex;justify-content:space-between;align-items:end;margin:18px 0 9px}.sectionTitle h2{margin:0;font-size:17px}.sectionTitle p{margin:0;color:#8497b4;font-size:12px}.truth{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#8094b2}.controls{display:flex;gap:8px;align-items:center}select{background:#0f1621;color:white;border:1px solid #2a3850;border-radius:8px;padding:7px} @media(max-width:1050px){.strategies{grid-template-columns:1fr 1fr}.grid4,.three{grid-template-columns:1fr 1fr}.two,.hero{grid-template-columns:1fr}}@media(max-width:680px){.wrap{padding:16px}.strategies,.grid4,.three{grid-template-columns:1fr}.big{font-size:22px}.top{align-items:flex-start}.hideMobile{display:none}}
+
+/* ─────────────────────────────────────────────────────────────
+   PUMP LAB / LIVE — LIGHT BRUTALIST FUTURE LAB / UI v1
+   Visual-only layer. Trading / research hooks stay untouched.
+───────────────────────────────────────────────────────────── */
+:root{
+  --bg:#f1f2f2;--paper:#fafafa;--paper2:#f6f7f7;--ink:#0a0c0f;--text:#111318;
+  --muted:#747b83;--line:#d7dadd;--line2:#c7cbd0;--green:#19c965;--red:#e14759;
+  --blue:#6577ff;--amber:#c48916;--card:#f9fafa;--card2:#f3f5f5;
+  --shadow:0 18px 55px rgba(22,29,36,.08);--softshadow:0 8px 28px rgba(22,29,36,.06);
+}
+*{scrollbar-color:#bcc1c6 transparent}
+html{scroll-behavior:smooth;background:var(--bg)}
+body{
+  background:
+    radial-gradient(circle at 72% 7%,rgba(255,255,255,.96) 0 13%,transparent 34%),
+    radial-gradient(circle at 12% 22%,rgba(255,255,255,.72),transparent 32%),
+    linear-gradient(180deg,#f8f9f9 0,#eef0f0 46%,#f7f8f8 100%);
+  color:var(--text);font-family:Arial,"Helvetica Neue",ui-sans-serif,system-ui,-apple-system,sans-serif;
+  letter-spacing:-.01em;min-height:100vh
+}
+body:before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;opacity:.23;
+  background-image:radial-gradient(rgba(10,12,15,.13) .55px,transparent .7px);
+  background-size:5px 5px;mix-blend-mode:multiply
+}
+.wrap{max-width:1640px;margin:auto;padding:0 34px 80px}
+.top{
+  position:sticky;top:0;z-index:15;margin:0 -34px;padding:17px 34px;
+  background:rgba(248,249,249,.84);backdrop-filter:blur(22px) saturate(140%);
+  border-bottom:1px solid rgba(24,30,36,.09);box-shadow:0 7px 24px rgba(15,20,28,.025)
+}
+.brand{font-size:18px;letter-spacing:-.5px;font-weight:900;color:#080a0d;text-transform:uppercase}
+.brand span{color:#a4abb2!important;font-weight:700}
+.sub{font-size:10px;text-transform:uppercase;letter-spacing:.16em;color:#8a9199;margin-top:4px}
+.badges{align-items:center}
+.badge,.pill{
+  color:#30363c;border:1px solid #d4d7da;background:rgba(255,255,255,.78);
+  padding:6px 10px;border-radius:999px;font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  box-shadow:0 4px 16px rgba(10,15,20,.035)
+}
+.live{border-color:#aeecc7;color:#118944;background:#f0fff6}
+.masthead{
+  min-height:430px;margin:0 -34px;padding:58px 34px 36px;display:grid;grid-template-columns:1.18fr .82fr;gap:38px;
+  position:relative;overflow:hidden;border-bottom:1px solid #dfe1e3
+}
+.masthead:after{
+  content:"";position:absolute;left:58%;top:0;bottom:0;width:1px;background:#d7dade
+}
+.mastcopy{position:relative;z-index:2;display:flex;flex-direction:column;justify-content:center;max-width:880px}
+.kicker{font-size:10px;letter-spacing:.32em;text-transform:uppercase;color:#9299a1;margin-bottom:18px}
+.masttitle{
+  margin:0;font-weight:950;letter-spacing:-.075em;line-height:.84;text-transform:uppercase;
+  font-size:clamp(64px,7.6vw,126px);color:#060709
+}
+.masttitle span{font-weight:580;color:#aab0b6}
+.mastlede{max-width:650px;margin:22px 0 0;font-size:15px;line-height:1.55;color:#687078}
+.statusrail{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:26px}
+.statusswitch{
+  display:flex;align-items:center;gap:10px;padding:9px 13px;border-radius:999px;background:white;border:1px solid #dadde0;
+  box-shadow:inset 0 1px white,var(--softshadow);font-size:9px;font-weight:900;letter-spacing:.08em;text-transform:uppercase
+}
+.statusswitch i{width:10px;height:10px;border-radius:50%;background:#1fd66d;box-shadow:0 0 0 5px rgba(31,214,109,.12)}
+.statusnote{font-size:10px;color:#7f878f;text-transform:uppercase;letter-spacing:.12em}
+.mastart{position:relative;min-height:340px;isolation:isolate}
+.mastart:before{
+  content:"";position:absolute;width:min(29vw,420px);aspect-ratio:1;left:46%;top:49%;transform:translate(-50%,-50%);
+  border-radius:44% 56% 63% 37% / 42% 36% 64% 58%;
+  background:
+    radial-gradient(circle at 36% 31%,rgba(255,255,255,.98),rgba(240,242,243,.95) 26%,rgba(177,184,190,.72) 48%,rgba(32,36,42,.92) 72%,#050608 100%);
+  filter:blur(.2px);box-shadow:-28px 42px 80px rgba(20,25,30,.18),inset 30px -35px 80px rgba(255,255,255,.58);
+  transform-origin:center;animation:floatOrb 9s ease-in-out infinite
+}
+.mastart:after{
+  content:"";position:absolute;width:330px;height:115px;left:43%;top:49%;transform:translate(-50%,-50%) rotate(-8deg);
+  background:linear-gradient(90deg,rgba(248,249,249,.98),rgba(24,28,34,.62),rgba(248,249,249,.96));
+  filter:blur(12px);opacity:.88;mix-blend-mode:normal
+}
+@keyframes floatOrb{0%,100%{transform:translate(-50%,-50%) rotate(-2deg)}50%{transform:translate(-50%,-54%) rotate(3deg)}}
+.mastindex{position:absolute;left:0;top:20px;font:10px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;color:#858c94;letter-spacing:.12em}
+.mastwords{position:absolute;right:12px;top:56px;font:10px/1.25 ui-monospace,SFMono-Regular,Menlo,monospace;color:#80878f;text-align:right;text-transform:uppercase}
+.maststatement{position:absolute;right:0;bottom:40px;width:170px;font-size:16px;font-weight:900;line-height:1.02;text-transform:uppercase}
+.mastline{position:absolute;right:0;bottom:18px;width:118px;height:1px;background:#0d0f12}
+.hero{
+  margin:22px 0 16px;padding:0;border:0;border-radius:0;background:none;display:grid;grid-template-columns:1.35fr 1fr;gap:12px
+}
+.hero>div{
+  background:rgba(255,255,255,.72);border:1px solid var(--line);border-radius:20px;padding:17px 18px;
+  box-shadow:var(--softshadow);backdrop-filter:blur(16px);position:relative;overflow:hidden
+}
+.hero>div:before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at var(--mx,85%) var(--my,20%),rgba(101,119,255,.09),transparent 38%)}
+.big{font-size:27px;font-weight:900;letter-spacing:-.055em;color:#090b0d}
+.muted{color:#7d858d}.green{color:#15b65a}.red{color:#d94152}.amber{color:#b57a13}
+.grid4{gap:11px;margin:14px 0}
+.card,.smallcard,.ecosystem{
+  --mx:50%;--my:50%;background:rgba(250,251,251,.86)!important;border:1px solid var(--line)!important;
+  color:#14171a;border-radius:18px;box-shadow:var(--softshadow);position:relative;overflow:hidden
+}
+.card{padding:16px}
+.card:before,.smallcard:before{
+  content:"";position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .2s;
+  background:radial-gradient(260px circle at var(--mx) var(--my),rgba(101,119,255,.075),transparent 58%)
+}
+.card:hover:before,.smallcard:hover:before{opacity:1}
+.card h3{color:#171a1e;font-size:10px;font-weight:900;letter-spacing:.12em;text-transform:uppercase}
+.grid4>.card{min-height:112px;display:flex;flex-direction:column;justify-content:space-between}
+.grid4>.card .muted{font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+.grid4>.card .big{margin-top:9px}
+.health{
+  border-radius:999px!important;padding:7px!important;background:rgba(255,255,255,.72)!important;box-shadow:none!important;
+  display:flex;gap:5px;align-items:center;overflow-x:auto
+}
+.health span{color:#60676f;border:1px solid #dadde0;padding:6px 10px;border-radius:999px;background:#fbfcfc;white-space:nowrap;font-size:9px}
+.tabs{
+  position:sticky;top:68px;z-index:12;margin:17px 0;padding:5px;display:inline-flex;max-width:100%;overflow:auto;
+  background:rgba(244,245,245,.88);border:1px solid #d8dbde;border-radius:999px;backdrop-filter:blur(22px);box-shadow:var(--softshadow)
+}
+.tab{
+  padding:9px 15px;border:0;background:transparent;color:#656d75;border-radius:999px;font-size:10px;font-weight:800;
+  letter-spacing:.03em;white-space:nowrap;transition:.2s
+}
+.tab:hover{color:#0e1114;background:#fff}
+.tab.on{background:#090b0e;color:white;border:0;box-shadow:0 6px 15px rgba(8,10,13,.13)}
+.sectionTitle{margin:27px 0 12px;align-items:flex-end}
+.sectionTitle:before{content:"";width:26px;height:1px;background:#101316;position:absolute;margin-top:-12px}
+.sectionTitle h2{font-size:22px;letter-spacing:-.045em;text-transform:uppercase}
+.sectionTitle p{color:#8b9299;font-size:11px}
+.strategies{grid-template-columns:repeat(auto-fit,minmax(238px,1fr));gap:10px}
+.strategy{
+  min-height:375px;padding:10px!important;border-radius:22px!important;transition:transform .24s cubic-bezier(.2,.8,.2,1),box-shadow .24s,border-color .24s!important;
+  background:#fafbfb!important
+}
+.strategy:hover{transform:translateY(-7px) scale(1.008);border-color:#8e98ff!important;box-shadow:0 25px 60px rgba(22,30,42,.12)}
+.strategy:active{transform:translateY(-3px) scale(.995)}
+.agentVisual{
+  height:164px;border-radius:15px;border:1px solid #d9dcdf;margin-bottom:12px;position:relative;overflow:hidden;
+  background:#eceeee;isolation:isolate
+}
+.agentVisual:before,.agentVisual:after{content:"";position:absolute}
+.agentVisual:before{
+  width:118px;height:118px;border-radius:42% 58% 45% 55%;left:50%;top:49%;transform:translate(-50%,-50%);
+  background:radial-gradient(circle at 32% 28%,#fff 0,#e9ebec 28%,#9ba1a6 53%,#14171a 77%,#030405 100%);
+  box-shadow:20px 22px 55px rgba(0,0,0,.24),inset -16px 16px 33px rgba(255,255,255,.45)
+}
+.agentVisual:after{
+  height:30px;width:200px;top:62%;left:50%;transform:translate(-50%,-50%) rotate(-8deg);
+  filter:blur(9px);background:linear-gradient(90deg,#f4f5f5,#272b30,#f3f4f4);opacity:.88
+}
+.agentVisual.v1:before{border-radius:8px;clip-path:polygon(50% 0,86% 18%,100% 58%,70% 100%,24% 91%,0 44%,17% 13%);background:linear-gradient(145deg,#f8f8f8,#aeb3b6 42%,#303338 72%,#eceeef);box-shadow:none}
+.agentVisual.v1:after{width:1px;height:170px;left:31%;top:0;transform:none;filter:none;background:#171a1d;opacity:.7}
+.agentVisual.v2:before{width:150px;height:190px;top:57%;filter:blur(10px);border-radius:46%;background:linear-gradient(180deg,#191b1f,#5a5f65 45%,#050607);opacity:.93}
+.agentVisual.v2:after{width:208px;height:48px;top:47%;filter:blur(11px);transform:translate(-50%,-50%);background:linear-gradient(90deg,#f4f5f5,#111316,#f4f5f5)}
+.agentVisual.v3:before{width:34px;height:120px;border-radius:50%;left:38%;top:48%;background:linear-gradient(#050607,#52575c);filter:blur(2px);box-shadow:96px 20px 0 -7px #141719,48px -40px 0 -11px #090b0c}
+.agentVisual.v3:after{display:none}
+.agentVisual.v4:before{
+  width:190px;height:106px;left:50%;top:65%;border-radius:0;clip-path:polygon(0 100%,0 76%,20% 59%,30% 73%,49% 26%,61% 54%,72% 41%,100% 88%,100% 100%);
+  background:linear-gradient(180deg,#bfc3c5,#191c20);box-shadow:none
+}
+.agentVisual.v4:after{width:270px;height:90px;top:78%;background:rgba(255,255,255,.76);filter:blur(16px)}
+.agentIndex{
+  position:absolute!important;left:10px;top:10px;z-index:4;font:9px ui-monospace,SFMono-Regular,monospace;color:#787f86;letter-spacing:.15em
+}
+.agentLive{position:absolute!important;right:10px;top:10px;z-index:4;width:7px;height:7px;border-radius:50%;background:#18d66b;box-shadow:0 0 0 5px rgba(24,214,107,.12)}
+.strategy .topline{padding:0 4px}
+.strategy .topline b{font-size:15px;letter-spacing:-.03em}
+.strategy .money{font-size:30px;color:#0d1013!important;padding:0 4px;margin:12px 0 6px}
+.strategy .mini,.strategy .truth{padding:0 4px}
+.strategy .truth{color:#6f777e;font-size:10px;line-height:1.45;min-height:43px;text-transform:none;letter-spacing:.02em}
+.strategy .pill{background:#f0f1f2;border-color:#d7dade;color:#5c636b}
+.feed{max-height:525px}
+.feedrow{grid-template-columns:90px 1fr;border-bottom:1px solid #e1e3e5;padding:11px 4px}
+.table th,.table td{border-bottom:1px solid #e1e3e5;color:#22262b;padding:10px 8px}
+.table th{background:rgba(249,250,250,.95);color:#858d95;text-transform:uppercase;letter-spacing:.08em;font-size:9px}
+.token:hover{background:#eef0f1}
+.meter{background:#e4e6e8;height:5px}.meter>i{background:linear-gradient(90deg,#6d7cff,#20d470)}
+.bubble{border:1px solid #d0d4d7;background:radial-gradient(circle at 35% 30%,#fff,#e5e7e8 46%,#8c9298);color:#111;box-shadow:0 12px 26px rgba(20,26,32,.08)}
+.worldNode{
+  color:#454c53;background:#f5f6f6;border-color:#d8dbde;transition:.18s;box-shadow:0 3px 10px rgba(10,15,20,.035)
+}
+.worldNode:hover{background:#111;color:white;transform:translateY(-2px)}
+.worldNode.hot{border-color:#7fe5a9;color:#148c47}.worldNode.risky{border-color:#f0aab3;color:#cb3e4f}
+.ecosystem{padding:15px!important}
+.smallcard{padding:12px;border-radius:14px!important;transition:transform .18s,box-shadow .18s}
+.smallcard:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(20,26,32,.08)}
+.drawer{
+  width:min(650px,96vw);background:rgba(248,249,249,.98);color:#111;border-left:1px solid #d1d5d8;
+  padding:24px;box-shadow:-25px 0 70px rgba(25,32,40,.16);backdrop-filter:blur(24px)
+}
+.close{background:#fff;color:#1d2228;border-color:#d1d5d8;border-radius:999px;padding:8px 13px}
+.controls select,select{background:white;color:#222;border-color:#d4d7da}
+.vote{background:#f5f6f6;border-color:#d8dbde;color:#697078}.vote.y{border-color:#80dba5;color:#168c49}
+.spark{filter:grayscale(.25)}
+hr{border-color:#e0e3e5!important}
+.pane{animation:paneIn .28s ease}
+@keyframes paneIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+@media(max-width:1050px){
+  .masthead{grid-template-columns:1fr;min-height:auto}.masthead:after{display:none}.mastart{min-height:300px}.masttitle{font-size:clamp(60px,13vw,105px)}
+}
+@media(max-width:680px){
+  .wrap{padding:0 15px 60px}.top{margin:0 -15px;padding:13px 15px}.sub{display:none}.masthead{margin:0 -15px;padding:38px 18px 26px}
+  .mastart{min-height:240px}.maststatement{font-size:12px;width:130px}.hero{grid-template-columns:1fr}.tabs{top:57px;width:100%}
+  .strategy{min-height:345px}.agentVisual{height:150px}.drawer{padding:16px}.grid4{grid-template-columns:1fr 1fr}
+}
 </style></head><body><div class="wrap"><div class="top"><div><div class="brand">PUMP LAB <span style="color:var(--blue)">/ LIVE</span></div><div class="sub">Autonomous Pump.fun & Solana paper-trading research laboratory</div></div><div class="badges"><span class="badge live">● REAL MARKET DATA</span><span class="badge">PAPER ONLY</span><span class="badge" id="version">LOADING</span></div></div>
+<section class="masthead">
+  <div class="mastcopy">
+    <div class="kicker">Autonomous Trading Research Laboratory · 001</div>
+    <h1 class="masttitle">PUMP LAB<span>/LIVE</span></h1>
+    <p class="mastlede">A living market laboratory where autonomous agents study Pump.fun and Solana, compete for edge, learn from mistakes, and evolve in public.</p>
+    <div class="statusrail"><div class="statusswitch"><i></i> Live market data</div><div class="statusswitch">Paper only</div><span class="statusnote">AI agents · market memory · shadow execution · evolution</span></div>
+  </div>
+  <div class="mastart" aria-hidden="true">
+    <div class="mastindex">01 / SYSTEM<br>02 / AGENTS<br>03 / MARKETS<br>04 / MEMORY</div>
+    <div class="mastwords">DATA<br>AGENTS<br>MARKETS<br>IDEAS<br>SIMULATION<br>EVOLUTION</div>
+    <div class="maststatement">Trading the next generation of tokens.</div><div class="mastline"></div>
+  </div>
+</section>
 <div class="hero"><div><div class="muted">CHAMPION CHALLENGE</div><div class="big" id="champ">Loading…</div><div class="muted" id="champMeta"></div><div class="meter" style="margin-top:12px"><i id="champBar"></i></div></div><div><div class="muted">MARKET WEATHER</div><div class="big" id="weather">Loading…</div><div class="mini" id="weatherMeta"></div></div></div>
 <div class="grid4"><div class="card"><div class="muted">LAB CAPITAL</div><div class="big" id="capital">Loading…</div><div class="mini" id="capitalDelta"></div></div><div class="card"><div class="muted">PAPER EXITS</div><div class="big" id="tradeCount">—</div><div class="mini" id="decisionCount"></div></div><div class="card"><div class="muted">OPEN POSITIONS</div><div class="big" id="open">—</div><div class="mini">across production agents</div></div><div class="card"><div class="muted">TOKENS OBSERVED</div><div class="big" id="tokenCount">—</div><div class="mini" id="uptime"></div></div></div>
 <div class="card health" id="health"><span>Dashboard: <b class="amber">loading state…</b></span></div><div class="tabs" id="tabs"><div class="tab on" data-p="war">War Room</div><div class="tab" data-p="radar">Token Lab</div><div class="tab" data-p="intel">Intelligence</div><div class="tab" data-p="planet">The World</div><div class="tab" data-p="research">Research Lab</div><div class="tab" data-p="time">Time Machine</div></div>
@@ -1840,7 +2056,7 @@ const $=x=>document.getElementById(x);const money=n=>'$'+Number(n||0).toLocaleSt
 function age(ms){const m=Math.max(0,Date.now()-ms)/60000;if(m<60)return m.toFixed(0)+'m';return(m/60).toFixed(1)+'h'}function esc(x){return String(x??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
 function render(s){S=s;$('version').textContent=s.version;$('capital').textContent=money(s.summary.capital);$('capitalDelta').textContent=(s.summary.capital>=s.summary.start?'+':'')+money(s.summary.capital-s.summary.start)+' vs start';$('tradeCount').textContent=s.summary.trades;$('decisionCount').textContent=s.summary.decisions+' immutable decisions recorded';$('open').textContent=s.summary.open;$('tokenCount').textContent=s.summary.tokens;$('uptime').textContent='engine up '+age(s.startedAt);const c=s.strategies.find(x=>x.id==='champion');$('champ').textContent=money(c.equity)+' → $100,000 ('+(c.equity/100000*100).toFixed(2)+'%)';$('champMeta').textContent='P&L '+(c.equity>=1000?'+':'')+money(c.equity-1000)+' · max DD '+one(c.dd)+'% · '+c.n+' exits';$('champBar').style.width=Math.min(100,c.equity/100000*100)+'%';$('weather').textContent=s.weather.regime+' · '+one(s.weather.temperature)+'/100';$('weatherMeta').textContent='buy pressure '+one(s.weather.buyPressure)+'% · launch velocity '+one(s.weather.launchVelocity)+'/min · collapse rate '+one(s.weather.collapseRate)+'%';
 $('health').innerHTML=s.providers.map(x=>'<span>'+esc(x.component)+': <b class="'+(x.status==='ok'?'green':x.status==='warn'?'amber':'')+'">'+esc(x.status)+'</b><small class="muted"> · '+esc(x.detail)+'</small></span>').join('');
-$('strats').innerHTML=s.strategies.filter(x=>x.risk!=='CONTROL'&&!x.specialist).sort((a,b)=>b.equity-a.equity).map((x,i)=>'<div class="card strategy" data-bot="'+esc(x.id)+'" onclick="openBotProfile(this.dataset.bot)"><div class="topline"><b>'+(i+1)+'. '+x.icon+' '+esc(x.name)+'</b><span class="pill">'+esc(x.risk)+'</span></div><div class="money '+(x.equity>=1000?'green':'red')+'">'+money(x.equity)+'</div><div class="mini">'+x.n+' exits · '+one(x.winRate)+'% wins · '+one(x.dd)+'% max DD · '+x.open+' open</div><div class="mini">entry gate '+one(x.effectiveMin)+(x.coldStart&&x.thresholdRelief?' <span class="amber">(cold-start −'+one(x.thresholdRelief)+')</span>':'')+' · '+x.entryRejects+' rejects</div><div class="truth" style="margin-top:8px">'+esc(x.playbook||x.thesis)+'</div><div class="mini" style="margin-top:6px">'+esc(x.era||'current era')+' exits '+(x.eraN||0)+' · '+one(x.eraWinRate||0)+'% wins · era P&L '+((x.eraPnl||0)>=0?'+':'')+money(x.eraPnl||0)+' · avg '+one(x.eraAvgPnl||0)+'%</div><div class="mini" style="margin-top:10px;color:#b9c9e5"><b>Click for full bot profile →</b></div></div>').join('');
+$('strats').innerHTML=s.strategies.filter(x=>x.risk!=='CONTROL'&&!x.specialist).sort((a,b)=>b.equity-a.equity).map((x,i)=>'<div class="card strategy" data-bot="'+esc(x.id)+'" onclick="openBotProfile(this.dataset.bot)"><div class="agentVisual v'+(i%5)+'"><span class="agentIndex">0'+(i+1)+' / AGENT</span><span class="agentLive"></span></div><div class="topline"><b>'+x.icon+' '+esc(x.name)+'</b><span class="pill">'+esc(x.risk)+'</span></div><div class="money '+(x.equity>=1000?'green':'red')+'">'+money(x.equity)+'</div><div class="mini">'+x.n+' exits · '+one(x.winRate)+'% wins · '+one(x.dd)+'% max DD · '+x.open+' open</div><div class="mini">entry gate '+one(x.effectiveMin)+(x.coldStart&&x.thresholdRelief?' <span class="amber">(cold-start −'+one(x.thresholdRelief)+')</span>':'')+' · '+x.entryRejects+' rejects</div><div class="truth" style="margin-top:8px">'+esc(x.playbook||x.thesis)+'</div><div class="mini" style="margin-top:6px">'+esc(x.era||'current era')+' exits '+(x.eraN||0)+' · '+one(x.eraWinRate||0)+'% wins · era P&L '+((x.eraPnl||0)>=0?'+':'')+money(x.eraPnl||0)+' · avg '+one(x.eraAvgPnl||0)+'%</div><div class="mini" style="margin-top:10px;color:#555d65"><b>Click for full bot profile →</b></div></div>').join('');
 $('feed').innerHTML=s.activity.slice(0,90).map(x=>'<div class="feedrow"><span class="muted">'+new Date(x.ts).toLocaleTimeString()+'</span><span>'+esc(x.text)+'</span></div>').join('');
 $('narrMini').innerHTML=s.narratives.slice(0,8).map(n=>'<div class="smallcard" style="margin:7px 0"><b>'+esc(n.name)+'</b><span style="float:right">'+one(n.heat)+'</span><div class="meter" style="margin:6px 0"><i style="width:'+n.heat+'%"></i></div><div class="mini">'+n.count+' tokens · '+one(n.buyPressure)+'% buys · '+n.recent+' fresh</div></div>').join('');
 $('tokenRows').innerHTML=s.tokens.map(t=>'<tr class="token" data-mint="'+esc(t.mint)+'" onclick="openToken(this.dataset.mint)"><td><b>$'+esc(t.symbol)+'</b><br><span class="muted">'+esc(t.name)+'</span></td><td>'+money(t.mc)+'</td><td>'+money(t.liq)+'</td><td>'+one(t.features.score)+'</td><td class="'+(t.detective.score>65?'red':t.detective.score>45?'amber':'green')+'">'+one(t.detective.score)+'</td><td>'+one(t.quality.score)+'</td><td>'+t.consensus.yes+'/'+t.consensus.total+'</td><td class="muted">'+esc((t.sources||[]).join(' + '))+'</td></tr>').join('');
@@ -1931,7 +2147,8 @@ async function loadDeepResearch(){
   }catch(e){console.error('PUMP LAB deep research error',e);}
   finally{deepLoading=false;}
 }
-document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab,.pane').forEach(x=>x.classList.remove('on'));t.classList.add('on');$(t.dataset.p).classList.add('on');if(['intel','research','time'].includes(t.dataset.p))loadDeepResearch();});</script></body></html>`;
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab,.pane').forEach(x=>x.classList.remove('on'));t.classList.add('on');$(t.dataset.p).classList.add('on');if(['intel','research','time'].includes(t.dataset.p))loadDeepResearch();});document.addEventListener('pointermove',e=>{const el=e.target.closest('.card,.smallcard,.hero>div');if(!el)return;const r=el.getBoundingClientRect();el.style.setProperty('--mx',((e.clientX-r.left)/Math.max(1,r.width)*100)+'%');el.style.setProperty('--my',((e.clientY-r.top)/Math.max(1,r.height)*100)+'%');}); // PUMP LAB tactile pointer lighting
+</script></body></html>`;
 
 const server=http.createServer((req,res)=>{
   {const u=new URL(req.url,'http://pump-lab.local');if(u.pathname==='/api/bot'){
