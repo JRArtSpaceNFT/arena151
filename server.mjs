@@ -68,6 +68,7 @@ let solanaResolved = 0;
 let solanaSubAcks = 0;
 let db = null;
 let dbConnecting = false;
+let dbStateRestored = false;
 let research = { last: 0, notes: [], hypotheses: [] };
 let startedAt = Date.now();
 
@@ -698,11 +699,16 @@ async function initDb(restoreState=true){
       if(db===client)db=null;
       setHealth('research-memory','warn','Postgres connection interrupted · reconnecting',{truth:'observed'});
       console.warn('Postgres connection interrupted:',e.message);
-      const timer=setTimeout(()=>initDb(false),5000);timer.unref?.();
+      const timer=setTimeout(()=>initDb(!dbStateRestored),5000);timer.unref?.();
     });
     await client.connect();db=client;
     await db.query('CREATE TABLE IF NOT EXISTS pump_lab_state (id text primary key, payload jsonb not null, updated_at timestamptz default now())');
-    if(restoreState){const r=await db.query("SELECT payload FROM pump_lab_state WHERE id='main'");if(r.rows[0]?.payload)restore(r.rows[0].payload);}
+    if(restoreState||!dbStateRestored){
+      const r=await db.query("SELECT payload FROM pump_lab_state WHERE id='main'");
+      if(r.rows[0]?.payload)restore(r.rows[0].payload);
+      dbStateRestored=true;
+      logStrategyDiagnostics();
+    }
     setHealth('research-memory','ok','Postgres durable memory online',{truth:'observed'});
     console.log('Postgres durable memory online');
   }catch(e){
@@ -710,7 +716,7 @@ async function initDb(restoreState=true){
     try{await client?.end();}catch{}
     setHealth('research-memory','warn','Postgres connection failed · retrying: '+e.message,{truth:'observed'});
     console.warn('Postgres connection failed:',e.message);
-    const timer=setTimeout(()=>initDb(false),10000);timer.unref?.();
+    const timer=setTimeout(()=>initDb(!dbStateRestored),10000);timer.unref?.();
   }finally{dbConnecting=false;}
 }
 function serialize(){return{strategies:strategyDefs.map(stripTrader),challengers:challengers.map(stripTrader),positions,trades,activity,decisions,opportunities:[...opportunities],research,timeline,replayFrames,autopsies,promotions,graveyard,walletEvents:walletEvents.slice(0,1200),creators:[...creators].map(([k,v])=>[k,{...v,tokens:[...v.tokens]}])};}
@@ -840,7 +846,7 @@ const server=http.createServer((req,res)=>{
 
 loadLocal();
 await initDb();
-logStrategyDiagnostics();
+if(dbStateRestored)logStrategyDiagnostics();
 setHealth('engine','ok','18 production/control portfolios + 4 R&D challengers online',{truth:'observed'});
 setHealth('x-social','standby','Full X stream not connected · social agent uses token social metadata only',{truth:'not connected'});
 setHealth('wallet-intel','standby','Connecting Solana stream + verified Fomo wallet watchlist…',{truth:'not connected'});setHealth('fomo-watchlist','standby','Preparing verified public wallet subscriptions',{truth:'not connected'});
