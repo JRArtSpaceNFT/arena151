@@ -549,6 +549,7 @@ function adaptivePositionSizingLegacy(d,t,f,score,policy,quality,similar,adv,reg
 }
 
 function maybeTrade(t) {
+  if(MIRROR_SOURCE)return;
   const f=features(t),adv=adversarialRisk(t),quality=tokenDataQuality(t),similar=dnaSimilarity(t);
   for(const d of allTraders()){
     markEquity(d);
@@ -623,9 +624,11 @@ function ingest(raw,source){
 
 async function fetchJson(url){const r=await fetch(url,{headers:{accept:'application/json','user-agent':'PUMP-LAB-LIVE/0.9'}});if(!r.ok)throw Error(`HTTP ${r.status}`);return r.json();}
 async function pumpPoll(){
+  if(MIRROR_SOURCE)return;
   try{const u='https://frontend-api-v3.pump.fun/coins?offset=0&limit=60&sort=created_timestamp&order=DESC&includeNsfw=false';const j=await fetchJson(u);const rows=Array.isArray(j)?j:(j.data||j.coins||[]);if(!rows.length)throw Error('no rows');rows.forEach(x=>ingest(x,'pump.fun'));setHealth('pump.fun','ok',`Live launch/state snapshots · ${rows.length} coins`,{truth:'observed'});}catch(e){setHealth('pump.fun','warn',`Snapshot feed unavailable: ${e.message}`);}
 }
 async function dexPoll(){
+  if(MIRROR_SOURCE)return;
   try{
     const prof=await fetchJson('https://api.dexscreener.com/token-profiles/latest/v1');
     const boosts=await fetchJson('https://api.dexscreener.com/token-boosts/latest/v1');
@@ -638,6 +641,7 @@ async function dexPoll(){
   }catch(e){setHealth('dexscreener','warn',`Enrichment unavailable: ${e.message}`);}
 }
 function connectPumpPortal(){
+  if(MIRROR_SOURCE)return;
   if(!PUMP_KEY){setHealth('pumpportal','standby','API key not connected · free realtime launch/migration stream available once added',{truth:'not connected'});return;}
   try{
     const ws=new WebSocket('wss://pumpportal.fun/api/data?api-key='+encodeURIComponent(PUMP_KEY));
@@ -655,6 +659,7 @@ function queueSolanaSignature(sig){
   solanaQueue.push(sig); if(solanaQueue.length>300)solanaQueue.shift(); solanaObserved++;
 }
 function connectSolanaStream(){
+  if(MIRROR_SOURCE)return;
   try{
     solanaWs=new WebSocket(SOLANA_RPC_WSS);
     solanaWs.addEventListener('open',()=>{
@@ -1285,6 +1290,15 @@ const server=http.createServer(async(req,res)=>{
   }
   if(req.url==='/api/health'){res.writeHead(200,{'content-type':'application/json','cache-control':'no-store'});return res.end(JSON.stringify({ok:true,paperOnly:true,version:'2.1 Cohort Matrix',weather:marketWeather(),providers:[...health.values()]}));}
   if(req.url==='/api/events'){res.writeHead(200,{'content-type':'text/event-stream','cache-control':'no-cache','connection':'keep-alive'});res.write('data: {}\n\n');clients.add(res);req.on('close',()=>clients.delete(res));return;}
+  if(MIRROR_SOURCE&&(req.url==='/'||req.url.startsWith('/?'))){
+    try{
+      const upstream=await fetch(MIRROR_SOURCE.replace(/\/$/,'')+'/',{headers:{accept:'text/html'}});
+      if(!upstream.ok)throw new Error('canonical HTML '+upstream.status);
+      const html=await upstream.text();
+      res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store','x-pump-lab-source':'canonical-production'});
+      return res.end(html);
+    }catch(e){console.warn('MIRROR_HTML_FALLBACK '+e.message);}
+  }
   res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store'});res.end(HTML);
 });
 
