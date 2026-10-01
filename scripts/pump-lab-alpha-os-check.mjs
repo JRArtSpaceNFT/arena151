@@ -25,6 +25,8 @@ alpha.observeWalletEvent({wallet:'W1',mint:token.mint,ts:base-16*60000,action:'B
 alpha.walletSignals[0].ts=Date.now()-16*60000;
 alpha.settleWalletSignals({...token,price:1.1});
 ok(alpha.walletStats.get('W1').leadSamples>=1,'wallet lead-lag did not settle');
+alpha.observeFundingTransfer({from:'FUNDER',to:'W1',sol:2,ts:Date.now(),signature:'fund1'});
+ok(alpha.walletGraph().fundingEdges>=1,'wallet funding graph missing');
 
 const fc=alpha.forecasts[0];
 ok(fc,'forecast not created');
@@ -38,6 +40,7 @@ const evald=alpha.evaluateCandidate({
   features,score:76,threshold:64,quality:{score:82},similar:{hit25:55,hit100:12}
 });
 ok(evald.probability&&evald.execution&&evald.toxicity,'candidate evaluation incomplete');
+ok(Number.isFinite(evald.execution.baseFeeLamports),'execution brain did not model Solana base fee');
 
 const proposal=alpha.proposeCapital({
   strategy:{id:'test',name:'Test'},token:{...token,price:1.3},features,score:76,threshold:64,quality:{score:82},similar:{hit25:55,hit100:12}
@@ -52,6 +55,10 @@ alpha.shadow[0].ts=Date.now()-20000;
 alpha.markShadow({...token,price:1.34});
 ok(alpha.shadow[0].checkpoints.fiveSec!==null,'shadow execution checkpoints missing');
 
+alpha.observeWorld({weather:{temperature:65,buyPressure:58,launchVelocity:3,collapseRate:12},tokens:[token],strategyEquity:{test:1000}});
+alpha.world[0].ts=Date.now()-16*60000;alpha.lastWorldAt=0;
+alpha.observeWorld({weather:{temperature:70,buyPressure:61,launchVelocity:4,collapseRate:10},tokens:[{...token,mc:90000}],strategyEquity:{test:1030}});
+ok(alpha.world.some(x=>x.settled),'world model did not settle historical regime');
 const snap=alpha.snapshot();
 ok(snap.subsystems.length===10,'all ten Alpha OS subsystems are not represented');
 ok(snap.master&&snap.forecasts&&snap.wallets&&snap.shadow,'Alpha OS snapshot incomplete');
