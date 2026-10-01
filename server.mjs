@@ -2222,6 +2222,34 @@ body:before{
 .vote{background:#f5f6f6;border-color:#d8dbde;color:#697078}.vote.y{border-color:#80dba5;color:#168c49}
 .spark{filter:grayscale(.25)}
 hr{border-color:#e0e3e5!important}
+
+/* PUMP LAB X SIGNAL FEED */
+.xFeedHero{display:grid;grid-template-columns:1.15fr .85fr;gap:12px;margin-bottom:12px}
+.xFeedIntro{min-height:220px;display:flex;flex-direction:column;justify-content:space-between;padding:22px!important}
+.xFeedTitle{font-size:clamp(46px,5.4vw,88px);font-weight:950;line-height:.84;letter-spacing:-.075em;text-transform:uppercase;margin:0}
+.xFeedTitle span{color:#a7adb2;font-weight:600}
+.xFeedIntro p{max-width:620px;color:#737b83;font-size:13px;line-height:1.55;margin:18px 0 0}
+.xFeedStatus{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:20px}
+.xFeedStatus .dot{width:8px;height:8px;border-radius:50%;background:#20d470;box-shadow:0 0 0 5px rgba(32,212,112,.12)}
+.xFeedAccounts{padding:18px!important;display:flex;flex-direction:column;justify-content:space-between}
+.xHandleCloud{display:flex;gap:7px;flex-wrap:wrap;margin-top:14px}
+.xHandle{border:1px solid #d6dade;background:#fbfcfc;color:#343a40;border-radius:999px;padding:7px 10px;font-size:9px;font-weight:850}
+.xFeedGrid{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:12px;align-items:start}
+.xTimeline{display:grid;gap:9px}.xPost{padding:16px!important;border-radius:18px!important;transition:transform .18s,box-shadow .18s,border-color .18s}
+.xPost:hover{transform:translateY(-3px);border-color:#a8b0ff!important;box-shadow:0 18px 38px rgba(22,30,42,.09)}
+.xPostHead{display:flex;align-items:center;gap:10px;margin-bottom:11px}.xAvatar{width:38px;height:38px;border-radius:50%;object-fit:cover;background:#e7e9ea;border:1px solid #d4d8db}
+.xWho{min-width:0;flex:1}.xName{font-weight:900;font-size:12px}.xUser{font-size:10px;color:#8a9198;margin-top:2px}.xWhen{font:9px ui-monospace,SFMono-Regular,Menlo,monospace;color:#9aa0a6;white-space:nowrap}
+.xText{font-size:14px;line-height:1.48;color:#15181b;white-space:pre-wrap;overflow-wrap:anywhere}
+.xMedia{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:12px}.xMedia img{width:100%;max-height:330px;object-fit:cover;border-radius:12px;border:1px solid #d9dcdf;background:#eef0f0}
+.xMetrics{display:flex;gap:14px;align-items:center;margin-top:12px;padding-top:10px;border-top:1px solid #e2e4e6;color:#7f878f;font-size:9px;font-weight:750}
+.xOpen{margin-left:auto;color:#343a40;font-weight:900;text-decoration:none}.xOpen:hover{text-decoration:underline}
+.xSidebar{position:sticky;top:126px;display:grid;gap:10px}.xPulse{height:170px;position:relative;overflow:hidden}
+.xPulse:before{content:"";position:absolute;width:150px;height:150px;border-radius:44% 56% 61% 39%/45% 38% 62% 55%;left:50%;top:53%;transform:translate(-50%,-50%);background:radial-gradient(circle at 33% 27%,#fff,#d8dbde 37%,#8d949a 61%,#171a1e 85%);animation:artMorph 12s ease-in-out infinite alternate,artRotateSoft 25s ease-in-out infinite;box-shadow:18px 24px 45px rgba(0,0,0,.11)}
+.xPulse:after{content:"SIGNAL";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font:900 11px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.22em;color:white;text-shadow:0 2px 12px rgba(0,0,0,.65)}
+.xEmpty{padding:34px;text-align:center;border:1px dashed #cfd3d6;border-radius:18px;color:#777f87;background:rgba(255,255,255,.55)}.xEmpty b{display:block;color:#14171a;font-size:17px;margin-bottom:7px}
+.xRefresh{appearance:none;border:1px solid #d5d9dc;background:white;border-radius:999px;padding:8px 12px;font-size:9px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;cursor:pointer}.xRefresh:hover{background:#111;color:white}
+.xKeyword{display:inline-block;padding:2px 5px;border-radius:6px;background:#eceeff;color:#5262d8;font-size:9px;font-weight:800}
+@media(max-width:900px){.xFeedHero,.xFeedGrid{grid-template-columns:1fr}.xSidebar{position:static}.xFeedIntro{min-height:180px}}
 .pane{animation:paneIn .28s ease}
 @keyframes paneIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
 @media(max-width:1050px){
@@ -2249,7 +2277,7 @@ hr{border-color:#e0e3e5!important}
 </section>
 <div class="hero"><div><div class="muted">CHAMPION CHALLENGE</div><div class="big" id="champ">Loading…</div><div class="muted" id="champMeta"></div><div class="meter" style="margin-top:12px"><i id="champBar"></i></div></div><div><div class="muted">MARKET WEATHER</div><div class="big" id="weather">Loading…</div><div class="mini" id="weatherMeta"></div></div></div>
 <div class="grid4"><div class="card"><div class="muted">LAB CAPITAL</div><div class="big" id="capital">Loading…</div><div class="mini" id="capitalDelta"></div></div><div class="card"><div class="muted">PAPER EXITS</div><div class="big" id="tradeCount">—</div><div class="mini" id="decisionCount"></div></div><div class="card"><div class="muted">OPEN POSITIONS</div><div class="big" id="open">—</div><div class="mini">across production agents</div></div><div class="card"><div class="muted">TOKENS OBSERVED</div><div class="big" id="tokenCount">—</div><div class="mini" id="uptime"></div></div></div>
-<div class="card health" id="health"><span>Dashboard: <b class="amber">loading state…</b></span></div><div class="tabs" id="tabs"><div class="tab on" data-p="war">War Room</div><div class="tab" data-p="radar">Token Lab</div><div class="tab" data-p="intel">Intelligence</div><div class="tab" data-p="planet">The World</div><div class="tab" data-p="research">Research Lab</div><div class="tab" data-p="time">Time Machine</div></div>
+<div class="card health" id="health"><span>Dashboard: <b class="amber">loading state…</b></span></div><div class="tabs" id="tabs"><div class="tab on" data-p="war">War Room</div><div class="tab" data-p="radar">Token Lab</div><div class="tab" data-p="intel">Intelligence</div><div class="tab" data-p="planet">The World</div><div class="tab" data-p="research">Research Lab</div><div class="tab" data-p="time">Time Machine</div><div class="tab" data-p="xfeed">X Feed</div></div>
 <div class="pane on" id="war"><div class="sectionTitle"><h2>Autonomous Traders</h2><p>Same market. Same $1,000 start. Different personalities.</p></div><div class="strategies" id="strats"></div><div class="two" style="margin-top:12px"><div class="card"><h3>LIVE ACTIVITY</h3><div class="feed" id="feed"></div></div><div class="card"><h3>NARRATIVE RADAR</h3><div id="narrMini"></div></div></div></div>
 <div class="pane" id="radar"><div class="two"><div class="card scroll"><table class="table"><thead><tr><th>Token</th><th>MC</th><th>Liq</th><th>Score</th><th>Risk</th><th>Quality</th><th>Consensus</th><th>Source</th></tr></thead><tbody id="tokenRows"></tbody></table></div><div class="card"><h3>DETECTIVE WATCH</h3><div id="detectiveList"></div></div></div></div>
 <div class="pane" id="intel"><div class="card"><div class="sectionTitle"><h2>🌎 Narrative World</h2><p>Heat = momentum + buyer pressure + volume + fresh launches − saturation</p></div><div class="world" id="world"></div></div><div class="two" style="margin-top:12px"><div class="card scroll"><h3>CREATOR DNA · OBSERVED BY PUMP LAB</h3><table class="table"><thead><tr><th>Creator</th><th>Launches</th><th>Best X</th><th>Collapses</th><th>Graduations</th></tr></thead><tbody id="creators"></tbody></table></div><div class="card"><h3>DATA TRUTH</h3><div id="truth"></div></div></div><div class="card" style="margin-top:12px"><h3>👀 FOMO SMART-WALLET WATCHLIST</h3><div class="mini">Requested Fomo identities. Only corroborated public Solana mappings are subscribed; unresolved identities stay labeled resolving instead of being guessed.</div><div class="scroll"><table class="table"><thead><tr><th>Trader</th><th>Status</th><th>Wallets</th><th>Events</th><th>Buys</th><th>Sells</th><th>Tokens</th><th>Marked</th><th>Last</th></tr></thead><tbody id="fomoWatchlist"></tbody></table></div></div>
@@ -2267,7 +2295,20 @@ hr{border-color:#e0e3e5!important}
 <div class="three" style="margin-top:12px"><div class="card"><h3>🧬 SIGNAL INDEPENDENCE</h3><div id="correlation"></div></div><div class="card"><h3>🛡 NO-TRADE ALPHA</h3><div id="noTrade"></div></div><div class="card"><h3>🌪 CHAOS LAB</h3><div id="chaos"></div></div></div>
 <div class="card" style="margin-top:12px"><h3>📡 DATA INTEGRITY</h3><div id="providerAudit"></div></div></div>
 <div class="pane" id="time"><div class="card"><div class="sectionTitle"><h2>⏪ Time Machine</h2><p>Immutable periodic snapshots of what the lab knew then.</p></div><div class="controls"><select id="timeSelect"></select><span class="muted" id="timeView"></span></div><div id="timeCards" class="grid4"></div></div><div class="card" style="margin-top:12px"><h3>🎞 ROLLING MARKET REPLAY</h3><div id="marketReplay"></div></div><div class="card" style="margin-top:12px"><h3>TRUTH LEDGER · RECENT DECISIONS</h3><div class="scroll"><table class="table"><thead><tr><th>Time</th><th>Agent</th><th>Token</th><th>Decision</th><th>Score</th><th>Risk</th><th>Why</th></tr></thead><tbody id="ledger"></tbody></table></div></div></div>
-</div><div class="drawer" id="drawer"><button class="close" onclick="closeDrawer()">Close</button><div id="drawerBody"></div></div><script>
+
+<div class="pane" id="xfeed">
+  <div class="xFeedHero">
+    <div class="card xFeedIntro">
+      <div><div class="kicker">CURATED INTELLIGENCE · X / TWITTER</div><h2 class="xFeedTitle">SIGNAL<span>/FEED</span></h2><p>A private market-intelligence timeline made only from the X accounts you choose. No For You algorithm. No random noise. Just your hand-picked signal.</p></div>
+      <div class="xFeedStatus"><span class="dot"></span><b id="xFeedState">WAITING FOR CONFIG</b><span class="muted" id="xFeedUpdated"></span><button class="xRefresh" onclick="loadXFeed(true)">Refresh</button></div>
+    </div>
+    <div class="card xFeedAccounts"><div><div class="muted" style="font-size:9px;font-weight:900;letter-spacing:.13em">WATCHING</div><div class="xHandleCloud" id="xFeedHandles"><span class="xHandle">Add your accounts</span></div></div><div class="mini">Server-side caching prevents multiple open browsers from multiplying X API reads.</div></div>
+  </div>
+  <div class="xFeedGrid">
+    <div class="xTimeline" id="xTimeline"><div class="xEmpty"><b>X Signal Feed is ready.</b>Add your chosen accounts and X API credentials to switch the stream on.</div></div>
+    <div class="xSidebar"><div class="card xPulse"></div><div class="card"><h3>FEED RULES</h3><div class="mini">Newest first · selected accounts only · retweets excluded · automatic refresh · direct links back to X.</div></div><div class="card"><h3>LIVE SIGNALS</h3><div id="xSignalSummary" class="mini">No feed data yet.</div></div></div>
+  </div>
+</div></div><div class="drawer" id="drawer"><button class="close" onclick="closeDrawer()">Close</button><div id="drawerBody"></div></div><script>
 const $=x=>document.getElementById(x);const money=n=>'$'+Number(n||0).toLocaleString(undefined,{maximumFractionDigits:0});const one=n=>Number(n||0).toFixed(1);let S=null;
 function age(ms){const m=Math.max(0,Date.now()-ms)/60000;if(m<60)return m.toFixed(0)+'m';return(m/60).toFixed(1)+'h'}function esc(x){return String(x??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
 
@@ -2392,7 +2433,37 @@ async function loadDeepResearch(){
   }catch(e){console.error('PUMP LAB deep research error',e);}
   finally{deepLoading=false;}
 }
-document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab,.pane').forEach(x=>x.classList.remove('on'));t.classList.add('on');$(t.dataset.p).classList.add('on');if(['intel','research','time'].includes(t.dataset.p))loadDeepResearch();});document.addEventListener('pointermove',e=>{const el=e.target.closest('.card,.smallcard,.hero>div');if(!el)return;const r=el.getBoundingClientRect();el.style.setProperty('--mx',((e.clientX-r.left)/Math.max(1,r.width)*100)+'%');el.style.setProperty('--my',((e.clientY-r.top)/Math.max(1,r.height)*100)+'%');}); // PUMP LAB tactile pointer lighting
+
+let xFeedTimer=null,xFeedLoading=false;
+function xNum(n){n=Number(n||0);if(n>=1000000)return(n/1000000).toFixed(1)+'M';if(n>=1000)return(n/1000).toFixed(1)+'K';return String(n)}
+function xHighlight(t){return esc(t||'').replace(/(\$[A-Za-z][A-Za-z0-9]{1,12}|#[A-Za-z0-9_]{2,30})/g,'<span class="xKeyword">$1</span>')}
+function renderXFeed(data){
+  const handles=data.handles||[],posts=data.posts||[];
+  $('xFeedHandles').innerHTML=handles.length?handles.map(h=>'<span class="xHandle">@'+esc(h)+'</span>').join(''):'<span class="xHandle">No accounts configured</span>';
+  $('xFeedState').textContent=data.configured?(data.ok?'LIVE · '+posts.length+' POSTS':'FEED ERROR'):'WAITING FOR CONFIG';
+  $('xFeedState').className=data.ok?'green':data.configured?'red':'amber';
+  $('xFeedUpdated').textContent=data.fetchedAt?' · refreshed '+age(data.fetchedAt):'';
+  if(!data.configured){$('xTimeline').innerHTML='<div class="xEmpty"><b>Choose the signal.</b>Send me the X handles you want in Pump Lab. Once an X API bearer token is connected, this becomes your live curated feed.</div>';$('xSignalSummary').textContent='Feed infrastructure installed. Waiting for account list + X API credentials.';return}
+  if(!posts.length){$('xTimeline').innerHTML='<div class="xEmpty"><b>No new posts yet.</b>The feed is connected and will refresh automatically.</div>';$('xSignalSummary').textContent='Watching '+handles.length+' accounts · no cached posts.';return}
+  $('xTimeline').innerHTML=posts.map(p=>{
+    const m=p.metrics||{},media=p.media||[],author=p.author||{};
+    const avatar=author.profileImage?'<img class="xAvatar" src="'+esc(author.profileImage)+'" alt="">':'<div class="xAvatar"></div>';
+    const mediaHtml=media.length?'<div class="xMedia">'+media.slice(0,4).filter(x=>x.url).map(x=>'<img src="'+esc(x.url)+'" alt="">').join('')+'</div>':'';
+    return '<article class="card xPost"><div class="xPostHead">'+avatar+'<div class="xWho"><div class="xName">'+esc(author.name||author.username||'')+'</div><div class="xUser">@'+esc(author.username||'')+'</div></div><div class="xWhen">'+(p.createdAt?new Date(p.createdAt).toLocaleString():'')+'</div></div><div class="xText">'+xHighlight(p.text)+'</div>'+mediaHtml+'<div class="xMetrics"><span>♡ '+xNum(m.like_count)+'</span><span>↻ '+xNum(m.retweet_count)+'</span><span>◌ '+xNum(m.reply_count)+'</span><span>◈ '+xNum(m.quote_count)+'</span><a class="xOpen" href="'+esc(p.url)+'" target="_blank" rel="noopener">OPEN ON X ↗</a></div></article>';
+  }).join('');
+  const totalLikes=posts.reduce((s,p)=>s+Number((p.metrics||{}).like_count||0),0),byAuthor={};
+  posts.forEach(p=>{const u=(p.author||{}).username||'unknown';byAuthor[u]=(byAuthor[u]||0)+1});
+  const top=Object.entries(byAuthor).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  $('xSignalSummary').innerHTML='<b>'+posts.length+' cached posts</b><br>'+handles.length+' watched accounts · '+xNum(totalLikes)+' visible likes'+(top.length?'<br><br>'+top.map(x=>'@'+esc(x[0])+' · '+x[1]).join('<br>'):'');
+}
+async function loadXFeed(force){
+  if(xFeedLoading)return;xFeedLoading=true;
+  try{const r=await fetch('/api/x-feed'+(force?'?refresh=1':''),{cache:'no-store'});renderXFeed(await r.json())}
+  catch(e){$('xFeedState').textContent='FEED UNAVAILABLE';$('xFeedState').className='red';$('xTimeline').innerHTML='<div class="xEmpty"><b>X feed unavailable.</b>'+esc(e&&e.message?e.message:e)+'</div>'}
+  finally{xFeedLoading=false}
+  clearTimeout(xFeedTimer);xFeedTimer=setTimeout(()=>{if($('xfeed')&&$('xfeed').classList.contains('on'))loadXFeed(false)},30000);
+}
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab,.pane').forEach(x=>x.classList.remove('on'));t.classList.add('on');$(t.dataset.p).classList.add('on');if(['intel','research','time'].includes(t.dataset.p))loadDeepResearch();if(t.dataset.p==='xfeed')loadXFeed(false);});document.addEventListener('pointermove',e=>{const el=e.target.closest('.card,.smallcard,.hero>div');if(!el)return;const r=el.getBoundingClientRect();el.style.setProperty('--mx',((e.clientX-r.left)/Math.max(1,r.width)*100)+'%');el.style.setProperty('--my',((e.clientY-r.top)/Math.max(1,r.height)*100)+'%');}); // PUMP LAB tactile pointer lighting
 const ORACLE_ANSWERS=['YES','NO','MAYBE','IDK','ASK AGAIN','VERY LIKELY','DOUBTFUL','ABSOLUTELY','NOT YET','SIGNS POINT YES',"DON'T COUNT ON IT",'OUTLOOK GOOD','UNCLEAR','TRY LATER','WITHOUT A DOUBT','BETTER NOT TELL YOU'];
 function askMagicOrb(){
   const orb=$('magicOrb'),answer=$('oracleAnswer');if(!orb||!answer)return;
