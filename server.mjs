@@ -410,38 +410,38 @@ function specialistScore(d,f,t){
 }
 
 function strategyScore(d,f,t) {
-  const sid=d.parentId||d.id;
+  const sid=d.parentId||d.id,q=tokenDataQuality(t),wallet=verifiedWalletSignal(t,d.copyWindowMin||15,d.copySource||null);
   if(d.specialist)return specialistScore(d,f,t);
   let s=f.score;
-  if(sid==='banker')s=f.liqScore*.28+f.flow*.18+f.volScore*.20+(100-f.risk)*.34;
-  else if(sid==='quant')s=f.score+(f.buyRatio>.62?8:-4)+(f.sourceQuality>45?4:0);
-  else if(sid==='smart')s=f.flow*.34+f.volScore*.24+f.momentum*.18+(100-f.risk)*.24;
-  else if(sid==='social')s=f.social*.40+f.momentum*.24+f.flow*.18+f.volScore*.18;
-  else if(sid==='momentum')s=f.momentum*.45+f.flow*.22+f.volScore*.23+f.liqScore*.10;
-  else if(sid==='graduation')s=f.graduation*.45+f.flow*.20+f.volScore*.20+(100-f.risk)*.15;
-  else if(sid==='dip')s=(pct(t.price,(t.history.at(-1)||t).price)<0?70:38)*.35+f.flow*.25+f.liqScore*.20+(100-f.risk)*.20;
-  else if(sid==='swing')s=f.liqScore*.28+f.volScore*.24+f.flow*.18+(100-f.risk)*.30;
-  else if(sid==='degen')s=f.early*.35+f.momentum*.25+f.flow*.20+f.volScore*.20;
-  else if(sid==='smartmom')s=f.momentum*.34+f.flow*.27+f.volScore*.22+(100-f.risk)*.17;
-  else if(sid==='culture')s=f.social*.30+f.momentum*.28+f.flow*.22+f.volScore*.20;
-  else if(sid==='contrarian')s=(f.momentum>38&&f.momentum<58?76:32)*.40+(100-f.risk)*.30+f.liqScore*.30;
-  else if(sid==='sniper')s=f.score+clamp((50-f.risk)*.55,-8,12)+(f.sourceQuality>50?4:0);
-  else if(sid==='champion')s=f.momentum*.38+f.flow*.24+f.volScore*.22+f.early*.16;
-  else if(sid==='professional')s=f.liqScore*.30+f.volScore*.20+f.flow*.18+(100-f.risk)*.32;
-  else if(sid==='adaptive'){
-    const regime=marketWeather().regime;
-    const peers=strategyDefs.filter(p=>p.risk!=='CONTROL'&&!p.specialist&&!['adaptive','champion','professional'].includes(p.id));
-    let total=0,weight=0,agree=0;
-    for(const p of peers){const ps=strategyScore(p,f,t),w=strategyRegimeWeight(p.id,regime)*diversityWeight(p.id);total+=ps*w;weight+=w;if(ps>=p.min)agree++;}
-    s=(weight?total/weight:f.score)+Math.min(12,agree*1.15)+(regime==='HOT'?f.momentum*.04:(100-f.risk)*.04);
-  }
+  if(sid==='banker')s=f.liqScore*.24+f.flow*.16+f.volScore*.13+f.momentum*.18+f.acceleration*.10+(100-f.risk)*.19;
+  else if(sid==='quant')s=f.score+(f.buyRatio>.60?6:-5)+(q.sourceCount>=2?7:-6)+(f.acceleration>52?4:0);
+  else if(sid==='smart')s=f.flow*.23+f.volScore*.14+f.momentum*.17+f.acceleration*.10+(100-f.risk)*.16+q.score*.10+Math.min(18,wallet.count*12);
+  else if(sid==='social')s=f.social*.25+f.momentum*.20+f.acceleration*.10+f.flow*.18+f.volScore*.12+(100-f.risk)*.15;
+  else if(sid==='momentum')s=f.momentum*.34+f.acceleration*.20+f.flow*.22+f.volScore*.14+f.liqScore*.10;
+  else if(sid==='graduation')s=(t.graduated?28:0)+f.flow*.18+f.momentum*.16+f.acceleration*.10+f.volScore*.12+f.liqScore*.08+(100-f.risk)*.08;
+  else if(sid==='dip')s=clamp(45+Math.max(-20,f.drawdown)*.35+f.rebound*.45+f.acceleration*.18+f.flow*.16+(100-f.risk)*.12);
+  else if(sid==='swing')s=f.liqScore*.22+f.volScore*.13+f.flow*.16+f.momentum*.14+f.acceleration*.08+(100-f.risk)*.17+q.score*.10;
+  else if(sid==='degen')s=f.early*.18+f.momentum*.25+f.acceleration*.18+f.flow*.20+f.volScore*.11+(100-f.risk)*.08;
+  else if(sid==='smartmom')s=f.momentum*.27+f.acceleration*.17+f.flow*.25+f.volScore*.12+(100-f.risk)*.12+q.score*.07;
+  else if(sid==='culture')s=f.social*.19+f.momentum*.20+f.acceleration*.12+f.flow*.21+f.volScore*.12+(100-f.risk)*.10+q.score*.06;
+  else if(sid==='contrarian')s=clamp(42+f.rebound*.50+f.acceleration*.18+(100-f.risk)*.16+f.liqScore*.12);
+  else if(sid==='sniper')s=f.score*.45+q.score*.18+f.momentum*.12+f.acceleration*.10+f.flow*.10+(100-f.risk)*.05;
+  else if(sid==='champion'){const e=evidenceStack(t,f,q);s=f.score*.55+q.score*.18+f.acceleration*.10+Math.min(17,e.n*2.4);}
+  else if(sid==='professional')s=f.liqScore*.20+f.volScore*.10+f.flow*.14+f.momentum*.10+f.acceleration*.06+(100-f.risk)*.22+q.score*.18;
+  else if(sid==='adaptive'){const e=evidenceStack(t,f,q);s=f.score*.58+q.score*.18+f.acceleration*.08+Math.min(16,e.n*2.2);}
+  else if(sid==='copy_unipcs')s=f.score*.45+q.score*.18+(100-f.risk)*.10+Math.min(27,wallet.count*27);
+  else if(sid==='copy_frank')s=f.score*.48+q.score*.20+(100-f.risk)*.10+Math.min(22,wallet.count*22);
+  else if(sid==='copy_orangie')s=f.score*.46+q.score*.22+(100-f.risk)*.12+Math.min(20,wallet.count*20);
+  else if(sid==='copy_rasmr')s=f.momentum*.19+f.acceleration*.17+f.flow*.18+q.score*.16+(100-f.risk)*.10+Math.min(20,wallet.count*20);
+  else if(sid==='wallet_consensus')s=f.score*.40+q.score*.18+f.acceleration*.10+Math.min(32,wallet.count*16);
+  else if(sid==='confirmed_runner')s=f.momentum*.25+f.acceleration*.20+f.flow*.20+q.score*.14+f.liqScore*.10+(100-f.risk)*.11;
+  else if(sid==='asym_swing')s=f.liqScore*.19+q.score*.18+f.flow*.14+f.momentum*.14+f.acceleration*.10+(100-f.risk)*.20+f.volScore*.05;
   else if(sid==='volume')s=f.volScore*.70+f.liqScore*.30;
   else if(sid==='launchctl')s=100;
   else if(sid==='socialctl')s=f.social;
   else if(sid==='random')s=Math.random()*100;
   return clamp(s);
 }
-
 function detective(t,f=features(t)) {
   const dna=creatorDNA(t); const flags=[];
   if(f.risk>65)flags.push('high structural risk');
@@ -572,7 +572,7 @@ function strategyPlaybook(d){
   }
   if(d.specialist){
     const low=d.risk==='LOW',high=d.risk==='HIGH'||d.risk==='EXTREME';
-    return{minQuality:low?68:high?60:64,minBuy:high?.58:.54,maxRisk:low?56:high?68:62,minMomentum:high?58:48,minAccel:45,minLiq:low?12000:5000,minAge:.4,
+    return{minQuality:low?68:high?60:64,minBuy:high ? .58 : .54,maxRisk:low?56:high?68:62,minMomentum:high?58:48,minAccel:45,minLiq:low?12000:5000,minAge:.4,
       instruction:`${d.thesis}; cohort eligibility is necessary but fresh quality + flow confirmation is still mandatory`};
   }
   return{minQuality:60,minBuy:.55,maxRisk:64,minMomentum:50,minAccel:45,minLiq:5000,minAge:.5,instruction:d.thesis};
@@ -1041,23 +1041,28 @@ function allocationWeight(id){
 function exitModeFor(d){
   if(d.exitMode)return d.exitMode;
   const id=d.parentId||d.id;if(['banker','professional','sniper'].includes(id))return'defensive';
-  if(['momentum','smartmom','champion','degen'].includes(id))return'runner';
-  if(['swing','dip','contrarian'].includes(id))return'structure';
+  if(['momentum','smartmom','champion','degen','confirmed_runner'].includes(id))return'runner';
+  if(['swing','dip','contrarian','asym_swing'].includes(id))return'structure';
   return'balanced';
 }
 function exitDecision(d,p,t,f){
   const mode=exitModeFor(d),pnl=pct(t.price,p.entry),hold=(now()-p.opened)/60000,peakPnl=pct(p.peakDuring||t.price,p.entry),drawFromPeak=peakPnl-pnl;
-  let stop=d.stop,take=d.take,maxHold=d.id==='swing'?90:d.type==='challenger'?55:40;
-  if(mode==='defensive'){stop*=.82;take*=.82;maxHold=Math.min(maxHold,28);}
-  if(mode==='runner'){take*=1.35;maxHold=Math.max(maxHold,55);}
-  if(mode==='structure'){stop*=1.05;take*=1.08;maxHold=Math.max(maxHold,65);}
-  const trailing=peakPnl>=22&&drawFromPeak>=Math.max(8,peakPnl*.38);
-  const fade=f.momentum<(mode==='runner'?32:38)||f.buyRatio<(mode==='runner' ? .34 : .38);
+  let stop=Math.min(d.stop,18),take=d.take,maxHold=d.maxHold||60;
+  if(mode==='scalp'){maxHold=Math.min(maxHold,28);stop=Math.min(stop,10);take=Math.min(take,50);}
+  if(mode==='defensive'){maxHold=Math.min(maxHold,60);stop=Math.min(stop,12);}
+  if(mode==='runner')maxHold=Math.max(maxHold,120);
+  if(mode==='structure')maxHold=Math.max(maxHold,180);
+  if(mode==='conviction')maxHold=Math.max(maxHold,720);
+  const trailFrac=mode==='conviction'?.48:mode==='runner'?.36:.30;
+  const trailing=peakPnl>=18&&drawFromPeak>=Math.max(7,peakPnl*trailFrac);
+  const catastrophic=(f.flowFresh&&f.buyRatio<.28)||(f.risk>=84);
+  const fade=f.flowFresh&&f.acceleration<38&&f.momentum<42&&f.buyRatio<(mode==='runner'||mode==='conviction'?.38:.44);
+  if(catastrophic&&hold>.75)return{exit:true,why:'catastrophic thesis break',mode};
   if(pnl<=-stop)return{exit:true,why:'stop',mode};
   if(pnl>=take)return{exit:true,why:'take profit',mode};
   if(trailing)return{exit:true,why:'trailing peak protection',mode};
   if(hold>maxHold)return{exit:true,why:'time exit',mode};
-  if(fade&&hold>1.5)return{exit:true,why:'thesis broke',mode};
+  if(fade&&hold>(mode==='scalp'?1.5:3))return{exit:true,why:'thesis broke',mode};
   return{exit:false,mode};
 }
 function exitOptimizer(){
