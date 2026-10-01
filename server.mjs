@@ -16,24 +16,23 @@ const SOLANA_RPC_WSS = process.env.SOLANA_RPC_WSS || 'wss://api.mainnet-beta.sol
 // Public Fomo trader identities requested for research. Wallets are attached only when
 // a public mapping is corroborated strongly enough to avoid polluting the dataset.
 const FOMO_WATCHLIST = [
-  {id:'dingalingts',name:'Dingalingts',status:'resolving',wallets:[]},
-  {id:'rachelwolchin',name:'RachelWolchin',status:'resolving',wallets:[]},
-  {id:'unipcs',name:'Unipcs',status:'tracking',wallets:[
+  {id:'dingalingts',name:'Dingalingts',status:'resolving',profileUrl:'https://fomo.family/profile/dingalingts',walletHint:'4sVrMC…7Tmi',wallets:[]},
+  {id:'rachelwolchin',name:'RachelWolchin',status:'resolving',profileUrl:'https://fomo.family/r/RachelWolchin',wallets:[]},
+  {id:'unipcs',name:'Unipcs',status:'tracking',profileUrl:'https://fomo.family/profile/unipcs',wallets:[
     {address:'2heJbC32Tpfcb3nbUb5ER61K11FGZVfVGtVnDm6LDogF',label:'Fomo/public Solana',confidence:'verified'}
   ]},
-  {id:'frankdegods',name:'FrankDeGods',status:'tracking',wallets:[
+  {id:'frankdegods',name:'FrankDeGods',status:'tracking',profileUrl:'https://fomo.family/profile/frankdegods',wallets:[
     {address:'498g1rVnFcnjBjpfw1xyqA1WvgQXUU8RWuELjxkjAayQ',label:'Fomo/public Solana',confidence:'verified'}
   ]},
-  {id:'macdegods',name:'MacDeGods',status:'tracking',wallets:[
-    {address:'5RZPhPW9qGEd3hRGibgYaF5Yk2jBzXR1VZMKSP71C3Lb',label:'public Solana',confidence:'verified'}
+  {id:'macdegods',name:'MacDeGods',status:'partial',profileUrl:'https://fomo.family/profile/macdegods',walletHint:'C6hE7Z…6t6c',wallets:[
+    {address:'5RZPhPW9qGEd3hRGibgYaF5Yk2jBzXR1VZMKSP71C3Lb',label:'associated public Solana; current Fomo execution wallet still resolving',confidence:'associated'}
   ]},
-  {id:'orangie',name:'Orangie',status:'tracking',wallets:[
+  {id:'orangie',name:'Orangie',status:'tracking',profileUrl:'https://fomo.family/profile/orangie',wallets:[
     {address:'DuQabFqdC9eeBULVa7TTdZYxe8vK8ct5DZr4Xcf7docy',label:'primary public Solana',confidence:'verified'}
   ]},
-  {id:'tjr',name:'TJR',status:'resolving',wallets:[]},
-  {id:'rasmr',name:'Rasmr',status:'tracking',wallets:[
-    {address:'9CNyLECt2j8tnDhqxtjYk5HUhZ2b8Nwnyb7sfYN7vND2',label:'Fomo-mapped Solana',confidence:'verified'},
-    {address:'DtjZR9SdxUKbMyu4qeUVgjMJyGDhYg76BttXxfhf3z59',label:'secondary / creator Solana',confidence:'secondary'}
+  {id:'tjr',name:'TJR',status:'resolving',profileUrl:'https://fomo.family/profile/tjr',walletHint:'9pqU4R…BoqZ',wallets:[]},
+  {id:'rasmr',name:'Rasmr',status:'tracking',profileUrl:'https://fomo.family/profile/rasmr',wallets:[
+    {address:'9CNyLECt2j8tnDhqxtjYk5HUhZ2b8Nwnyb7sfYN7vND2',label:'Fomo-mapped Solana',confidence:'verified'}
   ]}
 ];
 const WATCHED_WALLET_LOOKUP = new Map();
@@ -511,7 +510,7 @@ function fomoWatchlistSnapshot(){
     const ev=walletEvents.filter(e=>e.traderId===trader.id);
     const mints=new Set(ev.map(e=>e.mint));const buys=ev.filter(e=>e.action==='BUY'),sells=ev.filter(e=>e.action==='SELL');
     const marked=buys.map(e=>{const t=tokens.get(e.mint);return e.price>0&&t?.price>0?pct(t.price,e.price):null}).filter(Number.isFinite);
-    return{id:trader.id,name:trader.name,status:trader.wallets.length?'tracking':'resolving',walletCount:trader.wallets.length,
+    return{id:trader.id,name:trader.name,status:trader.status||((trader.wallets||[]).length?'tracking':'resolving'),profileUrl:trader.profileUrl||'',walletHint:trader.walletHint||'',walletCount:trader.wallets.length,
       wallets:trader.wallets.map(w=>({address:w.address,label:w.label,confidence:w.confidence})),events:ev.length,buys:buys.length,sells:sells.length,
       directional:ev.filter(e=>e.action==='TOKEN_IN'||e.action==='TOKEN_OUT').length,tokens:mints.size,last:ev[0]?.ts||0,marked:marked.length?avg(marked):null,sample:marked.length};
   });
@@ -767,7 +766,7 @@ $('worldStats').innerHTML='<div class="smallcard"><span class="muted">ACTIVE</sp
 $('tokenWorld').innerHTML=s.narratives.map(n=>{const ts=s.tokens.filter(t=>t.narrative===n.name).sort((a,b)=>b.features.score-a.features.score).slice(0,14);return'<div class="ecosystem"><div><b>'+esc(n.name)+'</b><span style="float:right" class="'+(n.heat>=65?'green':'muted')+'">heat '+one(n.heat)+'</span></div><div class="mini">'+n.count+' observed · '+one(n.buyPressure)+'% buy pressure · saturation '+one(n.saturation)+'</div><div class="nodes">'+ts.map(t=>'<button class="worldNode '+(t.detective.score>=70?'risky':t.features.score>=72?'hot':'')+'" data-mint="'+esc(t.mint)+'" onclick="openToken(this.dataset.mint)">&#36;'+esc(t.symbol)+' · '+one(t.features.score)+'</button>').join('')+'</div></div>'}).join('');
 $('worldLeaders').innerHTML=s.tokens.slice().sort((a,b)=>b.features.score-a.features.score).slice(0,10).map((t,i)=>'<div class="smallcard" style="margin:6px 0"><b>'+(i+1)+'. &#36;'+esc(t.symbol)+'</b><span style="float:right" class="green">'+one(t.features.score)+'</span><div class="mini">'+esc(t.narrative)+' · Q'+one(t.quality.score)+' · '+t.consensus.yes+'/'+t.consensus.total+' agents</div></div>').join('');
 $('worldRisks').innerHTML=s.tokens.slice().sort((a,b)=>b.detective.score-a.detective.score).slice(0,10).map(t=>'<div class="smallcard" style="margin:6px 0"><b>&#36;'+esc(t.symbol)+'</b><span style="float:right" class="red">'+one(t.detective.score)+'</span><div class="mini">'+esc((t.detective.flags||[]).slice(0,2).join(' · ')||'structural caution')+'</div></div>').join('');
-$('fomoWatchlist').innerHTML=(s.fomoWatchlist||[]).map(w=>'<tr><td><b>'+esc(w.name)+'</b></td><td class="'+(w.status==='tracking'?'green':'amber')+'">'+esc(w.status.toUpperCase())+'</td><td>'+w.walletCount+'</td><td>'+w.events+'</td><td class="green">'+w.buys+'</td><td class="red">'+w.sells+'</td><td>'+w.tokens+'</td><td class="'+(w.marked==null?'muted':w.marked>=0?'green':'red')+'">'+(w.marked==null?'—':(w.marked>=0?'+':'')+one(w.marked)+'%')+'</td><td class="muted">'+(w.last?age(w.last):'—')+'</td></tr>').join('');
+$('fomoWatchlist').innerHTML=(s.fomoWatchlist||[]).map(w=>'<tr><td><b>'+esc(w.name)+'</b></td><td class="'+(w.status==='tracking'?'green':w.status==='partial'?'amber':'amber')+'">'+esc(w.status.toUpperCase())+'</td><td>'+w.walletCount+(w.walletHint?' · <span class="muted">'+esc(w.walletHint)+'</span>':'')+'</td><td>'+w.events+'</td><td class="green">'+w.buys+'</td><td class="red">'+w.sells+'</td><td>'+w.tokens+'</td><td class="'+(w.marked==null?'muted':w.marked>=0?'green':'red')+'">'+(w.marked==null?'—':(w.marked>=0?'+':'')+one(w.marked)+'%')+'</td><td class="muted">'+(w.last?age(w.last):'—')+'</td></tr>').join('');
 $('fomoEvents').innerHTML=(s.fomoEvents||[]).slice(0,40).map(e=>'<tr><td><b>'+esc(e.traderName||'Tracked')+'</b></td><td class="'+(e.action==='BUY'||e.action==='TOKEN_IN'?'green':'red')+'">'+esc(e.action)+'</td><td><b>&#36;'+esc(e.symbol)+'</b></td><td>'+Number(e.tokenDelta||0).toLocaleString(undefined,{maximumSignificantDigits:5})+'</td><td>'+(e.solDelta>=0?'+':'')+Number(e.solDelta||0).toFixed(4)+'</td><td class="muted">'+age(e.ts)+'</td></tr>').join('')||'<tr><td colspan="6" class="muted">Listening for the verified watchlist wallets…</td></tr>';
 $('walletBoard').innerHTML=(s.walletBoard||[]).map(w=>'<tr><td><code>'+esc(w.wallet.slice(0,7))+'…'+esc(w.wallet.slice(-5))+'</code></td><td>'+w.events+'</td><td class="green">'+w.buys+'</td><td class="red">'+w.sells+'</td><td>'+w.mints+'</td><td class="'+(w.marked>=0?'green':'red')+'">'+(w.marked>=0?'+':'')+one(w.marked)+'%</td><td>'+one(w.score)+'</td></tr>').join('')||'<tr><td colspan="7" class="muted">Listening for Pump.fun on-chain wallet activity…</td></tr>';
 $('creators').innerHTML=s.creators.map(c=>'<tr><td><code>'+esc(c.creator.slice(0,7))+'…'+esc(c.creator.slice(-5))+'</code></td><td>'+c.launches+'</td><td>'+one(c.bestPeakX)+'×</td><td>'+c.collapses+'</td><td>'+c.graduates+'</td></tr>').join('')||'<tr><td colspan="5" class="muted">Creator history is accumulating from observed launches.</td></tr>';
