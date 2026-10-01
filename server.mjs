@@ -241,40 +241,63 @@ function narrativeFor(t) {
   return 'Memes';
 }
 
+function canonicalSource(source='live'){return source.startsWith('dexscreener')?'dexscreener':source.startsWith('pump.fun')?'pump.fun':source;}
 function normalize(raw,source='live') {
   const mint = raw.mint || raw.tokenAddress || raw.address || raw.baseToken?.address;
   if(!mint) return null;
+  const ts=now(),src=canonicalSource(source);
   const symbol=(raw.symbol||raw.baseToken?.symbol||raw.name||'TOKEN').toString().slice(0,18).toUpperCase();
   const name=(raw.name||raw.baseToken?.name||symbol).toString().slice(0,64);
   let mc=num(raw.usd_market_cap||raw.marketCapUsd||raw.marketCap||raw.fdv||0);
-  if(mc>0 && mc<1000 && num(raw.marketCapSol)>0) mc=num(raw.marketCapSol)*150;
+  if(!(mc>0)&&num(raw.market_cap)>0)mc=num(raw.market_cap);
   let price=num(raw.priceUsd||raw.price_usd||0); if(!price&&mc>0) price=mc/1e9;
-  const liq=num(raw.liquidity?.usd||raw.liquidityUsd||raw.liquidity||Math.max(500,mc*.08));
-  const vol=num(raw.volume?.m5||raw.volume?.h1||raw.volume1m||raw.volume||0);
-  const buys=num(raw.txns?.m5?.buys||raw.txns?.h1?.buys||raw.buys1m||raw.buys||0);
-  const sells=num(raw.txns?.m5?.sells||raw.txns?.h1?.sells||raw.sells1m||raw.sells||0);
-  const created=num(raw.created_timestamp||raw.pairCreatedAt||raw.createdAt||now());
+  const rawLiq=raw.liquidity?.usd??raw.liquidityUsd??raw.liquidity;
+  const liqObserved=Number.isFinite(Number(rawLiq))&&Number(rawLiq)>0;
+  const liq=liqObserved?num(rawLiq):0;
+  const rawVol=raw.volume?.m5??raw.volume1m??raw.volume?.h1??raw.volume;
+  const volumeObserved=Number.isFinite(Number(rawVol))&&Number(rawVol)>=0;
+  const vol=volumeObserved?num(rawVol):0;
+  const rawBuys=raw.txns?.m5?.buys??raw.buys1m??raw.txns?.h1?.buys??raw.buys;
+  const rawSells=raw.txns?.m5?.sells??raw.sells1m??raw.txns?.h1?.sells??raw.sells;
+  const flowObserved=Number.isFinite(Number(rawBuys))&&Number.isFinite(Number(rawSells));
+  const buys=flowObserved?num(rawBuys):0,sells=flowObserved?num(rawSells):0;
+  const created=num(raw.created_timestamp||raw.createdAt||raw.pairCreatedAt||ts);
   const createdAt=created<1e12?created*1000:created;
   const socials=raw.info?.socials||[];
   const twitter=raw.twitter||socials.find(x=>/twitter|x/i.test(x.platform||''))?.handle||'';
+  const telegram=raw.telegram||socials.find(x=>/telegram/i.test(x.platform||''))?.handle||'';
   const website=raw.website||raw.info?.websites?.[0]?.url||'';
   const creator=raw.creator||raw.traderPublicKey||raw.user||'';
   const boosts=num(raw.boosts?.active||raw.boostAmount||0);
-  return {mint,symbol,name,source,price,mc,liq,vol,buys,sells,createdAt,updatedAt:now(),narrative:narrativeFor({name,symbol}),graduated:!!raw.complete,
-    twitter,website,image:raw.image_uri||raw.image||raw.info?.imageUrl||'',creator,boosts,history:[],sources:[source],firstPrice:price,firstMc:mc,peakPrice:price,peakMc:mc,troughPrice:price||0,troughMc:mc||0};
+  return {mint,symbol,name,source,price,mc,liq,vol,buys,sells,createdAt,updatedAt:ts,narrative:narrativeFor({name,symbol}),graduated:!!raw.complete,
+    twitter,telegram,website,image:raw.image_uri||raw.image||raw.info?.imageUrl||'',creator,boosts,history:[],sources:[src],sourceSeen:{[src]:ts},
+    flowObserved,flowUpdatedAt:flowObserved?ts:0,flowSource:flowObserved?src:'',volumeObserved,volumeUpdatedAt:volumeObserved?ts:0,volumeSource:volumeObserved?src:'',
+    liquidityObserved:liqObserved,liquidityUpdatedAt:liqObserved?ts:0,liquiditySource:liqObserved?src:'',
+    firstPrice:price,firstMc:mc,peakPrice:price,peakMc:mc,troughPrice:price||0,troughMc:mc||0};
 }
 
 function mergeToken(old,t) {
   if(!old) return t;
-  const hist=(old.history||[]).slice(-119);
-  hist.push({ts:now(),price:old.price,mc:old.mc,liq:old.liq,vol:old.vol,buys:old.buys,sells:old.sells});
+  const ts=now(),hist=(old.history||[]).slice(-239);
+  hist.push({ts,price:old.price,mc:old.mc,liq:old.liq,vol:old.vol,buys:old.buys,sells:old.sells});
+  const seen={...(old.sourceSeen||{})};for(const [k,v] of Object.entries(t.sourceSeen||{}))seen[k]=Math.max(num(seen[k]),num(v));
+  const freshFlow=t.flowObserved;
+  const freshVol=t.volumeObserved;
+  const freshLiq=t.liquidityObserved;
+  const createdCandidates=[old.createdAt,t.createdAt].filter(x=>x>0);
   return {...old,...t,
+    createdAt:createdCandidates.length?Math.min(...createdCandidates):t.createdAt,
+    graduated:!!old.graduated||!!t.graduated,
     firstPrice:old.firstPrice||t.price,firstMc:old.firstMc||t.mc,history:hist,
     peakPrice:Math.max(old.peakPrice||0,t.price||0),peakMc:Math.max(old.peakMc||0,t.mc||0),
     troughPrice:Math.min(old.troughPrice||t.price||0,t.price||old.troughPrice||0),troughMc:Math.min(old.troughMc||t.mc||0,t.mc||old.troughMc||0),
-    sources:[...new Set([...(old.sources||[]),...(t.sources||[]),t.source])],
-    twitter:t.twitter||old.twitter,website:t.website||old.website,image:t.image||old.image,creator:t.creator||old.creator,
-    buys:Math.max(t.buys||0,old.buys||0),sells:Math.max(t.sells||0,old.sells||0),vol:Math.max(t.vol||0,old.vol||0),boosts:Math.max(t.boosts||0,old.boosts||0)
+    sourceSeen:seen,sources:Object.keys(seen),
+    twitter:t.twitter||old.twitter,telegram:t.telegram||old.telegram,website:t.website||old.website,image:t.image||old.image,creator:t.creator||old.creator,
+    buys:freshFlow?t.buys:old.buys,sells:freshFlow?t.sells:old.sells,flowObserved:freshFlow||old.flowObserved,
+    flowUpdatedAt:freshFlow?t.flowUpdatedAt:old.flowUpdatedAt,flowSource:freshFlow?t.flowSource:old.flowSource,
+    vol:freshVol?t.vol:old.vol,volumeObserved:freshVol||old.volumeObserved,volumeUpdatedAt:freshVol?t.volumeUpdatedAt:old.volumeUpdatedAt,volumeSource:freshVol?t.volumeSource:old.volumeSource,
+    liq:freshLiq?t.liq:old.liq,liquidityObserved:freshLiq||old.liquidityObserved,liquidityUpdatedAt:freshLiq?t.liquidityUpdatedAt:old.liquidityUpdatedAt,liquiditySource:freshLiq?t.liquiditySource:old.liquiditySource,
+    boosts:Math.max(t.boosts||0,old.boosts||0)
   };
 }
 
@@ -297,23 +320,30 @@ function creatorDNA(t) {
 }
 
 function features(t) {
-  const hist=t.history||[];
-  const prev=hist[Math.max(0,hist.length-5)]||{price:t.price,vol:t.vol};
-  const momentum=clamp(50+pct(t.price,prev.price)*2.0);
-  const total=t.buys+t.sells; const buyRatio=total?t.buys/total:.5;
+  const hist=(t.history||[]).filter(x=>x.price>0),age=ageMin(t),ts=now();
+  const one=hist.at(-1)||{price:t.price},five=hist[Math.max(0,hist.length-5)]||one,twenty=hist[Math.max(0,hist.length-20)]||five;
+  const shortRet=pct(t.price,one.price),mediumRet=pct(t.price,five.price),longRet=pct(t.price,twenty.price);
+  const momentum=clamp(50+Math.tanh(shortRet/12)*24+Math.tanh(mediumRet/35)*26);
+  const acceleration=clamp(50+Math.tanh((shortRet-mediumRet/Math.max(1,Math.min(5,hist.length)))/10)*50);
+  const flowFresh=!!t.flowObserved&&ts-num(t.flowUpdatedAt)<90000,volumeFresh=!!t.volumeObserved&&ts-num(t.volumeUpdatedAt)<90000,liqFresh=!!t.liquidityObserved&&ts-num(t.liquidityUpdatedAt)<180000;
+  const total=flowFresh?t.buys+t.sells:0; const buyRatio=total?t.buys/total:.5;
   const flow=clamp(buyRatio*100);
-  const age=ageMin(t);
-  const liqScore=clamp(Math.log10(Math.max(10,t.liq))*18-30);
-  const volScore=clamp(Math.log10(Math.max(10,t.vol))*17-25);
+  const liqScore=liqFresh&&t.liq>0?clamp(Math.log10(Math.max(10,t.liq))*18-30):0;
+  const volScore=volumeFresh&&t.vol>0?clamp(Math.log10(Math.max(10,t.vol))*17-25):0;
   const early=clamp(100-age*2.6);
   const graduation=t.graduated?100:clamp((t.mc/69000)*100);
-  const social=clamp((t.twitter?22:0)+(t.website?10:0)+Math.min(25,t.boosts*4)+Math.min(25,total*1.25));
-  const sourceQuality=clamp((t.sources?.length||1)*28);
+  const social=clamp((t.twitter?20:0)+(t.telegram?16:0)+(t.website?9:0)+Math.min(20,t.boosts*3)+(flowFresh?Math.min(20,total*.9):0));
+  const freshSources=Object.values(t.sourceSeen||{}).filter(x=>ts-num(x)<180000).length;
+  const sourceQuality=clamp(freshSources*34);
   const dna=creatorDNA(t);
   const creatorRisk=clamp((dna.launches>=4?12:0)+(dna.collapses>=2?20:0)-(dna.graduates?10:0));
-  const risk=clamp(78-liqScore*.38-(total>8?10:0)+(age<.6?10:0)+(t.website?0:5)+(t.twitter?0:5)+creatorRisk-sourceQuality*.06);
-  const score=clamp(momentum*.23+flow*.19+liqScore*.14+volScore*.16+early*.07+social*.08+(100-risk)*.09+sourceQuality*.04);
-  return {momentum,flow,buyRatio,age,liqScore,volScore,early,graduation,social,risk,score,sourceQuality,creatorRisk};
+  const drawdown=t.peakPrice>0?pct(t.price,t.peakPrice):0;
+  const recentLow=hist.slice(-20).reduce((m,x)=>x.price>0?Math.min(m,x.price):m,t.price);
+  const rebound=recentLow>0?pct(t.price,recentLow):0;
+  const stalePenalty=(!flowFresh?10:0)+(!volumeFresh?7:0)+(!liqFresh?14:0);
+  const risk=clamp(72-liqScore*.32-(total>8?8:0)+(age<.6?9:0)+(t.website?0:3)+(t.twitter||t.telegram?0:4)+creatorRisk-sourceQuality*.07+stalePenalty);
+  const score=clamp(momentum*.20+acceleration*.10+flow*.18+liqScore*.13+volScore*.14+early*.05+social*.07+(100-risk)*.09+sourceQuality*.04);
+  return {momentum,acceleration,shortRet,mediumRet,longRet,drawdown,rebound,flow,flowFresh,buyRatio,totalTx:total,age,liqScore,liqFresh,volScore,volumeFresh,early,graduation,social,risk,score,sourceQuality,freshSources,creatorRisk};
 }
 
 function strategyRegimeWeight(id,regime){
@@ -827,9 +857,13 @@ function diversityWeight(id){
   const c=avg(a.map(x=>x.jaccard))/100;return clamp(1-c*.45,.55,1.05);
 }
 function tokenDataQuality(t){
-  const ageSec=Math.max(0,(now()-t.updatedAt)/1000);const sourceCount=(t.sources||[]).length;const tx=(t.buys||0)+(t.sells||0);
-  const freshness=clamp(100-ageSec*2);const multi=sourceCount>=2?100:sourceCount?55:0;const market=clamp(features(t).liqScore*.65+Math.min(35,tx*1.5));
-  return{score:clamp(freshness*.35+multi*.3+market*.35),freshness,sourceCount,ageSec,market,level:ageSec>90?'STALE':sourceCount>=2?'CROSS-CHECKED':'SINGLE SOURCE'};
+  const ts=now(),ageSec=Math.max(0,(ts-t.updatedAt)/1000),f=features(t);
+  const freshSources=Object.entries(t.sourceSeen||{}).filter(([,v])=>ts-num(v)<180000).map(([k])=>k);
+  const freshness=clamp(100-ageSec*2),cross=freshSources.length>=2?100:freshSources.length?45:0;
+  const liq=f.liqFresh?100:0,flow=f.flowFresh?100:0,volume=f.volumeFresh?100:0,depth=clamp(Math.log10(1+f.totalTx)*45);
+  const score=clamp(freshness*.20+cross*.20+liq*.20+flow*.18+volume*.12+depth*.10);
+  return{score,freshness,sourceCount:freshSources.length,sources:freshSources,ageSec,market:clamp(f.liqScore*.65+Math.min(35,f.totalTx*1.5)),
+    observed:{liquidity:f.liqFresh,flow:f.flowFresh,volume:f.volumeFresh},level:ageSec>90?'STALE':freshSources.length>=2?'CROSS-CHECKED':score>=60?'OBSERVED':'PARTIAL'};
 }
 
 
