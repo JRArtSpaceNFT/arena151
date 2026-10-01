@@ -696,13 +696,27 @@ function maybeTrade(t) {
     if(d.id==='adaptive')sizeMult*=clamp(.65+(score-60)/45,.55,1.35);
     sizeMult*=confidence*qualityMult*dnaMult*allocatorMult*(d.sizeBias||1);
     sizeMult=clamp(sizeMult,.25,1.35);
-    const authoredSize=d.risk==='CONTROL'?d.size:Math.min(d.size,.04);
-    const budget=Math.min(d.cash*(d.risk==='CONTROL' ? .38 : .20),Math.max(10,d.equity*authoredSize*sizeMult));
+
+    // Risk-to-stop sizing: stake enough for wins/losses to matter, while defining
+    // the dollars at risk before the trade. Scouts/copy models stay deliberately smaller.
+    const stopFrac=clamp((num(d.stop)||14)/100,.07,.30);
+    const riskBudgetPct=d.risk==='LOW'?.008:d.risk==='MED'?.011:d.risk==='HIGH'?.014:d.risk==='EXTREME'?.012:d.risk==='R&D'?.0065:.010;
+    let targetPositionPct=riskBudgetPct/stopFrac;
+    if(d.copyLab)targetPositionPct=Math.min(targetPositionPct,d.id==='copy_megga'?.045:.065);
+    if(d.id==='megga_scout')targetPositionPct=Math.min(targetPositionPct,.045);
+    if(d.specialist)targetPositionPct=Math.min(targetPositionPct,.11);
+    if(d.risk==='CONTROL')targetPositionPct=clamp(d.size,.04,.08);
+    targetPositionPct=clamp(targetPositionPct,.03,d.risk==='HIGH'?.16:d.risk==='EXTREME'?.12:.13);
+    const positionCapPct=d.maxOpen>=6?.06:d.maxOpen>=3?.09:d.risk==='HIGH'?.16:.13;
+    const minStake=(d.copyLab||d.id==='megga_scout'||d.risk==='R&D')?15:25;
+    const liquidityCap=t.liq>0?Math.max(minStake,t.liq*.02):Infinity;
+    const desiredBudget=d.equity*targetPositionPct*sizeMult;
+    const budget=Math.min(d.cash*.25,d.equity*positionCapPct,liquidityCap,Math.max(minStake,desiredBudget));
     const slip=.0035+Math.min(.04,budget/Math.max(1000,t.liq)*.5);const entry=t.price*(1+slip);const cost=budget*(1+FEE_RATE);
     if(cost>d.cash)continue;
     d.cash-=cost;
     const exploratory=false;
-    const p={id:'p'+now()+Math.random(),strategy:d.id,mint:t.mint,symbol:t.symbol,entry,units:budget/entry,originalUnits:budget/entry,invested:budget,realizedProceeds:0,partialExits:[],scaleOutHits:[],sourceEntrySig:d.copyLab?(verifiedWalletSignal(t,d.copyWindowMin||15,d.copySource||null).events[0]?.signature||null):null,opened:now(),closed:false,lastPrice:t.price,lastMarkedAt:now(),markSource:'entry',score,entryFeatures:{...f,mc:t.mc,liq:t.liq},entryMc:t.mc,entryLiq:t.liq,entryQuality:quality.score,dnaHit25:similar.hit25,dnaSample:similar.n,allocationMult:allocatorMult,exitMode:exitModeFor(d),policyVersion:STRATEGY_ERA,guard:{requiredScore:guard.requiredScore,minQuality:guard.minQuality,minBuyRatio:guard.minBuyRatio,recentAvg:guard.health.avg,recentN:guard.health.n},reason:`${exploratory?'cold-start exploration · ':''}score ${score.toFixed(0)} · gate ${policy.min.toFixed(0)} · risk ${f.risk.toFixed(0)} · Q${quality.score.toFixed(0)} · size×${sizeMult.toFixed(2)}`,entryRegime:regime,peakDuring:entry,troughDuring:entry};
+    const p={id:'p'+now()+Math.random(),strategy:d.id,mint:t.mint,symbol:t.symbol,entry,units:budget/entry,originalUnits:budget/entry,invested:budget,realizedProceeds:0,partialExits:[],scaleOutHits:[],sourceEntrySig:d.copyLab?(verifiedWalletSignal(t,d.copyWindowMin||15,d.copySource||null).events[0]?.signature||null):null,opened:now(),closed:false,lastPrice:t.price,lastMarkedAt:now(),markSource:'entry',score,entryFeatures:{...f,mc:t.mc,liq:t.liq},entryMc:t.mc,entryLiq:t.liq,entryQuality:quality.score,dnaHit25:similar.hit25,dnaSample:similar.n,allocationMult:allocatorMult,sizingMode:'risk-to-stop-v1',riskBudgetPct,targetPositionPct,budgetPct:d.equity>0?budget/d.equity:0,exitMode:exitModeFor(d),policyVersion:STRATEGY_ERA,guard:{requiredScore:guard.requiredScore,minQuality:guard.minQuality,minBuyRatio:guard.minBuyRatio,recentAvg:guard.health.avg,recentN:guard.health.n},reason:`${exploratory?'cold-start exploration · ':''}score ${score.toFixed(0)} · gate ${policy.min.toFixed(0)} · risk ${f.risk.toFixed(0)} · Q${quality.score.toFixed(0)} · stake ${(budget/Math.max(1,d.equity)*100).toFixed(1)}% · risk ${(riskBudgetPct*100).toFixed(1)}% · size×${sizeMult.toFixed(2)}`,entryRegime:regime,peakDuring:entry,troughDuring:entry};
     positions.push(p);recordDecision(d,t,f,score,'BUY',p.reason);
     if(d.risk!=='R&D')log('buy',`${d.icon} ${d.name} bought ${t.symbol} · ${budget.toFixed(0)} paper · ${p.reason}`,'good',{strategy:d.id,mint:t.mint});
   }
