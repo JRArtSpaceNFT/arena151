@@ -715,9 +715,35 @@ async function initDb(restoreState=true){
 }
 function serialize(){return{strategies:strategyDefs.map(stripTrader),challengers:challengers.map(stripTrader),positions,trades,activity,decisions,opportunities:[...opportunities],research,timeline,replayFrames,autopsies,promotions,graveyard,walletEvents:walletEvents.slice(0,1200),creators:[...creators].map(([k,v])=>[k,{...v,tokens:[...v.tokens]}])};}
 function stripTrader(d){return{id:d.id,name:d.name,icon:d.icon,risk:d.risk,type:d.type,parentId:d.parentId,mutation:d.mutation,auto:d.auto,bornAt:d.bornAt,cash:d.cash,peak:d.peak,dd:d.dd,wins:d.wins,losses:d.losses,n:d.n,version:d.version,min:d.min,stop:d.stop,take:d.take,size:d.size,maxOpen:d.maxOpen,riskCap:d.riskCap,promotedAt:d.promotedAt,graveyardAt:d.graveyardAt};}
-function restore(s){try{for(const x of s.strategies||[]){const d=strategyDefs.find(q=>q.id===x.id);if(d)Object.assign(d,x)}for(const x of s.challengers||[]){let d=challengers.find(q=>q.id===x.id);if(!d&&x.parentId&&strategyDefs.some(q=>q.id===x.parentId)){d=makeChallenger(x.parentId,x.id,x.name||x.id,x.mutation||'restored mutation',{});challengers.push(d)}if(d)Object.assign(d,x)}positions.splice(0,positions.length,...(s.positions||[]));trades.splice(0,trades.length,...(s.trades||[]));activity.splice(0,activity.length,...(s.activity||[]));decisions.splice(0,decisions.length,...(s.decisions||[]));opportunities.clear();for(const [k,v] of s.opportunities||[])opportunities.set(k,v);research=s.research||research;timeline.splice(0,timeline.length,...(s.timeline||[]));replayFrames.splice(0,replayFrames.length,...(s.replayFrames||[]));autopsies.splice(0,autopsies.length,...(s.autopsies||[]));promotions.splice(0,promotions.length,...(s.promotions||[]));graveyard.splice(0,graveyard.length,...(s.graveyard||[]));walletEvents.splice(0,walletEvents.length,...(s.walletEvents||[]));creators.clear();for(const [k,v] of s.creators||[])creators.set(k,{...v,tokens:new Set(v.tokens||[])});}catch{}}
+function restore(s){try{
+  for(const x of s.strategies||[]){
+    const d=strategyDefs.find(q=>q.id===x.id);if(!d)continue;
+    const codeVersion=num(d.version)||1;
+    for(const k of ['cash','peak','dd','wins','losses','n','promotedAt','graveyardAt','bornAt','auto'])if(x[k]!==undefined)d[k]=x[k];
+    // Runtime memory must never silently overwrite newer code configuration.
+    // Only restore strategy parameters when the persisted strategy is a genuinely evolved version.
+    if(num(x.version)>codeVersion){
+      for(const k of ['min','stop','take','size','maxOpen','riskCap','version'])if(x[k]!==undefined)d[k]=x[k];
+    }
+  }
+  for(const x of s.challengers||[]){let d=challengers.find(q=>q.id===x.id);if(!d&&x.parentId&&strategyDefs.some(q=>q.id===x.parentId)){d=makeChallenger(x.parentId,x.id,x.name||x.id,x.mutation||'restored mutation',{});challengers.push(d)}if(d)Object.assign(d,x)}
+  positions.splice(0,positions.length,...(s.positions||[]));trades.splice(0,trades.length,...(s.trades||[]));activity.splice(0,activity.length,...(s.activity||[]));decisions.splice(0,decisions.length,...(s.decisions||[]));opportunities.clear();for(const [k,v] of s.opportunities||[])opportunities.set(k,v);research=s.research||research;timeline.splice(0,timeline.length,...(s.timeline||[]));replayFrames.splice(0,replayFrames.length,...(s.replayFrames||[]));autopsies.splice(0,autopsies.length,...(s.autopsies||[]));promotions.splice(0,promotions.length,...(s.promotions||[]));graveyard.splice(0,graveyard.length,...(s.graveyard||[]));walletEvents.splice(0,walletEvents.length,...(s.walletEvents||[]));creators.clear();for(const [k,v] of s.creators||[])creators.set(k,{...v,tokens:new Set(v.tokens||[])});
+}catch(e){console.warn('State restore warning:',e.message)}}
 async function save(){const s=serialize();try{fs.writeFileSync(STATE_FILE,JSON.stringify(s));}catch{}if(db){try{await db.query("INSERT INTO pump_lab_state(id,payload,updated_at) VALUES('main',$1,now()) ON CONFLICT(id) DO UPDATE SET payload=$1,updated_at=now()",[s]);}catch(e){setHealth('research-memory','warn','Postgres save failed: '+e.message);}}}
 function loadLocal(){try{restore(JSON.parse(fs.readFileSync(STATE_FILE,'utf8')));}catch{}}
+
+function strategyDiagnostics(){
+  return strategyDefs.map(d=>{
+    const rows=decisions.filter(x=>x.strategy===d.id);const rejects=rows.filter(x=>x.action==='REJECT'),buys=rows.filter(x=>x.action==='BUY');
+    const scores=rejects.map(x=>num(x.score));const riskVetos=rejects.filter(x=>x.why==='risk veto').length;
+    const maxScore=scores.length?Math.max(...scores):null;const avgScore=scores.length?avg(scores):null;
+    const near=rejects.filter(x=>num(x.score)>=d.min-5).length;
+    return{id:d.id,name:d.name,n:d.n,open:openCount(d.id),threshold:d.min,buys:buys.length,rejects:rejects.length,maxRejectScore:maxScore,avgRejectScore:avgScore,nearMisses:near,riskVetos,cash:d.cash};
+  });
+}
+function logStrategyDiagnostics(){
+  console.log('STRATEGY_DIAGNOSTICS '+JSON.stringify(strategyDiagnostics()));
+}
 
 function snapshot(){
   allTraders().forEach(markEquity);const active=[...tokens.values()].filter(t=>now()-t.updatedAt<900000).sort((a,b)=>b.updatedAt-a.updatedAt).slice(0,80).map(t=>({...t,features:features(t),detective:detective(t),consensus:consensus(t),dna:creatorDNA(t),quality:tokenDataQuality(t)}));
@@ -814,6 +840,7 @@ const server=http.createServer((req,res)=>{
 
 loadLocal();
 await initDb();
+logStrategyDiagnostics();
 setHealth('engine','ok','18 production/control portfolios + 4 R&D challengers online',{truth:'observed'});
 setHealth('x-social','standby','Full X stream not connected · social agent uses token social metadata only',{truth:'not connected'});
 setHealth('wallet-intel','standby','Connecting Solana stream + verified Fomo wallet watchlist…',{truth:'not connected'});setHealth('fomo-watchlist','standby','Preparing verified public wallet subscriptions',{truth:'not connected'});
