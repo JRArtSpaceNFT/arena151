@@ -1047,6 +1047,17 @@ function solDeltaFor(tx,wallet){
   if(i<0)return 0;const pre=tx?.meta?.preBalances?.[i],post=tx?.meta?.postBalances?.[i];
   return Number.isFinite(pre)&&Number.isFinite(post)?(post-pre)/1e9:0;
 }
+function captureFundingEdges(tx,sig){
+  const keys=tx?.transaction?.message?.accountKeys||[],pre=tx?.meta?.preBalances||[],post=tx?.meta?.postBalances||[];
+  const rows=keys.map((k,i)=>({wallet:keyText(k),delta:(Number(post[i]||0)-Number(pre[i]||0))/1e9})).filter(x=>x.wallet);
+  const donors=rows.filter(x=>x.delta<-.005).sort((a,b)=>a.delta-b.delta);
+  if(!donors.length)return;
+  for(const r of rows){
+    if(r.delta<=.005||!WATCHED_WALLET_LOOKUP.has(r.wallet))continue;
+    const donor=donors.find(x=>x.wallet!==r.wallet);if(!donor)continue;
+    alphaOS.observeFundingTransfer({from:donor.wallet,to:r.wallet,sol:r.delta,ts:tx?.blockTime?tx.blockTime*1000:now(),signature:sig});
+  }
+}
 async function hydrateWalletMint(mint){
   try{
     const p=await fetchJson('https://frontend-api-v3.pump.fun/coins/'+encodeURIComponent(mint));
@@ -1060,6 +1071,7 @@ async function hydrateWalletMint(mint){
   return tokens.get(mint)||null;
 }
 async function parseWalletTx(sig,tx){
+  captureFundingEdges(tx,sig);
   const keys=tx?.transaction?.message?.accountKeys||[]; const signerKeys=keys.filter(k=>typeof k==='object'&&k.signer).map(k=>k.pubkey);
   if(!signerKeys.length&&typeof keys[0]==='string')signerKeys.push(keys[0]);
   const allKeys=new Set(keys.map(keyText).filter(Boolean));const hasPump=allKeys.has(PUMP_PROGRAM);
