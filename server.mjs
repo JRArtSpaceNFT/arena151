@@ -66,6 +66,7 @@ const solanaSeen = new Set();
 let solanaWs = null;
 let solanaObserved = 0;
 let solanaResolved = 0;
+let solanaSubAcks = 0;
 let db = null;
 let research = { last: 0, notes: [], hypotheses: [] };
 let startedAt = Date.now();
@@ -435,12 +436,25 @@ function connectSolanaStream(){
   try{
     solanaWs=new WebSocket(SOLANA_RPC_WSS);
     solanaWs.addEventListener('open',()=>{
-      const watched=[...WATCHED_WALLET_LOOKUP.keys()];
-      setHealth('solana-stream','ok',`Pump.fun + ${watched.length} verified Fomo wallet subscriptions connected`,{truth:'observed'});
+      const watched=[...WATCHED_WALLET_LOOKUP.keys()];solanaSubAcks=0;
+      setHealth('solana-stream','ok',`WebSocket open · requesting Pump.fun + ${watched.length} Fomo wallet subscriptions`,{truth:'observed'});
+      setHealth('fomo-watchlist','standby',`Waiting for ${watched.length} verified wallet subscription acknowledgements`,{truth:'observed'});
       solanaWs.send(JSON.stringify({jsonrpc:'2.0',id:901,method:'logsSubscribe',params:[{mentions:[PUMP_PROGRAM]},{commitment:'confirmed'}]}));
       watched.forEach((address,i)=>solanaWs.send(JSON.stringify({jsonrpc:'2.0',id:1000+i,method:'logsSubscribe',params:[{mentions:[address]},{commitment:'confirmed'}]})));
+      console.log(`Solana WS open · requested ${1+watched.length} subscriptions`);
     });
-    solanaWs.addEventListener('message',ev=>{try{const m=JSON.parse(String(ev.data));const sig=m?.params?.result?.value?.signature;if(sig)queueSolanaSignature(sig);}catch{}});
+    solanaWs.addEventListener('message',ev=>{try{
+      const m=JSON.parse(String(ev.data));
+      if(m?.error){const msg=m.error?.message||'unknown subscription error';setHealth('solana-stream','warn','Subscription error: '+msg,{truth:'observed'});console.warn('Solana subscription error',m.error);return;}
+      if(m?.result!==undefined&&Number.isInteger(m?.id)&&m.id>=901){
+        solanaSubAcks++;
+        const watched=WATCHED_WALLET_LOOKUP.size;
+        if(m.id>=1000)setHealth('fomo-watchlist','ok',`${Math.min(watched,Math.max(0,solanaSubAcks-1))}/${watched} verified wallet streams acknowledged`,{truth:'observed'});
+        if(solanaSubAcks>=1+watched)setHealth('solana-stream','ok',`Pump.fun + ${watched} Fomo wallet subscriptions acknowledged`,{truth:'observed'});
+        return;
+      }
+      const sig=m?.params?.result?.value?.signature;if(sig)queueSolanaSignature(sig);
+    }catch{}});
     solanaWs.addEventListener('close',()=>{setHealth('solana-stream','warn','Solana websocket disconnected · reconnecting',{truth:'observed'});setTimeout(connectSolanaStream,5000);});
     solanaWs.addEventListener('error',()=>setHealth('solana-stream','warn','Solana websocket error',{truth:'observed'}));
   }catch(e){setHealth('solana-stream','warn','Solana stream setup failed: '+e.message,{truth:'observed'});}
@@ -691,7 +705,7 @@ function snapshot(){
     summary:{capital:prod.reduce((a,d)=>a+d.equity,0),start:prod.length*START,trades:prod.reduce((a,d)=>a+d.n,0),open:positions.filter(p=>!p.closed&&prod.some(d=>d.id===p.strategy)).length,tokens:tokens.size,decisions:decisions.length},
     strategies:strategyDefs.map(d=>({...d,winRate:d.n?d.wins/d.n*100:0,open:openCount(d.id)})),experiments:experimentSnapshot(),tokens:active,
     narratives:narrativeStats().slice(0,15),creators:creatorLeaderboard(),positions:positions.filter(p=>!p.closed).slice(-120),trades:trades.slice(0,150),activity:activity.slice(0,140),research,
-    missed:missedMonsters(),saved:savedMyAss(),hall:hallOfFame(),worst:worstTrades(),autopsies:autopsies.slice(0,30),timeline:timeline.slice(-120),decisions:decisions.slice(0,160),calibration:confidenceCalibration(),entryLab:entryLab(),exitLab:exitLab(),sizingLab:sizingLab(),executionLab:executionLab(),benchmarks:benchmarkStats(),godBot:godBot(),archetypes:archetypeMemory(),evolution:{family:familyTree(),promotions:promotions.slice(0,20),graveyard:graveyard.slice(0,20)},holdTime:holdTimeLab(),coalitions:coalitionStats(),correlation:strategyCorrelation().slice(0,20),regimeMatrix:regimeMatrix(),masterAllocation:masterAllocation(),riskBoard:riskScoreboard(),tournament:tournament(),providerAudit:providerAudit(),noTrade:noTradeAlpha(),chaos:chaosLab(),replay:replayFrames.slice(-120),walletBoard:walletLeaderboard(),fomoWatchlist:fomoWatchlistSnapshot(),fomoEvents:walletEvents.filter(e=>e.watchlist).slice(0,100),solana:{observed:solanaObserved,resolved:solanaResolved,queued:solanaQueue.length,watchedWallets:WATCHED_WALLET_LOOKUP.size}};
+    missed:missedMonsters(),saved:savedMyAss(),hall:hallOfFame(),worst:worstTrades(),autopsies:autopsies.slice(0,30),timeline:timeline.slice(-120),decisions:decisions.slice(0,160),calibration:confidenceCalibration(),entryLab:entryLab(),exitLab:exitLab(),sizingLab:sizingLab(),executionLab:executionLab(),benchmarks:benchmarkStats(),godBot:godBot(),archetypes:archetypeMemory(),evolution:{family:familyTree(),promotions:promotions.slice(0,20),graveyard:graveyard.slice(0,20)},holdTime:holdTimeLab(),coalitions:coalitionStats(),correlation:strategyCorrelation().slice(0,20),regimeMatrix:regimeMatrix(),masterAllocation:masterAllocation(),riskBoard:riskScoreboard(),tournament:tournament(),providerAudit:providerAudit(),noTrade:noTradeAlpha(),chaos:chaosLab(),replay:replayFrames.slice(-120),walletBoard:walletLeaderboard(),fomoWatchlist:fomoWatchlistSnapshot(),fomoEvents:walletEvents.filter(e=>e.watchlist).slice(0,100),solana:{observed:solanaObserved,resolved:solanaResolved,queued:solanaQueue.length,watchedWallets:WATCHED_WALLET_LOOKUP.size,subscriptionAcks:solanaSubAcks}};
 }
 
 const HTML=`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>PUMP LAB / LIVE</title><style>
@@ -781,7 +795,7 @@ loadLocal();
 await initDb();
 setHealth('engine','ok','18 production/control portfolios + 4 R&D challengers online',{truth:'observed'});
 setHealth('x-social','standby','Full X stream not connected · social agent uses token social metadata only',{truth:'not connected'});
-setHealth('wallet-intel','standby','Connecting Solana stream + verified Fomo wallet watchlist…',{truth:'not connected'});
+setHealth('wallet-intel','standby','Connecting Solana stream + verified Fomo wallet watchlist…',{truth:'not connected'});setHealth('fomo-watchlist','standby','Preparing verified public wallet subscriptions',{truth:'not connected'});
 server.listen(PORT,'0.0.0.0',()=>{log('system','🚀 PUMP LAB v1.1 Fomo Smart Wallets started','system');connectPumpPortal();connectSolanaStream();pumpPoll();dexPoll();console.log('PUMP LAB v1.1 on '+PORT);});
 setInterval(drainSolanaQueue,1100).unref?.();setInterval(pumpPoll,7000).unref?.();setInterval(dexPoll,20000).unref?.();setInterval(takeTimeline,30000).unref?.();setInterval(takeReplay,30000).unref?.();setInterval(researchCycle,3600000).unref?.();setInterval(()=>save(),30000).unref?.();takeTimeline();takeReplay();
 process.on('SIGTERM',async()=>{await save();server.close(()=>process.exit(0));});process.on('SIGINT',async()=>{await save();server.close(()=>process.exit(0));});
