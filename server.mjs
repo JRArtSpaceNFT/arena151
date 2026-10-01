@@ -1893,11 +1893,36 @@ body:before{
   filter:blur(12px);opacity:.88;mix-blend-mode:normal
 }
 @keyframes floatOrb{0%,100%{transform:translate(-50%,-50%) rotate(-2deg)}50%{transform:translate(-50%,-54%) rotate(3deg)}}
+@keyframes orbMotion{
+  0%{transform:translate(-50%,-50%) rotate(0deg) translateX(0) translateY(0) scale(1)}
+  20%{transform:translate(-49.3%,-50.7%) rotate(2.5deg) translateX(2px) translateY(-2px) scale(1.006)}
+  40%{transform:translate(-50.7%,-49.5%) rotate(5.5deg) translateX(-2px) translateY(1px) scale(.997)}
+  60%{transform:translate(-49.7%,-50.4%) rotate(8.5deg) translateX(2px) translateY(-1px) scale(1.007)}
+  80%{transform:translate(-50.6%,-49.7%) rotate(11.5deg) translateX(-2px) translateY(2px) scale(.999)}
+  100%{transform:translate(-50%,-50%) rotate(14deg) translateX(0) translateY(0) scale(1)}
+}
+@keyframes orbMorph{
+  0%{border-radius:44% 56% 63% 37% / 42% 36% 64% 58%}
+  25%{border-radius:47% 53% 59% 41% / 39% 43% 57% 61%}
+  50%{border-radius:42% 58% 55% 45% / 46% 35% 65% 54%}
+  75%{border-radius:46% 54% 60% 40% / 38% 45% 55% 62%}
+  100%{border-radius:43% 57% 61% 39% / 44% 36% 64% 56%}
+}
+@keyframes orbBreath{
+  0%,100%{filter:blur(.18px) saturate(1)}
+  50%{filter:blur(.38px) saturate(1.015)}
+}
+@keyframes orbVeil{
+  0%{transform:translate(-50%,-50%) rotate(-8deg) scale(1);opacity:.86;filter:blur(12px)}
+  50%{transform:translate(-49%,-51%) rotate(-5.5deg) scale(1.02);opacity:.77;filter:blur(13.5px)}
+  100%{transform:translate(-51%,-49%) rotate(-9.5deg) scale(.99);opacity:.88;filter:blur(11.5px)}
+}
 .mastindex{position:absolute;left:0;top:20px;font:10px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;color:#858c94;letter-spacing:.12em}
 .mastwords{position:absolute;right:12px;top:56px;font:10px/1.25 ui-monospace,SFMono-Regular,Menlo,monospace;color:#80878f;text-align:right;text-transform:uppercase}
 .maststatement{position:absolute;right:0;bottom:40px;width:170px;font-size:16px;font-weight:900;line-height:1.02;text-transform:uppercase}
 .mastline{position:absolute;right:0;bottom:18px;width:118px;height:1px;background:#0d0f12}
 .magicOrb{cursor:pointer;outline:none;user-select:none}
+.oracleHint{display:none!important}
 .magicOrb:focus-visible{outline:1px solid #8d949b;outline-offset:-8px}
 .magicOrb:active:before{transform:translate(-50%,-48%) scale(.985)!important}
 .magicOrb:before{z-index:1;transition:transform .38s cubic-bezier(.2,.8,.2,1),filter .38s,box-shadow .38s}
@@ -2051,8 +2076,7 @@ hr{border-color:#e0e3e5!important}
     <div class="mastindex">01 / SYSTEM<br>02 / AGENTS<br>03 / MARKETS<br>04 / MEMORY</div>
     <div class="mastwords">DATA<br>AGENTS<br>MARKETS<br>IDEAS<br>SIMULATION<br>EVOLUTION</div>
     <div class="oracleAnswer" id="oracleAnswer" aria-live="polite"></div>
-    <div class="oracleHint">Click the object · ask anything</div>
-    <div class="maststatement">Trading the next generation of tokens.</div><div class="mastline"></div>
+<div class="maststatement">Trading the next generation of tokens.</div><div class="mastline"></div>
   </div>
 </section>
 <div class="hero"><div><div class="muted">CHAMPION CHALLENGE</div><div class="big" id="champ">Loading…</div><div class="muted" id="champMeta"></div><div class="meter" style="margin-top:12px"><i id="champBar"></i></div></div><div><div class="muted">MARKET WEATHER</div><div class="big" id="weather">Loading…</div><div class="mini" id="weatherMeta"></div></div></div>
