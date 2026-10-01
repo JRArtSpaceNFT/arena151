@@ -1,12 +1,13 @@
 import http from 'node:http';
 import fs from 'node:fs';
+import { createPumpLabAlphaOS } from './lib/pump-lab-alpha-os.mjs';
 
 const PORT = Number(process.env.PORT || 3000);
 const PUMP_KEY = process.env.PUMPPORTAL_API_KEY || '';
 const ALLOW_METERED = (process.env.ALLOW_METERED_PUMPPORTAL || 'false') === 'true';
 const START = 1000;
 const TARGET = 100000;
-const STRATEGY_ERA = 'v3.2-process-audit';
+const STRATEGY_ERA = 'v3.3-alpha-os';
 const FEE_RATE = 0.0125; // conservative fallback for unknown venue/lifecycle
 const PAPER_FIXED_TX_COST_USD = Number(process.env.PAPER_FIXED_TX_COST_USD || 0.02);
 const STATE_FILE = process.env.STATE_FILE || '/tmp/pump-lab-state-v06.json';
@@ -25,6 +26,7 @@ const SHADOW_EXECUTION_VALIDATED = (process.env.SHADOW_EXECUTION_VALIDATED || 'f
 const PUMP_PROGRAM = '6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P';
 const SOLANA_RPC_HTTP = process.env.SOLANA_RPC_HTTP || 'https://api.mainnet-beta.solana.com';
 const SOLANA_RPC_WSS = process.env.SOLANA_RPC_WSS || 'wss://api.mainnet-beta.solana.com';
+const SHADOW_ROUTE_QUOTE_URL = process.env.SHADOW_ROUTE_QUOTE_URL || '';
 
 // Public Fomo trader identities requested for research. Wallets are attached only when
 // a public mapping is corroborated strongly enough to avoid polluting the dataset.
@@ -93,6 +95,11 @@ let lastDurableRestoreAt = 0;
 let saveInProgress = false;
 let saveQueued = false;
 const opportunityKeysByMint = new Map();
+const alphaOS = createPumpLabAlphaOS({
+  start:START,
+  rpcUrl:SOLANA_RPC_HTTP,
+  routeQuoteUrl:SHADOW_ROUTE_QUOTE_URL
+});
 let research = { last: 0, notes: [], hypotheses: [] };
 let startedAt = Date.now();
 
@@ -854,6 +861,9 @@ function maybeTrade(t) {
     const existing=positions.find(p=>p.strategy===d.id&&p.mint===t.mint&&!p.closed);
     if(existing){
       if(manageCopyPosition(d,existing,t))continue;
+      const alphaExit=alphaOS.exitPlan(existing,t,f);
+      if(alphaExit.action==='EXIT'){existing.alphaExit=alphaExit;closePos(d,existing,t,'Alpha OS · '+alphaExit.reason);continue;}
+      if(alphaExit.action==='TRIM'&&now()-num(existing.alphaExitAt)>60000){existing.alphaExitAt=now();existing.alphaExit=alphaExit;partialClose(d,existing,t,alphaExit.fraction,'Alpha OS · '+alphaExit.reason);continue;}
       if(manageScaleOut(d,existing,t))continue;
       const ex=exitDecision(d,existing,t,f);if(ex.exit)closePos(d,existing,t,ex.why);continue;
     }
@@ -874,13 +884,17 @@ function maybeTrade(t) {
     const allocatorMult=d.type==='challenger'?1:allocationWeight(d.id);
     const sizing=adaptivePositionSizing(d,t,f,score,policy,quality,similar,guard,adv,regime,allocatorMult);
     if(!sizing.ok){recordDecision(d,t,f,score,'REJECT',sizing.reason);continue;}
-    const budget=sizing.budget;
+    const alpha=alphaOS.evaluateCandidate({strategy:d,token:t,features:f,score,threshold:guard.requiredScore||policy.min,quality,similar,regime});
+    alphaOS.proposeCapital({strategy:d,token:t,features:f,score,threshold:guard.requiredScore||policy.min,quality,similar,regime});
+    if(alpha.veto){recordDecision(d,t,f,score,'REJECT','Alpha OS · '+alpha.vetoReason);continue;}
+    const budget=Math.min(sizing.budget*alpha.sizeMultiplier,d.cash*.25,d.equity*.15,t.liq>0?Math.max(d.equity*.02,t.liq*.015):sizing.budget);
+    if(budget<Math.max(5,d.equity*.02)){recordDecision(d,t,f,score,'REJECT','Alpha OS · stake below minimum after EV adjustment');continue;}
     const entryExec=executionQuote(t,budget,'buy');if(entryExec.slippage>.065){recordDecision(d,t,f,score,'REJECT','execution veto: modeled slippage');continue;}const entry=entryExec.fillPrice;const cost=budget*(1+entryExec.feeRate)+entryExec.fixedCost;
     if(cost>d.cash)continue;
     d.cash-=cost;
     const exploratory=false;
-    const p={id:'p'+now()+Math.random(),strategy:d.id,mint:t.mint,symbol:t.symbol,entry,units:budget/entry,originalUnits:budget/entry,invested:budget,entryCost:cost,entryExecution:entryExec,realizedProceeds:0,partialExits:[],scaleOutHits:[],sourceEntrySig:d.copyLab?(verifiedWalletSignal(t,d.copyWindowMin||15,d.copySource||null).events[0]?.signature||null):null,opened:now(),closed:false,lastPrice:t.price,lastMarkedAt:now(),markSource:'entry',score,entryFeatures:{...f,mc:t.mc,liq:t.liq},entryMc:t.mc,entryLiq:t.liq,entryQuality:quality.score,dnaHit25:similar.hit25,dnaSample:similar.n,allocationMult:allocatorMult,sizingMode:'adaptive-bankroll-v2',samplePartition:partitionForMint(t.mint),sizing,budgetPct:d.equity>0?budget/d.equity:0,live100Equivalent:sizing.live100Equivalent,exitMode:exitModeFor(d),policyVersion:STRATEGY_ERA,guard:{requiredScore:guard.requiredScore,minQuality:guard.minQuality,minBuyRatio:guard.minBuyRatio,recentAvg:guard.health.avg,recentN:guard.health.n},reason:`${exploratory?'cold-start exploration · ':''}score ${score.toFixed(0)} · gate ${policy.min.toFixed(0)} · risk ${f.risk.toFixed(0)} · Q${quality.score.toFixed(0)} · stake ${(budget/Math.max(1,d.equity)*100).toFixed(1)}% · $100≈${sizing.live100Equivalent.toFixed(2)} · size×${sizing.mult.toFixed(2)}`,entryRegime:regime,peakDuring:entry,troughDuring:entry};
-    positions.push(p);recordDecision(d,t,f,score,'BUY',p.reason);
+    const p={id:'p'+now()+Math.random(),strategy:d.id,mint:t.mint,symbol:t.symbol,entry,units:budget/entry,originalUnits:budget/entry,invested:budget,entryCost:cost,entryExecution:entryExec,realizedProceeds:0,partialExits:[],scaleOutHits:[],sourceEntrySig:d.copyLab?(verifiedWalletSignal(t,d.copyWindowMin||15,d.copySource||null).events[0]?.signature||null):null,opened:now(),closed:false,lastPrice:t.price,lastMarkedAt:now(),markSource:'entry',score,entryFeatures:{...f,mc:t.mc,liq:t.liq},entryMc:t.mc,entryLiq:t.liq,entryQuality:quality.score,dnaHit25:similar.hit25,dnaSample:similar.n,allocationMult:allocatorMult,sizingMode:'alpha-os-ev-v1',samplePartition:partitionForMint(t.mint),sizing,alphaOS:alpha,budgetPct:d.equity>0?budget/d.equity:0,live100Equivalent:sizing.live100Equivalent,exitMode:exitModeFor(d),policyVersion:STRATEGY_ERA,guard:{requiredScore:guard.requiredScore,minQuality:guard.minQuality,minBuyRatio:guard.minBuyRatio,recentAvg:guard.health.avg,recentN:guard.health.n},reason:`${exploratory?'cold-start exploration · ':''}score ${score.toFixed(0)} · gate ${policy.min.toFixed(0)} · risk ${f.risk.toFixed(0)} · Q${quality.score.toFixed(0)} · stake ${(budget/Math.max(1,d.equity)*100).toFixed(1)}% · $100≈${sizing.live100Equivalent.toFixed(2)} · size×${sizing.mult.toFixed(2)} · EV ${alpha.expectedValue.toFixed(1)} · tox ${alpha.toxicity.score.toFixed(0)}`,entryRegime:regime,peakDuring:entry,troughDuring:entry};
+    positions.push(p);alphaOS.recordShadowEntry({position:p,token:t,alpha});recordDecision(d,t,f,score,'BUY',p.reason);
     if(d.risk!=='R&D')log('buy',`${d.icon} ${d.name} bought ${t.symbol} · ${budget.toFixed(0)} paper · ${p.reason}`,'good',{strategy:d.id,mint:t.mint});
   }
 }
@@ -904,7 +918,7 @@ function closePos(d,p,t,why){
   const modeledRoundTrip=(num(p.entryExecution?.slippage)+num(p.exitExecution?.slippage)+num(p.entryExecution?.feeRate)+num(p.exitExecution?.feeRate))*100;const stressPenalty=Math.max(2.5,modeledRoundTrip+Math.min(8,(p.invested/Math.max(1000,t.liq))*100));
   p.executionStress={easy:p.pnlPct+1.5,realistic:p.pnlPct,nightmare:p.pnlPct-stressPenalty,penalty:stressPenalty};
   d.n++;if(p.pnl>0)d.wins++;else d.losses++;trades.unshift({...p,name:t.name,narrative:t.narrative});trades.splice(MAX_TRADES);const pi=positions.indexOf(p);if(pi>=0)positions.splice(pi,1);markEquity(d);
-  const aut=buildAutopsy(d,p,t);autopsies.unshift(aut);autopsies.splice(250);
+  alphaOS.recordShadowClose(p);const aut=buildAutopsy(d,p,t);autopsies.unshift(aut);autopsies.splice(250);
   if(d.risk!=='R&D')log('sell',`${d.icon} ${d.name} sold $${t.symbol} ${p.pnlPct>=0?'+':''}${p.pnlPct.toFixed(1)}% · ${why}`,p.pnl>=0?'good':'bad',{strategy:d.id,mint:t.mint});
 }
 
@@ -929,7 +943,7 @@ function updateCounterfactuals(t){
 
 function ingest(raw,source){
   const incoming=normalize(raw,source);if(!incoming||!(incoming.price>0))return;
-  const old=tokens.get(incoming.mint);const t=mergeToken(old,incoming);tokens.set(t.mint,t);updateCreator(t);updateOpportunities(t);updateOpenPositionExtremes(t);updateCounterfactuals(t);updateDnaArchive(t);recordMarketEvent(t,source);
+  const old=tokens.get(incoming.mint);const t=mergeToken(old,incoming);tokens.set(t.mint,t);updateCreator(t);updateOpportunities(t);updateOpenPositionExtremes(t);updateCounterfactuals(t);updateDnaArchive(t);recordMarketEvent(t,source);alphaOS.observeToken(t,{features:features(t),quality:tokenDataQuality(t)});
   if(!old)log('token',`🪙 LIVE token spotted: ${t.symbol} · ${t.name}`,'info',{mint:t.mint,source});
   maybeTrade(t);broadcast('tick',{mint:t.mint});
 }
@@ -952,7 +966,7 @@ async function openPositionPoll(){
         const incoming=normalize({...pair,mint},'dexscreener-open');
         if(!incoming||!(incoming.price>0))continue;
         const old=tokens.get(mint),t=mergeToken(old,incoming);tokens.set(mint,t);
-        updateOpportunities(t);updateOpenPositionExtremes(t);updateCounterfactuals(t);updateDnaArchive(t);recordMarketEvent(t,'dexscreener-open');
+        updateOpportunities(t);updateOpenPositionExtremes(t);updateCounterfactuals(t);updateDnaArchive(t);recordMarketEvent(t,'dexscreener-open');alphaOS.observeToken(t,{features:features(t),quality:tokenDataQuality(t)});
         const touched=new Set();
         for(const pos of positions.filter(x=>!x.closed&&x.mint===mint)){
           if(touched.has(pos.strategy))continue;touched.add(pos.strategy);
@@ -1066,12 +1080,12 @@ async function parseWalletTx(sig,tx){
       classification=(action==='BUY'||action==='SELL')?'token + native SOL delta':'direction observed; trade not yet proven';
     }else if(hasPump)classification='Pump.fun program + token delta';
     const event={ts:now(),blockTime:tx?.blockTime?tx.blockTime*1000:null,slot:tx?.slot||null,signature:sig,wallet:x.owner,mint:x.mint,symbol:tok?.symbol||x.mint.slice(0,5),action,tokenDelta:delta,tokenPre:x.pre,tokenPost:x.post,sellFraction:delta<0&&x.pre>0?clamp((-delta)/x.pre,0,1):null,solDelta,price:tok?.price||0,mc:tok?.mc||0,classification,source:'Solana RPC',watchlist:!!watch,traderId:watch?.traderId||null,traderName:watch?.traderName||null,walletLabel:watch?.label||null,confidence:watch?.confidence||null};
-    walletEvents.unshift(event);walletEvents.splice(1200); found++;
+    walletEvents.unshift(event);walletEvents.splice(1200);alphaOS.observeWalletEvent(event,tok); found++;
     if(watch)log('smart-wallet',`👀 ${watch.traderName} · ${action} · ${event.symbol}`,'info',{traderId:watch.traderId,wallet:x.owner,mint:x.mint,signature:sig,confidence:watch.confidence});
     if(tok){
       tok.chainBuys=num(tok.chainBuys)+(action==='BUY'?1:0);tok.chainSells=num(tok.chainSells)+(action==='SELL'?1:0);tok.chainTx=num(tok.chainTx)+1;tok.lastChainAt=now();
       tok.chainFlow=(tok.chainFlow||[]).filter(e=>now()-e.ts<120000);
-      if(action==='BUY'||action==='SELL')tok.chainFlow.push({ts:now(),action,notionalUsd:Math.abs(delta)*num(tok.price),watchlist:!!watch,traderId:watch?.traderId||null});
+      if(action==='BUY'||action==='SELL')tok.chainFlow.push({ts:now(),slot:tx?.slot||null,signature:sig,wallet:x.owner,action,tokenDelta:delta,notionalUsd:Math.abs(delta)*num(tok.price),watchlist:!!watch,traderId:watch?.traderId||null});
       if(watch?.confidence==='verified'&&(action==='BUY'||action==='SELL'))maybeTrade(tok);
     }
   }
@@ -1551,9 +1565,9 @@ async function waitForInitialDurableRestore(maxMs=90000){
   return false;
 }
 
-function serialize(){return{auditVersion:AUDIT_VERSION,strategies:strategyDefs.map(stripTrader),challengers:challengers.map(stripTrader),positions:positions.filter(p=>!p.closed),trades,activity,decisions,opportunities:[...opportunities],research,timeline,replayFrames,autopsies,promotions,graveyard,walletEvents:walletEvents.slice(0,1200),marketEvents:marketEvents.slice(-1000),dnaArchive:[...dnaArchive],creators:[...creators].map(([k,v])=>[k,{...v,tokens:[...v.tokens]}])};}
+function serialize(){return{auditVersion:AUDIT_VERSION,alphaOS:alphaOS.serialize(),strategies:strategyDefs.map(stripTrader),challengers:challengers.map(stripTrader),positions:positions.filter(p=>!p.closed),trades,activity,decisions,opportunities:[...opportunities],research,timeline,replayFrames,autopsies,promotions,graveyard,walletEvents:walletEvents.slice(0,1200),marketEvents:marketEvents.slice(-1000),dnaArchive:[...dnaArchive],creators:[...creators].map(([k,v])=>[k,{...v,tokens:[...v.tokens]}])};}
 function stripTrader(d){return{id:d.id,name:d.name,icon:d.icon,risk:d.risk,type:d.type,parentId:d.parentId,mutation:d.mutation,auto:d.auto,bornAt:d.bornAt,cash:d.cash,peak:d.peak,dd:d.dd,auditPeak:d.auditPeak,auditDd:d.auditDd,wins:d.wins,losses:d.losses,n:d.n,version:d.version,min:d.min,stop:d.stop,take:d.take,size:d.size,maxOpen:d.maxOpen,riskCap:d.riskCap,exitMode:d.exitMode,sizeBias:d.sizeBias,promotionCandidateAt:d.promotionCandidateAt,promotedAt:d.promotedAt,graveyardAt:d.graveyardAt};}
-function restore(s){try{
+function restore(s){try{alphaOS.restore(s.alphaOS);
   for(const x of s.strategies||[]){
     const d=strategyDefs.find(q=>q.id===x.id);if(!d)continue;
     const codeVersion=num(d.version)||1;
@@ -1669,6 +1683,9 @@ function systemAudit(){
   if(!qualified.length)warnings.push('no core strategy yet meets minimum holdout profitability evidence');
   if(ALLOW_AUTO_PROMOTION)warnings.push('automatic strategy promotion is enabled');
   if(!SHADOW_EXECUTION_VALIDATED)critical.push('live shadow-execution validation has not been completed');
+  const alphaSnap=alphaOS.snapshot();
+  if(!alphaSnap.shadow.routeQuoteConnected)warnings.push('Alpha OS shadow twin is measuring paper-vs-next-tick execution but exact route quote adapter is not connected');
+  passes.push('Alpha OS ten-subsystem decision layer active');
   if(dbStateRestored)passes.push('durable state restore verified');
   if(!ALLOW_AUTO_PROMOTION)passes.push('production strategy auto-promotion disabled');
   passes.push('deterministic 80/20 holdout split active');
@@ -1752,7 +1769,7 @@ function snapshot(){
       history:(t.history||[]).slice(-45).map(x=>({ts:x.ts,price:x.price})),features:features(t),detective:detective(t),adversarial:adversarialRisk(t),
       consensus:consensus(t,weather.regime),dna:creatorDNA(t),tokenDNA:tdna,similarity:dnaSimilarity(t,12,tdna),quality:tokenDataQuality(t)};
   });
-  return{now:now(),startedAt,paperOnly:true,executionAssumptions:{fallbackFeeRate:FEE_RATE,fixedTxCostUsd:PAPER_FIXED_TX_COST_USD,feeSource:'pump.fun docs 2026-05-20',maxModeledSlippagePct:8},researchGovernance:{partition:'deterministic 80/20 by mint',learningSet:'train only',autoPromotion:ALLOW_AUTO_PROMOTION,minPromotionTrades:60,minHoldoutTrades:12},stateLock:{databaseConfigured:!!DATABASE_URL,restored:dbStateRestored,tradingUnlocked:durableTradingReady(),dbConnected:!!db,lastDurableSaveAt,lastDurableRestoreAt,graceMs:DURABLE_WRITE_GRACE_MS},mode:'LIVE + V3.2 AUDITED PROCESS + HOLDOUT RESEARCH + DURABLE REPLAY',version:'3.2 Process Audit',target:TARGET,weather,providers:[...health.values()],
+  return{now:now(),startedAt,paperOnly:true,alphaOS:alphaOS.snapshot(),executionAssumptions:{fallbackFeeRate:FEE_RATE,fixedTxCostUsd:PAPER_FIXED_TX_COST_USD,feeSource:'pump.fun docs 2026-05-20',maxModeledSlippagePct:8},researchGovernance:{partition:'deterministic 80/20 by mint',learningSet:'train only',autoPromotion:ALLOW_AUTO_PROMOTION,minPromotionTrades:60,minHoldoutTrades:12},stateLock:{databaseConfigured:!!DATABASE_URL,restored:dbStateRestored,tradingUnlocked:durableTradingReady(),dbConnected:!!db,lastDurableSaveAt,lastDurableRestoreAt,graceMs:DURABLE_WRITE_GRACE_MS},mode:'LIVE + V3.3 ALPHA OS + AUDITED HOLDOUT RESEARCH + DURABLE REPLAY',version:'3.3 Alpha OS',target:TARGET,weather,providers:[...health.values()],
     summary:{capital:prod.reduce((a,d)=>a+d.equity,0),start:prod.length*START,trades:prod.reduce((a,d)=>a+d.n,0),open:positions.filter(p=>!p.closed&&prod.some(d=>d.id===p.strategy)).length,cohortCapital:cohort.reduce((a,d)=>a+d.equity,0),cohortStart:cohort.length*START,cohortTrades:cohort.reduce((a,d)=>a+d.n,0),cohortOpen:positions.filter(p=>!p.closed&&cohort.some(d=>d.id===p.strategy)).length,tokens:tokens.size,decisions:decisions.length},
     strategies:strategyDefs.map(d=>{const ep=entryPolicy(d),pb=strategyPlaybook(d),eraTrades=trades.filter(t=>t.strategy===d.id&&t.policyVersion===STRATEGY_ERA);return{...d,winRate:d.n?d.wins/d.n*100:0,open:openCount(d.id),effectiveMin:ep.min,coldStart:ep.coldStart,entryRejects:ep.rejects,thresholdRelief:ep.relief,playbook:pb.instruction,era:STRATEGY_ERA,eraN:eraTrades.length,eraWinRate:eraTrades.length?eraTrades.filter(t=>t.pnl>0).length/eraTrades.length*100:0,eraPnl:eraTrades.reduce((a,t)=>a+num(t.pnl),0),eraAvgPnl:eraTrades.length?avg(eraTrades.map(t=>t.pnlPct)):0}}),experiments:experimentSnapshot(),tokens:active,
     narratives:narrativeStats().slice(0,15),creators:creatorLeaderboard(),positions:positions.filter(p=>!p.closed).slice(-120),trades:trades.slice(0,150),activity:activity.slice(0,140),research,
@@ -1792,6 +1809,7 @@ const HTML=`<!doctype html><html><head><meta charset="utf-8"><meta name="viewpor
 <div class="two" style="margin-top:12px"><div class="card"><h3>⚡ FOMO WATCHLIST · RECENT ON-CHAIN ACTIVITY</h3><div class="mini">BUY/SELL requires Pump.fun evidence or token + native SOL direction. Otherwise PUMP LAB reports TOKEN IN/OUT rather than inventing a trade.</div><div class="scroll"><table class="table"><thead><tr><th>Trader</th><th>Action</th><th>Token</th><th>Token Δ</th><th>SOL Δ</th><th>When</th></tr></thead><tbody id="fomoEvents"></tbody></table></div></div><div class="card"><h3>🔭 GLOBAL WALLET ACTIVITY · ON-CHAIN OBSERVED</h3><div class="mini">Direct Solana observations. Marked return is inferred from token price when first observed, not a claim of realized wallet P&L.</div><div class="scroll"><table class="table"><thead><tr><th>Wallet</th><th>Events</th><th>Buys</th><th>Sells</th><th>Tokens</th><th>Marked</th><th>Score</th></tr></thead><tbody id="walletBoard"></tbody></table></div></div></div></div>
 <div class="pane" id="planet"><div class="card"><div class="sectionTitle"><h2>🌎 THE WORLD</h2><p>A live map of the token economy PUMP LAB can actually observe.</p></div><div id="worldStats" class="grid4"></div><div id="tokenWorld" class="worldGrid" style="margin-top:12px"></div></div><div class="two" style="margin-top:12px"><div class="card"><h3>🔥 WORLD LEADERS</h3><div id="worldLeaders"></div></div><div class="card"><h3>⚠️ WORLD RISKS</h3><div id="worldRisks"></div></div></div></div>
 <div class="pane" id="research"><div class="three"><div class="card"><h3>🧪 CHALLENGERS</h3><div id="experiments"></div></div><div class="card"><h3>🚀 MISSED MONSTERS</h3><div id="missed"></div></div><div class="card"><h3>🛟 SAVED MY ASS</h3><div id="saved"></div></div></div><div class="two" style="margin-top:12px"><div class="card"><h3>🏆 HALL OF FAME</h3><div id="hall"></div></div><div class="card"><h3>🧬 TRADE AUTOPSIES</h3><div id="autopsies"></div></div></div><div class="card" style="margin-top:12px"><h3>RESEARCH DIRECTOR</h3><div id="researchText"></div></div><div class="card" style="margin-top:12px"><h3>🧯 PROCESS AUDIT & LIVE LAUNCH GATE</h3><div id="auditBoard"></div></div>
+<div class="card" style="margin-top:12px"><div class="sectionTitle"><h2>🧠 ALPHA OS · 10 SYSTEM STACK</h2><p>Shadow execution, wallet graph, toxic flow, lead-lag, microstructure, execution routing, CIO auction, probability, adaptive exits and world model.</p></div><div id="alphaOSBoard"></div></div>
 <div class="card" style="margin-top:12px"><div class="sectionTitle"><h2>🧪 SPECIALIST COHORT LAB</h2><p>31 isolated traders testing market cap, age, liquidity, flow, metadata, creator DNA, regime and lifecycle populations.</p></div><div id="specialistCohorts"></div></div>
 <div class="three" style="margin-top:12px"><div class="card"><h3>🎯 CONFIDENCE CALIBRATION</h3><div id="calibration"></div></div><div class="card"><h3>🆚 BENCHMARKS</h3><div id="benchmarks"></div></div><div class="card"><h3>🧬 EVOLUTION</h3><div id="evolution"></div></div></div>
 <div class="grid4" style="margin-top:12px"><div class="card"><h3>ENTRY LAB</h3><div id="entryLab"></div></div><div class="card"><h3>EXIT LAB</h3><div id="exitLab"></div></div><div class="card"><h3>SIZING LAB</h3><div id="sizingLab"></div></div><div class="card"><h3>EXECUTION STRESS</h3><div id="executionLab"></div></div></div>
@@ -1855,7 +1873,9 @@ $('researchText').innerHTML='<p><b>Last cycle:</b> '+(s.research.last?new Date(s
 const au=s.audit||{};$('auditBoard').innerHTML='<div class="big '+(au.liveReady?'green':'amber')+'">'+esc(au.status||'AUDITING')+'</div><div class="mini" style="margin:8px 0">Audit '+esc(au.auditVersion||'')+' · live gate is intentionally stricter than paper profitability.</div>'+
     ((au.critical||[]).length?'<div class="red"><b>BLOCKERS</b><br>'+au.critical.map(x=>'• '+esc(x)).join('<br>')+'</div>':'<div class="green">No critical system blockers.</div>')+
     ((au.warnings||[]).length?'<div class="amber" style="margin-top:8px"><b>WARNINGS</b><br>'+au.warnings.map(x=>'• '+esc(x)).join('<br>')+'</div>':'')+
-    '<div class="mini" style="margin-top:8px">'+(au.qualifiedStrategies||[]).length+' strategies currently meet the minimum holdout gate · '+(au.runtime?.stalePositions||0)+' stale positions · state '+Math.round((au.runtime?.stateBytes||0)/1024)+' KB / '+one(au.runtime?.stateBuildMs||0)+' ms</div>';const sc=s.specialistCohorts||{groups:[],capital:0,start:0,trades:0,open:0,count:0};
+    '<div class="mini" style="margin-top:8px">'+(au.qualifiedStrategies||[]).length+' strategies currently meet the minimum holdout gate · '+(au.runtime?.stalePositions||0)+' stale positions · state '+Math.round((au.runtime?.stateBytes||0)/1024)+' KB / '+one(au.runtime?.stateBuildMs||0)+' ms</div>';const aos=s.alphaOS||{subsystems:[],master:{},shadow:{},forecasts:{},wallets:{},world:{},execution:{}};
+$('alphaOSBoard').innerHTML='<div class="grid4"><div class="smallcard"><span class="muted">CIO EQUITY</span><div class="big">'+money(aos.master?.equity||0)+'</div><div class="mini">'+(aos.master?.trades||0)+' exits · '+(aos.master?.open||0)+' open</div></div><div class="smallcard"><span class="muted">SHADOW INTENTS</span><div class="big">'+(aos.shadow?.intents||0)+'</div><div class="mini">5s execution drift '+one(aos.shadow?.avg5s||0)+'%</div></div><div class="smallcard"><span class="muted">FORECAST MEMORY</span><div class="big">'+(aos.forecasts?.settledTrain||0)+'</div><div class="mini">settled training forecasts</div></div><div class="smallcard"><span class="muted">WALLET GRAPH</span><div class="big">'+(aos.wallets?.nodes||0)+'</div><div class="mini">'+(aos.wallets?.edges||0)+' co-buy edges</div></div></div><div class="worldGrid" style="margin-top:10px">'+(aos.subsystems||[]).map(x=>'<div class="smallcard"><b>'+x.id+'. '+esc(x.name)+'</b><span style="float:right" class="'+(x.active?'green':'amber')+'">'+(x.active?'ACTIVE':'COLLECTING')+'</span><div class="mini" style="margin-top:6px">'+esc(x.detail)+'</div></div>').join('')+'</div>';
+const sc=s.specialistCohorts||{groups:[],capital:0,start:0,trades:0,open:0,count:0};
 $('specialistCohorts').innerHTML='<div class="grid4"><div class="smallcard"><span class="muted">SPECIALISTS</span><div class="big">'+sc.count+'</div></div><div class="smallcard"><span class="muted">COHORT CAPITAL</span><div class="big">'+money(sc.capital)+'</div><div class="mini">'+(sc.capital>=sc.start?'+':'')+money(sc.capital-sc.start)+' vs cohort start</div></div><div class="smallcard"><span class="muted">COHORT EXITS</span><div class="big">'+sc.trades+'</div></div><div class="smallcard"><span class="muted">OPEN</span><div class="big">'+sc.open+'</div></div></div>'+sc.groups.map(g=>'<div class="ecosystem" style="margin-top:10px"><div><b>'+esc(g.name)+'</b><span style="float:right" class="'+(g.capital>=g.start?'green':'red')+'">'+money(g.capital)+' / '+money(g.start)+'</span></div><div class="mini">'+g.closed+' exits · '+g.open+' open</div><div class="worldGrid" style="margin-top:9px">'+g.traders.map(x=>'<div class="smallcard"><div><b>'+x.icon+' '+esc(x.name)+'</b><span style="float:right" class="'+(x.equity>=1000?'green':'red')+'">'+money(x.equity)+'</span></div><div class="mini">'+x.n+' exits · '+one(x.winRate)+'% wins · '+one(x.dd)+'% DD · '+x.eligibleNow+' eligible now</div><div class="truth" style="margin-top:6px">'+esc(x.thesis)+'</div></div>').join('')+'</div></div>').join('');
 renderTime(s.timeline);$('ledger').innerHTML=s.decisions.slice(0,120).map(d=>'<tr><td>'+new Date(d.ts).toLocaleTimeString()+'</td><td>'+esc(d.strategyName)+'</td><td>$'+esc(d.symbol)+'</td><td class="'+(d.action==='BUY'?'green':'muted')+'">'+d.action+'</td><td>'+one(d.score)+'</td><td>'+one(d.risk)+'</td><td class="muted">'+esc(d.why)+'</td></tr>').join('');}
 function listOpp(a,key,positive,empty){return a.slice(0,10).map(o=>'<div class="smallcard" style="margin:7px 0"><b>$'+esc(o.symbol)+' · '+esc(o.strategyName)+'</b><span style="float:right" class="'+(positive?'green':'red')+'">'+(o[key]>=0?'+':'')+one(o[key])+'%</span><div class="mini">rejected: '+esc(o.why)+'</div></div>').join('')||'<div class="muted">'+empty+'</div>'}
@@ -1926,8 +1946,12 @@ if(dbStateRestored)logStrategyDiagnostics();
 logV3SelfTest();
 setHealth('engine','ok','v3.1 evidence playbooks + Megga copy/scout lab + 31 specialist cohorts + controls online',{truth:'observed'});
 setHealth('learning-core','ok','era-separated allocator + DNA memory + replay + exit optimizer + counterfactual lab online',{truth:'inferred'});
+setHealth('alpha-os','ok','10-system Alpha OS online · all execution remains paper/shadow only',{truth:'inferred'});
 setHealth('x-social','standby','Full X stream not connected · social agent uses token social metadata only',{truth:'not connected'});
 setHealth('wallet-intel','standby','Connecting Solana stream + verified Fomo wallet watchlist…',{truth:'not connected'});setHealth('fomo-watchlist','standby','Preparing verified public wallet subscriptions',{truth:'not connected'});
-server.listen(PORT,'0.0.0.0',()=>{if(DATABASE_URL&&!dbStateRestored)console.log('STATE_LOCK engaged · trading paused until durable state restore');log('system','🚀 PUMP LAB v3.2 Process Audit started','system');connectPumpPortal();connectSolanaStream();pumpPoll();dexPoll();console.log('PUMP LAB v3.2 on '+PORT);});
-setTimeout(stateSelfTest,5000).unref?.();setInterval(stalePositionSweep,60000).unref?.();setInterval(pruneRuntimeMemory,300000).unref?.();setInterval(drainSolanaQueue,1100).unref?.();setInterval(pumpPoll,7000).unref?.();setInterval(dexPoll,20000).unref?.();setInterval(openPositionPoll,15000).unref?.();setInterval(takeTimeline,30000).unref?.();setInterval(takeReplay,30000).unref?.();setInterval(researchCycle,3600000).unref?.();setInterval(()=>save(),30000).unref?.();const diagTimer=setTimeout(()=>{logStrategyDiagnostics();logPerformanceSnapshot();logFullPostmortem();},20000);diagTimer.unref?.();const diagLoop=setInterval(()=>{logStrategyDiagnostics();logPerformanceSnapshot();logFullPostmortem();},300000);diagLoop.unref?.();takeTimeline();takeReplay();openPositionPoll();
+server.listen(PORT,'0.0.0.0',()=>{if(DATABASE_URL&&!dbStateRestored)console.log('STATE_LOCK engaged · trading paused until durable state restore');log('system','🚀 PUMP LAB v3.3 Alpha OS started','system');connectPumpPortal();connectSolanaStream();pumpPoll();dexPoll();console.log('PUMP LAB v3.3 on '+PORT);});
+setTimeout(stateSelfTest,5000).unref?.();setInterval(()=>alphaOS.runCapitalAuction(m=>tokens.get(m),executionQuote),2000).unref?.();
+setInterval(()=>{alphaOS.observeWorld({weather:marketWeather(),tokens:[...tokens.values()].filter(t=>now()-t.updatedAt<900000),strategyEquity:Object.fromEntries(allTraders().map(d=>[d.id,d.equity]))});alphaOS.prune();},60000).unref?.();
+setInterval(()=>alphaOS.pollExternal(),30000).unref?.();
+setInterval(stalePositionSweep,60000).unref?.();setInterval(pruneRuntimeMemory,300000).unref?.();setInterval(drainSolanaQueue,1100).unref?.();setInterval(pumpPoll,7000).unref?.();setInterval(dexPoll,20000).unref?.();setInterval(openPositionPoll,15000).unref?.();setInterval(takeTimeline,30000).unref?.();setInterval(takeReplay,30000).unref?.();setInterval(researchCycle,3600000).unref?.();setInterval(()=>save(),30000).unref?.();const diagTimer=setTimeout(()=>{logStrategyDiagnostics();logPerformanceSnapshot();logFullPostmortem();},20000);diagTimer.unref?.();const diagLoop=setInterval(()=>{logStrategyDiagnostics();logPerformanceSnapshot();logFullPostmortem();},300000);diagLoop.unref?.();takeTimeline();takeReplay();alphaOS.observeWorld({weather:marketWeather(),tokens:[...tokens.values()],strategyEquity:Object.fromEntries(allTraders().map(d=>[d.id,d.equity]))});alphaOS.pollExternal();openPositionPoll();
 process.on('SIGTERM',async()=>{await save();server.close(()=>process.exit(0));});process.on('SIGINT',async()=>{await save();server.close(()=>process.exit(0));});
