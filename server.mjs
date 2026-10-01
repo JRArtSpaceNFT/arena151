@@ -1173,10 +1173,25 @@ function tournament(){
   return[...map].map(([id,x])=>{const d=strategyDefs.find(q=>q.id===id);return{id,name:d?.name||id,pnl:x.pnl,n:x.n,winRate:x.n?x.wins/x.n*100:0};}).sort((a,b)=>b.pnl-a.pnl);
 }
 
+function eraPerformance(id){
+  const rows=trades.filter(t=>t.strategy===id&&t.policyVersion===STRATEGY_ERA),rets=rows.map(t=>t.pnlPct).filter(Number.isFinite);
+  const mean=avg(rets),wins=rows.filter(t=>t.pnl>0),losses=rows.filter(t=>t.pnl<0),grossWin=wins.reduce((z,t)=>z+t.pnl,0),grossLoss=Math.abs(losses.reduce((z,t)=>z+t.pnl,0));
+  return{n:rows.length,mean,total:rows.reduce((z,t)=>z+(t.pnl||0),0),winRate:rows.length?wins.length/rows.length*100:0,
+    profitFactor:grossLoss?grossWin/grossLoss:grossWin>0?9.99:0,tail:rets.length?percentile(rets,.10):0};
+}
 function evaluateEvolution(){
-  for(const c of challengers){const p=strategyDefs.find(x=>x.id===c.parentId);if(!p||c.n<50)continue;markEquity(c);markEquity(p);const edge=c.equity-p.equity;
-    if(!c.promotedAt&&edge>125&&c.dd<=p.dd+5){p.min=c.min;p.stop=c.stop;p.take=c.take;if(c.riskCap)p.riskCap=c.riskCap;p.version=(p.version||1)+1;c.promotedAt=now();const row={ts:now(),child:c.name,parent:p.name,edge,sample:c.n,newVersion:p.version};promotions.unshift(row);promotions.splice(100);log('evolution',`🏆 ${c.name} promoted into ${p.name} v${p.version}`,'system',row);}
-    else if(!c.graveyardAt&&edge<-100){c.graveyardAt=now();const row={ts:now(),child:c.name,parent:p.name,edge,sample:c.n,reason:'failed forward challenge'};graveyard.unshift(row);graveyard.splice(100);log('evolution',`☠️ ${c.name} moved to the Strategy Graveyard`,'system',row);}
+  for(const c of challengers){
+    const p=strategyDefs.find(x=>x.id===c.parentId);if(!p)continue;
+    const child=eraPerformance(c.id),parent=eraPerformance(p.id);if(child.n<30)continue;
+    const edge=child.mean-(parent.n>=10?parent.mean:0),tailOk=child.tail>=(parent.n>=10?parent.tail-5:-25);
+    if(!c.promotedAt&&edge>5&&child.profitFactor>1.15&&tailOk){
+      p.min=c.min;p.stop=c.stop;p.take=c.take;if(c.riskCap)p.riskCap=c.riskCap;if(c.exitMode)p.exitMode=c.exitMode;if(c.sizeBias)p.sizeBias=c.sizeBias;
+      p.version=(p.version||3)+1;c.promotedAt=now();const row={ts:now(),era:STRATEGY_ERA,child:c.name,parent:p.name,edge,sample:child.n,profitFactor:child.profitFactor,newVersion:p.version};
+      promotions.unshift(row);promotions.splice(100);log('evolution',`🏆 ${c.name} promoted into ${p.name} v${p.version}`,'system',row);
+    }else if(!c.graveyardAt&&edge<-8){
+      c.graveyardAt=now();const row={ts:now(),era:STRATEGY_ERA,child:c.name,parent:p.name,edge,sample:child.n,reason:'failed v3 forward challenge'};
+      graveyard.unshift(row);graveyard.splice(100);log('evolution',`☠️ ${c.name} moved to the Strategy Graveyard`,'system',row);
+    }
   }
 }
 function familyTree(){return strategyDefs.filter(p=>p.risk!=='CONTROL'&&!p.specialist).map(p=>({parent:p.name,version:p.version||1,children:challengers.filter(c=>c.parentId===p.id).map(c=>({name:c.name,n:c.n,equity:c.equity,dd:c.dd,promotedAt:c.promotedAt||0,graveyardAt:c.graveyardAt||0,mutation:c.mutation}))})).filter(x=>x.children.length);}
