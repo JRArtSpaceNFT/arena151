@@ -27,6 +27,7 @@ const PUMP_PROGRAM = '6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P';
 const SOLANA_RPC_HTTP = process.env.SOLANA_RPC_HTTP || 'https://api.mainnet-beta.solana.com';
 const SOLANA_RPC_WSS = process.env.SOLANA_RPC_WSS || 'wss://api.mainnet-beta.solana.com';
 const SHADOW_ROUTE_QUOTE_URL = process.env.SHADOW_ROUTE_QUOTE_URL || '';
+const SHADOW_WALLET_PUBLIC_KEY = process.env.SHADOW_WALLET_PUBLIC_KEY || '';
 
 // Public Fomo trader identities requested for research. Wallets are attached only when
 // a public mapping is corroborated strongly enough to avoid polluting the dataset.
@@ -98,7 +99,8 @@ const opportunityKeysByMint = new Map();
 const alphaOS = createPumpLabAlphaOS({
   start:START,
   rpcUrl:SOLANA_RPC_HTTP,
-  routeQuoteUrl:SHADOW_ROUTE_QUOTE_URL
+  routeQuoteUrl:SHADOW_ROUTE_QUOTE_URL,
+  shadowWalletPublicKey:SHADOW_WALLET_PUBLIC_KEY
 });
 let research = { last: 0, notes: [], hypotheses: [] };
 let startedAt = Date.now();
