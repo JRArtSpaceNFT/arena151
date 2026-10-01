@@ -889,7 +889,7 @@ function maybeTrade(t) {
     if(alpha.veto){recordDecision(d,t,f,score,'REJECT','Alpha OS · '+alpha.vetoReason);continue;}
     const budget=Math.min(sizing.budget*alpha.sizeMultiplier,d.cash*.25,d.equity*.15,t.liq>0?Math.max(d.equity*.02,t.liq*.015):sizing.budget);
     if(budget<Math.max(5,d.equity*.02)){recordDecision(d,t,f,score,'REJECT','Alpha OS · stake below minimum after EV adjustment');continue;}
-    const entryExec=executionQuote(t,budget,'buy');if(entryExec.slippage>.065){recordDecision(d,t,f,score,'REJECT','execution veto: modeled slippage');continue;}const entry=entryExec.fillPrice;const cost=budget*(1+entryExec.feeRate)+entryExec.fixedCost;
+    const entryExec=executionQuote(t,budget,'buy');entryExec.networkCostUsd=Number(alpha.execution?.networkCostUsd||0);entryExec.priorityLamports=Number(alpha.execution?.priorityLamports||0);entryExec.jitoTipLamports=Number(alpha.execution?.jitoTipLamports||0);entryExec.executionMode=alpha.execution?.mode||'STANDARD_RPC';if(entryExec.slippage>.065){recordDecision(d,t,f,score,'REJECT','execution veto: modeled slippage');continue;}const entry=entryExec.fillPrice;const cost=budget*(1+entryExec.feeRate)+entryExec.fixedCost+entryExec.networkCostUsd;
     if(cost>d.cash)continue;
     d.cash-=cost;
     const exploratory=false;
@@ -912,7 +912,7 @@ function stalePositionSweep(){
 function updateOpenPositionExtremes(t){for(const p of positions){if(p.closed||p.mint!==t.mint)continue;p.lastPrice=t.price;p.lastMarkedAt=now();p.markSource=(t.sources||[]).join('+')||'live';p.peakDuring=Math.max(p.peakDuring||p.entry,t.price);p.troughDuring=Math.min(p.troughDuring||p.entry,t.price);}}
 
 function closePos(d,p,t,why){
-  const notional=p.units*t.price,exec=executionQuote(t,notional,'sell'),exit=exec.fillPrice,gross=p.units*exit,proceeds=Math.max(0,gross*(1-exec.feeRate)-exec.fixedCost);
+  const notional=p.units*t.price,exec=executionQuote(t,notional,'sell'),exitAlpha=alphaOS.executionBrain(t,{features:features(t),score:p.score||50}),exit=exec.fillPrice,gross=p.units*exit;exec.networkCostUsd=Number(exitAlpha.networkCostUsd||0);exec.priorityLamports=Number(exitAlpha.priorityLamports||0);exec.jitoTipLamports=Number(exitAlpha.jitoTipLamports||0);exec.executionMode=exitAlpha.mode||'STANDARD_RPC';const proceeds=Math.max(0,gross*(1-exec.feeRate)-exec.fixedCost-exec.networkCostUsd);
   d.cash+=proceeds;p.closed=true;p.closedAt=now();p.exit=exit;p.exitExecution=exec;const totalProceeds=num(p.realizedProceeds)+proceeds,entryCost=num(p.entryCost)||p.invested*(1+FEE_RATE);p.pnl=totalProceeds-entryCost;p.pnlPct=p.pnl/Math.max(.000001,entryCost)*100;p.why=why;
   p.mfe=pct(p.peakDuring||exit,p.entry);p.mae=pct(p.troughDuring||exit,p.entry);p.counterfactual={exitNow:p.pnlPct,holdAfterExit:{oneMin:null,fiveMin:null,fifteenMin:null},bestObservedAfterExit:null};
   const modeledRoundTrip=(num(p.entryExecution?.slippage)+num(p.exitExecution?.slippage)+num(p.entryExecution?.feeRate)+num(p.exitExecution?.feeRate))*100;const stressPenalty=Math.max(2.5,modeledRoundTrip+Math.min(8,(p.invested/Math.max(1000,t.liq))*100));
@@ -1318,7 +1318,7 @@ function exitModeFor(d){
 function partialClose(d,p,t,fraction,why){
   if(!(p.units>0)||!(t.price>0))return false;
   const frac=clamp(fraction,.05,.80),units=p.units*frac,notional=units*t.price;
-  const exec=executionQuote(t,notional,'sell'),exit=exec.fillPrice,gross=units*exit,proceeds=Math.max(0,gross*(1-exec.feeRate)-exec.fixedCost);
+  const exec=executionQuote(t,notional,'sell'),partialAlpha=alphaOS.executionBrain(t,{features:features(t),score:p.score||50}),exit=exec.fillPrice,gross=units*exit;exec.networkCostUsd=Number(partialAlpha.networkCostUsd||0);exec.priorityLamports=Number(partialAlpha.priorityLamports||0);exec.jitoTipLamports=Number(partialAlpha.jitoTipLamports||0);exec.executionMode=partialAlpha.mode||'STANDARD_RPC';const proceeds=Math.max(0,gross*(1-exec.feeRate)-exec.fixedCost-exec.networkCostUsd);
   p.units=Math.max(0,p.units-units);p.realizedProceeds=num(p.realizedProceeds)+proceeds;
   p.partialExits=p.partialExits||[];p.partialExits.push({ts:now(),why,fraction:frac,units,exit,proceeds,execution:exec});
   d.cash+=proceeds;markEquity(d);
