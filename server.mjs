@@ -2249,6 +2249,16 @@ hr{border-color:#e0e3e5!important}
 .xEmpty{padding:34px;text-align:center;border:1px dashed #cfd3d6;border-radius:18px;color:#777f87;background:rgba(255,255,255,.55)}.xEmpty b{display:block;color:#14171a;font-size:17px;margin-bottom:7px}
 .xRefresh{appearance:none;border:1px solid #d5d9dc;background:white;border-radius:999px;padding:8px 12px;font-size:9px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;cursor:pointer}.xRefresh:hover{background:#111;color:white}
 .xKeyword{display:inline-block;padding:2px 5px;border-radius:6px;background:#eceeff;color:#5262d8;font-size:9px;font-weight:800}
+.xEmbedGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.xEmbedCard{background:rgba(250,251,251,.88);border:1px solid #d7dade;border-radius:18px;overflow:hidden;box-shadow:0 8px 28px rgba(22,29,36,.05);min-height:560px}
+.xEmbedHead{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid #e0e3e5;background:rgba(255,255,255,.82);position:sticky;top:0;z-index:2}
+.xEmbedName{font-weight:950;font-size:12px;letter-spacing:-.02em}.xEmbedMode{font:8px ui-monospace,SFMono-Regular,Menlo,monospace;color:#939aa1;letter-spacing:.12em;text-transform:uppercase}
+.xEmbedOpen{font-size:9px;font-weight:900;color:#171a1d;text-decoration:none}.xEmbedOpen:hover{text-decoration:underline}
+.xEmbedBody{min-height:515px;background:#fff}
+.xEmbedBody .twitter-timeline{display:block;min-height:500px}
+.xNoApiNote{padding:10px 12px;border:1px solid #d7dade;border-radius:12px;background:#fafafa;color:#727a82;font-size:10px;line-height:1.45;margin-bottom:10px}
+@media(max-width:980px){.xEmbedGrid{grid-template-columns:1fr}}
+
 @media(max-width:900px){.xFeedHero,.xFeedGrid{grid-template-columns:1fr}.xSidebar{position:static}.xFeedIntro{min-height:180px}}
 .pane{animation:paneIn .28s ease}
 @keyframes paneIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
@@ -2299,14 +2309,14 @@ hr{border-color:#e0e3e5!important}
 <div class="pane" id="xfeed">
   <div class="xFeedHero">
     <div class="card xFeedIntro">
-      <div><div class="kicker">CURATED INTELLIGENCE · X / TWITTER</div><h2 class="xFeedTitle">SIGNAL<span>/FEED</span></h2><p>A private market-intelligence timeline made only from the X accounts you choose. No For You algorithm. No random noise. Just your hand-picked signal.</p></div>
+      <div><div class="kicker">CURATED INTELLIGENCE · X / TWITTER</div><h2 class="xFeedTitle">SIGNAL<span>/FEED</span></h2><p>A private market-intelligence wall made only from the X accounts you choose. Public live timelines work without an API key; richer merged intelligence can layer on later.</p></div>
       <div class="xFeedStatus"><span class="dot"></span><b id="xFeedState">WAITING FOR CONFIG</b><span class="muted" id="xFeedUpdated"></span><button class="xRefresh" onclick="loadXFeed(true)">Refresh</button></div>
     </div>
-    <div class="card xFeedAccounts"><div><div class="muted" style="font-size:9px;font-weight:900;letter-spacing:.13em">WATCHING</div><div class="xHandleCloud" id="xFeedHandles"><span class="xHandle">Add your accounts</span></div></div><div class="mini">Server-side caching prevents multiple open browsers from multiplying X API reads.</div></div>
+    <div class="card xFeedAccounts"><div><div class="muted" style="font-size:9px;font-weight:900;letter-spacing:.13em">WATCHING</div><div class="xHandleCloud" id="xFeedHandles"><span class="xHandle">Add your accounts</span></div></div><div class="mini">Public embed mode requires no API key. If API access is connected later, Pump Lab automatically upgrades to a merged newest-first intelligence feed.</div></div>
   </div>
   <div class="xFeedGrid">
     <div class="xTimeline" id="xTimeline"><div class="xEmpty"><b>X Signal Feed is ready.</b>Add your chosen accounts and X API credentials to switch the stream on.</div></div>
-    <div class="xSidebar"><div class="card xPulse"></div><div class="card"><h3>FEED RULES</h3><div class="mini">Newest first · selected accounts only · retweets excluded · automatic refresh · direct links back to X.</div></div><div class="card"><h3>LIVE SIGNALS</h3><div id="xSignalSummary" class="mini">No feed data yet.</div></div></div>
+    <div class="xSidebar"><div class="card xPulse"></div><div class="card"><h3>FEED RULES</h3><div class="mini">Selected accounts only · official X embeds · no API required · direct links back to X · merged feed upgrade ready.</div></div><div class="card"><h3>LIVE SIGNALS</h3><div id="xSignalSummary" class="mini">No feed data yet.</div></div></div>
   </div>
 </div></div><div class="drawer" id="drawer"><button class="close" onclick="closeDrawer()">Close</button><div id="drawerBody"></div></div><script>
 const $=x=>document.getElementById(x);const money=n=>'$'+Number(n||0).toLocaleString(undefined,{maximumFractionDigits:0});const one=n=>Number(n||0).toFixed(1);let S=null;
@@ -2437,13 +2447,30 @@ async function loadDeepResearch(){
 let xFeedTimer=null,xFeedLoading=false;
 function xNum(n){n=Number(n||0);if(n>=1000000)return(n/1000000).toFixed(1)+'M';if(n>=1000)return(n/1000).toFixed(1)+'K';return String(n)}
 function xHighlight(t){return esc(t||'').replace(/(\$[A-Za-z][A-Za-z0-9]{1,12}|#[A-Za-z0-9_]{2,30})/g,'<span class="xKeyword">$1</span>')}
+
+function ensureXWidgets(){
+  if(window.twttr&&window.twttr.widgets){window.twttr.widgets.load();return;}
+  if(document.getElementById('x-widgets-js'))return;
+  const s=document.createElement('script');s.id='x-widgets-js';s.async=true;s.src='https://platform.twitter.com/widgets.js';s.charset='utf-8';
+  s.onload=()=>{try{window.twttr&&window.twttr.widgets&&window.twttr.widgets.load()}catch{}};
+  document.head.appendChild(s);
+}
+function renderXEmbedFallback(handles){
+  $('xFeedState').textContent='PUBLIC EMBED MODE · '+handles.length+' ACCOUNTS';
+  $('xFeedState').className='green';
+  $('xFeedUpdated').textContent=' · no API required';
+  $('xSignalSummary').innerHTML='<b>'+handles.length+' live profile timelines</b><br>Official X embeds · API key not required<br><br>When API access is added later, this page can automatically switch to the merged newest-first Pump Lab feed.';
+  $('xTimeline').innerHTML='<div class="xNoApiNote"><b>NO API MODE</b> · Pump Lab is loading the public X timeline for each selected account directly from X. This keeps the page useful now without requiring credentials.</div><div class="xEmbedGrid">'+handles.map(h=>'<section class="xEmbedCard"><div class="xEmbedHead"><div><div class="xEmbedName">@'+esc(h)+'</div><div class="xEmbedMode">LIVE PROFILE TIMELINE</div></div><a class="xEmbedOpen" href="https://x.com/'+encodeURIComponent(h)+'" target="_blank" rel="noopener">OPEN X ↗</a></div><div class="xEmbedBody"><a class="twitter-timeline" data-theme="light" data-chrome="noheader nofooter noborders transparent" data-height="520" data-dnt="true" href="https://twitter.com/'+encodeURIComponent(h)+'">Posts by @'+esc(h)+'</a></div></section>').join('')+'</div>';
+  ensureXWidgets();
+  window.setTimeout(()=>{try{window.twttr&&window.twttr.widgets&&window.twttr.widgets.load($('xTimeline'))}catch{}},500);
+}
 function renderXFeed(data){
   const handles=data.handles||[],posts=data.posts||[];
   $('xFeedHandles').innerHTML=handles.length?handles.map(h=>'<span class="xHandle">@'+esc(h)+'</span>').join(''):'<span class="xHandle">No accounts configured</span>';
   $('xFeedState').textContent=data.configured?(data.ok?'LIVE · '+posts.length+' POSTS':'FEED ERROR'):'WAITING FOR CONFIG';
   $('xFeedState').className=data.ok?'green':data.configured?'red':'amber';
   $('xFeedUpdated').textContent=data.fetchedAt?' · refreshed '+age(data.fetchedAt):'';
-  if(!data.configured){$('xTimeline').innerHTML='<div class="xEmpty"><b>Choose the signal.</b>Send me the X handles you want in Pump Lab. Once an X API bearer token is connected, this becomes your live curated feed.</div>';$('xSignalSummary').textContent='Feed infrastructure installed. Waiting for account list + X API credentials.';return}
+  if(!data.configured){if(handles.length){renderXEmbedFallback(handles);return}$('xTimeline').innerHTML='<div class="xEmpty"><b>No accounts configured.</b>Add X handles to start the public embed feed.</div>';$('xSignalSummary').textContent='No watched accounts configured.';return}
   if(!posts.length){$('xTimeline').innerHTML='<div class="xEmpty"><b>No new posts yet.</b>The feed is connected and will refresh automatically.</div>';$('xSignalSummary').textContent='Watching '+handles.length+' accounts · no cached posts.';return}
   $('xTimeline').innerHTML=posts.map(p=>{
     const m=p.metrics||{},media=p.media||[],author=p.author||{};
