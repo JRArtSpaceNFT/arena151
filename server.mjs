@@ -1542,6 +1542,15 @@ async function initDb(restoreState=true){
     const timer=setTimeout(()=>initDb(!dbStateRestored),10000);timer.unref?.();
   }finally{dbConnecting=false;}
 }
+async function waitForInitialDurableRestore(maxMs=90000){
+  if(!DATABASE_URL)return true;
+  const deadline=now()+maxMs;
+  while(!dbStateRestored&&now()<deadline){await new Promise(r=>setTimeout(r,1000));}
+  if(dbStateRestored)return true;
+  console.error('FATAL_STATE_RESTORE_TIMEOUT · refusing to serve fresh defaults');
+  return false;
+}
+
 function serialize(){return{auditVersion:AUDIT_VERSION,strategies:strategyDefs.map(stripTrader),challengers:challengers.map(stripTrader),positions:positions.filter(p=>!p.closed),trades,activity,decisions,opportunities:[...opportunities],research,timeline,replayFrames,autopsies,promotions,graveyard,walletEvents:walletEvents.slice(0,1200),marketEvents:marketEvents.slice(-1000),dnaArchive:[...dnaArchive],creators:[...creators].map(([k,v])=>[k,{...v,tokens:[...v.tokens]}])};}
 function stripTrader(d){return{id:d.id,name:d.name,icon:d.icon,risk:d.risk,type:d.type,parentId:d.parentId,mutation:d.mutation,auto:d.auto,bornAt:d.bornAt,cash:d.cash,peak:d.peak,dd:d.dd,auditPeak:d.auditPeak,auditDd:d.auditDd,wins:d.wins,losses:d.losses,n:d.n,version:d.version,min:d.min,stop:d.stop,take:d.take,size:d.size,maxOpen:d.maxOpen,riskCap:d.riskCap,exitMode:d.exitMode,sizeBias:d.sizeBias,promotionCandidateAt:d.promotionCandidateAt,promotedAt:d.promotedAt,graveyardAt:d.graveyardAt};}
 function restore(s){try{
@@ -1850,6 +1859,11 @@ const server=http.createServer((req,res)=>{
 
 loadLocal();
 await initDb();
+if(DATABASE_URL&&!dbStateRestored){
+  console.log('STARTUP_STATE_GATE waiting for durable restore before accepting traffic');
+  const restored=await waitForInitialDurableRestore();
+  if(!restored)process.exit(1);
+}
 if(dbStateRestored)logStrategyDiagnostics();
 logV3SelfTest();
 setHealth('engine','ok','v3.1 evidence playbooks + Megga copy/scout lab + 31 specialist cohorts + controls online',{truth:'observed'});
