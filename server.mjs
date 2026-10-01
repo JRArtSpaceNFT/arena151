@@ -1053,10 +1053,10 @@ function exitDecision(d,p,t,f){
   if(mode==='runner')maxHold=Math.max(maxHold,120);
   if(mode==='structure')maxHold=Math.max(maxHold,180);
   if(mode==='conviction')maxHold=Math.max(maxHold,720);
-  const trailFrac=mode==='conviction'?.48:mode==='runner'?.36:.30;
+  const trailFrac=mode==='conviction' ? .48 : mode==='runner' ? .36 : .30;
   const trailing=peakPnl>=18&&drawFromPeak>=Math.max(7,peakPnl*trailFrac);
   const catastrophic=(f.flowFresh&&f.buyRatio<.28)||(f.risk>=84);
-  const fade=f.flowFresh&&f.acceleration<38&&f.momentum<42&&f.buyRatio<(mode==='runner'||mode==='conviction'?.38:.44);
+  const fade=f.flowFresh&&f.acceleration<38&&f.momentum<42&&f.buyRatio<((mode==='runner'||mode==='conviction') ? .38 : .44);
   if(catastrophic&&hold>.75)return{exit:true,why:'catastrophic thesis break',mode};
   if(pnl<=-stop)return{exit:true,why:'stop',mode};
   if(pnl>=take)return{exit:true,why:'take profit',mode};
