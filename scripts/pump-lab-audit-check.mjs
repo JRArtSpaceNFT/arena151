@@ -24,6 +24,21 @@ const checks = [
 ];
 
 const failures = checks.filter(([, needle]) => !src.includes(needle));
+
+// Hypothesis Arena regression guards.
+const hypothesisIds=[
+  'hyp_bal_1_3','hyp_bal_3_6','hyp_transition','hyp_accel','hyp_liqrunner',
+  'hyp_lowrisk','hyp_rebound','hyp_quality','hyp_hotbalanced','hyp_riskoff'
+];
+for(const id of hypothesisIds){
+  if(!src.includes("'"+id+"'"))failures.push('Hypothesis Arena missing '+id);
+}
+if(!src.includes('function hypothesisArenaSnapshot()'))failures.push('Hypothesis Arena snapshot missing');
+if(!src.includes('function evaluateHypothesisArena()'))failures.push('Hypothesis Arena lifecycle missing');
+if(!src.includes("hold.n>=10"))failures.push('Hypothesis holdout retirement gate missing');
+if(!src.includes("d.hypothesis&&d.hypothesisRetiredAt"))failures.push('Retired hypotheses can still open new positions');
+if(!src.includes("hypothesisArena:hypothesisArenaSnapshot()"))failures.push('Hypothesis Arena missing from live state');
+
 if (failures.length) {
   console.error('PUMP LAB AUDIT STATIC CHECK FAILED');
   for (const [name] of failures) console.error(' - ' + name);
