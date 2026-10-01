@@ -392,14 +392,75 @@ function restore(s){try{for(const x of s.strategies||[]){const d=strategyDefs.fi
 async function save(){const s=serialize();try{fs.writeFileSync(STATE_FILE,JSON.stringify(s));}catch{}if(db){try{await db.query("INSERT INTO pump_lab_state(id,payload,updated_at) VALUES('main',$1,now()) ON CONFLICT(id) DO UPDATE SET payload=$1,updated_at=now()",[s]);}catch(e){setHealth('research-memory','warn','Postgres save failed: '+e.message);}}}
 function loadLocal(){try{restore(JSON.parse(fs.readFileSync(STATE_FILE,'utf8')));}catch{}}
 
+
+function strategyLabs(){
+  const prodTrades=trades.filter(t=>!String(t.strategy||'').includes('-c'));
+  const closed=prodTrades.filter(t=>Number.isFinite(t.pnlPct));
+  const winners=closed.filter(t=>t.pnlPct>0);
+  const avg=(arr,key)=>arr.length?arr.reduce((a,x)=>a+num(x[key]),0)/arr.length:0;
+
+  const entryBuckets=[
+    ['<60',d=>num(d.score)<60],['60–69',d=>num(d.score)>=60&&num(d.score)<70],
+    ['70–79',d=>num(d.score)>=70&&num(d.score)<80],['80+',d=>num(d.score)>=80]
+  ].map(([label,fn])=>{
+    const xs=closed.filter(fn); return {label,n:xs.length,winRate:xs.length?xs.filter(x=>x.pnlPct>0).length/xs.length*100:0,avgReturn:avg(xs,'pnlPct'),avgMfe:avg(xs,'mfe'),avgMae:avg(xs,'mae')};
+  });
+
+  const exitLab={
+    n:closed.length,
+    avgCaptured:winners.length?avg(winners.map(t=>({v:t.mfe>0?clamp(t.pnlPct/t.mfe*100,0,200):0})),'v'):0,
+    leftOnTable:closed.filter(t=>num(t.counterfactual?.bestObservedAfterExit)>25&&num(t.pnlPct)<20).length,
+    oneMin:avg(closed.filter(t=>t.counterfactual?.holdAfterExit?.oneMin!=null).map(t=>({v:t.counterfactual.holdAfterExit.oneMin})),'v'),
+    fiveMin:avg(closed.filter(t=>t.counterfactual?.holdAfterExit?.fiveMin!=null).map(t=>({v:t.counterfactual.holdAfterExit.fiveMin})),'v'),
+    fifteenMin:avg(closed.filter(t=>t.counterfactual?.holdAfterExit?.fifteenMin!=null).map(t=>({v:t.counterfactual.holdAfterExit.fifteenMin})),'v')
+  };
+
+  const avgRisk=closed.length?closed.reduce((a,t)=>a+num(t.entryFeatures?.risk),0)/closed.length:0;
+  const basePnl=closed.reduce((a,t)=>a+num(t.pnl),0);
+  const sizing=[
+    {name:'Defensive 0.5×',mult:.5,paperPnl:basePnl*.5,drawdownProxy:avgRisk*.5},
+    {name:'Current 1.0×',mult:1,paperPnl:basePnl,drawdownProxy:avgRisk},
+    {name:'Aggressive 1.5×',mult:1.5,paperPnl:basePnl*1.5,drawdownProxy:avgRisk*1.5}
+  ];
+
+  const nightmare=[
+    {mode:'Idealized',extraCost:0,adjusted:closed.reduce((a,t)=>a+num(t.pnlPct),0)},
+    {mode:'Realistic',extraCost:1.0,adjusted:closed.reduce((a,t)=>a+num(t.pnlPct)-1.0,0)},
+    {mode:'Bad Fills',extraCost:3.0,adjusted:closed.reduce((a,t)=>a+num(t.pnlPct)-3.0,0)},
+    {mode:'Nightmare',extraCost:6.0,adjusted:closed.reduce((a,t)=>a+num(t.pnlPct)-6.0,0)}
+  ];
+
+  const random=strategyDefs.find(x=>x.id==='random'), volume=strategyDefs.find(x=>x.id==='volume');
+  const champion=strategyDefs.find(x=>x.id==='champion'), professional=strategyDefs.find(x=>x.id==='professional');
+  [random,volume,champion,professional].forEach(x=>x&&markEquity(x));
+  const benchmarks={
+    random:random?.equity||START,volume:volume?.equity||START,champion:champion?.equity||START,professional:professional?.equity||START,
+    championVsRandom:(champion?.equity||START)-(random?.equity||START),
+    professionalVsVolume:(professional?.equity||START)-(volume?.equity||START)
+  };
+
+  const god=closed.length?{
+    trades:closed.length,
+    theoreticalMfe:closed.reduce((a,t)=>a+Math.max(0,num(t.mfe)),0),
+    realized:closed.reduce((a,t)=>a+num(t.pnlPct),0),
+    capture:winners.length?avg(winners.map(t=>({v:t.mfe>0?clamp(t.pnlPct/t.mfe*100,0,200):0})),'v'):0
+  }:{trades:0,theoreticalMfe:0,realized:0,capture:0};
+
+  const byStrategy=strategyDefs.filter(d=>d.risk!=='CONTROL').map(d=>{
+    const xs=closed.filter(t=>t.strategy===d.id); return {id:d.id,name:d.name,n:xs.length,avg:avg(xs,'pnlPct'),mfe:avg(xs,'mfe'),mae:avg(xs,'mae'),capture:xs.length?avg(xs.filter(t=>t.pnlPct>0).map(t=>({v:t.mfe>0?clamp(t.pnlPct/t.mfe*100,0,200):0})),'v'):0};
+  }).sort((a,b)=>b.avg-a.avg);
+
+  return{entryBuckets,exitLab,sizing,nightmare,benchmarks,god,byStrategy,generatedAt:now()};
+}
+
 function snapshot(){
   allTraders().forEach(markEquity);const active=[...tokens.values()].filter(t=>now()-t.updatedAt<900000).sort((a,b)=>b.updatedAt-a.updatedAt).slice(0,80).map(t=>({...t,features:features(t),detective:detective(t),consensus:consensus(t),dna:creatorDNA(t)}));
   const prod=strategyDefs.filter(d=>d.risk!=='CONTROL');const weather=marketWeather();
-  return{now:now(),startedAt,paperOnly:true,mode:'LIVE ONLY',version:'0.5 Intelligence Lab',target:TARGET,weather,providers:[...health.values()],
+  return{now:now(),startedAt,paperOnly:true,mode:'LIVE ONLY',version:'0.6 Strategy Labs',target:TARGET,weather,providers:[...health.values()],
     summary:{capital:prod.reduce((a,d)=>a+d.equity,0),start:prod.length*START,trades:prod.reduce((a,d)=>a+d.n,0),open:positions.filter(p=>!p.closed&&prod.some(d=>d.id===p.strategy)).length,tokens:tokens.size,decisions:decisions.length},
     strategies:strategyDefs.map(d=>({...d,winRate:d.n?d.wins/d.n*100:0,open:openCount(d.id)})),experiments:experimentSnapshot(),tokens:active,
     narratives:narrativeStats().slice(0,15),creators:creatorLeaderboard(),positions:positions.filter(p=>!p.closed).slice(-120),trades:trades.slice(0,150),activity:activity.slice(0,140),research,
-    missed:missedMonsters(),saved:savedMyAss(),hall:hallOfFame(),worst:worstTrades(),autopsies:autopsies.slice(0,30),timeline:timeline.slice(-120),decisions:decisions.slice(0,160)};
+    missed:missedMonsters(),saved:savedMyAss(),hall:hallOfFame(),worst:worstTrades(),autopsies:autopsies.slice(0,30),timeline:timeline.slice(-120),decisions:decisions.slice(0,160),labs:strategyLabs()};
 }
 
 const HTML=`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>PUMP LAB / LIVE</title><style>
@@ -407,12 +468,12 @@ const HTML=`<!doctype html><html><head><meta charset="utf-8"><meta name="viewpor
 </style></head><body><div class="wrap"><div class="top"><div><div class="brand">PUMP LAB <span style="color:var(--blue)">/ LIVE</span></div><div class="sub">Autonomous Pump.fun & Solana paper-trading research laboratory</div></div><div class="badges"><span class="badge live">● REAL MARKET DATA</span><span class="badge">PAPER ONLY</span><span class="badge" id="version"></span></div></div>
 <div class="hero"><div><div class="muted">CHAMPION CHALLENGE</div><div class="big" id="champ"></div><div class="muted" id="champMeta"></div><div class="meter" style="margin-top:12px"><i id="champBar"></i></div></div><div><div class="muted">MARKET WEATHER</div><div class="big" id="weather"></div><div class="mini" id="weatherMeta"></div></div></div>
 <div class="grid4"><div class="card"><div class="muted">LAB CAPITAL</div><div class="big" id="capital"></div><div class="mini" id="capitalDelta"></div></div><div class="card"><div class="muted">PAPER EXITS</div><div class="big" id="tradeCount"></div><div class="mini" id="decisionCount"></div></div><div class="card"><div class="muted">OPEN POSITIONS</div><div class="big" id="open"></div><div class="mini">across production agents</div></div><div class="card"><div class="muted">TOKENS OBSERVED</div><div class="big" id="tokenCount"></div><div class="mini" id="uptime"></div></div></div>
-<div class="card health" id="health"></div><div class="tabs" id="tabs"><div class="tab on" data-p="war">War Room</div><div class="tab" data-p="radar">Token Lab</div><div class="tab" data-p="intel">Intelligence</div><div class="tab" data-p="research">Research Lab</div><div class="tab" data-p="time">Time Machine</div></div>
+<div class="card health" id="health"></div><div class="tabs" id="tabs"><div class="tab on" data-p="war">War Room</div><div class="tab" data-p="radar">Token Lab</div><div class="tab" data-p="intel">Intelligence</div><div class="tab" data-p="research">Research Lab</div><div class="tab" data-p="labs">Strategy Labs</div><div class="tab" data-p="time">Time Machine</div></div>
 <div class="pane on" id="war"><div class="sectionTitle"><h2>Autonomous Traders</h2><p>Same market. Same $1,000 start. Different personalities.</p></div><div class="strategies" id="strats"></div><div class="two" style="margin-top:12px"><div class="card"><h3>LIVE ACTIVITY</h3><div class="feed" id="feed"></div></div><div class="card"><h3>NARRATIVE RADAR</h3><div id="narrMini"></div></div></div></div>
 <div class="pane" id="radar"><div class="two"><div class="card scroll"><table class="table"><thead><tr><th>Token</th><th>MC</th><th>Liq</th><th>Score</th><th>Risk</th><th>Consensus</th><th>Source</th></tr></thead><tbody id="tokenRows"></tbody></table></div><div class="card"><h3>DETECTIVE WATCH</h3><div id="detectiveList"></div></div></div></div>
 <div class="pane" id="intel"><div class="card"><div class="sectionTitle"><h2>🌎 Narrative World</h2><p>Heat = momentum + buyer pressure + volume + fresh launches − saturation</p></div><div class="world" id="world"></div></div><div class="two" style="margin-top:12px"><div class="card scroll"><h3>CREATOR DNA · OBSERVED BY PUMP LAB</h3><table class="table"><thead><tr><th>Creator</th><th>Launches</th><th>Best X</th><th>Collapses</th><th>Graduations</th></tr></thead><tbody id="creators"></tbody></table></div><div class="card"><h3>DATA TRUTH</h3><div id="truth"></div></div></div></div>
 <div class="pane" id="research"><div class="three"><div class="card"><h3>🧪 CHALLENGERS</h3><div id="experiments"></div></div><div class="card"><h3>🚀 MISSED MONSTERS</h3><div id="missed"></div></div><div class="card"><h3>🛟 SAVED MY ASS</h3><div id="saved"></div></div></div><div class="two" style="margin-top:12px"><div class="card"><h3>🏆 HALL OF FAME</h3><div id="hall"></div></div><div class="card"><h3>🧬 TRADE AUTOPSIES</h3><div id="autopsies"></div></div></div><div class="card" style="margin-top:12px"><h3>RESEARCH DIRECTOR</h3><div id="researchText"></div></div></div>
-<div class="pane" id="time"><div class="card"><div class="sectionTitle"><h2>⏪ Time Machine</h2><p>Immutable periodic snapshots of what the lab knew then.</p></div><div class="controls"><select id="timeSelect"></select><span class="muted" id="timeView"></span></div><div id="timeCards" class="grid4"></div></div><div class="card" style="margin-top:12px"><h3>TRUTH LEDGER · RECENT DECISIONS</h3><div class="scroll"><table class="table"><thead><tr><th>Time</th><th>Agent</th><th>Token</th><th>Decision</th><th>Score</th><th>Risk</th><th>Why</th></tr></thead><tbody id="ledger"></tbody></table></div></div></div>
+<div class="pane" id="labs"><div class="sectionTitle"><h2>🧪 Strategy Labs</h2><p>Entry quality, exit efficiency, position sizing, stress tests, benchmarks and God Bot opportunity capture.</p></div><div class="grid4"><div class="card"><h3>✨ GOD BOT</h3><div class="big" id="godCapture">—</div><div class="mini" id="godMeta"></div></div><div class="card"><h3>🎯 EXIT LAB</h3><div class="big" id="exitCapture">—</div><div class="mini" id="exitMeta"></div></div><div class="card"><h3>⚔️ ALPHA VS RANDOM</h3><div class="big" id="alphaRandom">—</div><div class="mini">Champion equity minus Random Control</div></div><div class="card"><h3>🛡️ PRO VS VOLUME</h3><div class="big" id="alphaVolume">—</div><div class="mini">Professional equity minus Volume Control</div></div></div><div class="three" style="margin-top:12px"><div class="card"><h3>ENTRY LAB · SCORE BUCKETS</h3><div id="entryLab"></div></div><div class="card"><h3>EXIT COUNTERFACTUALS</h3><div id="exitLab"></div></div><div class="card"><h3>SIZING LAB</h3><div id="sizingLab"></div></div></div><div class="two" style="margin-top:12px"><div class="card"><h3>🌩 EXECUTION STRESS TEST</h3><div id="nightmareLab"></div></div><div class="card"><h3>STRATEGY EFFICIENCY</h3><div id="efficiencyLab"></div></div></div></div><div class="pane" id="time"><div class="card"><div class="sectionTitle"><h2>⏪ Time Machine</h2><p>Immutable periodic snapshots of what the lab knew then.</p></div><div class="controls"><select id="timeSelect"></select><span class="muted" id="timeView"></span></div><div id="timeCards" class="grid4"></div></div><div class="card" style="margin-top:12px"><h3>TRUTH LEDGER · RECENT DECISIONS</h3><div class="scroll"><table class="table"><thead><tr><th>Time</th><th>Agent</th><th>Token</th><th>Decision</th><th>Score</th><th>Risk</th><th>Why</th></tr></thead><tbody id="ledger"></tbody></table></div></div></div>
 </div><div class="drawer" id="drawer"><button class="close" onclick="closeDrawer()">Close</button><div id="drawerBody"></div></div><script>
 const $=x=>document.getElementById(x);const money=n=>'$'+Number(n||0).toLocaleString(undefined,{maximumFractionDigits:0});const one=n=>Number(n||0).toFixed(1);let S=null;
 function age(ms){const m=Math.max(0,Date.now()-ms)/60000;if(m<60)return m.toFixed(0)+'m';return(m/60).toFixed(1)+'h'}function esc(x){return String(x??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
@@ -431,6 +492,18 @@ $('missed').innerHTML=listOpp(s.missed,'bestReturn',true,'No qualifying missed m
 $('hall').innerHTML=s.hall.slice(0,10).map(t=>'<div class="smallcard" style="margin:7px 0"><b>'+esc(t.strategyName||t.strategy)+' · $'+esc(t.symbol)+'</b><span style="float:right" class="green">+'+one(t.pnlPct)+'%</span><div class="mini">MFE '+one(t.mfe)+'% · MAE '+one(t.mae)+'% · '+esc(t.why)+'</div></div>').join('')||'<div class="muted">Collecting trades.</div>';
 $('autopsies').innerHTML=s.autopsies.slice(0,10).map(a=>'<div class="smallcard" style="margin:7px 0"><b>'+esc(a.strategyName)+' · $'+esc(a.symbol)+'</b><span style="float:right" class="'+(a.pnlPct>=0?'green':'red')+'">'+(a.pnlPct>=0?'+':'')+one(a.pnlPct)+'%</span><div class="mini">'+esc(a.verdict)+' · MFE '+one(a.mfe)+'% · MAE '+one(a.mae)+'%</div></div>').join('')||'<div class="muted">Autopsies appear after closed trades.</div>';
 $('researchText').innerHTML='<p><b>Last cycle:</b> '+(s.research.last?new Date(s.research.last).toLocaleString():'collecting first hour')+'</p>'+s.research.notes.map(n=>'<p>• '+esc(n)+'</p>').join('')+(s.research.hypotheses.length?'<hr style="border-color:#223047"><b>Hypotheses under test</b>'+s.research.hypotheses.map(n=>'<p>🧠 '+esc(n)+'</p>').join(''):'');
+
+const L=s.labs;if(L){
+$('godCapture').textContent=one(L.god.capture)+'%';$('godMeta').textContent=L.god.trades+' closed trades · realized Σ '+one(L.god.realized)+'% vs available positive MFE Σ '+one(L.god.theoreticalMfe)+'%';
+$('exitCapture').textContent=one(L.exitLab.avgCaptured)+'%';$('exitMeta').textContent=L.exitLab.leftOnTable+' trades flagged for possible early exit';
+$('alphaRandom').textContent=(L.benchmarks.championVsRandom>=0?'+':'')+money(L.benchmarks.championVsRandom);$('alphaVolume').textContent=(L.benchmarks.professionalVsVolume>=0?'+':'')+money(L.benchmarks.professionalVsVolume);
+$('entryLab').innerHTML=L.entryBuckets.map(b=>'<div class="smallcard" style="margin:7px 0"><b>'+b.label+'</b><span style="float:right">'+b.n+' trades</span><div class="mini">'+one(b.winRate)+'% wins · avg '+(b.avgReturn>=0?'+':'')+one(b.avgReturn)+'% · MFE '+one(b.avgMfe)+'% · MAE '+one(b.avgMae)+'%</div></div>').join('');
+$('exitLab').innerHTML='<div class="smallcard">If held 1m: <b>'+(L.exitLab.oneMin>=0?'+':'')+one(L.exitLab.oneMin)+'%</b></div><div class="smallcard" style="margin-top:7px">If held 5m: <b>'+(L.exitLab.fiveMin>=0?'+':'')+one(L.exitLab.fiveMin)+'%</b></div><div class="smallcard" style="margin-top:7px">If held 15m: <b>'+(L.exitLab.fifteenMin>=0?'+':'')+one(L.exitLab.fifteenMin)+'%</b></div>';
+$('sizingLab').innerHTML=L.sizing.map(x=>'<div class="smallcard" style="margin:7px 0"><b>'+esc(x.name)+'</b><span style="float:right">'+(x.paperPnl>=0?'+':'')+money(x.paperPnl)+'</span><div class="mini">risk proxy '+one(x.drawdownProxy)+'</div></div>').join('');
+$('nightmareLab').innerHTML=L.nightmare.map(x=>'<div class="smallcard" style="margin:7px 0"><b>'+esc(x.mode)+'</b><span style="float:right" class="'+(x.adjusted>=0?'green':'red')+'">'+(x.adjusted>=0?'+':'')+one(x.adjusted)+'%</span><div class="mini">extra modeled execution cost '+one(x.extraCost)+'% / trade</div></div>').join('');
+$('efficiencyLab').innerHTML=L.byStrategy.slice(0,10).map(x=>'<div class="smallcard" style="margin:7px 0"><b>'+esc(x.name)+'</b><span style="float:right">'+x.n+' trades</span><div class="mini">avg '+(x.avg>=0?'+':'')+one(x.avg)+'% · capture '+one(x.capture)+'% · MFE '+one(x.mfe)+'% · MAE '+one(x.mae)+'%</div></div>').join('');
+}
+
 renderTime(s.timeline);$('ledger').innerHTML=s.decisions.slice(0,120).map(d=>'<tr><td>'+new Date(d.ts).toLocaleTimeString()+'</td><td>'+esc(d.strategyName)+'</td><td>$'+esc(d.symbol)+'</td><td class="'+(d.action==='BUY'?'green':'muted')+'">'+d.action+'</td><td>'+one(d.score)+'</td><td>'+one(d.risk)+'</td><td class="muted">'+esc(d.why)+'</td></tr>').join('');}
 function listOpp(a,key,positive,empty){return a.slice(0,10).map(o=>'<div class="smallcard" style="margin:7px 0"><b>$'+esc(o.symbol)+' · '+esc(o.strategyName)+'</b><span style="float:right" class="'+(positive?'green':'red')+'">'+(o[key]>=0?'+':'')+one(o[key])+'%</span><div class="mini">rejected: '+esc(o.why)+'</div></div>').join('')||'<div class="muted">'+empty+'</div>'}
 function openToken(mint){const t=S.tokens.find(x=>x.mint===mint);if(!t)return;const hist=t.history||[];const pts=hist.slice(-45).map(x=>x.price).concat(t.price);const min=Math.min(...pts),max=Math.max(...pts);const path=pts.map((p,i)=>{const x=pts.length<2?0:i/(pts.length-1)*500;const y=80-((p-min)/(max-min||1))*70;return x+','+y}).join(' ');$('drawerBody').innerHTML='<h2>$'+esc(t.symbol)+'</h2><div class="muted">'+esc(t.name)+'</div><svg class="spark" viewBox="0 0 500 90"><polyline fill="none" stroke="#63f4a4" stroke-width="3" points="'+path+'"/></svg><div class="grid4" style="grid-template-columns:1fr 1fr"><div class="smallcard">MC<br><b>'+money(t.mc)+'</b></div><div class="smallcard">Liquidity<br><b>'+money(t.liq)+'</b></div><div class="smallcard">Detective<br><b>'+esc(t.detective.verdict)+' '+one(t.detective.score)+'</b></div><div class="smallcard">Consensus<br><b>'+t.consensus.yes+'/'+t.consensus.total+'</b></div></div><h3>Agent Consensus</h3>'+t.consensus.votes.map(v=>'<span class="vote '+(v.yes?'y':'n')+'">'+v.icon+' '+esc(v.name)+' '+one(v.score)+'</span>').join('')+'<h3>AI Detective</h3><p>'+esc((t.detective.flags||[]).join(' · ')||'No major observed red flags.')+'</p><div class="muted">Unknown until deeper streams are connected: '+esc((t.detective.unknown||[]).join(', '))+'</div><h3>Creator DNA</h3><p>'+t.dna.launches+' observed launches · best observed '+one(t.dna.bestPeakX)+'× · '+t.dna.collapses+' collapses · '+t.dna.graduates+' graduations</p><h3>Signal Breakdown</h3><p>Momentum '+one(t.features.momentum)+' · Flow '+one(t.features.flow)+' · Volume '+one(t.features.volScore)+' · Liquidity '+one(t.features.liqScore)+' · Social metadata '+one(t.features.social)+' · Source quality '+one(t.features.sourceQuality)+'</p>';$('drawer').classList.add('on')}
@@ -439,16 +512,16 @@ async function go(){try{render(await(await fetch('/api/state',{cache:'no-store'}
 
 const server=http.createServer((req,res)=>{
   if(req.url==='/api/state'){res.writeHead(200,{'content-type':'application/json','cache-control':'no-store'});return res.end(JSON.stringify(snapshot()));}
-  if(req.url==='/api/health'){res.writeHead(200,{'content-type':'application/json','cache-control':'no-store'});return res.end(JSON.stringify({ok:true,paperOnly:true,version:'0.5',weather:marketWeather(),providers:[...health.values()]}));}
+  if(req.url==='/api/health'){res.writeHead(200,{'content-type':'application/json','cache-control':'no-store'});return res.end(JSON.stringify({ok:true,paperOnly:true,version:'0.6',weather:marketWeather(),providers:[...health.values()]}));}
   if(req.url==='/api/events'){res.writeHead(200,{'content-type':'text/event-stream','cache-control':'no-cache','connection':'keep-alive'});res.write('data: {}\n\n');clients.add(res);req.on('close',()=>clients.delete(res));return;}
   res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store'});res.end(HTML);
 });
 
 loadLocal();
 await initDb();
-setHealth('engine','ok','18 production/control portfolios + 4 R&D challengers online',{truth:'observed'});
+setHealth('strategy-labs','ok','Entry, exit, sizing, benchmark and execution stress labs online',{truth:'inferred'});\nsetHealth('engine','ok','18 production/control portfolios + 4 R&D challengers online',{truth:'observed'});
 setHealth('x-social','standby','Full X stream not connected · social agent uses token social metadata only',{truth:'not connected'});
 setHealth('wallet-intel','standby','Full wallet/holder stream not connected · no fake wallet claims are generated',{truth:'not connected'});
-server.listen(PORT,'0.0.0.0',()=>{log('system','🚀 PUMP LAB v0.5 Intelligence Lab started','system');connectPumpPortal();pumpPoll();dexPoll();console.log('PUMP LAB v0.5 on '+PORT);});
+server.listen(PORT,'0.0.0.0',()=>{log('system','🚀 PUMP LAB v0.6 Strategy Labs started','system');connectPumpPortal();pumpPoll();dexPoll();console.log('PUMP LAB v0.6 on '+PORT);});
 setInterval(pumpPoll,7000).unref?.();setInterval(dexPoll,20000).unref?.();setInterval(takeTimeline,30000).unref?.();setInterval(researchCycle,3600000).unref?.();setInterval(()=>save(),30000).unref?.();takeTimeline();
 process.on('SIGTERM',async()=>{await save();server.close(()=>process.exit(0));});process.on('SIGINT',async()=>{await save();server.close(()=>process.exit(0));});
