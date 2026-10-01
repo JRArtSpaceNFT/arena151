@@ -84,22 +84,30 @@ let lastDbEventFlush = 0;
 let lastScientistRun = 0;
 
 const strategyDefs = [
-  ['banker','🏦','The Banker','LOW',.04,78,18,55,1,'capital preservation + confirmation'],
-  ['quant','∑','The Quant','LOW',.05,76,20,65,1,'multi-factor statistical confirmation'],
-  ['smart','🧠','Smart Money','MED',.07,72,24,70,1,'wallet/flow proxies + quality filters'],
-  ['social','📡','Social Alpha','MED',.07,70,23,65,1,'social metadata + attention proxies'],
-  ['momentum','⚡','Momentum Hunter','HIGH',.09,66,18,72,1,'price and buyer acceleration'],
-  ['graduation','🎓','Graduation','MED',.07,70,22,65,1,'bonding-curve / migration proximity'],
-  ['dip','↘','Dip Buyer','MED',.07,72,20,65,1,'quality pullbacks with improving flow'],
-  ['swing','🌊','Swing Trader','MED',.06,74,28,85,1,'liquidity + structure + patience'],
-  ['degen','🔥','Early Degen','EXTREME',.13,60,16,55,2,'very early asymmetry hunting'],
-  ['smartmom','🧬','Smart Momentum','HIGH',.10,70,20,72,2,'flow + momentum hybrid'],
-  ['culture','🌐','Culture Hybrid','HIGH',.09,70,22,72,2,'attention + flow + momentum'],
-  ['contrarian','🪞','Contrarian','MED',.06,75,20,65,1,'avoid crowded late momentum'],
-  ['sniper','🎯','Patient Sniper','MED',.12,84,18,80,1,'rare high-conviction setups'],
-  ['champion','👑','Champion','EXTREME',.15,67,20,68,2,'maximize terminal paper wealth'],
-  ['professional','🛡','Professional','LOW',.055,80,18,65,1,'risk-adjusted return'],
-  ['adaptive','🧭','Adaptive Master','MED',.09,74,20,72,2,'regime-aware ensemble'],
+  ['banker','🏦','The Banker','LOW',.025,62,14,90,1,'only confirmed momentum with capital preservation; tolerate small misses for rare asymmetric winners'],
+  ['quant','∑','The Quant','LOW',.03,64,14,110,1,'multi-factor confirmation with hard quality floors and catastrophic-loss avoidance'],
+  ['smart','🧠','Smart Money','MED',.03,62,15,110,1,'verified smart-wallet activity plus market confirmation; never use flow as a wallet proxy'],
+  ['social','📡','Social Alpha','MED',.025,63,14,75,1,'social presence is context only; require fresh market confirmation and multiple channels'],
+  ['momentum','⚡','Momentum Hunter','HIGH',.04,67,13,90,1,'trade acceleration, not stale absolute momentum; require fresh buyers and observed liquidity'],
+  ['graduation','🎓','Graduation','MED',.03,64,14,85,1,'confirmed irreversible graduation breakout with post-migration liquidity and flow'],
+  ['dip','↘','Dip Buyer','MED',.03,62,13,75,1,'real pullback plus rebound confirmation; never buy a falling knife from one tick'],
+  ['swing','🌊','Swing Trader','MED',.035,64,15,125,1,'deep observed liquidity, mature structure, small risk and room for asymmetric runners'],
+  ['degen','🔥','Early Degen','EXTREME',.02,66,11,80,1,'tiny early starter only after real flow appears; no blind first-second momentum'],
+  ['smartmom','🧬','Smart Momentum','HIGH',.04,69,13,105,1,'high-quality acceleration with strong buyer pressure; modeled on the successful confirmation challenger'],
+  ['culture','🌐','Culture Hybrid','HIGH',.035,65,14,95,1,'narrative/social context only when confirmed by fresh flow, quality and momentum'],
+  ['contrarian','🪞','Contrarian','MED',.025,64,12,70,1,'buy controlled pullback recovery, not weakness for its own sake'],
+  ['sniper','🎯','Patient Sniper','MED',.035,72,11,145,1,'rare cross-checked high-conviction setup with strong quality and acceleration'],
+  ['champion','👑','Champion','HIGH',.04,70,13,125,1,'ensemble only when independent evidence agrees; abstention is a valid win'],
+  ['professional','🛡','Professional','LOW',.025,68,11,85,1,'risk-adjusted return with cross-source data, deep liquidity and strict loss control'],
+  ['adaptive','🧭','Adaptive Master','MED',.035,68,13,105,1,'regime-aware evidence ensemble that ignores weak peers and can stay in cash'],
+  ['copy_unipcs','🔭','Unipcs Conviction Copy','MED',.025,62,16,220,2,'paper-copy verified Unipcs entries with chase limits; tiny starters and long asymmetric runners'],
+  ['copy_frank','🎒','Frank Consistency Copy','MED',.03,64,14,130,2,'paper-copy verified Frank entries only with fresh quality confirmation'],
+  ['copy_orangie','🍊','Orangie Diversified Copy','LOW',.025,64,12,80,2,'paper-copy verified Orangie entries with diversified small sizing and disciplined exits'],
+  ['copy_rasmr','⚡','Rasmr Fast Copy','HIGH',.02,65,10,50,2,'paper-copy verified Rasmr entries as short-horizon trades with strict chase and time limits'],
+  ['wallet_consensus','👥','Smart Wallet Consensus','MED',.04,69,12,125,2,'requires multiple independently verified tracked wallets to converge on the same token'],
+  ['confirmed_runner','🏃','Confirmed Runner','HIGH',.035,70,12,130,1,'fresh acceleration plus strong buyer flow, cross-source quality and room for a runner'],
+  ['asym_swing','💎','Asymmetric Swing','MED',.025,67,14,220,1,'accept a low hit rate only when downside is small and the verified setup can compound into a large winner'],
+
   ['random','🎲','Random Control','CONTROL',.05,70,22,45,1,'random baseline'],
   ['volume','📊','Volume Control','CONTROL',.06,68,22,50,1,'simple volume baseline'],
   ['launchctl','🧱','Every Launch Control','CONTROL',.035,0,30,50,3,'buy-everything launch baseline'],
@@ -145,7 +153,7 @@ const strategyDefs = [
   ['pre_grad','🛤️','Pre-Graduation','HIGH',.06,60,22,76,1,'only tokens not yet marked graduated'],
   ['post_grad','🎓','Post-Graduation','LOW',.06,63,18,68,1,'only tokens already marked graduated']
 ].map(([id,icon,name,risk,size,min,stop,take,maxOpen,thesis]) => ({
-  id,icon,name,risk,size,min,stop,take,maxOpen,thesis,version:1,equity:START,cash:START,peak:START,dd:0,wins:0,losses:0,n:0
+  id,icon,name,risk,size,min,stop,take,maxOpen,thesis,version:3,equity:START,cash:START,peak:START,dd:0,wins:0,losses:0,n:0
 }));
 
 const specialistProfiles = {
@@ -189,6 +197,17 @@ const specialistProfiles = {
   post_grad:{cohort:'LIFECYCLE',requireGraduated:true,scoreMode:'quality',exitMode:'structure'}
 };
 for(const d of strategyDefs){if(specialistProfiles[d.id])Object.assign(d,{specialist:true,...specialistProfiles[d.id]});}
+
+const copyProfiles={
+  copy_unipcs:{copyLab:true,copySource:'unipcs',copyWindowMin:30,maxChase:12,exitMode:'conviction',maxHold:720},
+  copy_frank:{copyLab:true,copySource:'frankdegods',copyWindowMin:20,maxChase:10,exitMode:'runner',maxHold:240},
+  copy_orangie:{copyLab:true,copySource:'orangie',copyWindowMin:15,maxChase:8,exitMode:'balanced',maxHold:120},
+  copy_rasmr:{copyLab:true,copySource:'rasmr',copyWindowMin:8,maxChase:6,exitMode:'scalp',maxHold:28},
+  wallet_consensus:{copyLab:true,consensusWallets:2,copyWindowMin:15,maxChase:8,exitMode:'runner',maxHold:180},
+  confirmed_runner:{researchProfile:'confirmed-runner',exitMode:'runner',maxHold:120},
+  asym_swing:{researchProfile:'asymmetric-swing',exitMode:'conviction',maxHold:720}
+};
+for(const d of strategyDefs)if(copyProfiles[d.id])Object.assign(d,copyProfiles[d.id]);
 
 const challengers = [
   makeChallenger('momentum','momentum-c1','Momentum Challenger','min -4 / longer winners',{minDelta:-4,takeDelta:12}),
