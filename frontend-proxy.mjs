@@ -122,7 +122,7 @@ function proxy(req, res) {
   req.pipe(upstream);
 }
 
-const server = http.createServer((req,res) => {
+const server = http.createServer(async (req,res) => {
   const u = new URL(req.url, 'http://pump-lab-ui.local');
   if (u.pathname === '/api/x-feed') {
     try{return xJson(res,200,await refreshXFeed(u.searchParams.get('refresh')==='1'))}
