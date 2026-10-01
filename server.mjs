@@ -490,6 +490,27 @@ function entryPolicy(d){
   return{coldStart,rejects,relief,min:effectiveMin,baseMin:d.min,p90,p25Risk,lowRiskLimit,sniperRiskLimit,customRiskLimit};
 }
 
+function strategyHealth(d){
+  const rows=trades.filter(x=>x.strategy===d.id).slice(0,8);
+  return{n:rows.length,avg:rows.length?avg(rows.map(x=>x.pnlPct)):0,winRate:rows.length?rows.filter(x=>x.pnl>0).length/rows.length*100:0};
+}
+function entryGuard(d,t,f,score,policy,quality,adv,regime){
+  if(d.risk==='CONTROL'||d.risk==='R&D')return{ok:true,reason:'benchmark/control',requiredScore:policy.min,minQuality:0,minBuyRatio:0,health:strategyHealth(d)};
+  const h=strategyHealth(d);
+  let scoreBuffer=0,minQuality=40,minBuyRatio=.40;
+  if(regime==='RISK OFF'){scoreBuffer+=5;minQuality=55;minBuyRatio=.52;}
+  else if(regime==='SELECTIVE'){scoreBuffer+=2;minQuality=46;minBuyRatio=.45;}
+  if(h.n>=5&&h.avg<0){scoreBuffer+=3;minQuality=Math.max(minQuality,55);minBuyRatio=Math.max(minBuyRatio,.50);}
+  if(h.n>=5&&h.avg<=-8){scoreBuffer+=3;minQuality=Math.max(minQuality,60);minBuyRatio=Math.max(minBuyRatio,.55);}
+  const learned=Number.isFinite(policy.p90)?policy.p90:policy.min;
+  const requiredScore=Math.max(policy.min,learned+scoreBuffer);
+  if(quality.score<minQuality)return{ok:false,reason:'abstain: data quality',requiredScore,minQuality,minBuyRatio,health:h};
+  if(f.buyRatio<minBuyRatio)return{ok:false,reason:'abstain: buyer pressure',requiredScore,minQuality,minBuyRatio,health:h};
+  if(adv.score>=72)return{ok:false,reason:'abstain: adversarial risk',requiredScore,minQuality,minBuyRatio,health:h};
+  if(score<requiredScore)return{ok:false,reason:'abstain: edge buffer',requiredScore,minQuality,minBuyRatio,health:h};
+  return{ok:true,reason:'edge + quality passed',requiredScore,minQuality,minBuyRatio,health:h};
+}
+
 function maybeTrade(t) {
   const f=features(t),adv=adversarialRisk(t),quality=tokenDataQuality(t),similar=dnaSimilarity(t);
   for(const d of allTraders()){
@@ -501,17 +522,20 @@ function maybeTrade(t) {
     const eligibility=specialistEligibility(d,t,f);
     if(!eligibility.ok)continue;
     if(openCount(d.id)>=d.maxOpen||d.cash<25||!(t.price>0))continue;
-    const score=strategyScore(d,f,t);const policy=entryPolicy(d);
+    const score=strategyScore(d,f,t);const policy=entryPolicy(d);const regime=marketWeather().regime;
     const lowBlocked=d.risk==='LOW'&&f.risk>policy.lowRiskLimit;
     const sniperBlocked=(d.parentId==='sniper'||d.id==='sniper')&&f.risk>policy.sniperRiskLimit;
     const customBlocked=policy.customRiskLimit&&f.risk>policy.customRiskLimit;
-    if(score<policy.min||lowBlocked||sniperBlocked||customBlocked||adv.hardVeto){
-      if(!opportunities.has(`${d.id}:${t.mint}`))recordDecision(d,t,f,score,'REJECT',score<policy.min?'below threshold':adv.hardVeto?'adversarial veto':'risk veto');
+    const guard=entryGuard(d,t,f,score,policy,quality,adv,regime);
+    if(score<policy.min||lowBlocked||sniperBlocked||customBlocked||adv.hardVeto||!guard.ok){
+      if(!opportunities.has(`${d.id}:${t.mint}`))recordDecision(d,t,f,score,'REJECT',score<policy.min?'below threshold':adv.hardVeto?'adversarial veto':!guard.ok?guard.reason:'risk veto');
       continue;
     }
-    const regime=marketWeather().regime;let sizeMult=1;
-    if(regime==='RISK OFF'){if(['degen','champion'].includes(d.id))sizeMult=.5;else if(d.risk==='LOW'||d.id==='professional')sizeMult=.8;else sizeMult=.65;}
+    let sizeMult=1;
+    if(regime==='RISK OFF'){if(['degen','champion'].includes(d.id))sizeMult=.4;else if(d.risk==='LOW'||d.id==='professional')sizeMult=.65;else sizeMult=.5;}
     if(regime==='HOT'&&['champion','momentum','smartmom'].includes(d.id))sizeMult=1.15;
+    if(guard.health.n>=5&&guard.health.avg<0)sizeMult*=.65;
+    if(guard.health.n>=5&&guard.health.avg<=-8)sizeMult*=.6;
     const confidence=clamp((score-policy.min)/28+.75,.65,1.35);
     const qualityMult=clamp(.7+quality.score/180,.7,1.22);
     const dnaMult=similar.n>=6?clamp(.85+(similar.hit25/100)*.35,.85,1.2):1;
@@ -523,7 +547,7 @@ function maybeTrade(t) {
     if(cost>d.cash)continue;
     d.cash-=cost;
     const exploratory=policy.coldStart&&(policy.relief>0||policy.lowRiskLimit>48||policy.sniperRiskLimit>34);
-    const p={id:'p'+now()+Math.random(),strategy:d.id,mint:t.mint,symbol:t.symbol,entry,units:budget/entry,invested:budget,opened:now(),closed:false,score,entryFeatures:{...f},entryQuality:quality.score,dnaHit25:similar.hit25,dnaSample:similar.n,allocationMult:allocatorMult,exitMode:exitModeFor(d),reason:`${exploratory?'cold-start exploration · ':''}score ${score.toFixed(0)} · gate ${policy.min.toFixed(0)} · risk ${f.risk.toFixed(0)} · Q${quality.score.toFixed(0)} · size×${sizeMult.toFixed(2)}`,entryRegime:regime,peakDuring:entry,troughDuring:entry};
+    const p={id:'p'+now()+Math.random(),strategy:d.id,mint:t.mint,symbol:t.symbol,entry,units:budget/entry,invested:budget,opened:now(),closed:false,score,entryFeatures:{...f},entryQuality:quality.score,dnaHit25:similar.hit25,dnaSample:similar.n,allocationMult:allocatorMult,exitMode:exitModeFor(d),policyVersion:'v2.2-abstention',guard:{requiredScore:guard.requiredScore,minQuality:guard.minQuality,minBuyRatio:guard.minBuyRatio,recentAvg:guard.health.avg,recentN:guard.health.n},reason:`${exploratory?'cold-start exploration · ':''}score ${score.toFixed(0)} · gate ${policy.min.toFixed(0)} · risk ${f.risk.toFixed(0)} · Q${quality.score.toFixed(0)} · size×${sizeMult.toFixed(2)}`,entryRegime:regime,peakDuring:entry,troughDuring:entry};
     positions.push(p);recordDecision(d,t,f,score,'BUY',p.reason);
     if(d.risk!=='R&D')log('buy',`${d.icon} ${d.name} bought ${t.symbol} · ${budget.toFixed(0)} paper · ${p.reason}`,'good',{strategy:d.id,mint:t.mint});
   }
@@ -1069,12 +1093,18 @@ function loadLocal(){try{restore(JSON.parse(fs.readFileSync(STATE_FILE,'utf8')))
 
 function strategyDiagnostics(){
   return strategyDefs.map(d=>{
+    markEquity(d);
     const rows=decisions.filter(x=>x.strategy===d.id);const rejects=rows.filter(x=>x.action==='REJECT'),buys=rows.filter(x=>x.action==='BUY');
     const scores=rejects.map(x=>num(x.score));const riskVetos=rejects.filter(x=>x.why==='risk veto').length;
     const maxScore=scores.length?Math.max(...scores):null;const avgScore=scores.length?avg(scores):null;
-    const ep=entryPolicy(d);const near=rejects.filter(x=>num(x.score)>=ep.min-5).length;
-    return{id:d.id,name:d.name,n:d.n,open:openCount(d.id),threshold:d.min,effectiveMin:ep.min,relief:ep.relief,p90:ep.p90,riskLimit:d.id==='sniper'?ep.sniperRiskLimit:d.risk==='LOW'?ep.lowRiskLimit:ep.customRiskLimit,buys:buys.length,rejects:rejects.length,maxRejectScore:maxScore,avgRejectScore:avgScore,nearMisses:near,riskVetos,cash:d.cash};
+    const ep=entryPolicy(d),h=strategyHealth(d);const near=rejects.filter(x=>num(x.score)>=ep.min-5).length;
+    return{id:d.id,name:d.name,n:d.n,wins:d.wins,losses:d.losses,open:openCount(d.id),equity:d.equity,pnl:d.equity-START,recentAvg:h.avg,recentN:h.n,threshold:d.min,effectiveMin:ep.min,relief:ep.relief,p90:ep.p90,riskLimit:d.id==='sniper'?ep.sniperRiskLimit:d.risk==='LOW'?ep.lowRiskLimit:ep.customRiskLimit,buys:buys.length,rejects:rejects.length,maxRejectScore:maxScore,avgRejectScore:avgScore,nearMisses:near,riskVetos,cash:d.cash};
   });
+}
+function logPerformanceSnapshot(){
+  allTraders().forEach(markEquity);const core=strategyDefs.filter(d=>d.risk!=='CONTROL'&&!d.specialist),controls=strategyDefs.filter(d=>d.risk==='CONTROL'),spec=specialistStrategies();
+  const pack=rows=>({count:rows.length,capital:rows.reduce((a,d)=>a+d.equity,0),start:rows.length*START,pnl:rows.reduce((a,d)=>a+d.equity-START,0),green:rows.filter(d=>d.equity>=START).length,red:rows.filter(d=>d.equity<START).length,trades:rows.reduce((a,d)=>a+d.n,0),open:rows.reduce((a,d)=>a+openCount(d.id),0)});
+  console.log('PERFORMANCE_SNAPSHOT '+JSON.stringify({ts:now(),version:'2.2 Abstention Guard',weather:marketWeather(),core:pack(core),controls:pack(controls),specialists:pack(spec)}));
 }
 function logStrategyDiagnostics(){
   console.log('STRATEGY_DIAGNOSTICS '+JSON.stringify(strategyDiagnostics()));
@@ -1083,7 +1113,7 @@ function logStrategyDiagnostics(){
 function snapshot(){
   allTraders().forEach(markEquity);const active=[...tokens.values()].filter(t=>now()-t.updatedAt<900000).sort((a,b)=>b.updatedAt-a.updatedAt).slice(0,80).map(t=>({...t,features:features(t),detective:detective(t),adversarial:adversarialRisk(t),consensus:consensus(t),dna:creatorDNA(t),tokenDNA:tokenDNA(t),similarity:dnaSimilarity(t),quality:tokenDataQuality(t)}));
   const prod=strategyDefs.filter(d=>d.risk!=='CONTROL'&&!d.specialist),cohort=specialistStrategies();const weather=marketWeather();
-  return{now:now(),startedAt,paperOnly:true,mode:'LIVE + DURABLE REPLAY + SPECIALIST COHORTS',version:'2.1 Cohort Matrix',target:TARGET,weather,providers:[...health.values()],
+  return{now:now(),startedAt,paperOnly:true,mode:'LIVE + DURABLE REPLAY + SPECIALIST COHORTS + ABSTENTION GUARD',version:'2.2 Abstention Guard',target:TARGET,weather,providers:[...health.values()],
     summary:{capital:prod.reduce((a,d)=>a+d.equity,0),start:prod.length*START,trades:prod.reduce((a,d)=>a+d.n,0),open:positions.filter(p=>!p.closed&&prod.some(d=>d.id===p.strategy)).length,cohortCapital:cohort.reduce((a,d)=>a+d.equity,0),cohortStart:cohort.length*START,cohortTrades:cohort.reduce((a,d)=>a+d.n,0),cohortOpen:positions.filter(p=>!p.closed&&cohort.some(d=>d.id===p.strategy)).length,tokens:tokens.size,decisions:decisions.length},
     strategies:strategyDefs.map(d=>{const ep=entryPolicy(d);return{...d,winRate:d.n?d.wins/d.n*100:0,open:openCount(d.id),effectiveMin:ep.min,coldStart:ep.coldStart,entryRejects:ep.rejects,thresholdRelief:ep.relief}}),experiments:experimentSnapshot(),tokens:active,
     narratives:narrativeStats().slice(0,15),creators:creatorLeaderboard(),positions:positions.filter(p=>!p.closed).slice(-120),trades:trades.slice(0,150),activity:activity.slice(0,140),research,
@@ -1183,6 +1213,6 @@ setHealth('engine','ok','core portfolios + 31 specialist cohorts + controls + ad
 setHealth('learning-core','ok','DNA memory + replay + allocator + exit optimizer + counterfactual lab online',{truth:'inferred'});
 setHealth('x-social','standby','Full X stream not connected · social agent uses token social metadata only',{truth:'not connected'});
 setHealth('wallet-intel','standby','Connecting Solana stream + verified Fomo wallet watchlist…',{truth:'not connected'});setHealth('fomo-watchlist','standby','Preparing verified public wallet subscriptions',{truth:'not connected'});
-server.listen(PORT,'0.0.0.0',()=>{log('system','🚀 PUMP LAB v2.1 Cohort Matrix started','system');connectPumpPortal();connectSolanaStream();pumpPoll();dexPoll();console.log('PUMP LAB v2.1 on '+PORT);});
-setInterval(drainSolanaQueue,1100).unref?.();setInterval(pumpPoll,7000).unref?.();setInterval(dexPoll,20000).unref?.();setInterval(takeTimeline,30000).unref?.();setInterval(takeReplay,30000).unref?.();setInterval(researchCycle,3600000).unref?.();setInterval(()=>save(),30000).unref?.();const diagTimer=setTimeout(logStrategyDiagnostics,20000);diagTimer.unref?.();const diagLoop=setInterval(logStrategyDiagnostics,300000);diagLoop.unref?.();takeTimeline();takeReplay();
+server.listen(PORT,'0.0.0.0',()=>{log('system','🚀 PUMP LAB v2.2 Cohort Matrix started','system');connectPumpPortal();connectSolanaStream();pumpPoll();dexPoll();console.log('PUMP LAB v2.2 on '+PORT);});
+setInterval(drainSolanaQueue,1100).unref?.();setInterval(pumpPoll,7000).unref?.();setInterval(dexPoll,20000).unref?.();setInterval(takeTimeline,30000).unref?.();setInterval(takeReplay,30000).unref?.();setInterval(researchCycle,3600000).unref?.();setInterval(()=>save(),30000).unref?.();const diagTimer=setTimeout(()=>{logStrategyDiagnostics();logPerformanceSnapshot();},20000);diagTimer.unref?.();const diagLoop=setInterval(()=>{logStrategyDiagnostics();logPerformanceSnapshot();},300000);diagLoop.unref?.();takeTimeline();takeReplay();
 process.on('SIGTERM',async()=>{await save();server.close(()=>process.exit(0));});process.on('SIGINT',async()=>{await save();server.close(()=>process.exit(0));});
