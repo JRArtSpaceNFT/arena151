@@ -243,7 +243,7 @@ function strategyScore(d,f,t) {
   else if(sid==='smartmom')s=f.momentum*.34+f.flow*.27+f.volScore*.22+(100-f.risk)*.17;
   else if(sid==='culture')s=f.social*.30+f.momentum*.28+f.flow*.22+f.volScore*.20;
   else if(sid==='contrarian')s=(f.momentum>38&&f.momentum<58?76:32)*.40+(100-f.risk)*.30+f.liqScore*.30;
-  else if(sid==='sniper')s=f.score+(f.risk<35?12:-14)+(f.sourceQuality>50?4:0);
+  else if(sid==='sniper')s=f.score+clamp((50-f.risk)*.55,-8,12)+(f.sourceQuality>50?4:0);
   else if(sid==='champion')s=f.momentum*.38+f.flow*.24+f.volScore*.22+f.early*.16;
   else if(sid==='professional')s=f.liqScore*.30+f.volScore*.20+f.flow*.18+(100-f.risk)*.32;
   else if(sid==='adaptive'){
@@ -276,8 +276,9 @@ function detective(t,f=features(t)) {
 function consensus(t) {
   const f=features(t); const votes=[];
   for(const d of strategyDefs.filter(x=>x.risk!=='CONTROL')){
-    const score=strategyScore(d,f,t); const blocked=(d.risk==='LOW'&&f.risk>48)||(d.id==='sniper'&&f.risk>34);
-    votes.push({id:d.id,name:d.name,icon:d.icon,score,yes:score>=d.min&&!blocked,threshold:d.min,blocked});
+    const score=strategyScore(d,f,t),p=entryPolicy(d);
+    const blocked=(d.risk==='LOW'&&f.risk>p.lowRiskLimit)||(d.id==='sniper'&&f.risk>p.sniperRiskLimit)||(p.customRiskLimit&&f.risk>p.customRiskLimit);
+    votes.push({id:d.id,name:d.name,icon:d.icon,score,yes:score>=p.min&&!blocked,threshold:p.min,baseThreshold:d.min,blocked});
   }
   const yes=votes.filter(v=>v.yes).length;
   return {yes,total:votes.length,pct:yes/votes.length*100,votes};
@@ -329,26 +330,33 @@ function updateOpportunities(t) {
   for(const [key,o] of opportunities){if(o.mint!==t.mint||!o.firstPrice)continue;const r=pct(t.price,o.firstPrice);o.latestReturn=r;o.bestReturn=Math.max(o.bestReturn,r);o.worstReturn=Math.min(o.worstReturn,r);o.lastTs=now();}
 }
 
+function percentile(xs,q){
+  const a=xs.filter(Number.isFinite).sort((x,y)=>x-y);if(!a.length)return null;
+  const i=Math.min(a.length-1,Math.max(0,Math.floor((a.length-1)*q)));return a[i];
+}
 function entryPolicy(d){
-  const rows=decisions.filter(x=>x.strategy===d.id);
+  const rows=decisions.filter(x=>x.strategy===d.id).slice(0,250);
   const rejects=rows.filter(x=>x.action==='REJECT').length;
   const hasTrade=d.n>0||openCount(d.id)>0||rows.some(x=>x.action==='BUY');
   const coldStart=!hasTrade&&d.type!=='challenger';
-  let relief=0;
-  if(coldStart){
-    if(rejects>=100)relief=12;
-    else if(rejects>=50)relief=8;
-    else if(rejects>=20)relief=4;
-  }
-  const floor=d.id==='sniper'?70:d.id==='professional'?65:d.id==='banker'?64:50;
-  const effectiveMin=coldStart?Math.max(floor,d.min-relief):d.min;
+  const scores=rows.map(x=>num(x.score)).filter(Number.isFinite);
+  const risks=rows.map(x=>num(x.risk)).filter(Number.isFinite);
+  const p90=percentile(scores,.90),p25Risk=percentile(risks,.25);
+  let calibrationBand=25;
+  if(d.risk==='LOW')calibrationBand=30;
+  if(d.id==='sniper')calibrationBand=32;
+  if(d.risk==='CONTROL')calibrationBand=20;
+  const floor=Math.max(35,d.min-calibrationBand);
+  const calibratedMin=rows.length>=40?Math.min(d.min,Math.max(floor,p90??d.min)):d.min;
+  const effectiveMin=d.type==='challenger'?d.min:calibratedMin;
+  const relief=Math.max(0,d.min-effectiveMin);
   let lowRiskLimit=48,sniperRiskLimit=34,customRiskLimit=d.riskCap||null;
-  if(coldStart&&rejects>=50){
-    lowRiskLimit=58;
-    sniperRiskLimit=44;
-    if(customRiskLimit)customRiskLimit+=6;
+  if(rows.length>=40&&p25Risk!==null){
+    lowRiskLimit=clamp(p25Risk+10,48,62);
+    sniperRiskLimit=clamp(p25Risk+5,34,50);
+    if(customRiskLimit)customRiskLimit=Math.max(customRiskLimit,Math.min(55,p25Risk+6));
   }
-  return{coldStart,rejects,relief,min:effectiveMin,lowRiskLimit,sniperRiskLimit,customRiskLimit};
+  return{coldStart,rejects,relief,min:effectiveMin,baseMin:d.min,p90,p25Risk,lowRiskLimit,sniperRiskLimit,customRiskLimit};
 }
 
 function maybeTrade(t) {
@@ -768,8 +776,8 @@ function strategyDiagnostics(){
     const rows=decisions.filter(x=>x.strategy===d.id);const rejects=rows.filter(x=>x.action==='REJECT'),buys=rows.filter(x=>x.action==='BUY');
     const scores=rejects.map(x=>num(x.score));const riskVetos=rejects.filter(x=>x.why==='risk veto').length;
     const maxScore=scores.length?Math.max(...scores):null;const avgScore=scores.length?avg(scores):null;
-    const near=rejects.filter(x=>num(x.score)>=d.min-5).length;
-    return{id:d.id,name:d.name,n:d.n,open:openCount(d.id),threshold:d.min,buys:buys.length,rejects:rejects.length,maxRejectScore:maxScore,avgRejectScore:avgScore,nearMisses:near,riskVetos,cash:d.cash};
+    const ep=entryPolicy(d);const near=rejects.filter(x=>num(x.score)>=ep.min-5).length;
+    return{id:d.id,name:d.name,n:d.n,open:openCount(d.id),threshold:d.min,effectiveMin:ep.min,relief:ep.relief,p90:ep.p90,riskLimit:d.id==='sniper'?ep.sniperRiskLimit:d.risk==='LOW'?ep.lowRiskLimit:ep.customRiskLimit,buys:buys.length,rejects:rejects.length,maxRejectScore:maxScore,avgRejectScore:avgScore,nearMisses:near,riskVetos,cash:d.cash};
   });
 }
 function logStrategyDiagnostics(){
@@ -779,7 +787,7 @@ function logStrategyDiagnostics(){
 function snapshot(){
   allTraders().forEach(markEquity);const active=[...tokens.values()].filter(t=>now()-t.updatedAt<900000).sort((a,b)=>b.updatedAt-a.updatedAt).slice(0,80).map(t=>({...t,features:features(t),detective:detective(t),consensus:consensus(t),dna:creatorDNA(t),quality:tokenDataQuality(t)}));
   const prod=strategyDefs.filter(d=>d.risk!=='CONTROL');const weather=marketWeather();
-  return{now:now(),startedAt,paperOnly:true,mode:'LIVE ONLY',version:'1.1 Fomo Smart Wallets',target:TARGET,weather,providers:[...health.values()],
+  return{now:now(),startedAt,paperOnly:true,mode:'LIVE ONLY',version:'1.2 Strategy Calibration',target:TARGET,weather,providers:[...health.values()],
     summary:{capital:prod.reduce((a,d)=>a+d.equity,0),start:prod.length*START,trades:prod.reduce((a,d)=>a+d.n,0),open:positions.filter(p=>!p.closed&&prod.some(d=>d.id===p.strategy)).length,tokens:tokens.size,decisions:decisions.length},
     strategies:strategyDefs.map(d=>{const ep=entryPolicy(d);return{...d,winRate:d.n?d.wins/d.n*100:0,open:openCount(d.id),effectiveMin:ep.min,coldStart:ep.coldStart,entryRejects:ep.rejects,thresholdRelief:ep.relief}}),experiments:experimentSnapshot(),tokens:active,
     narratives:narrativeStats().slice(0,15),creators:creatorLeaderboard(),positions:positions.filter(p=>!p.closed).slice(-120),trades:trades.slice(0,150),activity:activity.slice(0,140),research,
@@ -864,7 +872,7 @@ async function go(){try{render(await(await fetch('/api/state',{cache:'no-store'}
 
 const server=http.createServer((req,res)=>{
   if(req.url==='/api/state'){res.writeHead(200,{'content-type':'application/json','cache-control':'no-store'});return res.end(JSON.stringify(snapshot()));}
-  if(req.url==='/api/health'){res.writeHead(200,{'content-type':'application/json','cache-control':'no-store'});return res.end(JSON.stringify({ok:true,paperOnly:true,version:'1.1 Fomo Smart Wallets',weather:marketWeather(),providers:[...health.values()]}));}
+  if(req.url==='/api/health'){res.writeHead(200,{'content-type':'application/json','cache-control':'no-store'});return res.end(JSON.stringify({ok:true,paperOnly:true,version:'1.2 Strategy Calibration',weather:marketWeather(),providers:[...health.values()]}));}
   if(req.url==='/api/events'){res.writeHead(200,{'content-type':'text/event-stream','cache-control':'no-cache','connection':'keep-alive'});res.write('data: {}\n\n');clients.add(res);req.on('close',()=>clients.delete(res));return;}
   res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store'});res.end(HTML);
 });
@@ -875,6 +883,6 @@ if(dbStateRestored)logStrategyDiagnostics();
 setHealth('engine','ok','18 production/control portfolios + 4 R&D challengers online',{truth:'observed'});
 setHealth('x-social','standby','Full X stream not connected · social agent uses token social metadata only',{truth:'not connected'});
 setHealth('wallet-intel','standby','Connecting Solana stream + verified Fomo wallet watchlist…',{truth:'not connected'});setHealth('fomo-watchlist','standby','Preparing verified public wallet subscriptions',{truth:'not connected'});
-server.listen(PORT,'0.0.0.0',()=>{log('system','🚀 PUMP LAB v1.1 Fomo Smart Wallets started','system');connectPumpPortal();connectSolanaStream();pumpPoll();dexPoll();console.log('PUMP LAB v1.1 on '+PORT);});
-setInterval(drainSolanaQueue,1100).unref?.();setInterval(pumpPoll,7000).unref?.();setInterval(dexPoll,20000).unref?.();setInterval(takeTimeline,30000).unref?.();setInterval(takeReplay,30000).unref?.();setInterval(researchCycle,3600000).unref?.();setInterval(()=>save(),30000).unref?.();takeTimeline();takeReplay();
+server.listen(PORT,'0.0.0.0',()=>{log('system','🚀 PUMP LAB v1.2 Strategy Calibration started','system');connectPumpPortal();connectSolanaStream();pumpPoll();dexPoll();console.log('PUMP LAB v1.2 on '+PORT);});
+setInterval(drainSolanaQueue,1100).unref?.();setInterval(pumpPoll,7000).unref?.();setInterval(dexPoll,20000).unref?.();setInterval(takeTimeline,30000).unref?.();setInterval(takeReplay,30000).unref?.();setInterval(researchCycle,3600000).unref?.();setInterval(()=>save(),30000).unref?.();const diagTimer=setTimeout(logStrategyDiagnostics,20000);diagTimer.unref?.();const diagLoop=setInterval(logStrategyDiagnostics,300000);diagLoop.unref?.();takeTimeline();takeReplay();
 process.on('SIGTERM',async()=>{await save();server.close(()=>process.exit(0));});process.on('SIGINT',async()=>{await save();server.close(()=>process.exit(0));});
