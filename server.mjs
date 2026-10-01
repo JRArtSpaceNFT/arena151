@@ -147,6 +147,18 @@ const strategyDefs = [
   ['copy_megga','🎮','Megga Direct Copy','HIGH',.015,58,12,400,6,'paper-copy Megga public-wallet buys with tiny probes, strict chase limits, source-aware sells and runner preservation'],
   ['megga_scout','🛰️','Megga Micro Scout','HIGH',.015,58,12,400,8,'behavioral model: many tiny sub-$100K scouts, asymmetric payoff, no averaging down, scale winners and keep a runner'],
 
+  // Hypothesis Arena: narrow, falsifiable momentum experiments. These never auto-promote.
+  ['hyp_bal_1_3','H1','1–3m Balanced Burst','R&D',.02,60,10,90,1,'H1: 1–3 minute tokens with strong but non-euphoric buyers outperform generic momentum'],
+  ['hyp_bal_3_6','H2','3–6m Confirmation','R&D',.02,61,10,95,1,'H2: waiting 3–6 minutes improves signal quality without giving up most upside'],
+  ['hyp_transition','H3','Transition Crosscheck','R&D',.02,61,10,100,1,'H3: $60K–$120K cross-checked transition tokens offer better expectancy than broad early-cap entries'],
+  ['hyp_accel','H4','Acceleration Not Euphoria','R&D',.02,62,9,105,1,'H4: high acceleration with moderate buyer pressure beats extreme crowding'],
+  ['hyp_liqrunner','H5','Liquidity Runner','R&D',.02,62,10,110,1,'H5: deeper-liquidity momentum produces smaller losers while retaining runner upside'],
+  ['hyp_lowrisk','H6','Low-Risk Momentum','R&D',.02,62,9,95,1,'H6: structural risk below 50 plus momentum produces superior risk-adjusted expectancy'],
+  ['hyp_rebound','H7','Rebound Momentum','R&D',.02,60,9,100,1,'H7: controlled pullback plus fresh rebound is better than buying the initial vertical move'],
+  ['hyp_quality','H8','Quality First Momentum','R&D',.02,60,9,100,1,'H8: very high data quality with only moderate momentum beats raw momentum intensity'],
+  ['hyp_hotbalanced','H9','Hot Regime Balanced','R&D',.02,61,10,110,1,'H9: in HOT regimes, balanced pressure outperforms euphoric pressure'],
+  ['hyp_riskoff','H10','Risk-Off Momentum','R&D',.015,63,8,70,1,'H10: only the cleanest low-risk momentum can retain positive expectancy in RISK OFF'],
+
   ['random','🎲','Random Control','CONTROL',.05,70,22,45,1,'random baseline'],
   ['volume','📊','Volume Control','CONTROL',.06,68,22,50,1,'simple volume baseline'],
   ['launchctl','🧱','Every Launch Control','CONTROL',.035,0,30,50,3,'buy-everything launch baseline'],
@@ -196,6 +208,17 @@ const strategyDefs = [
 }));
 
 const specialistProfiles = {
+  hyp_bal_1_3:{hypothesis:true,cohort:'HYPOTHESIS ARENA',tokenAgeMin:1,tokenAgeMax:3,mcMin:35000,mcMax:140000,buyRatioMin:.52,buyRatioMax:.68,sourceMin:2,scoreMode:'hypothesis',exitMode:'runner',maxHold:120,scaleOut:true,playbookOverride:{minQuality:80,minBuy:.52,maxBuy:.68,minTx:8,maxRisk:56,minMomentum:64,maxMomentum:90,minAccel:50,minLiq:9000,minAge:1,maxAge:3,mcMin:35000,mcMax:140000,requireCross:true,minEvidence:4,instruction:'1–3m balanced burst: high quality, cross-checked, strong acceleration, never euphoric flow'}},
+  hyp_bal_3_6:{hypothesis:true,cohort:'HYPOTHESIS ARENA',tokenAgeMin:3,tokenAgeMax:6,mcMin:40000,mcMax:170000,buyRatioMin:.52,buyRatioMax:.70,sourceMin:2,scoreMode:'hypothesis',exitMode:'runner',maxHold:150,scaleOut:true,playbookOverride:{minQuality:80,minBuy:.52,maxBuy:.70,minTx:9,maxRisk:55,minMomentum:62,maxMomentum:90,minAccel:48,minLiq:10000,minAge:3,maxAge:6,mcMin:40000,mcMax:170000,requireCross:true,minEvidence:4,instruction:'3–6m confirmation: sacrifice first-tick upside for stronger evidence and cleaner structure'}},
+  hyp_transition:{hypothesis:true,cohort:'HYPOTHESIS ARENA',tokenAgeMin:.8,tokenAgeMax:8,mcMin:60000,mcMax:120000,buyRatioMin:.50,buyRatioMax:.70,sourceMin:2,scoreMode:'hypothesis',exitMode:'runner',maxHold:150,scaleOut:true,playbookOverride:{minQuality:82,minBuy:.50,maxBuy:.70,minTx:8,maxRisk:56,minMomentum:62,maxMomentum:90,minAccel:48,minLiq:9000,minAge:.8,maxAge:8,mcMin:60000,mcMax:120000,requireCross:true,minEvidence:4,instruction:'transition crosscheck: isolate the $60K–$120K zone with high-quality independent confirmation'}},
+  hyp_accel:{hypothesis:true,cohort:'HYPOTHESIS ARENA',tokenAgeMin:.6,tokenAgeMax:6,mcMin:25000,mcMax:180000,buyRatioMin:.50,buyRatioMax:.70,sourceMin:2,scoreMode:'hypothesis',exitMode:'runner',maxHold:120,scaleOut:true,playbookOverride:{minQuality:78,minBuy:.50,maxBuy:.70,minTx:8,maxRisk:58,minMomentum:60,maxMomentum:88,minAccel:60,minLiq:8000,minAge:.6,maxAge:6,mcMin:25000,mcMax:180000,requireCross:true,minEvidence:4,instruction:'acceleration not euphoria: demand acceleration while explicitly rejecting crowded buyer pressure and exhausted momentum'}},
+  hyp_liqrunner:{hypothesis:true,cohort:'HYPOTHESIS ARENA',tokenAgeMin:2,tokenAgeMax:10,mcMin:70000,mcMax:300000,liqMin:20000,buyRatioMin:.52,buyRatioMax:.72,sourceMin:2,scoreMode:'hypothesis',exitMode:'runner',maxHold:180,scaleOut:true,playbookOverride:{minQuality:80,minBuy:.52,maxBuy:.72,minTx:10,maxRisk:54,minMomentum:60,maxMomentum:90,minAccel:46,minLiq:20000,minAge:2,maxAge:10,mcMin:70000,mcMax:300000,requireCross:true,minEvidence:4,instruction:'liquidity runner: test whether deeper markets reduce catastrophic downside without killing upside'}},
+  hyp_lowrisk:{hypothesis:true,cohort:'HYPOTHESIS ARENA',tokenAgeMin:1,tokenAgeMax:10,mcMin:40000,mcMax:250000,buyRatioMin:.50,buyRatioMax:.70,sourceMin:2,scoreMode:'hypothesis',exitMode:'balanced',maxHold:120,playbookOverride:{minQuality:82,minBuy:.50,maxBuy:.70,minTx:9,maxRisk:50,minMomentum:60,maxMomentum:88,minAccel:48,minLiq:12000,minAge:1,maxAge:10,mcMin:40000,mcMax:250000,requireCross:true,minEvidence:4,instruction:'low-risk momentum: structural risk below 50 is non-negotiable; seek positive expectancy through loss compression'}},
+  hyp_rebound:{hypothesis:true,cohort:'HYPOTHESIS ARENA',tokenAgeMin:2,tokenAgeMax:12,mcMin:30000,mcMax:220000,buyRatioMin:.50,buyRatioMax:.70,sourceMin:2,scoreMode:'hypothesis',exitMode:'structure',maxHold:180,scaleOut:true,playbookOverride:{minQuality:78,minBuy:.50,maxBuy:.70,minTx:8,maxRisk:56,minMomentum:50,maxMomentum:82,minAccel:52,minLiq:9000,minAge:2,maxAge:12,mcMin:30000,mcMax:220000,drawMin:-25,drawMax:-5,minRebound:3,requireCross:true,minEvidence:4,instruction:'rebound momentum: buy recovery after a controlled pullback, never the first vertical extension'}},
+  hyp_quality:{hypothesis:true,cohort:'HYPOTHESIS ARENA',tokenAgeMin:1,tokenAgeMax:12,mcMin:35000,mcMax:250000,buyRatioMin:.50,buyRatioMax:.68,sourceMin:2,scoreMode:'hypothesis',exitMode:'balanced',maxHold:150,playbookOverride:{minQuality:88,minBuy:.50,maxBuy:.68,minTx:9,maxRisk:54,minMomentum:55,maxMomentum:84,minAccel:46,minLiq:10000,minAge:1,maxAge:12,mcMin:35000,mcMax:250000,requireCross:true,minEvidence:4,instruction:'quality first: very strong data quality and moderate momentum instead of chasing maximum speed'}},
+  hyp_hotbalanced:{hypothesis:true,cohort:'HYPOTHESIS ARENA',regime:'HOT',tokenAgeMin:.8,tokenAgeMax:8,mcMin:30000,mcMax:200000,buyRatioMin:.52,buyRatioMax:.70,sourceMin:2,scoreMode:'hypothesis',exitMode:'runner',maxHold:150,scaleOut:true,playbookOverride:{minQuality:78,minBuy:.52,maxBuy:.70,minTx:8,maxRisk:58,minMomentum:62,maxMomentum:90,minAccel:50,minLiq:8000,minAge:.8,maxAge:8,mcMin:30000,mcMax:200000,requireCross:true,minEvidence:4,instruction:'hot-regime balanced: test whether healthy pressure beats euphoria when the overall market is hot'}},
+  hyp_riskoff:{hypothesis:true,cohort:'HYPOTHESIS ARENA',regime:'RISK OFF',tokenAgeMin:2,tokenAgeMax:15,mcMin:60000,mcMax:300000,liqMin:18000,buyRatioMin:.50,buyRatioMax:.66,sourceMin:2,scoreMode:'hypothesis',exitMode:'defensive',maxHold:75,playbookOverride:{minQuality:88,minBuy:.50,maxBuy:.66,minTx:10,maxRisk:46,minMomentum:58,maxMomentum:82,minAccel:48,minLiq:18000,minAge:2,maxAge:15,mcMin:60000,mcMax:300000,requireCross:true,minEvidence:5,instruction:'risk-off momentum: only exceptional quality, deep liquidity and low structural risk are allowed'}},
+
   mc_u25:{cohort:'MARKET CAP',mcMax:25000,scoreMode:'early'},
   mc_25_50:{cohort:'MARKET CAP',mcMin:25000,mcMax:50000,scoreMode:'early'},
   mc_50_100:{cohort:'MARKET CAP',mcMin:50000,mcMax:100000,scoreMode:'momentum'},
@@ -270,7 +293,8 @@ function makeChallenger(parentId,id,name,mutation,mods={}) {
 
 const allTraders = () => [...strategyDefs, ...challengers.filter(c=>!c.graveyardAt&&!c.promotedAt)];
 const coreStrategies = () => strategyDefs.filter(d=>d.risk!=='CONTROL'&&!d.specialist);
-const specialistStrategies = () => strategyDefs.filter(d=>d.specialist);
+const specialistStrategies = () => strategyDefs.filter(d=>d.specialist&&!d.hypothesis);
+const hypothesisStrategies = () => strategyDefs.filter(d=>d.hypothesis);
 const now = () => Date.now();
 const clamp = (x,a=0,b=100) => Math.max(a, Math.min(b, Number.isFinite(x)?x:0));
 const num = x => Number.isFinite(Number(x)) ? Number(x) : 0;
@@ -456,7 +480,12 @@ function specialistEligibility(d,t,f=features(t)){
 }
 
 function specialistScore(d,f,t){
-  const mode=d.scoreMode||'quality';
+  const mode=d.scoreMode||'quality',q=tokenDataQuality(t);
+  if(mode==='hypothesis'){
+    const balancedFlow=f.buyRatio>=.50&&f.buyRatio<=.72?90:f.buyRatio>.80?25:55;
+    const exhaustion=f.momentum>92?18:100;
+    return clamp(q.score*.24+f.momentum*.18+f.acceleration*.18+f.flow*.12+f.liqScore*.10+(100-f.risk)*.10+balancedFlow*.05+exhaustion*.03);
+  }
   if(mode==='early')return clamp(f.early*.28+f.momentum*.24+f.flow*.22+f.volScore*.18+(100-f.risk)*.08);
   if(mode==='momentum')return clamp(f.momentum*.36+f.flow*.26+f.volScore*.22+f.liqScore*.10+(100-f.risk)*.06);
   if(mode==='flow')return clamp(f.flow*.42+f.momentum*.24+f.volScore*.20+f.liqScore*.08+(100-f.risk)*.06);
@@ -834,8 +863,8 @@ function executionQuote(t,notional,side='buy'){
 }
 
 function adaptivePositionSizing(d,t,f,score,policy,quality,similar,guard,adv,regime,allocatorMult=1,exploratory=false){
-  const isProbe=!!d.copyLab||d.id==='megga_scout'||exploratory,h=guard.health||strategyHealth(d);
-  const basePct=exploratory?.018:isProbe?.05:d.risk==='R&D'?.07:.10;
+  const isHypothesis=!!d.hypothesis,isProbe=!!d.copyLab||d.id==='megga_scout'||exploratory||isHypothesis,h=guard.health||strategyHealth(d);
+  const basePct=exploratory?.018:isHypothesis?.025:isProbe?.05:d.risk==='R&D'?.07:.10;
   const confidence=clamp(.82+(score-(guard.requiredScore||policy.min))/40,.72,1.18);
   const qualityMult=clamp(.76+quality.score/300,.78,1.10);
   const adverseMult=clamp(1.14-num(adv.score)/180,.62,1.05);
@@ -855,7 +884,7 @@ function adaptivePositionSizing(d,t,f,score,policy,quality,similar,guard,adv,reg
   const stopFrac=clamp((num(d.stop)||14)/100,.07,.30);
   const maxStopLossPct=d.risk==='LOW'?.012:d.risk==='HIGH'?.018:d.risk==='EXTREME'?.016:d.risk==='R&D'?.010:.015;
   const stopRiskCap=d.equity*maxStopLossPct/stopFrac;
-  const positionCapPct=exploratory?.035:isProbe?.07:.15,portfolioCapPct=exploratory?.12:isProbe?.30:.35,narrativeCapPct=.20,creatorCapPct=.16;
+  const positionCapPct=exploratory?.035:isHypothesis?.05:isProbe?.07:.15,portfolioCapPct=exploratory?.12:isHypothesis?.12:isProbe?.30:.35,narrativeCapPct=.20,creatorCapPct=.16;
   const mine=positions.filter(p=>p.strategy===d.id&&!p.closed);
   const markValue=p=>p.units*positionMarkPrice(p);
   const openExposure=mine.reduce((s,p)=>s+markValue(p),0);
@@ -864,7 +893,7 @@ function adaptivePositionSizing(d,t,f,score,policy,quality,similar,guard,adv,reg
   const exposureRoom=Math.max(0,d.equity*portfolioCapPct-openExposure);
   const narrativeRoom=Math.max(0,d.equity*narrativeCapPct-narrativeExposure);
   const creatorRoom=Math.max(0,d.equity*creatorCapPct-creatorExposure);
-  const minStake=d.equity*(exploratory?.0075:isProbe?.01:.02);
+  const minStake=d.equity*(exploratory?.0075:isHypothesis?.008:isProbe?.01:.02);
   const liquidityCap=t.liq>0?Math.max(minStake,t.liq*.015):0;
   const desired=d.equity*basePct*mult;
   const budget=Math.min(d.cash*.25,d.equity*positionCapPct,stopRiskCap,exposureRoom,narrativeRoom,creatorRoom,liquidityCap,Math.max(minStake,desired));
@@ -882,6 +911,7 @@ function maybeTrade(t) {
   const f=features(t),adv=adversarialRisk(t),quality=tokenDataQuality(t),similar=dnaSimilarity(t);
   for(const d of allTraders()){
     markEquity(d);
+    if(d.hypothesis&&d.hypothesisRetiredAt)continue;
     const existing=positions.find(p=>p.strategy===d.id&&p.mint===t.mint&&!p.closed);
     if(existing){
       if(manageCopyPosition(d,existing,t))continue;
@@ -1414,6 +1444,44 @@ function opportunityCostLab(){
   return{n:rows.length,avgCost:avg(rows.map(x=>x.cost)),highCost:rows.filter(x=>x.cost>=50).length,worst:rows.sort((a,b)=>b.cost-a.cost).slice(0,10)};
 }
 
+function hypothesisStatusFor(d){
+  const all=eraPerformance(d.id),train=eraPerformance(d.id,'train'),hold=eraPerformance(d.id,'holdout');
+  let status='COLLECTING',reason='needs 50 total exits and 10 holdout exits';
+  if(d.hypothesisRetiredAt){status='RETIRED';reason=d.hypothesisReason||'failed holdout evidence';}
+  else if(d.hypothesisCandidateAt){status='PROMISING';reason=d.hypothesisReason||'positive holdout expectancy';}
+  else if(all.n>=50&&hold.n>=10){
+    const bad=hold.mean<=-3&&hold.profitFactor<.90&&hold.ciHigh<6;
+    const good=hold.mean>2&&hold.profitFactor>1.15&&hold.ciLow>-8&&d.dd<20;
+    if(bad){status='RETIRE CANDIDATE';reason='negative holdout expectancy + weak profit factor';}
+    else if(good){status='PROMISING CANDIDATE';reason='positive holdout expectancy + PF > 1.15';}
+    else{status='INCONCLUSIVE';reason='sample sufficient but edge is not statistically convincing';}
+  }
+  return{status,reason,all,train,hold};
+}
+function evaluateHypothesisArena(){
+  for(const d of hypothesisStrategies()){
+    const h=hypothesisStatusFor(d);
+    if(h.status==='RETIRE CANDIDATE'&&!d.hypothesisRetiredAt){
+      d.hypothesisRetiredAt=now();d.hypothesisReason=h.reason;
+      graveyard.unshift({ts:now(),era:STRATEGY_ERA,child:d.name,parent:'Hypothesis Arena',totalSample:h.all.n,holdoutSample:h.hold.n,holdoutMean:h.hold.mean,reason:h.reason,status:'HYPOTHESIS RETIRED'});
+      graveyard.splice(100);log('research','☠️ Hypothesis retired: '+d.name,'system',{id:d.id,holdout:h.hold});
+    }else if(h.status==='PROMISING CANDIDATE'&&!d.hypothesisCandidateAt){
+      d.hypothesisCandidateAt=now();d.hypothesisReason=h.reason;
+      promotions.unshift({ts:now(),era:STRATEGY_ERA,child:d.name,parent:'Hypothesis Arena',totalSample:h.all.n,holdoutSample:h.hold.n,holdoutMean:h.hold.mean,holdoutProfitFactor:h.hold.profitFactor,status:'HYPOTHESIS PROMISING'});
+      promotions.splice(100);log('research','🏆 Promising hypothesis: '+d.name,'system',{id:d.id,holdout:h.hold});
+    }
+  }
+}
+function hypothesisArenaSnapshot(){
+  const rows=hypothesisStrategies().map(d=>{
+    markEquity(d);const h=hypothesisStatusFor(d);
+    return{id:d.id,name:d.name,icon:d.icon,thesis:d.thesis,status:h.status,reason:h.reason,equity:d.equity,pnl:d.equity-START,n:h.all.n,trainN:h.train.n,holdoutN:h.hold.n,
+      mean:h.all.mean,trainMean:h.train.mean,holdoutMean:h.hold.mean,holdoutPF:h.hold.profitFactor,holdoutCiLow:h.hold.ciLow,holdoutCiHigh:h.hold.ciHigh,dd:d.dd,open:openCount(d.id),eligibleNow:[...tokens.values()].filter(t=>now()-t.updatedAt<900000&&specialistEligibility(d,t,features(t)).ok).length};
+  });
+  const promising=rows.filter(x=>x.status==='PROMISING'||x.status==='PROMISING CANDIDATE').length,retired=rows.filter(x=>x.status==='RETIRED'||x.status==='RETIRE CANDIDATE').length;
+  return{count:rows.length,promising,retired,collecting:rows.length-promising-retired,capital:rows.reduce((a,x)=>a+x.equity,0),start:rows.length*START,rows};
+}
+
 function specialistCohortStats(){
   const activeTokens=[...tokens.values()].filter(t=>now()-t.updatedAt<900000);
   const traders=specialistStrategies().map(d=>{
@@ -1541,6 +1609,7 @@ function spawnResearchChallenger(){
 
 function researchCycle(){
   evaluateEvolution();
+  evaluateHypothesisArena();
   spawnResearchChallenger();
   const recent=trades.filter(t=>t.policyVersion===STRATEGY_ERA&&now()-t.closedAt<3600000&&!t.strategy.includes('-c'));const wins=recent.filter(t=>t.pnl>0);const avg=recent.length?recent.reduce((a,t)=>a+t.pnlPct,0)/recent.length:0;
   const prod=strategyDefs.filter(d=>d.risk!=='CONTROL'&&!d.specialist);prod.forEach(markEquity);const best=[...prod].sort((a,b)=>b.equity-a.equity)[0];
@@ -1608,12 +1677,12 @@ async function waitForInitialDurableRestore(maxMs=90000){
 }
 
 function serialize(){return{auditVersion:AUDIT_VERSION,alphaOS:alphaOS.serialize(),strategies:strategyDefs.map(stripTrader),challengers:challengers.map(stripTrader),positions:positions.filter(p=>!p.closed),trades,activity,decisions,opportunities:[...opportunities],research,timeline,replayFrames,autopsies,promotions,graveyard,walletEvents:walletEvents.slice(0,1200),marketEvents:marketEvents.slice(-1000),dnaArchive:[...dnaArchive],creators:[...creators].map(([k,v])=>[k,{...v,tokens:[...v.tokens]}])};}
-function stripTrader(d){return{id:d.id,name:d.name,icon:d.icon,risk:d.risk,type:d.type,parentId:d.parentId,mutation:d.mutation,auto:d.auto,bornAt:d.bornAt,cash:d.cash,peak:d.peak,dd:d.dd,auditPeak:d.auditPeak,auditDd:d.auditDd,wins:d.wins,losses:d.losses,n:d.n,version:d.version,min:d.min,stop:d.stop,take:d.take,size:d.size,maxOpen:d.maxOpen,riskCap:d.riskCap,exitMode:d.exitMode,sizeBias:d.sizeBias,promotionCandidateAt:d.promotionCandidateAt,promotedAt:d.promotedAt,graveyardAt:d.graveyardAt};}
+function stripTrader(d){return{id:d.id,name:d.name,icon:d.icon,risk:d.risk,type:d.type,parentId:d.parentId,mutation:d.mutation,auto:d.auto,bornAt:d.bornAt,cash:d.cash,peak:d.peak,dd:d.dd,auditPeak:d.auditPeak,auditDd:d.auditDd,wins:d.wins,losses:d.losses,n:d.n,version:d.version,min:d.min,stop:d.stop,take:d.take,size:d.size,maxOpen:d.maxOpen,riskCap:d.riskCap,exitMode:d.exitMode,sizeBias:d.sizeBias,promotionCandidateAt:d.promotionCandidateAt,promotedAt:d.promotedAt,graveyardAt:d.graveyardAt,hypothesisCandidateAt:d.hypothesisCandidateAt,hypothesisRetiredAt:d.hypothesisRetiredAt,hypothesisReason:d.hypothesisReason};}
 function restore(s){try{alphaOS.restore(s.alphaOS);
   for(const x of s.strategies||[]){
     const d=strategyDefs.find(q=>q.id===x.id);if(!d)continue;
     const codeVersion=num(d.version)||1;
-    for(const k of ['cash','peak','dd','auditPeak','auditDd','wins','losses','n','promotionCandidateAt','promotedAt','graveyardAt','bornAt','auto'])if(x[k]!==undefined)d[k]=x[k];
+    for(const k of ['cash','peak','dd','auditPeak','auditDd','wins','losses','n','promotionCandidateAt','promotedAt','graveyardAt','bornAt','auto','hypothesisCandidateAt','hypothesisRetiredAt','hypothesisReason'])if(x[k]!==undefined)d[k]=x[k];
     // Runtime memory must never silently overwrite newer code configuration.
     // Only restore strategy parameters when the persisted strategy is a genuinely evolved version.
     if(num(x.version)>codeVersion){
@@ -1816,7 +1885,7 @@ function snapshot(){
     strategies:strategyDefs.map(d=>{const ep=entryPolicy(d),pb=strategyPlaybook(d),eraTrades=trades.filter(t=>t.strategy===d.id&&t.policyVersion===STRATEGY_ERA);return{...d,winRate:d.n?d.wins/d.n*100:0,open:openCount(d.id),effectiveMin:ep.min,coldStart:ep.coldStart,entryRejects:ep.rejects,thresholdRelief:ep.relief,playbook:pb.instruction,era:STRATEGY_ERA,eraN:eraTrades.length,eraWinRate:eraTrades.length?eraTrades.filter(t=>t.pnl>0).length/eraTrades.length*100:0,eraPnl:eraTrades.reduce((a,t)=>a+num(t.pnl),0),eraAvgPnl:eraTrades.length?avg(eraTrades.map(t=>t.pnlPct)):0}}),experiments:experimentSnapshot(),tokens:active,
     narratives:narrativeStats().slice(0,15),creators:creatorLeaderboard(),positions:positions.filter(p=>!p.closed).slice(-120),trades:trades.slice(0,150),activity:activity.slice(0,140),research,
     ...deepResearchCache.data,timeline:timeline.slice(-120),decisions:decisions.slice(0,160),replay:replayFrames.slice(-120),
-    fomoWatchlist:fomoWatchlistSnapshot(),fomoEvents:walletEvents.filter(e=>e.watchlist).slice(0,100),audit:systemAudit(),eventLedger:{memory:marketEvents.length,pending:pipelineSafe(pendingDbEvents.length),lastFlush:lastDbEventFlush,dnaArchive:dnaArchive.size},solana:{observed:solanaObserved,resolved:solanaResolved,queued:solanaQueue.length,watchedWallets:WATCHED_WALLET_LOOKUP.size,subscriptionAcks:solanaSubAcks}};
+    fomoWatchlist:fomoWatchlistSnapshot(),fomoEvents:walletEvents.filter(e=>e.watchlist).slice(0,100),hypothesisArena:hypothesisArenaSnapshot(),audit:systemAudit(),eventLedger:{memory:marketEvents.length,pending:pipelineSafe(pendingDbEvents.length),lastFlush:lastDbEventFlush,dnaArchive:dnaArchive.size},solana:{observed:solanaObserved,resolved:solanaResolved,queued:solanaQueue.length,watchedWallets:WATCHED_WALLET_LOOKUP.size,subscriptionAcks:solanaSubAcks}};
 }
 let stateJsonCache={ts:0,json:''};
 function getStateJsonCached(){
@@ -2322,7 +2391,8 @@ hr{border-color:#e0e3e5!important}
 <div class="pane" id="planet"><div class="card"><div class="sectionTitle"><h2>🌎 THE WORLD</h2><p>A live map of the token economy PUMP LAB can actually observe.</p></div><div id="worldStats" class="grid4"></div><div id="tokenWorld" class="worldGrid" style="margin-top:12px"></div></div><div class="two" style="margin-top:12px"><div class="card"><h3>🔥 WORLD LEADERS</h3><div id="worldLeaders"></div></div><div class="card"><h3>⚠️ WORLD RISKS</h3><div id="worldRisks"></div></div></div></div>
 <div class="pane" id="research"><div class="three"><div class="card"><h3>🧪 CHALLENGERS</h3><div id="experiments"></div></div><div class="card"><h3>🚀 MISSED MONSTERS</h3><div id="missed"></div></div><div class="card"><h3>🛟 SAVED MY ASS</h3><div id="saved"></div></div></div><div class="two" style="margin-top:12px"><div class="card"><h3>🏆 HALL OF FAME</h3><div id="hall"></div></div><div class="card"><h3>🧬 TRADE AUTOPSIES</h3><div id="autopsies"></div></div></div><div class="card" style="margin-top:12px"><h3>RESEARCH DIRECTOR</h3><div id="researchText"></div></div><div class="card" style="margin-top:12px"><h3>🧯 PROCESS AUDIT & LIVE LAUNCH GATE</h3><div id="auditBoard"></div></div>
 <div class="card" style="margin-top:12px"><div class="sectionTitle"><h2>🧠 ALPHA OS · 10 SYSTEM STACK</h2><p>Shadow execution, wallet graph, toxic flow, lead-lag, microstructure, execution routing, CIO auction, probability, adaptive exits and world model.</p></div><div id="alphaOSBoard"></div></div>
-<div class="card" style="margin-top:12px"><div class="sectionTitle"><h2>🧪 SPECIALIST COHORT LAB</h2><p>31 isolated traders testing market cap, age, liquidity, flow, metadata, creator DNA, regime and lifecycle populations.</p></div><div id="specialistCohorts"></div></div>
+<div class="card" style="margin-top:12px"><div class="sectionTitle"><h2>⚗️ HYPOTHESIS ARENA</h2><p>10 falsifiable momentum experiments. Separate paper bankrolls. 80/20 holdout. Bad ideas retire; promising ideas remain paper-only candidates.</p></div><div id="hypothesisArena"></div></div>
+<div class="card" style="margin-top:12px"><div class="sectionTitle"><h2>🧪 SPECIALIST COHORT LAB</h2><p>Isolated cohort traders testing market cap, age, liquidity, flow, metadata, creator DNA, regime and lifecycle populations.</p></div><div id="specialistCohorts"></div></div>
 <div class="three" style="margin-top:12px"><div class="card"><h3>🎯 CONFIDENCE CALIBRATION</h3><div id="calibration"></div></div><div class="card"><h3>🆚 BENCHMARKS</h3><div id="benchmarks"></div></div><div class="card"><h3>🧬 EVOLUTION</h3><div id="evolution"></div></div></div>
 <div class="grid4" style="margin-top:12px"><div class="card"><h3>ENTRY LAB</h3><div id="entryLab"></div></div><div class="card"><h3>EXIT LAB</h3><div id="exitLab"></div></div><div class="card"><h3>SIZING LAB</h3><div id="sizingLab"></div></div><div class="card"><h3>EXECUTION STRESS</h3><div id="executionLab"></div></div></div>
 <div class="two" style="margin-top:12px"><div class="card"><h3>👁 GOD BOT · UPPER BOUND</h3><div id="godBot"></div></div><div class="card"><h3>🧠 MARKET ARCHETYPE MEMORY</h3><div id="archetypes"></div></div></div>
@@ -2429,6 +2499,8 @@ const au=s.audit||{};$('auditBoard').innerHTML='<div class="big '+(au.liveReady?
     ((au.warnings||[]).length?'<div class="amber" style="margin-top:8px"><b>WARNINGS</b><br>'+au.warnings.map(x=>'• '+esc(x)).join('<br>')+'</div>':'')+
     '<div class="mini" style="margin-top:8px">'+(au.qualifiedStrategies||[]).length+' strategies currently meet the minimum holdout gate · '+(au.runtime?.stalePositions||0)+' stale positions · state '+Math.round((au.runtime?.stateBytes||0)/1024)+' KB / '+one(au.runtime?.stateBuildMs||0)+' ms</div>';const aos=s.alphaOS||{subsystems:[],master:{},shadow:{},forecasts:{},wallets:{},world:{},execution:{}};
 $('alphaOSBoard').innerHTML='<div class="grid4"><div class="smallcard"><span class="muted">CIO EQUITY</span><div class="big">'+money(aos.master?.equity||0)+'</div><div class="mini">'+(aos.master?.trades||0)+' exits · '+(aos.master?.open||0)+' open</div></div><div class="smallcard"><span class="muted">SHADOW INTENTS</span><div class="big">'+(aos.shadow?.intents||0)+'</div><div class="mini">5s execution drift '+one(aos.shadow?.avg5s||0)+'%</div></div><div class="smallcard"><span class="muted">FORECAST MEMORY</span><div class="big">'+(aos.forecasts?.settledTrain||0)+'</div><div class="mini">settled training forecasts</div></div><div class="smallcard"><span class="muted">WALLET GRAPH</span><div class="big">'+(aos.wallets?.nodes||0)+'</div><div class="mini">'+(aos.wallets?.edges||0)+' co-buy edges</div></div></div><div class="worldGrid" style="margin-top:10px">'+(aos.subsystems||[]).map(x=>'<div class="smallcard"><b>'+x.id+'. '+esc(x.name)+'</b><span style="float:right" class="'+(x.active?'green':'amber')+'">'+(x.active?'ACTIVE':'COLLECTING')+'</span><div class="mini" style="margin-top:6px">'+esc(x.detail)+'</div></div>').join('')+'</div>';
+const ha=s.hypothesisArena||{rows:[],count:0,promising:0,retired:0,collecting:0,capital:0,start:0};
+$('hypothesisArena').innerHTML='<div class="grid4"><div class="smallcard"><span class="muted">EXPERIMENTS</span><div class="big">'+ha.count+'</div></div><div class="smallcard"><span class="muted">COLLECTING</span><div class="big">'+ha.collecting+'</div></div><div class="smallcard"><span class="muted">PROMISING</span><div class="big green">'+ha.promising+'</div></div><div class="smallcard"><span class="muted">RETIRED</span><div class="big red">'+ha.retired+'</div></div></div><div class="worldGrid" style="margin-top:10px">'+ha.rows.map(x=>'<div class="smallcard"><div><b>'+esc(x.icon)+' '+esc(x.name)+'</b><span style="float:right" class="'+(x.status.includes('PROMISING')?'green':x.status.includes('RETIR')?'red':'amber')+'">'+esc(x.status)+'</span></div><div class="mini" style="margin-top:6px">'+x.n+' exits · '+x.holdoutN+' holdout · '+one(x.dd)+'% DD · '+x.eligibleNow+' eligible now</div><div class="mini">equity '+money(x.equity)+' · holdout avg '+(x.holdoutMean>=0?'+':'')+one(x.holdoutMean)+'% · PF '+one(x.holdoutPF)+'</div><div class="truth" style="margin-top:7px">'+esc(x.thesis)+'</div><div class="mini" style="margin-top:5px">'+esc(x.reason)+'</div></div>').join('')+'</div>';
 const sc=s.specialistCohorts||{groups:[],capital:0,start:0,trades:0,open:0,count:0};
 $('specialistCohorts').innerHTML='<div class="grid4"><div class="smallcard"><span class="muted">SPECIALISTS</span><div class="big">'+sc.count+'</div></div><div class="smallcard"><span class="muted">COHORT CAPITAL</span><div class="big">'+money(sc.capital)+'</div><div class="mini">'+(sc.capital>=sc.start?'+':'')+money(sc.capital-sc.start)+' vs cohort start</div></div><div class="smallcard"><span class="muted">COHORT EXITS</span><div class="big">'+sc.trades+'</div></div><div class="smallcard"><span class="muted">OPEN</span><div class="big">'+sc.open+'</div></div></div>'+sc.groups.map(g=>'<div class="ecosystem" style="margin-top:10px"><div><b>'+esc(g.name)+'</b><span style="float:right" class="'+(g.capital>=g.start?'green':'red')+'">'+money(g.capital)+' / '+money(g.start)+'</span></div><div class="mini">'+g.closed+' exits · '+g.open+' open</div><div class="worldGrid" style="margin-top:9px">'+g.traders.map(x=>'<div class="smallcard"><div><b>'+x.icon+' '+esc(x.name)+'</b><span style="float:right" class="'+(x.equity>=1000?'green':'red')+'">'+money(x.equity)+'</span></div><div class="mini">'+x.n+' exits · '+one(x.winRate)+'% wins · '+one(x.dd)+'% DD · '+x.eligibleNow+' eligible now</div><div class="truth" style="margin-top:6px">'+esc(x.thesis)+'</div></div>').join('')+'</div></div>').join('');
 renderTime(s.timeline);$('ledger').innerHTML=s.decisions.slice(0,120).map(d=>'<tr><td>'+new Date(d.ts).toLocaleTimeString()+'</td><td>'+esc(d.strategyName)+'</td><td>$'+esc(d.symbol)+'</td><td class="'+(d.action==='BUY'?'green':'muted')+'">'+d.action+'</td><td>'+one(d.score)+'</td><td>'+one(d.risk)+'</td><td class="muted">'+esc(d.why)+'</td></tr>').join('');}
