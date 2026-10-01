@@ -1,6 +1,7 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import { createPumpLabAlphaOS } from './lib/pump-lab-alpha-os.mjs';
+import { renderBotProfileHtml } from './lib/bot-profile.mjs';
 
 const PORT = Number(process.env.PORT || 3000);
 const PUMP_KEY = process.env.PUMPPORTAL_API_KEY || '';
@@ -1931,34 +1932,6 @@ async function loadDeepResearch(){
   finally{deepLoading=false;}
 }
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab,.pane').forEach(x=>x.classList.remove('on'));t.classList.add('on');$(t.dataset.p).classList.add('on');if(['intel','research','time'].includes(t.dataset.p))loadDeepResearch();});</script></body></html>`;
-
-function htmlEscServer(x){return String(x??'').replace(/[&<>"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));}
-function renderBotProfileHtml(payload){
-  const b=payload.bot||{},s=payload.stats||{},op=payload.openPositions||[],tr=payload.trades||[];
-  const moneyS=n=>String.fromCharCode(36)+Number(n||0).toLocaleString(undefined,{maximumFractionDigits:2});
-  const oneS=n=>Number(n||0).toFixed(1);
-  const priceS=n=>Number(n||0)>0?Number(n).toPrecision(5):'—';
-  const held=(a,z)=>{const m=Math.max(0,(Number(z||0)-Number(a||0))/60000);return m<60?m.toFixed(1)+'m':(m/60).toFixed(1)+'h';};
-  const color=n=>Number(n||0)>=0?'green':'red';
-  const sign=n=>Number(n||0)>=0?'+':'';
-  const best=s.bestTrade,worst=s.worstTrade;
-  const openRows=op.map(p=>'<tr><td><b>'+String.fromCharCode(36)+htmlEscServer(p.symbol)+'</b></td><td>'+priceS(p.entry)+'</td><td>'+priceS(p.mark)+'</td><td class="'+color(p.unrealizedPct)+'">'+sign(p.unrealizedPct)+oneS(p.unrealizedPct)+'%</td><td>'+held(p.opened,Date.now())+'</td></tr>').join('');
-  const tradeRows=tr.map(t=>'<tr><td>'+new Date(t.closedAt).toLocaleString()+'</td><td><b>'+String.fromCharCode(36)+htmlEscServer(t.symbol)+'</b><br><span class="muted">'+htmlEscServer(t.name||'')+'</span></td><td class="'+color(t.pnl)+'">'+sign(t.pnl)+moneyS(t.pnl)+'</td><td class="'+color(t.pnlPct)+'">'+sign(t.pnlPct)+oneS(t.pnlPct)+'%</td><td>'+priceS(t.entry)+'</td><td>'+priceS(t.exit)+'</td><td>'+held(t.opened,t.closedAt)+'</td><td>'+htmlEscServer(t.why||'')+'</td></tr>').join('');
-  return '<div><span class="pill">'+htmlEscServer(b.risk||'')+'</span> <span class="pill">'+htmlEscServer(b.type||'strategy')+'</span></div>'+
-    '<h1 style="margin:8px 0 2px">'+htmlEscServer(b.icon||'🤖')+' '+htmlEscServer(b.name||'Bot')+'</h1>'+
-    '<div class="muted">'+htmlEscServer(b.playbook||b.thesis||'')+'</div>'+
-    '<div class="grid4" style="margin-top:14px"><div class="smallcard"><span class="muted">EQUITY</span><div class="big">'+moneyS(b.equity)+'</div><div class="'+color(s.totalPnl)+'">'+sign(s.totalPnl)+moneyS(s.totalPnl)+' realized</div></div>'+
-    '<div class="smallcard"><span class="muted">WIN RATE</span><div class="big">'+oneS(s.winRate)+'%</div><div class="mini">'+Number(s.wins||0)+' wins · '+Number(s.losses||0)+' losses</div></div>'+
-    '<div class="smallcard"><span class="muted">AVG TRADE</span><div class="big '+color(s.avgPnlPct)+'">'+sign(s.avgPnlPct)+oneS(s.avgPnlPct)+'%</div><div class="mini">profit factor '+oneS(s.profitFactor)+'</div></div>'+
-    '<div class="smallcard"><span class="muted">MAX DD</span><div class="big">'+oneS(b.dd)+'%</div><div class="mini">'+op.length+' positions open</div></div></div>'+
-    '<div class="three" style="margin-top:10px"><div class="smallcard"><b>Best trade</b><div class="green">'+(best?String.fromCharCode(36)+htmlEscServer(best.symbol)+' +'+oneS(best.pnlPct)+'%':'—')+'</div></div>'+
-    '<div class="smallcard"><b>Worst trade</b><div class="red">'+(worst?String.fromCharCode(36)+htmlEscServer(worst.symbol)+' '+oneS(worst.pnlPct)+'%':'—')+'</div></div>'+
-    '<div class="smallcard"><b>Current era</b><div>'+htmlEscServer(payload.era||'')+'</div><div class="mini">'+Number(s.eraTrades||0)+' era trades</div></div></div>'+
-    '<h3 style="margin-top:18px">How this bot trades</h3><div class="smallcard"><div>'+htmlEscServer(b.playbook||b.thesis||'No description available.')+'</div><div class="mini" style="margin-top:8px">Entry gate '+oneS(b.effectiveMin||b.min)+' · stop '+oneS(b.stop)+'% · take '+oneS(b.take)+'% · max '+Number(b.maxOpen||0)+' open positions</div></div>'+
-    '<h3 style="margin-top:18px">Open positions ('+op.length+')</h3>'+(op.length?'<div class="scroll" style="max-height:240px"><table class="table"><thead><tr><th>Token</th><th>Entry</th><th>Mark</th><th>Unrealized</th><th>Age</th></tr></thead><tbody>'+openRows+'</tbody></table></div>':'<div class="muted">No open positions.</div>')+
-    '<h3 style="margin-top:18px">Trade history ('+tr.length+')</h3><div class="mini" style="margin-bottom:7px">Newest first · full retained ledger for this bot.</div>'+
-    (tr.length?'<div class="scroll" style="max-height:540px"><table class="table"><thead><tr><th>Closed</th><th>Token</th><th>P&L</th><th>P&L %</th><th>Entry</th><th>Exit</th><th>Hold</th><th>Exit reason</th></tr></thead><tbody>'+tradeRows+'</tbody></table></div>':'<div class="muted">No completed trades yet.</div>');
-}
 
 const server=http.createServer((req,res)=>{
   {const u=new URL(req.url,'http://pump-lab.local');if(u.pathname==='/api/bot'){
