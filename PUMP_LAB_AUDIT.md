@@ -216,3 +216,28 @@ Operational requirements:
 ## 17. Current status
 
 PUMP LAB should be treated as **PAPER RESEARCH ONLY** until the dashboard's Live Launch Gate explicitly clears all blockers. A paper strategy can look strong and still fail live due to latency, fees, failed transactions, liquidity, data gaps, or overfitting. The purpose of this audit architecture is to force those differences into the system rather than hide them.
+
+
+## 18. Alpha OS — ten-system trading intelligence layer
+
+Alpha OS is the v3.3 meta-layer above the independent strategy laboratory. It does not replace the individual bot experiments; it consumes their evidence and maintains a separate CIO paper portfolio representing a single shared bankroll.
+
+1. **Shadow Execution Twin** — records every paper intent, immediate/2s/5s/15s market drift, live Jupiter route quotes when routable, route price impact, network-cost assumptions, and observed-vs-route discrepancies. It never signs or broadcasts.
+2. **Wallet Intelligence Graph** — records wallet/token relationships, co-buy edges, first buyers, creator relationships, observed funding transfers for tracked wallets, and shared-funder clusters.
+3. **Toxic Flow Detector** — scores same-slot clusters, identical order sizing, repeated-wallet concentration, common funding, seller arrival, liquidity/market-cap imbalance, and buyer diversity. High toxicity can veto an entry.
+4. **Lead-Lag Smart Wallet Engine** — measures wallet outcomes at 1m/5m/15m and by market-cap band, then weighs recent wallet signals by demonstrated lead quality instead of identity alone.
+5. **Microstructure Engine** — measures transaction velocity, acceleration, unique buyers, buy/sell ratio, seller arrival, order-size dispersion, and same-slot clustering.
+6. **Execution Brain** — observes Solana prioritization fees and Jito tip floors, decides standard RPC vs protected Jito-style shadow routing, estimates landing quality, and charges modeled base/priority/tip cost into paper P&L.
+7. **CIO Capital Auction** — keeps a separate shared bankroll, deduplicates competing strategy calls on the same token, ranks opportunities by expected-value utility, and allocates capital only to the highest-value qualified proposals.
+8. **Probability Engine** — creates forward forecasts, settles them after 15 minutes, learns only from deterministic training partitions, and estimates P(+25 before -15), P(+100), P(-15), expected 15-minute return, and uncertainty.
+9. **Adaptive Exit Intelligence** — continuously compares expected hold value with toxic-flow changes, probability shifts, wallet flow, seller arrival and current profit; it can hold, trim, or exit.
+10. **World Model** — snapshots market temperature, buy pressure, launch velocity, collapse rate, market-cap/liquidity distributions, Solana fee pressure and SOL trend, then compares current conditions with settled historical regimes to estimate strategy-specific environmental edge.
+
+### Alpha OS governance
+
+- Individual strategy results remain independent so the CIO cannot rewrite their history.
+- A new analytical era is created when Alpha OS materially changes entry/exit behavior.
+- Route quoting and transaction-cost telemetry are evidence, not permission to broadcast.
+- Signing authority and private keys remain absent from the research service.
+- Alpha OS remains subject to the same durable-state, drawdown, daily-loss and stale-mark kill switches.
+- Real money remains blocked until the separate live launch gate passes and shadow execution has been validated against actual executable routes.
