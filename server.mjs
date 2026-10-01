@@ -897,12 +897,12 @@ function bandStats(rows,getBand){
   return [...m].map(([band,a])=>({band,n:a.length,avgPnl:avg(a.map(x=>x.pnlPct)),winRate:a.filter(x=>x.pnlPct>0).length/a.length*100,avgMfe:avg(a.map(x=>x.mfe||0)),avgMae:avg(a.map(x=>x.mae||0))})).sort((a,b)=>b.avgPnl-a.avgPnl);
 }
 function confidenceCalibration(){
-  const rows=[...opportunities.values()].filter(o=>o.entered&&Number.isFinite(o.score)&&Number.isFinite(o.bestReturn));
+  const rows=[...opportunities.values()].filter(o=>o.era===STRATEGY_ERA&&o.entered&&Number.isFinite(o.score)&&Number.isFinite(o.bestReturn));
   const defs=[[50,60],[60,70],[70,80],[80,90],[90,101]];
   return defs.map(([lo,hi])=>{const a=rows.filter(o=>o.score>=lo&&o.score<hi);return{band:`${lo}-${hi===101?'100':hi-1}`,n:a.length,hitRate:a.length?a.filter(o=>o.bestReturn>=25).length/a.length*100:0,avgBest:avg(a.map(o=>o.bestReturn)),avgWorst:avg(a.map(o=>o.worstReturn))};});
 }
 function entryLab(){
-  const rows=productionTrades();
+  const rows=productionTrades(true);
   return{
     score:bandStats(rows,t=>{const x=t.score||0;return x>=85?'85+':x>=75?'75-84':x>=65?'65-74':'<65';}),
     risk:bandStats(rows,t=>{const x=t.entryFeatures?.risk||0;return x<35?'risk <35':x<50?'risk 35-49':x<65?'risk 50-64':'risk 65+';}),
@@ -910,17 +910,17 @@ function entryLab(){
   };
 }
 function exitLab(){
-  const rows=productionTrades();const usable=rows.filter(t=>t.counterfactual);
+  const rows=productionTrades(true);const usable=rows.filter(t=>t.counterfactual);
   const hold=k=>avg(usable.map(t=>t.counterfactual?.holdAfterExit?.[k]).filter(Number.isFinite));
   const capture=usable.filter(t=>(t.mfe||0)>0).map(t=>Math.max(0,t.pnlPct)/Math.max(1,t.mfe)*100);
   return{n:usable.length,actual:avg(usable.map(t=>t.pnlPct)),avgMfe:avg(usable.map(t=>t.mfe||0)),capture:avg(capture),oneMin:hold('oneMin'),fiveMin:hold('fiveMin'),fifteenMin:hold('fifteenMin'),leftOnTable:avg(usable.map(t=>Math.max(0,(t.counterfactual?.bestObservedAfterExit||0))))};
 }
 function sizingLab(){
-  const rows=productionTrades();const total=rows.reduce((a,t)=>a+(t.pnl||0),0);
+  const rows=productionTrades(true);const total=rows.reduce((a,t)=>a+(t.pnl||0),0);
   return[.5,1,1.5,2].map(mult=>({mult,totalPnl:total*mult,stressDrawdown:avg(rows.map(t=>Math.max(0,-t.pnlPct)*mult)),label:mult===1?'CURRENT':mult<1?'DEFENSIVE':'AGGRESSIVE'}));
 }
 function executionLab(){
-  const rows=productionTrades().filter(t=>t.executionStress);
+  const rows=productionTrades(true).filter(t=>t.executionStress);
   const sum=k=>rows.reduce((a,t)=>a+(t.executionStress?.[k]||0),0);
   return{n:rows.length,easyAvg:avg(rows.map(t=>t.executionStress.easy)),realisticAvg:avg(rows.map(t=>t.executionStress.realistic)),nightmareAvg:avg(rows.map(t=>t.executionStress.nightmare)),easyTotal:sum('easy'),realisticTotal:sum('realistic'),nightmareTotal:sum('nightmare')};
 }
@@ -930,7 +930,7 @@ function benchmarkStats(){
   return ids.map(id=>{const d=strategyDefs.find(x=>x.id===id);return{id,name:d.name,equity:d.equity,returnPct:(d.equity/START-1)*100,dd:d.dd,n:d.n,winRate:d.n?d.wins/d.n*100:0};});
 }
 function godBot(){
-  const rows=productionTrades();const favorable=rows.filter(t=>(t.mfe||0)>0);
+  const rows=productionTrades(true);const favorable=rows.filter(t=>(t.mfe||0)>0);
   const actual=favorable.reduce((a,t)=>a+Math.max(0,t.pnlPct),0),available=favorable.reduce((a,t)=>a+Math.max(0,t.mfe||0),0);
   const missed=[...opportunities.values()].filter(o=>o.action==='REJECT').sort((a,b)=>b.bestReturn-a.bestReturn)[0];
   const best=[...rows].sort((a,b)=>(b.mfe||0)-(a.mfe||0))[0];
@@ -1028,7 +1028,7 @@ function replayLab(){
   const rows=[...dnaArchive.values()].filter(x=>x.observations>=2&&now()-x.firstTs>=5*60000);const out=[];
   for(const d of strategyDefs.filter(x=>x.risk!=='CONTROL'&&!x.specialist)){
     const seen=new Set(),signals=[];
-    for(const e of marketEvents){if(seen.has(e.mint)||e.scores?.[d.id]==null)continue;const gate=Math.max(0,entryPolicy(d).min);if(e.scores[d.id]>=gate){seen.add(e.mint);const o=dnaArchive.get(e.mint);if(o&&o.observations>=2)signals.push(o);}}
+    for(const e of marketEvents){if(e.era!==STRATEGY_ERA||seen.has(e.mint)||e.scores?.[d.id]==null)continue;const gate=Math.max(0,entryPolicy(d).min);if(e.scores[d.id]>=gate){seen.add(e.mint);const o=dnaArchive.get(e.mint);if(o&&o.observations>=2)signals.push(o);}}
     out.push({id:d.id,name:d.name,n:signals.length,hit25:signals.length?signals.filter(x=>x.peakReturn>=25).length/signals.length*100:0,hit100:signals.length?signals.filter(x=>x.peakReturn>=100).length/signals.length*100:0,avgPeak:avg(signals.map(x=>x.peakReturn)),avgWorst:avg(signals.map(x=>x.worstReturn))});
   }
   return{events:marketEvents.length,archive:rows.length,strategies:out.sort((a,b)=>(b.hit25-a.hit25)||(b.avgPeak-a.avgPeak)).slice(0,12)};
