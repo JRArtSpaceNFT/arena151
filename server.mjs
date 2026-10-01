@@ -103,10 +103,92 @@ const strategyDefs = [
   ['random','🎲','Random Control','CONTROL',.05,70,22,45,1,'random baseline'],
   ['volume','📊','Volume Control','CONTROL',.06,68,22,50,1,'simple volume baseline'],
   ['launchctl','🧱','Every Launch Control','CONTROL',.035,0,30,50,3,'buy-everything launch baseline'],
-  ['socialctl','📣','Social Metadata Control','CONTROL',.04,58,25,55,2,'simple social-metadata baseline']
+  ['socialctl','📣','Social Metadata Control','CONTROL',.04,58,25,55,2,'simple social-metadata baseline'],
+
+  // Specialist Cohort Lab: deliberately narrow populations for clean apples-to-apples experiments.
+  ['mc_u25','🔬','Under $25K','MED',.045,58,24,65,1,'only trades tokens below $25k market cap'],
+  ['mc_25_50','🧫','$25K–$50K','MED',.05,59,23,68,1,'only trades $25k–$50k market cap'],
+  ['mc_50_100','🌱','$50K–$100K','MED',.055,60,22,70,1,'only trades $50k–$100k market cap'],
+  ['mc_100_250','🚦','$100K–$250K','MED',.06,61,21,72,1,'only trades $100k–$250k market cap'],
+  ['mc_250_500','🏎️','$250K–$500K','MED',.065,62,20,75,1,'only trades $250k–$500k market cap'],
+  ['mc_500_1m','🏙️','$500K–$1M','LOW',.06,63,18,72,1,'only trades $500k–$1m market cap'],
+  ['mc_1m_plus','🏛️','$1M+','LOW',.055,64,17,68,1,'only trades above $1m market cap'],
+  ['mc_sub100','🪙','Sub $100K','HIGH',.065,59,23,72,2,'broad early-cap cohort below $100k'],
+  ['mc_over100','📈','$100K+','MED',.06,62,20,72,1,'broad cohort only after $100k'],
+  ['mc_over250','🧱','$250K+','LOW',.06,63,18,70,1,'established tokens only above $250k'],
+  ['mc_graduation_zone','🎓','Graduation Zone','MED',.06,61,21,74,1,'focuses on roughly $60k–$100k transition zone'],
+
+  ['age_flash','⏱️','First Minute','EXTREME',.055,60,24,75,1,'only the first 60 seconds after launch'],
+  ['age_1_5','🕐','1–5 Minute','HIGH',.06,60,22,74,1,'only tokens aged 1 to 5 minutes'],
+  ['age_5_15','🕔','5–15 Minute','MED',.06,61,20,72,1,'only tokens aged 5 to 15 minutes'],
+  ['age_mature','🕰️','15 Minute+','LOW',.055,62,18,68,1,'only tokens at least 15 minutes old'],
+
+  ['liq_5_15','💧','$5K–$15K Liquidity','HIGH',.05,59,24,72,1,'thin but tradable liquidity cohort'],
+  ['liq_15_50','🌊','$15K–$50K Liquidity','MED',.06,61,20,72,1,'medium liquidity cohort'],
+  ['liq_50_plus','🏦','$50K+ Liquidity','LOW',.06,63,18,68,1,'deep liquidity only'],
+  ['liq_ratio','⚖️','Liquidity Rich','MED',.06,61,20,72,1,'requires unusually strong liquidity relative to market cap'],
+
+  ['flow_70','🟢','70%+ Buyers','HIGH',.065,61,21,76,1,'only strong buyer-dominant order flow'],
+  ['flow_balanced','🧘','Balanced Flow','MED',.055,61,20,68,1,'tests healthy but non-euphoric buyer pressure'],
+  ['flow_extreme','🚀','80%+ Buyers','EXTREME',.06,63,23,82,1,'only extreme buyer-pressure bursts'],
+
+  ['meta_verified','✅','Full Metadata','MED',.055,61,20,70,1,'requires both X/Twitter and website metadata'],
+  ['meta_dark','🌑','No Metadata','HIGH',.045,62,25,75,1,'contrarian test of tokens with neither X nor website'],
+
+  ['creator_repeat_clean','🧬','Repeat Clean Creator','MED',.06,61,20,74,1,'repeat creators with no observed collapse history'],
+  ['creator_first','🆕','First-Time Creator','HIGH',.055,60,23,75,1,'creator has only one observed launch'],
+  ['crosscheck','🔎','Cross-Checked Only','LOW',.06,63,18,70,1,'requires two or more independent market-data sources'],
+
+  ['regime_hot','🔥','Hot Market Only','HIGH',.065,60,22,78,1,'only trades while market regime is HOT'],
+  ['regime_riskoff','🛡️','Risk-Off Only','LOW',.05,63,17,62,1,'only trades while market regime is RISK OFF'],
+
+  ['pre_grad','🛤️','Pre-Graduation','HIGH',.06,60,22,76,1,'only tokens not yet marked graduated'],
+  ['post_grad','🎓','Post-Graduation','LOW',.06,63,18,68,1,'only tokens already marked graduated']
 ].map(([id,icon,name,risk,size,min,stop,take,maxOpen,thesis]) => ({
   id,icon,name,risk,size,min,stop,take,maxOpen,thesis,version:1,equity:START,cash:START,peak:START,dd:0,wins:0,losses:0,n:0
 }));
+
+const specialistProfiles = {
+  mc_u25:{cohort:'MARKET CAP',mcMax:25000,scoreMode:'early'},
+  mc_25_50:{cohort:'MARKET CAP',mcMin:25000,mcMax:50000,scoreMode:'early'},
+  mc_50_100:{cohort:'MARKET CAP',mcMin:50000,mcMax:100000,scoreMode:'momentum'},
+  mc_100_250:{cohort:'MARKET CAP',mcMin:100000,mcMax:250000,scoreMode:'momentum'},
+  mc_250_500:{cohort:'MARKET CAP',mcMin:250000,mcMax:500000,scoreMode:'quality'},
+  mc_500_1m:{cohort:'MARKET CAP',mcMin:500000,mcMax:1000000,scoreMode:'quality'},
+  mc_1m_plus:{cohort:'MARKET CAP',mcMin:1000000,scoreMode:'quality'},
+  mc_sub100:{cohort:'MARKET CAP',mcMax:100000,scoreMode:'momentum',exitMode:'runner'},
+  mc_over100:{cohort:'MARKET CAP',mcMin:100000,scoreMode:'quality'},
+  mc_over250:{cohort:'MARKET CAP',mcMin:250000,scoreMode:'quality',exitMode:'structure'},
+  mc_graduation_zone:{cohort:'MARKET CAP',mcMin:60000,mcMax:100000,scoreMode:'momentum'},
+
+  age_flash:{cohort:'TOKEN AGE',tokenAgeMax:1,scoreMode:'early',exitMode:'runner'},
+  age_1_5:{cohort:'TOKEN AGE',tokenAgeMin:1,tokenAgeMax:5,scoreMode:'momentum'},
+  age_5_15:{cohort:'TOKEN AGE',tokenAgeMin:5,tokenAgeMax:15,scoreMode:'quality'},
+  age_mature:{cohort:'TOKEN AGE',tokenAgeMin:15,scoreMode:'quality',exitMode:'structure'},
+
+  liq_5_15:{cohort:'LIQUIDITY',liqMin:5000,liqMax:15000,scoreMode:'momentum'},
+  liq_15_50:{cohort:'LIQUIDITY',liqMin:15000,liqMax:50000,scoreMode:'quality'},
+  liq_50_plus:{cohort:'LIQUIDITY',liqMin:50000,scoreMode:'quality',exitMode:'defensive'},
+  liq_ratio:{cohort:'LIQUIDITY',liqMcRatioMin:.12,scoreMode:'quality'},
+
+  flow_70:{cohort:'ORDER FLOW',buyRatioMin:.70,scoreMode:'flow',exitMode:'runner'},
+  flow_balanced:{cohort:'ORDER FLOW',buyRatioMin:.52,buyRatioMax:.62,scoreMode:'quality'},
+  flow_extreme:{cohort:'ORDER FLOW',buyRatioMin:.80,scoreMode:'flow',exitMode:'runner'},
+
+  meta_verified:{cohort:'METADATA',requireTwitter:true,requireWebsite:true,scoreMode:'social'},
+  meta_dark:{cohort:'METADATA',noSocial:true,scoreMode:'contrarian'},
+
+  creator_repeat_clean:{cohort:'CREATOR DNA',repeatCleanCreator:true,scoreMode:'creator'},
+  creator_first:{cohort:'CREATOR DNA',firstObservedCreator:true,scoreMode:'early'},
+  crosscheck:{cohort:'DATA QUALITY',sourceMin:2,scoreMode:'quality',exitMode:'defensive'},
+
+  regime_hot:{cohort:'MARKET REGIME',regime:'HOT',scoreMode:'momentum',exitMode:'runner'},
+  regime_riskoff:{cohort:'MARKET REGIME',regime:'RISK OFF',scoreMode:'quality',exitMode:'defensive'},
+
+  pre_grad:{cohort:'LIFECYCLE',requireGraduated:false,scoreMode:'early'},
+  post_grad:{cohort:'LIFECYCLE',requireGraduated:true,scoreMode:'quality',exitMode:'structure'}
+};
+for(const d of strategyDefs){if(specialistProfiles[d.id])Object.assign(d,{specialist:true,...specialistProfiles[d.id]});}
 
 const challengers = [
   makeChallenger('momentum','momentum-c1','Momentum Challenger','min -4 / longer winners',{minDelta:-4,takeDelta:12}),
