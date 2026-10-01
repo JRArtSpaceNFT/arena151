@@ -12,6 +12,33 @@ const DATABASE_URL = process.env.DATABASE_URL || '';
 const PUMP_PROGRAM = '6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P';
 const SOLANA_RPC_HTTP = process.env.SOLANA_RPC_HTTP || 'https://api.mainnet-beta.solana.com';
 const SOLANA_RPC_WSS = process.env.SOLANA_RPC_WSS || 'wss://api.mainnet-beta.solana.com';
+
+// Public Fomo trader identities requested for research. Wallets are attached only when
+// a public mapping is corroborated strongly enough to avoid polluting the dataset.
+const FOMO_WATCHLIST = [
+  {id:'dingalingts',name:'Dingalingts',status:'resolving',wallets:[]},
+  {id:'rachelwolchin',name:'RachelWolchin',status:'resolving',wallets:[]},
+  {id:'unipcs',name:'Unipcs',status:'tracking',wallets:[
+    {address:'2heJbC32Tpfcb3nbUb5ER61K11FGZVfVGtVnDm6LDogF',label:'Fomo/public Solana',confidence:'verified'}
+  ]},
+  {id:'frankdegods',name:'FrankDeGods',status:'tracking',wallets:[
+    {address:'498g1rVnFcnjBjpfw1xyqA1WvgQXUU8RWuELjxkjAayQ',label:'Fomo/public Solana',confidence:'verified'}
+  ]},
+  {id:'macdegods',name:'MacDeGods',status:'tracking',wallets:[
+    {address:'5RZPhPW9qGEd3hRGibgYaF5Yk2jBzXR1VZMKSP71C3Lb',label:'public Solana',confidence:'verified'}
+  ]},
+  {id:'orangie',name:'Orangie',status:'tracking',wallets:[
+    {address:'DuQabFqdC9eeBULVa7TTdZYxe8vK8ct5DZr4Xcf7docy',label:'primary public Solana',confidence:'verified'}
+  ]},
+  {id:'tjr',name:'TJR',status:'resolving',wallets:[]},
+  {id:'rasmr',name:'Rasmr',status:'tracking',wallets:[
+    {address:'9CNyLECt2j8tnDhqxtjYk5HUhZ2b8Nwnyb7sfYN7vND2',label:'Fomo-mapped Solana',confidence:'verified'},
+    {address:'DtjZR9SdxUKbMyu4qeUVgjMJyGDhYg76BttXxfhf3z59',label:'secondary / creator Solana',confidence:'secondary'}
+  ]}
+];
+const WATCHED_WALLET_LOOKUP = new Map();
+for(const trader of FOMO_WATCHLIST)for(const wallet of trader.wallets)WATCHED_WALLET_LOOKUP.set(wallet.address,{traderId:trader.id,traderName:trader.name,...wallet});
+
 const MAX_ACTIVITY = 400;
 const MAX_TRADES = 800;
 const MAX_DECISIONS = 3000;
