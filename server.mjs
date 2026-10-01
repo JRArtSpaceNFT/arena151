@@ -1183,7 +1183,7 @@ function traderPostmortem(d){
   };
 }
 function logFullPostmortem(){
-  console.log('TRADER_POSTMORTEM '+JSON.stringify(allTraders().map(traderPostmortem)));
+  for(const d of allTraders())console.log('TRADER_POSTMORTEM_ITEM '+JSON.stringify(traderPostmortem(d)));
 }
 
 function snapshot(){
