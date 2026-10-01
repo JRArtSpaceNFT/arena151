@@ -663,7 +663,9 @@ function maybeTrade(t) {
     const allocatorMult=d.type==='challenger'?1:allocationWeight(d.id);
     if(d.id==='adaptive')sizeMult*=clamp(.65+(score-60)/45,.55,1.35);
     sizeMult*=confidence*qualityMult*dnaMult*allocatorMult*(d.sizeBias||1);
-    const budget=Math.min(d.cash*.38,Math.max(10,d.equity*d.size*sizeMult));
+    sizeMult=clamp(sizeMult,.25,1.35);
+    const authoredSize=d.risk==='CONTROL'?d.size:Math.min(d.size,.04);
+    const budget=Math.min(d.cash*(d.risk==='CONTROL'?.38:.20),Math.max(10,d.equity*authoredSize*sizeMult));
     const slip=.0035+Math.min(.04,budget/Math.max(1000,t.liq)*.5);const entry=t.price*(1+slip);const cost=budget*(1+FEE_RATE);
     if(cost>d.cash)continue;
     d.cash-=cost;
