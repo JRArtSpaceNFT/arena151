@@ -9,6 +9,9 @@ const TARGET = 100000;
 const FEE_RATE = 0.0125;
 const STATE_FILE = process.env.STATE_FILE || '/tmp/pump-lab-state-v06.json';
 const DATABASE_URL = process.env.DATABASE_URL || '';
+const PUMP_PROGRAM = '6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P';
+const SOLANA_RPC_HTTP = process.env.SOLANA_RPC_HTTP || 'https://api.mainnet-beta.solana.com';
+const SOLANA_RPC_WSS = process.env.SOLANA_RPC_WSS || 'wss://api.mainnet-beta.solana.com';
 const MAX_ACTIVITY = 400;
 const MAX_TRADES = 800;
 const MAX_DECISIONS = 3000;
@@ -30,6 +33,12 @@ const replayFrames = [];
 let corrCache = {ts:0, rows:[]};
 const promotions = [];
 const graveyard = [];
+const walletEvents = [];
+const solanaQueue = [];
+const solanaSeen = new Set();
+let solanaWs = null;
+let solanaObserved = 0;
+let solanaResolved = 0;
 let db = null;
 let research = { last: 0, notes: [], hypotheses: [] };
 let startedAt = Date.now();
@@ -389,6 +398,57 @@ function connectPumpPortal(){
   }catch(e){setHealth('pumpportal','warn',e.message);}
 }
 
+
+function queueSolanaSignature(sig){
+  if(!sig||solanaSeen.has(sig))return;
+  solanaSeen.add(sig); if(solanaSeen.size>5000){const first=solanaSeen.values().next().value;solanaSeen.delete(first);}
+  solanaQueue.push(sig); if(solanaQueue.length>300)solanaQueue.shift(); solanaObserved++;
+}
+function connectSolanaStream(){
+  try{
+    solanaWs=new WebSocket(SOLANA_RPC_WSS);
+    solanaWs.addEventListener('open',()=>{
+      setHealth('solana-stream','ok','Direct Pump.fun program log stream connected',{truth:'observed'});
+      solanaWs.send(JSON.stringify({jsonrpc:'2.0',id:901,method:'logsSubscribe',params:[{mentions:[PUMP_PROGRAM]},{commitment:'confirmed'}]}));
+    });
+    solanaWs.addEventListener('message',ev=>{try{const m=JSON.parse(String(ev.data));const sig=m?.params?.result?.value?.signature;if(sig)queueSolanaSignature(sig);}catch{}});
+    solanaWs.addEventListener('close',()=>{setHealth('solana-stream','warn','Public Solana websocket disconnected · reconnecting',{truth:'observed'});setTimeout(connectSolanaStream,5000);});
+    solanaWs.addEventListener('error',()=>setHealth('solana-stream','warn','Public Solana websocket error',{truth:'observed'}));
+  }catch(e){setHealth('solana-stream','warn','Solana stream setup failed: '+e.message,{truth:'observed'});}
+}
+async function rpcTransaction(sig){
+  const r=await fetch(SOLANA_RPC_HTTP,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'getTransaction',params:[sig,{commitment:'confirmed',encoding:'jsonParsed',maxSupportedTransactionVersion:0}]})});
+  if(!r.ok)throw Error('RPC '+r.status); const j=await r.json(); return j.result||null;
+}
+function uiAmt(x){return num(x?.uiTokenAmount?.uiAmountString??x?.uiTokenAmount?.uiAmount??0);}
+function parseWalletTx(sig,tx){
+  const keys=tx?.transaction?.message?.accountKeys||[]; const signerKeys=keys.filter(k=>typeof k==='object'&&k.signer).map(k=>k.pubkey);
+  if(!signerKeys.length&&typeof keys[0]==='string')signerKeys.push(keys[0]);
+  const pre=tx?.meta?.preTokenBalances||[], post=tx?.meta?.postTokenBalances||[];
+  const idx=new Map();
+  for(const b of pre){const k=(b.owner||'')+':'+b.mint;idx.set(k,{owner:b.owner,mint:b.mint,pre:uiAmt(b),post:0});}
+  for(const b of post){const k=(b.owner||'')+':'+b.mint;const x=idx.get(k)||{owner:b.owner,mint:b.mint,pre:0,post:0};x.post=uiAmt(b);idx.set(k,x);}
+  let found=0;
+  for(const x of idx.values()){
+    if(!x.owner||!signerKeys.includes(x.owner))continue; const delta=x.post-x.pre;if(Math.abs(delta)<1e-12)continue;
+    const tok=tokens.get(x.mint); const action=delta>0?'BUY':'SELL'; const price=tok?.price||0;
+    walletEvents.unshift({ts:now(),signature:sig,wallet:x.owner,mint:x.mint,symbol:tok?.symbol||x.mint.slice(0,5),action,tokenDelta:delta,price,mc:tok?.mc||0});
+    walletEvents.splice(1200); found++;
+    if(tok){tok.chainBuys=num(tok.chainBuys)+(action==='BUY'?1:0);tok.chainSells=num(tok.chainSells)+(action==='SELL'?1:0);tok.chainTx=num(tok.chainTx)+1;tok.lastChainAt=now();}
+  }
+  if(found)solanaResolved++;
+}
+async function drainSolanaQueue(){
+  const sig=solanaQueue.shift(); if(!sig)return;
+  try{const tx=await rpcTransaction(sig);if(tx)parseWalletTx(sig,tx);setHealth('wallet-intel','ok',`Observed on-chain wallet activity · ${solanaResolved} resolved Pump transactions`,{truth:'observed'});}
+  catch(e){if(/429/.test(e.message))setHealth('wallet-intel','warn','Public RPC rate limited · queue retained',{truth:'observed'});}
+}
+function walletLeaderboard(){
+  const m=new Map();
+  for(const e of walletEvents){let w=m.get(e.wallet);if(!w)w={wallet:e.wallet,buys:0,sells:0,events:0,mints:new Set(),marked:[],last:0};w.events++;w.mints.add(e.mint);w.last=Math.max(w.last,e.ts);if(e.action==='BUY'){w.buys++;if(e.price>0){const t=tokens.get(e.mint);if(t?.price>0)w.marked.push(pct(t.price,e.price));}}else w.sells++;m.set(e.wallet,w);}
+  return [...m.values()].map(w=>({wallet:w.wallet,buys:w.buys,sells:w.sells,events:w.events,mints:w.mints.size,last:w.last,marked:w.marked.length?avg(w.marked):0,sample:w.marked.length,score:clamp(Math.log10(1+w.events)*22+Math.min(30,w.mints*3)+(w.marked.length?clamp(50+avg(w.marked),0,100)*.25:0))})).sort((a,b)=>b.score-a.score).slice(0,40);
+}
+
 function missedMonsters(){return [...opportunities.values()].filter(o=>o.action==='REJECT'&&o.bestReturn>75).sort((a,b)=>b.bestReturn-a.bestReturn).slice(0,25);}
 function savedMyAss(){return [...opportunities.values()].filter(o=>o.action==='REJECT'&&o.worstReturn<-55).sort((a,b)=>a.worstReturn-b.worstReturn).slice(0,25);}
 function hallOfFame(){return trades.filter(t=>!t.strategy.includes('-c')).sort((a,b)=>b.pnlPct-a.pnlPct).slice(0,20);}
@@ -574,11 +634,11 @@ function loadLocal(){try{restore(JSON.parse(fs.readFileSync(STATE_FILE,'utf8')))
 function snapshot(){
   allTraders().forEach(markEquity);const active=[...tokens.values()].filter(t=>now()-t.updatedAt<900000).sort((a,b)=>b.updatedAt-a.updatedAt).slice(0,80).map(t=>({...t,features:features(t),detective:detective(t),consensus:consensus(t),dna:creatorDNA(t),quality:tokenDataQuality(t)}));
   const prod=strategyDefs.filter(d=>d.risk!=='CONTROL');const weather=marketWeather();
-  return{now:now(),startedAt,paperOnly:true,mode:'LIVE ONLY',version:'0.9 Genetics + World',target:TARGET,weather,providers:[...health.values()],
+  return{now:now(),startedAt,paperOnly:true,mode:'LIVE ONLY',version:'1.0 On-Chain Intelligence',target:TARGET,weather,providers:[...health.values()],
     summary:{capital:prod.reduce((a,d)=>a+d.equity,0),start:prod.length*START,trades:prod.reduce((a,d)=>a+d.n,0),open:positions.filter(p=>!p.closed&&prod.some(d=>d.id===p.strategy)).length,tokens:tokens.size,decisions:decisions.length},
     strategies:strategyDefs.map(d=>({...d,winRate:d.n?d.wins/d.n*100:0,open:openCount(d.id)})),experiments:experimentSnapshot(),tokens:active,
     narratives:narrativeStats().slice(0,15),creators:creatorLeaderboard(),positions:positions.filter(p=>!p.closed).slice(-120),trades:trades.slice(0,150),activity:activity.slice(0,140),research,
-    missed:missedMonsters(),saved:savedMyAss(),hall:hallOfFame(),worst:worstTrades(),autopsies:autopsies.slice(0,30),timeline:timeline.slice(-120),decisions:decisions.slice(0,160),calibration:confidenceCalibration(),entryLab:entryLab(),exitLab:exitLab(),sizingLab:sizingLab(),executionLab:executionLab(),benchmarks:benchmarkStats(),godBot:godBot(),archetypes:archetypeMemory(),evolution:{family:familyTree(),promotions:promotions.slice(0,20),graveyard:graveyard.slice(0,20)},holdTime:holdTimeLab(),coalitions:coalitionStats(),correlation:strategyCorrelation().slice(0,20),regimeMatrix:regimeMatrix(),masterAllocation:masterAllocation(),riskBoard:riskScoreboard(),tournament:tournament(),providerAudit:providerAudit(),noTrade:noTradeAlpha(),chaos:chaosLab(),replay:replayFrames.slice(-120)};
+    missed:missedMonsters(),saved:savedMyAss(),hall:hallOfFame(),worst:worstTrades(),autopsies:autopsies.slice(0,30),timeline:timeline.slice(-120),decisions:decisions.slice(0,160),calibration:confidenceCalibration(),entryLab:entryLab(),exitLab:exitLab(),sizingLab:sizingLab(),executionLab:executionLab(),benchmarks:benchmarkStats(),godBot:godBot(),archetypes:archetypeMemory(),evolution:{family:familyTree(),promotions:promotions.slice(0,20),graveyard:graveyard.slice(0,20)},holdTime:holdTimeLab(),coalitions:coalitionStats(),correlation:strategyCorrelation().slice(0,20),regimeMatrix:regimeMatrix(),masterAllocation:masterAllocation(),riskBoard:riskScoreboard(),tournament:tournament(),providerAudit:providerAudit(),noTrade:noTradeAlpha(),chaos:chaosLab(),replay:replayFrames.slice(-120),walletBoard:walletLeaderboard(),solana:{observed:solanaObserved,resolved:solanaResolved,queued:solanaQueue.length}};
 }
 
 const HTML=`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>PUMP LAB / LIVE</title><style>
@@ -589,7 +649,7 @@ const HTML=`<!doctype html><html><head><meta charset="utf-8"><meta name="viewpor
 <div class="card health" id="health"></div><div class="tabs" id="tabs"><div class="tab on" data-p="war">War Room</div><div class="tab" data-p="radar">Token Lab</div><div class="tab" data-p="intel">Intelligence</div><div class="tab" data-p="planet">The World</div><div class="tab" data-p="research">Research Lab</div><div class="tab" data-p="time">Time Machine</div></div>
 <div class="pane on" id="war"><div class="sectionTitle"><h2>Autonomous Traders</h2><p>Same market. Same $1,000 start. Different personalities.</p></div><div class="strategies" id="strats"></div><div class="two" style="margin-top:12px"><div class="card"><h3>LIVE ACTIVITY</h3><div class="feed" id="feed"></div></div><div class="card"><h3>NARRATIVE RADAR</h3><div id="narrMini"></div></div></div></div>
 <div class="pane" id="radar"><div class="two"><div class="card scroll"><table class="table"><thead><tr><th>Token</th><th>MC</th><th>Liq</th><th>Score</th><th>Risk</th><th>Quality</th><th>Consensus</th><th>Source</th></tr></thead><tbody id="tokenRows"></tbody></table></div><div class="card"><h3>DETECTIVE WATCH</h3><div id="detectiveList"></div></div></div></div>
-<div class="pane" id="intel"><div class="card"><div class="sectionTitle"><h2>🌎 Narrative World</h2><p>Heat = momentum + buyer pressure + volume + fresh launches − saturation</p></div><div class="world" id="world"></div></div><div class="two" style="margin-top:12px"><div class="card scroll"><h3>CREATOR DNA · OBSERVED BY PUMP LAB</h3><table class="table"><thead><tr><th>Creator</th><th>Launches</th><th>Best X</th><th>Collapses</th><th>Graduations</th></tr></thead><tbody id="creators"></tbody></table></div><div class="card"><h3>DATA TRUTH</h3><div id="truth"></div></div></div></div>
+<div class="pane" id="intel"><div class="card"><div class="sectionTitle"><h2>🌎 Narrative World</h2><p>Heat = momentum + buyer pressure + volume + fresh launches − saturation</p></div><div class="world" id="world"></div></div><div class="two" style="margin-top:12px"><div class="card scroll"><h3>CREATOR DNA · OBSERVED BY PUMP LAB</h3><table class="table"><thead><tr><th>Creator</th><th>Launches</th><th>Best X</th><th>Collapses</th><th>Graduations</th></tr></thead><tbody id="creators"></tbody></table></div><div class="card"><h3>DATA TRUTH</h3><div id="truth"></div></div></div><div class="card" style="margin-top:12px"><h3>🔭 WALLET ACTIVITY · ON-CHAIN OBSERVED</h3><div class="mini">Direct Pump.fun program-log observations. Marked return is inferred from the token price when first observed, not a claim of realized wallet P&L.</div><div class="scroll"><table class="table"><thead><tr><th>Wallet</th><th>Events</th><th>Buys</th><th>Sells</th><th>Tokens</th><th>Marked</th><th>Score</th></tr></thead><tbody id="walletBoard"></tbody></table></div></div></div>
 <div class="pane" id="planet"><div class="card"><div class="sectionTitle"><h2>🌎 THE WORLD</h2><p>A live map of the token economy PUMP LAB can actually observe.</p></div><div id="worldStats" class="grid4"></div><div id="tokenWorld" class="worldGrid" style="margin-top:12px"></div></div><div class="two" style="margin-top:12px"><div class="card"><h3>🔥 WORLD LEADERS</h3><div id="worldLeaders"></div></div><div class="card"><h3>⚠️ WORLD RISKS</h3><div id="worldRisks"></div></div></div></div>
 <div class="pane" id="research"><div class="three"><div class="card"><h3>🧪 CHALLENGERS</h3><div id="experiments"></div></div><div class="card"><h3>🚀 MISSED MONSTERS</h3><div id="missed"></div></div><div class="card"><h3>🛟 SAVED MY ASS</h3><div id="saved"></div></div></div><div class="two" style="margin-top:12px"><div class="card"><h3>🏆 HALL OF FAME</h3><div id="hall"></div></div><div class="card"><h3>🧬 TRADE AUTOPSIES</h3><div id="autopsies"></div></div></div><div class="card" style="margin-top:12px"><h3>RESEARCH DIRECTOR</h3><div id="researchText"></div></div>
 <div class="three" style="margin-top:12px"><div class="card"><h3>🎯 CONFIDENCE CALIBRATION</h3><div id="calibration"></div></div><div class="card"><h3>🆚 BENCHMARKS</h3><div id="benchmarks"></div></div><div class="card"><h3>🧬 EVOLUTION</h3><div id="evolution"></div></div></div>
@@ -617,6 +677,7 @@ $('worldStats').innerHTML='<div class="smallcard"><span class="muted">ACTIVE</sp
 $('tokenWorld').innerHTML=s.narratives.map(n=>{const ts=s.tokens.filter(t=>t.narrative===n.name).sort((a,b)=>b.features.score-a.features.score).slice(0,14);return'<div class="ecosystem"><div><b>'+esc(n.name)+'</b><span style="float:right" class="'+(n.heat>=65?'green':'muted')+'">heat '+one(n.heat)+'</span></div><div class="mini">'+n.count+' observed · '+one(n.buyPressure)+'% buy pressure · saturation '+one(n.saturation)+'</div><div class="nodes">'+ts.map(t=>'<button class="worldNode '+(t.detective.score>=70?'risky':t.features.score>=72?'hot':'')+'" data-mint="'+esc(t.mint)+'" onclick="openToken(this.dataset.mint)">&#36;'+esc(t.symbol)+' · '+one(t.features.score)+'</button>').join('')+'</div></div>'}).join('');
 $('worldLeaders').innerHTML=s.tokens.slice().sort((a,b)=>b.features.score-a.features.score).slice(0,10).map((t,i)=>'<div class="smallcard" style="margin:6px 0"><b>'+(i+1)+'. &#36;'+esc(t.symbol)+'</b><span style="float:right" class="green">'+one(t.features.score)+'</span><div class="mini">'+esc(t.narrative)+' · Q'+one(t.quality.score)+' · '+t.consensus.yes+'/'+t.consensus.total+' agents</div></div>').join('');
 $('worldRisks').innerHTML=s.tokens.slice().sort((a,b)=>b.detective.score-a.detective.score).slice(0,10).map(t=>'<div class="smallcard" style="margin:6px 0"><b>&#36;'+esc(t.symbol)+'</b><span style="float:right" class="red">'+one(t.detective.score)+'</span><div class="mini">'+esc((t.detective.flags||[]).slice(0,2).join(' · ')||'structural caution')+'</div></div>').join('');
+$('walletBoard').innerHTML=(s.walletBoard||[]).map(w=>'<tr><td><code>'+esc(w.wallet.slice(0,7))+'…'+esc(w.wallet.slice(-5))+'</code></td><td>'+w.events+'</td><td class="green">'+w.buys+'</td><td class="red">'+w.sells+'</td><td>'+w.mints+'</td><td class="'+(w.marked>=0?'green':'red')+'">'+(w.marked>=0?'+':'')+one(w.marked)+'%</td><td>'+one(w.score)+'</td></tr>').join('')||'<tr><td colspan="7" class="muted">Listening for Pump.fun on-chain wallet activity…</td></tr>';
 $('creators').innerHTML=s.creators.map(c=>'<tr><td><code>'+esc(c.creator.slice(0,7))+'…'+esc(c.creator.slice(-5))+'</code></td><td>'+c.launches+'</td><td>'+one(c.bestPeakX)+'×</td><td>'+c.collapses+'</td><td>'+c.graduates+'</td></tr>').join('')||'<tr><td colspan="5" class="muted">Creator history is accumulating from observed launches.</td></tr>';
 $('truth').innerHTML='<div class="smallcard"><b>OBSERVED</b><p class="mini">Pump.fun launch/state snapshots, DEX Screener prices/liquidity/volume, any connected PumpPortal events.</p></div><div class="smallcard" style="margin-top:8px"><b>INFERRED</b><p class="mini">Risk score, narrative heat, consensus, creator reputation and market regime are PUMP LAB models built from observed data.</p></div><div class="smallcard" style="margin-top:8px"><b>NOT CONNECTED YET</b><p class="mini">Full X firehose, holder concentration, wallet clusters and metered token/account trade streams. The UI does not pretend these exist.</p></div>';
 $('experiments').innerHTML=s.experiments.map(e=>'<div class="smallcard" style="margin:7px 0"><b>'+esc(e.name)+'</b><span style="float:right" class="'+(e.edge>=0?'green':'red')+'">'+(e.edge>=0?'+':'')+money(e.edge)+'</span><div class="mini">vs '+esc(e.parent)+' · '+esc(e.mutation)+' · n='+e.sample+' · '+esc(e.status)+'</div></div>').join('');
@@ -664,7 +725,7 @@ loadLocal();
 await initDb();
 setHealth('engine','ok','18 production/control portfolios + 4 R&D challengers online',{truth:'observed'});
 setHealth('x-social','standby','Full X stream not connected · social agent uses token social metadata only',{truth:'not connected'});
-setHealth('wallet-intel','standby','Full wallet/holder stream not connected · no fake wallet claims are generated',{truth:'not connected'});
-server.listen(PORT,'0.0.0.0',()=>{log('system','🚀 PUMP LAB v0.9 Genetics + World started','system');connectPumpPortal();pumpPoll();dexPoll();console.log('PUMP LAB v0.9 on '+PORT);});
-setInterval(pumpPoll,7000).unref?.();setInterval(dexPoll,20000).unref?.();setInterval(takeTimeline,30000).unref?.();setInterval(takeReplay,30000).unref?.();setInterval(researchCycle,3600000).unref?.();setInterval(()=>save(),30000).unref?.();takeTimeline();takeReplay();
+setHealth('wallet-intel','standby','Connecting direct public Solana Pump.fun program stream…',{truth:'not connected'});
+server.listen(PORT,'0.0.0.0',()=>{log('system','🚀 PUMP LAB v1.0 On-Chain Intelligence started','system');connectPumpPortal();connectSolanaStream();pumpPoll();dexPoll();console.log('PUMP LAB v1.0 on '+PORT);});
+setInterval(drainSolanaQueue,1100).unref?.();setInterval(pumpPoll,7000).unref?.();setInterval(dexPoll,20000).unref?.();setInterval(takeTimeline,30000).unref?.();setInterval(takeReplay,30000).unref?.();setInterval(researchCycle,3600000).unref?.();setInterval(()=>save(),30000).unref?.();takeTimeline();takeReplay();
 process.on('SIGTERM',async()=>{await save();server.close(()=>process.exit(0));});process.on('SIGINT',async()=>{await save();server.close(()=>process.exit(0));});
