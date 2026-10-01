@@ -107,7 +107,7 @@ const strategyDefs = [
   ['copy_rasmr','⚡','Rasmr Fast Copy','HIGH',.02,65,10,50,2,'paper-copy verified Rasmr entries as short-horizon trades with strict chase and time limits'],
   ['wallet_consensus','👥','Smart Wallet Consensus','MED',.04,69,12,125,2,'requires multiple independently verified tracked wallets to converge on the same token'],
   ['confirmed_runner','🏃','Confirmed Runner','HIGH',.035,70,12,130,1,'fresh acceleration plus strong buyer flow, cross-source quality and room for a runner'],
-  ['asym_swing','💎','Asymmetric Swing','MED',.025,67,14,220,1,'accept a low hit rate only when downside is small and the verified setup can compound into a large winner'],
+  ['asym_swing','💎','Mac-Style Asymmetric Swing','MED',.025,67,14,220,1,'behavioral model inspired by MacDeGods payoff asymmetry; not direct copy until the current execution wallet is independently verified'],
 
   ['random','🎲','Random Control','CONTROL',.05,70,22,45,1,'random baseline'],
   ['volume','📊','Volume Control','CONTROL',.06,68,22,50,1,'simple volume baseline'],
@@ -787,7 +787,7 @@ function connectSolanaStream(){
     solanaWs.addEventListener('open',()=>{
       const watched=[...WATCHED_WALLET_LOOKUP.keys()];solanaSubAcks=0;
       setHealth('solana-stream','ok',`WebSocket open · requesting Pump.fun + ${watched.length} Fomo wallet subscriptions`,{truth:'observed'});
-      setHealth('fomo-watchlist','standby',`Waiting for ${watched.length} verified wallet subscription acknowledgements`,{truth:'observed'});
+      setHealth('fomo-watchlist','standby',`Waiting for ${watched.length} watched-wallet subscription acknowledgements`,{truth:'observed'});
       solanaWs.send(JSON.stringify({jsonrpc:'2.0',id:901,method:'logsSubscribe',params:[{mentions:[PUMP_PROGRAM]},{commitment:'confirmed'}]}));
       watched.forEach((address,i)=>solanaWs.send(JSON.stringify({jsonrpc:'2.0',id:1000+i,method:'logsSubscribe',params:[{mentions:[address]},{commitment:'confirmed'}]})));
       console.log(`Solana WS open · requested ${1+watched.length} subscriptions`);
@@ -798,7 +798,7 @@ function connectSolanaStream(){
       if(m?.result!==undefined&&Number.isInteger(m?.id)&&m.id>=901){
         solanaSubAcks++;
         const watched=WATCHED_WALLET_LOOKUP.size;
-        if(m.id>=1000)setHealth('fomo-watchlist','ok',`${Math.min(watched,Math.max(0,solanaSubAcks-1))}/${watched} verified wallet streams acknowledged`,{truth:'observed'});
+        if(m.id>=1000)setHealth('fomo-watchlist','ok',`${Math.min(watched,Math.max(0,solanaSubAcks-1))}/${watched} watched-wallet streams acknowledged`,{truth:'observed'});
         if(solanaSubAcks>=1+watched)setHealth('solana-stream','ok',`Pump.fun + ${watched} Fomo wallet subscriptions acknowledged`,{truth:'observed'});
         return;
       }
