@@ -557,7 +557,7 @@ function maybeTrade(t) {
     }
     const eligibility=specialistEligibility(d,t,f);
     if(!eligibility.ok)continue;
-    if(openCount(d.id)>=d.maxOpen||d.cash<25||!(t.price>0))continue;
+    if(openCount(d.id)>=d.maxOpen||d.cash<Math.max(5,d.equity*.02)||!(t.price>0))continue;
     const score=strategyScore(d,f,t);const policy=entryPolicy(d);
     const lowBlocked=d.risk==='LOW'&&f.risk>policy.lowRiskLimit;
     const sniperBlocked=(d.parentId==='sniper'||d.id==='sniper')&&f.risk>policy.sniperRiskLimit;
