@@ -1149,6 +1149,42 @@ function logPerformanceSnapshot(){
 function logStrategyDiagnostics(){
   console.log('STRATEGY_DIAGNOSTICS '+JSON.stringify(strategyDiagnostics()));
 }
+function traderPostmortem(d){
+  markEquity(d);
+  const rows=trades.filter(x=>x.strategy===d.id),wins=rows.filter(x=>x.pnl>0),losses=rows.filter(x=>x.pnl<=0);
+  const A=(xs,k)=>avg(xs.map(x=>num(k(x))).filter(Number.isFinite));
+  const med=xs=>percentile(xs.map(x=>num(x.pnlPct)).filter(Number.isFinite),.5);
+  const feature=(xs,k)=>A(xs,x=>x.entryFeatures?.[k]);
+  const exits={};for(const x of rows){const k=x.why||'unknown';if(!exits[k])exits[k]={n:0,pnl:0};exits[k].n++;exits[k].pnl+=num(x.pnlPct);}
+  for(const v of Object.values(exits))v.avg=v.n?v.pnl/v.n:0;
+  const open=positions.filter(x=>x.strategy===d.id&&!x.closed);
+  return{
+    id:d.id,name:d.name,cohort:d.cohort||'CORE',n:rows.length,wins:wins.length,losses:losses.length,
+    winRate:rows.length?wins.length/rows.length*100:0,equity:d.equity,pnl:d.equity-START,
+    avgPnl:A(rows,x=>x.pnlPct),medianPnl:med(rows),avgWin:A(wins,x=>x.pnlPct),avgLoss:A(losses,x=>x.pnlPct),
+    avgHoldMin:A(rows,x=>(x.closedAt-x.opened)/60000),avgMfe:A(rows,x=>x.mfe),avgMae:A(rows,x=>x.mae),
+    winnerMfe:A(wins,x=>x.mfe),loserMfe:A(losses,x=>x.mfe),winnerMae:A(wins,x=>x.mae),loserMae:A(losses,x=>x.mae),
+    entry:{
+      score:A(rows,x=>x.score),risk:feature(rows,'risk'),momentum:feature(rows,'momentum'),flow:feature(rows,'flow'),
+      buyRatio:feature(rows,'buyRatio'),vol:feature(rows,'volScore'),liq:feature(rows,'liqScore'),social:feature(rows,'social'),
+      sourceQuality:feature(rows,'sourceQuality'),quality:A(rows,x=>x.entryQuality),mc:A(rows,x=>x.entryFeatures?.mc)
+    },
+    winnerEntry:{
+      score:A(wins,x=>x.score),risk:feature(wins,'risk'),momentum:feature(wins,'momentum'),flow:feature(wins,'flow'),
+      buyRatio:feature(wins,'buyRatio'),vol:feature(wins,'volScore'),liq:feature(wins,'liqScore'),quality:A(wins,x=>x.entryQuality)
+    },
+    loserEntry:{
+      score:A(losses,x=>x.score),risk:feature(losses,'risk'),momentum:feature(losses,'momentum'),flow:feature(losses,'flow'),
+      buyRatio:feature(losses,'buyRatio'),vol:feature(losses,'volScore'),liq:feature(losses,'liqScore'),quality:A(losses,x=>x.entryQuality)
+    },
+    regimes:Object.fromEntries([...new Set(rows.map(x=>x.entryRegime||'unknown'))].map(k=>[k,{n:rows.filter(x=>(x.entryRegime||'unknown')===k).length,avg:A(rows.filter(x=>(x.entryRegime||'unknown')===k),x=>x.pnlPct)}])),
+    exits,postExit:{one:A(rows,x=>x.counterfactual?.holdAfterExit?.oneMin),five:A(rows,x=>x.counterfactual?.holdAfterExit?.fiveMin),fifteen:A(rows,x=>x.counterfactual?.holdAfterExit?.fifteenMin),best:A(rows,x=>x.counterfactual?.bestObservedAfterExit)},
+    open:open.map(x=>({symbol:x.symbol,entry:x.entry,mark:positionMarkPrice(x),pnl:pct(positionMarkPrice(x),x.entry),ageMin:(now()-x.opened)/60000,score:x.score,regime:x.entryRegime}))
+  };
+}
+function logFullPostmortem(){
+  console.log('TRADER_POSTMORTEM '+JSON.stringify(allTraders().map(traderPostmortem)));
+}
 
 function snapshot(){
   allTraders().forEach(markEquity);const active=[...tokens.values()].filter(t=>now()-t.updatedAt<900000).sort((a,b)=>b.updatedAt-a.updatedAt).slice(0,80).map(t=>({...t,features:features(t),detective:detective(t),adversarial:adversarialRisk(t),consensus:consensus(t),dna:creatorDNA(t),tokenDNA:tokenDNA(t),similarity:dnaSimilarity(t),quality:tokenDataQuality(t)}));
@@ -1254,5 +1290,5 @@ setHealth('learning-core','ok','DNA memory + replay + allocator + exit optimizer
 setHealth('x-social','standby','Full X stream not connected · social agent uses token social metadata only',{truth:'not connected'});
 setHealth('wallet-intel','standby','Connecting Solana stream + verified Fomo wallet watchlist…',{truth:'not connected'});setHealth('fomo-watchlist','standby','Preparing verified public wallet subscriptions',{truth:'not connected'});
 server.listen(PORT,'0.0.0.0',()=>{log('system','🚀 PUMP LAB v2.2 Cohort Matrix started','system');connectPumpPortal();connectSolanaStream();pumpPoll();dexPoll();console.log('PUMP LAB v2.3 on '+PORT);});
-setInterval(drainSolanaQueue,1100).unref?.();setInterval(pumpPoll,7000).unref?.();setInterval(dexPoll,20000).unref?.();setInterval(openPositionPoll,15000).unref?.();setInterval(takeTimeline,30000).unref?.();setInterval(takeReplay,30000).unref?.();setInterval(researchCycle,3600000).unref?.();setInterval(()=>save(),30000).unref?.();const diagTimer=setTimeout(()=>{logStrategyDiagnostics();logPerformanceSnapshot();},20000);diagTimer.unref?.();const diagLoop=setInterval(()=>{logStrategyDiagnostics();logPerformanceSnapshot();},300000);diagLoop.unref?.();takeTimeline();takeReplay();openPositionPoll();
+setInterval(drainSolanaQueue,1100).unref?.();setInterval(pumpPoll,7000).unref?.();setInterval(dexPoll,20000).unref?.();setInterval(openPositionPoll,15000).unref?.();setInterval(takeTimeline,30000).unref?.();setInterval(takeReplay,30000).unref?.();setInterval(researchCycle,3600000).unref?.();setInterval(()=>save(),30000).unref?.();const diagTimer=setTimeout(()=>{logStrategyDiagnostics();logPerformanceSnapshot();logFullPostmortem();},20000);diagTimer.unref?.();const diagLoop=setInterval(()=>{logStrategyDiagnostics();logPerformanceSnapshot();logFullPostmortem();},300000);diagLoop.unref?.();takeTimeline();takeReplay();openPositionPoll();
 process.on('SIGTERM',async()=>{await save();server.close(()=>process.exit(0));});process.on('SIGINT',async()=>{await save();server.close(()=>process.exit(0));});
