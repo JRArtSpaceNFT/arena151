@@ -26,6 +26,8 @@ const clients = new Set();
 const timeline = [];
 const autopsies = [];
 const experiments = [];
+const replayFrames = [];
+let corrCache = {ts:0, rows:[]};
 const promotions = [];
 const graveyard = [];
 let db = null;
@@ -209,7 +211,7 @@ function strategyScore(d,f,t) {
     const regime=marketWeather().regime;
     const peers=strategyDefs.filter(p=>p.risk!=='CONTROL'&&!['adaptive','champion','professional'].includes(p.id));
     let total=0,weight=0,agree=0;
-    for(const p of peers){const ps=strategyScore(p,f,t),w=strategyRegimeWeight(p.id,regime);total+=ps*w;weight+=w;if(ps>=p.min)agree++;}
+    for(const p of peers){const ps=strategyScore(p,f,t),w=strategyRegimeWeight(p.id,regime)*diversityWeight(p.id);total+=ps*w;weight+=w;if(ps>=p.min)agree++;}
     s=(weight?total/weight:f.score)+Math.min(12,agree*1.15)+(regime==='HOT'?f.momentum*.04:(100-f.risk)*.04);
   }
   else if(d.id==='volume')s=f.volScore*.70+f.liqScore*.30;
@@ -359,7 +361,7 @@ function ingest(raw,source){
   maybeTrade(t);broadcast('tick',{mint:t.mint});
 }
 
-async function fetchJson(url){const r=await fetch(url,{headers:{accept:'application/json','user-agent':'PUMP-LAB-LIVE/0.7'}});if(!r.ok)throw Error(`HTTP ${r.status}`);return r.json();}
+async function fetchJson(url){const r=await fetch(url,{headers:{accept:'application/json','user-agent':'PUMP-LAB-LIVE/0.8'}});if(!r.ok)throw Error(`HTTP ${r.status}`);return r.json();}
 async function pumpPoll(){
   try{const u='https://frontend-api-v3.pump.fun/coins?offset=0&limit=60&sort=created_timestamp&order=DESC&includeNsfw=false';const j=await fetchJson(u);const rows=Array.isArray(j)?j:(j.data||j.coins||[]);if(!rows.length)throw Error('no rows');rows.forEach(x=>ingest(x,'pump.fun'));setHealth('pump.fun','ok',`Live launch/state snapshots · ${rows.length} coins`,{truth:'observed'});}catch(e){setHealth('pump.fun','warn',`Snapshot feed unavailable: ${e.message}`);}
 }
@@ -444,6 +446,52 @@ function archetypeMemory(){
   return[...groups].map(([name,a])=>({name,n:a.length,hitRate:a.filter(o=>o.bestReturn>=25).length/a.length*100,avgBest:avg(a.map(o=>o.bestReturn)),avgWorst:avg(a.map(o=>o.worstReturn))})).filter(x=>x.n>=3).sort((a,b)=>b.hitRate-a.hitRate||b.avgBest-a.avgBest).slice(0,15);
 }
 
+
+function strategyCorrelation(){
+  if(now()-corrCache.ts<60000)return corrCache.rows;
+  const cutoff=now()-6*3600000;
+  const ids=strategyDefs.filter(d=>d.risk!=='CONTROL'&&!['adaptive','champion','professional'].includes(d.id)).map(d=>d.id);
+  const sets=new Map(ids.map(id=>[id,new Set(decisions.filter(x=>x.ts>=cutoff&&x.action==='BUY'&&x.strategy===id).map(x=>x.mint))]));
+  const rows=[];
+  for(let i=0;i<ids.length;i++)for(let j=i+1;j<ids.length;j++){
+    const a=sets.get(ids[i]),b=sets.get(ids[j]);const union=new Set([...a,...b]);if(union.size<3)continue;
+    let inter=0;for(const x of a)if(b.has(x))inter++;
+    rows.push({a:ids[i],b:ids[j],aName:strategyDefs.find(x=>x.id===ids[i])?.name||ids[i],bName:strategyDefs.find(x=>x.id===ids[j])?.name||ids[j],n:union.size,jaccard:inter/union.size*100,intersection:inter});
+  }
+  corrCache={ts:now(),rows:rows.sort((a,b)=>b.jaccard-a.jaccard)};return corrCache.rows;
+}
+function diversityWeight(id){
+  const a=strategyCorrelation().filter(x=>x.a===id||x.b===id);if(!a.length)return 1;
+  const c=avg(a.map(x=>x.jaccard))/100;return clamp(1-c*.45,.55,1.05);
+}
+function tokenDataQuality(t){
+  const ageSec=Math.max(0,(now()-t.updatedAt)/1000);const sourceCount=(t.sources||[]).length;const tx=(t.buys||0)+(t.sells||0);
+  const freshness=clamp(100-ageSec*2);const multi=sourceCount>=2?100:sourceCount?55:0;const market=clamp(features(t).liqScore*.65+Math.min(35,tx*1.5));
+  return{score:clamp(freshness*.35+multi*.3+market*.35),freshness,sourceCount,ageSec,market,level:ageSec>90?'STALE':sourceCount>=2?'CROSS-CHECKED':'SINGLE SOURCE'};
+}
+function providerAudit(){
+  const rows=[...health.values()].map(x=>{const ageSec=Math.max(0,(now()-x.ts)/1000);const live=x.status==='ok';const score=live?clamp(100-ageSec*1.5):(x.status==='standby'?25:10);return{...x,ageSec,score};});
+  const counted=rows.filter(x=>!['x-social','wallet-intel'].includes(x.component));
+  return{rows,overall:counted.length?avg(counted.map(x=>x.score)):0,stale:rows.filter(x=>x.status==='ok'&&x.ageSec>90).map(x=>x.component)};
+}
+function noTradeAlpha(){
+  const a=[...opportunities.values()].filter(o=>o.action==='REJECT'&&now()-o.firstTs>5*60000);
+  return{n:a.length,falseRejects:a.filter(o=>o.bestReturn>=50).length,correctAvoids:a.filter(o=>o.worstReturn<=-50).length,
+    avgBest:avg(a.map(o=>o.bestReturn)),avgWorst:avg(a.map(o=>o.worstReturn)),
+    falseRejectRate:a.length?a.filter(o=>o.bestReturn>=50).length/a.length*100:0,saveRate:a.length?a.filter(o=>o.worstReturn<=-50).length/a.length*100:0};
+}
+function chaosLab(){
+  const a=productionTrades();if(!a.length)return{n:0,normal:0,doubleFees:0,latencyShock:0,missBest:0,missedTrades:0};
+  const normal=avg(a.map(t=>t.pnlPct)),doubleFees=avg(a.map(t=>t.pnlPct-FEE_RATE*200));
+  const latencyShock=avg(a.map(t=>t.pnlPct-(3+Math.min(10,(t.invested/Math.max(1000,(t.entryFeatures?.liqScore||20)*500))*100))));
+  const sorted=[...a].sort((x,y)=>y.pnlPct-x.pnlPct),miss=Math.max(1,Math.floor(sorted.length*.1)),remaining=sorted.slice(miss);
+  return{n:a.length,normal,doubleFees,latencyShock,missBest:avg(remaining.map(t=>t.pnlPct)),missedTrades:miss};
+}
+function takeReplay(){
+  const active=[...tokens.values()].filter(t=>now()-t.updatedAt<180000).sort((a,b)=>b.vol-a.vol).slice(0,24).map(t=>({mint:t.mint,symbol:t.symbol,name:t.name,price:t.price,mc:t.mc,narrative:t.narrative,score:features(t).score,risk:features(t).risk,quality:tokenDataQuality(t).score}));
+  replayFrames.push({ts:now(),weather:marketWeather(),tokens:active,narratives:narrativeStats().slice(0,8)});while(replayFrames.length>240)replayFrames.shift();
+}
+
 function holdTimeLab(){
   const rows=productionTrades().map(t=>({...t,holdMin:(t.closedAt-t.opened)/60000}));
   return bandStats(rows,t=>t.holdMin<3?'<3m':t.holdMin<10?'3-10m':t.holdMin<30?'10-30m':'30m+');
@@ -500,20 +548,20 @@ async function initDb(){
   if(!DATABASE_URL){setHealth('research-memory','standby','Render Postgres provisioned but DATABASE_URL is not attached to this service yet',{truth:'not connected'});return;}
   try{const {Client}=await import('pg');db=new Client({connectionString:DATABASE_URL,ssl:DATABASE_URL.includes('render.com')?{rejectUnauthorized:false}:undefined});await db.connect();await db.query('CREATE TABLE IF NOT EXISTS pump_lab_state (id text primary key, payload jsonb not null, updated_at timestamptz default now())');const r=await db.query("SELECT payload FROM pump_lab_state WHERE id='main'");if(r.rows[0]?.payload)restore(r.rows[0].payload);setHealth('research-memory','ok','Postgres durable memory online',{truth:'observed'});}catch(e){db=null;setHealth('research-memory','warn','Postgres connection failed: '+e.message);}
 }
-function serialize(){return{strategies:strategyDefs.map(stripTrader),challengers:challengers.map(stripTrader),positions,trades,activity,decisions,opportunities:[...opportunities],research,timeline,autopsies,promotions,graveyard,creators:[...creators].map(([k,v])=>[k,{...v,tokens:[...v.tokens]}])};}
+function serialize(){return{strategies:strategyDefs.map(stripTrader),challengers:challengers.map(stripTrader),positions,trades,activity,decisions,opportunities:[...opportunities],research,timeline,replayFrames,autopsies,promotions,graveyard,creators:[...creators].map(([k,v])=>[k,{...v,tokens:[...v.tokens]}])};}
 function stripTrader(d){return{id:d.id,cash:d.cash,peak:d.peak,dd:d.dd,wins:d.wins,losses:d.losses,n:d.n,version:d.version,min:d.min,stop:d.stop,take:d.take,size:d.size,riskCap:d.riskCap,promotedAt:d.promotedAt,graveyardAt:d.graveyardAt};}
-function restore(s){try{for(const x of s.strategies||[]){const d=strategyDefs.find(q=>q.id===x.id);if(d)Object.assign(d,x)}for(const x of s.challengers||[]){const d=challengers.find(q=>q.id===x.id);if(d)Object.assign(d,x)}positions.splice(0,positions.length,...(s.positions||[]));trades.splice(0,trades.length,...(s.trades||[]));activity.splice(0,activity.length,...(s.activity||[]));decisions.splice(0,decisions.length,...(s.decisions||[]));opportunities.clear();for(const [k,v] of s.opportunities||[])opportunities.set(k,v);research=s.research||research;timeline.splice(0,timeline.length,...(s.timeline||[]));autopsies.splice(0,autopsies.length,...(s.autopsies||[]));promotions.splice(0,promotions.length,...(s.promotions||[]));graveyard.splice(0,graveyard.length,...(s.graveyard||[]));creators.clear();for(const [k,v] of s.creators||[])creators.set(k,{...v,tokens:new Set(v.tokens||[])});}catch{}}
+function restore(s){try{for(const x of s.strategies||[]){const d=strategyDefs.find(q=>q.id===x.id);if(d)Object.assign(d,x)}for(const x of s.challengers||[]){const d=challengers.find(q=>q.id===x.id);if(d)Object.assign(d,x)}positions.splice(0,positions.length,...(s.positions||[]));trades.splice(0,trades.length,...(s.trades||[]));activity.splice(0,activity.length,...(s.activity||[]));decisions.splice(0,decisions.length,...(s.decisions||[]));opportunities.clear();for(const [k,v] of s.opportunities||[])opportunities.set(k,v);research=s.research||research;timeline.splice(0,timeline.length,...(s.timeline||[]));replayFrames.splice(0,replayFrames.length,...(s.replayFrames||[]));autopsies.splice(0,autopsies.length,...(s.autopsies||[]));promotions.splice(0,promotions.length,...(s.promotions||[]));graveyard.splice(0,graveyard.length,...(s.graveyard||[]));creators.clear();for(const [k,v] of s.creators||[])creators.set(k,{...v,tokens:new Set(v.tokens||[])});}catch{}}
 async function save(){const s=serialize();try{fs.writeFileSync(STATE_FILE,JSON.stringify(s));}catch{}if(db){try{await db.query("INSERT INTO pump_lab_state(id,payload,updated_at) VALUES('main',$1,now()) ON CONFLICT(id) DO UPDATE SET payload=$1,updated_at=now()",[s]);}catch(e){setHealth('research-memory','warn','Postgres save failed: '+e.message);}}}
 function loadLocal(){try{restore(JSON.parse(fs.readFileSync(STATE_FILE,'utf8')));}catch{}}
 
 function snapshot(){
-  allTraders().forEach(markEquity);const active=[...tokens.values()].filter(t=>now()-t.updatedAt<900000).sort((a,b)=>b.updatedAt-a.updatedAt).slice(0,80).map(t=>({...t,features:features(t),detective:detective(t),consensus:consensus(t),dna:creatorDNA(t)}));
+  allTraders().forEach(markEquity);const active=[...tokens.values()].filter(t=>now()-t.updatedAt<900000).sort((a,b)=>b.updatedAt-a.updatedAt).slice(0,80).map(t=>({...t,features:features(t),detective:detective(t),consensus:consensus(t),dna:creatorDNA(t),quality:tokenDataQuality(t)}));
   const prod=strategyDefs.filter(d=>d.risk!=='CONTROL');const weather=marketWeather();
-  return{now:now(),startedAt,paperOnly:true,mode:'LIVE ONLY',version:'0.7 Meta Tournament',target:TARGET,weather,providers:[...health.values()],
+  return{now:now(),startedAt,paperOnly:true,mode:'LIVE ONLY',version:'0.8 Robustness Lab',target:TARGET,weather,providers:[...health.values()],
     summary:{capital:prod.reduce((a,d)=>a+d.equity,0),start:prod.length*START,trades:prod.reduce((a,d)=>a+d.n,0),open:positions.filter(p=>!p.closed&&prod.some(d=>d.id===p.strategy)).length,tokens:tokens.size,decisions:decisions.length},
     strategies:strategyDefs.map(d=>({...d,winRate:d.n?d.wins/d.n*100:0,open:openCount(d.id)})),experiments:experimentSnapshot(),tokens:active,
     narratives:narrativeStats().slice(0,15),creators:creatorLeaderboard(),positions:positions.filter(p=>!p.closed).slice(-120),trades:trades.slice(0,150),activity:activity.slice(0,140),research,
-    missed:missedMonsters(),saved:savedMyAss(),hall:hallOfFame(),worst:worstTrades(),autopsies:autopsies.slice(0,30),timeline:timeline.slice(-120),decisions:decisions.slice(0,160),calibration:confidenceCalibration(),entryLab:entryLab(),exitLab:exitLab(),sizingLab:sizingLab(),executionLab:executionLab(),benchmarks:benchmarkStats(),godBot:godBot(),archetypes:archetypeMemory(),evolution:{family:familyTree(),promotions:promotions.slice(0,20),graveyard:graveyard.slice(0,20)},holdTime:holdTimeLab(),coalitions:coalitionStats(),regimeMatrix:regimeMatrix(),masterAllocation:masterAllocation(),riskBoard:riskScoreboard(),tournament:tournament()};
+    missed:missedMonsters(),saved:savedMyAss(),hall:hallOfFame(),worst:worstTrades(),autopsies:autopsies.slice(0,30),timeline:timeline.slice(-120),decisions:decisions.slice(0,160),calibration:confidenceCalibration(),entryLab:entryLab(),exitLab:exitLab(),sizingLab:sizingLab(),executionLab:executionLab(),benchmarks:benchmarkStats(),godBot:godBot(),archetypes:archetypeMemory(),evolution:{family:familyTree(),promotions:promotions.slice(0,20),graveyard:graveyard.slice(0,20)},holdTime:holdTimeLab(),coalitions:coalitionStats(),correlation:strategyCorrelation().slice(0,20),regimeMatrix:regimeMatrix(),masterAllocation:masterAllocation(),riskBoard:riskScoreboard(),tournament:tournament(),providerAudit:providerAudit(),noTrade:noTradeAlpha(),chaos:chaosLab(),replay:replayFrames.slice(-120)};
 }
 
 const HTML=`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>PUMP LAB / LIVE</title><style>
@@ -587,6 +635,6 @@ await initDb();
 setHealth('engine','ok','18 production/control portfolios + 4 R&D challengers online',{truth:'observed'});
 setHealth('x-social','standby','Full X stream not connected · social agent uses token social metadata only',{truth:'not connected'});
 setHealth('wallet-intel','standby','Full wallet/holder stream not connected · no fake wallet claims are generated',{truth:'not connected'});
-server.listen(PORT,'0.0.0.0',()=>{log('system','🚀 PUMP LAB v0.7 Meta Tournament started','system');connectPumpPortal();pumpPoll();dexPoll();console.log('PUMP LAB v0.7 on '+PORT);});
-setInterval(pumpPoll,7000).unref?.();setInterval(dexPoll,20000).unref?.();setInterval(takeTimeline,30000).unref?.();setInterval(researchCycle,3600000).unref?.();setInterval(()=>save(),30000).unref?.();takeTimeline();
+server.listen(PORT,'0.0.0.0',()=>{log('system','🚀 PUMP LAB v0.8 Robustness Lab started','system');connectPumpPortal();pumpPoll();dexPoll();console.log('PUMP LAB v0.8 on '+PORT);});
+setInterval(pumpPoll,7000).unref?.();setInterval(dexPoll,20000).unref?.();setInterval(takeTimeline,30000).unref?.();setInterval(takeReplay,30000).unref?.();setInterval(researchCycle,3600000).unref?.();setInterval(()=>save(),30000).unref?.();takeTimeline();takeReplay();
 process.on('SIGTERM',async()=>{await save();server.close(()=>process.exit(0));});process.on('SIGINT',async()=>{await save();server.close(()=>process.exit(0));});
