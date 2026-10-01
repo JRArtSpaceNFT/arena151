@@ -2024,6 +2024,174 @@ body:before{
   position:absolute!important;left:10px;top:10px;z-index:4;font:9px ui-monospace,SFMono-Regular,monospace;color:#787f86;letter-spacing:.15em
 }
 .agentLive{position:absolute!important;right:10px;top:10px;z-index:4;width:7px;height:7px;border-radius:50%;background:#18d66b;box-shadow:0 0 0 5px rgba(24,214,107,.12)}
+/* TRADER ART SYSTEM · 25 UNIQUE IDENTITIES */
+.agentVisual{--a:#121417;--b:#a7adb2;--c:#f8f9f9}
+.agentVisual .shapeA,.agentVisual .shapeB,.agentVisual .shapeC{position:absolute;display:block;pointer-events:none;transform-origin:center}
+.agentVisual .shapeA{z-index:1}.agentVisual .shapeB{z-index:2}.agentVisual .shapeC{z-index:3}
+.agentVisual.art-banker:before,.agentVisual.art-banker:after,
+.agentVisual.art-quant:before,.agentVisual.art-quant:after,
+.agentVisual.art-smart:before,.agentVisual.art-smart:after,
+.agentVisual.art-social:before,.agentVisual.art-social:after,
+.agentVisual.art-momentum:before,.agentVisual.art-momentum:after,
+.agentVisual.art-graduation:before,.agentVisual.art-graduation:after,
+.agentVisual.art-dip:before,.agentVisual.art-dip:after,
+.agentVisual.art-swing:before,.agentVisual.art-swing:after,
+.agentVisual.art-degen:before,.agentVisual.art-degen:after,
+.agentVisual.art-smartmom:before,.agentVisual.art-smartmom:after,
+.agentVisual.art-culture:before,.agentVisual.art-culture:after,
+.agentVisual.art-contrarian:before,.agentVisual.art-contrarian:after,
+.agentVisual.art-sniper:before,.agentVisual.art-sniper:after,
+.agentVisual.art-champion:before,.agentVisual.art-champion:after,
+.agentVisual.art-professional:before,.agentVisual.art-professional:after,
+.agentVisual.art-adaptive:before,.agentVisual.art-adaptive:after,
+.agentVisual.art-unipcs:before,.agentVisual.art-unipcs:after,
+.agentVisual.art-frank:before,.agentVisual.art-frank:after,
+.agentVisual.art-orangie:before,.agentVisual.art-orangie:after,
+.agentVisual.art-rasmr:before,.agentVisual.art-rasmr:after,
+.agentVisual.art-consensus:before,.agentVisual.art-consensus:after,
+.agentVisual.art-runner:before,.agentVisual.art-runner:after,
+.agentVisual.art-asym:before,.agentVisual.art-asym:after,
+.agentVisual.art-megga:before,.agentVisual.art-megga:after,
+.agentVisual.art-scout:before,.agentVisual.art-scout:after{display:none}
+
+/* 01 Banker · liquid oracle */
+.art-banker .shapeA{width:118px;height:118px;left:50%;top:51%;transform:translate(-50%,-50%);border-radius:47% 53% 58% 42%/42% 38% 62% 58%;background:radial-gradient(circle at 31% 25%,#fff,#e7e9ea 29%,#8f969c 57%,#15181c 81%,#030405);box-shadow:18px 20px 43px rgba(0,0,0,.23);animation:artMorph 13s ease-in-out infinite alternate,artFloat 18s ease-in-out infinite}
+.art-banker .shapeB{width:145px;height:28px;left:50%;top:59%;transform:translate(-50%,-50%) rotate(-7deg);background:linear-gradient(90deg,transparent,#f4f5f5 18%,#2c3034 49%,#f5f6f6 82%,transparent);filter:blur(8px);opacity:.78}
+
+/* 02 Quant · concentric calculation rings */
+.art-quant .shapeA{width:118px;height:118px;left:50%;top:51%;transform:translate(-50%,-50%);border:1px solid #25292d;border-radius:50%;box-shadow:0 0 0 17px #f3f4f4,0 0 0 18px #9ba1a6,0 0 0 33px #eceeee,0 0 0 34px #c8ccd0}
+.art-quant .shapeB{width:1px;height:142px;background:#16191c;left:50%;top:16px;animation:artRotate 19s linear infinite}
+.art-quant .shapeC{width:8px;height:8px;border-radius:50%;background:#0b0d0f;left:50%;top:50%;transform:translate(-50%,-50%);box-shadow:45px 0 0 #8e9499,-45px 0 0 #c4c8cb}
+
+/* 03 Smart Money · connected intelligence */
+.art-smart .shapeA{width:112px;height:112px;left:50%;top:50%;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,#fbfbfb 0 12%,#a9afb4 13% 16%,transparent 17%),radial-gradient(circle at 18% 24%,#191c1f 0 5px,transparent 6px),radial-gradient(circle at 78% 22%,#555b60 0 7px,transparent 8px),radial-gradient(circle at 25% 79%,#8c9297 0 8px,transparent 9px),radial-gradient(circle at 82% 72%,#15181b 0 5px,transparent 6px)}
+.art-smart .shapeB{width:130px;height:1px;background:#8e959a;left:50%;top:50%;transform:translate(-50%,-50%) rotate(32deg);box-shadow:0 22px 0 #b6bbc0,0 -19px 0 #ced1d3}
+.art-smart .shapeC{width:92px;height:1px;background:#a1a7ac;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-48deg);animation:artPulse 5s ease-in-out infinite}
+
+/* 04 Social Alpha · broadcast sculpture */
+.art-social .shapeA{width:14px;height:112px;left:50%;top:48%;transform:translate(-50%,-50%);background:linear-gradient(#0b0d0f,#8d9398);border-radius:20px}
+.art-social .shapeB{width:82px;height:82px;border:1px solid #61676d;border-left-color:transparent;border-bottom-color:transparent;border-radius:50%;left:50%;top:48%;transform:translate(-50%,-50%) rotate(45deg);box-shadow:0 0 0 17px #eef0f0,0 0 0 18px #b9bec2,0 0 0 34px #eef0f0,0 0 0 35px #d2d5d7}
+.art-social .shapeC{width:7px;height:7px;border-radius:50%;background:#0b0d0f;left:50%;top:24%;transform:translateX(-50%);animation:artPulse 3.6s ease-in-out infinite}
+
+/* 05 Momentum · speed ribbon */
+.art-momentum .shapeA{width:160px;height:72px;left:51%;top:53%;transform:translate(-50%,-50%) skewX(-18deg) rotate(-9deg);background:linear-gradient(135deg,#f7f8f8 0,#c2c6c9 27%,#1f2327 48%,#858c92 62%,#f4f5f5 86%);clip-path:polygon(0 63%,18% 30%,42% 50%,67% 0,100% 23%,78% 66%,53% 45%,25% 100%);filter:drop-shadow(13px 18px 13px rgba(0,0,0,.16));animation:artDriftX 7s ease-in-out infinite}
+.art-momentum .shapeB{width:180px;height:1px;left:48%;top:74%;background:linear-gradient(90deg,transparent,#858b90,transparent);transform:translateX(-50%)}
+
+/* 06 Graduation · threshold portal */
+.art-graduation .shapeA{width:110px;height:118px;left:50%;top:52%;transform:translate(-50%,-50%);border:17px solid #c9cdd0;border-bottom:0;border-radius:62px 62px 0 0;box-shadow:inset 12px 0 22px rgba(255,255,255,.95),12px 16px 25px rgba(0,0,0,.08)}
+.art-graduation .shapeB{width:52px;height:88px;left:50%;top:61%;transform:translate(-50%,-50%);background:linear-gradient(180deg,#fafafa,#6d7378 69%,#181b1e);border-radius:30px 30px 0 0}
+.art-graduation .shapeC{width:148px;height:1px;background:#202326;left:50%;top:82%;transform:translateX(-50%)}
+
+/* 07 Dip Buyer · valley basin */
+.art-dip .shapeA{width:170px;height:94px;left:50%;top:62%;transform:translate(-50%,-50%);background:linear-gradient(145deg,#c7cbce,#272b2f);clip-path:polygon(0 20%,16% 40%,30% 68%,44% 79%,56% 48%,67% 61%,83% 34%,100% 8%,100% 100%,0 100%)}
+.art-dip .shapeB{width:74px;height:74px;border:1px solid rgba(255,255,255,.75);border-radius:50%;left:44%;top:57%;filter:blur(2px);opacity:.75;animation:artRise 10s ease-in-out infinite}
+.art-dip .shapeC{width:190px;height:35px;left:50%;bottom:5px;transform:translateX(-50%);background:rgba(255,255,255,.7);filter:blur(13px)}
+
+/* 08 Swing · pendulum wave */
+.art-swing .shapeA{width:2px;height:112px;left:50%;top:8px;background:#202326;transform-origin:50% 0;animation:artSwing 8s ease-in-out infinite}
+.art-swing .shapeB{width:60px;height:60px;border-radius:50%;left:50%;top:101px;transform:translate(-50%,-50%);background:radial-gradient(circle at 35% 28%,#fff,#b8bdc1 42%,#1b1e21 88%);box-shadow:12px 15px 25px rgba(0,0,0,.16)}
+.art-swing .shapeC{width:160px;height:38px;left:50%;bottom:13px;transform:translateX(-50%);border-bottom:1px solid #90969b;border-radius:50%}
+
+/* 09 Early Degen · unstable ember */
+.art-degen .shapeA{width:94px;height:126px;left:50%;top:52%;transform:translate(-50%,-50%) rotate(9deg);background:linear-gradient(155deg,#fafafa 0,#c6cace 28%,#24282c 59%,#070809 85%);clip-path:polygon(51% 0,68% 21%,93% 36%,76% 55%,89% 81%,56% 100%,34% 78%,7% 66%,22% 40%,13% 20%);filter:drop-shadow(18px 22px 16px rgba(0,0,0,.18));animation:artJitter 5.5s ease-in-out infinite}
+.art-degen .shapeB{width:120px;height:30px;left:50%;top:57%;transform:translate(-50%,-50%) rotate(-16deg);background:#f3f4f4;filter:blur(10px);opacity:.6}
+
+/* 10 Smart Momentum · double helix */
+.art-smartmom .shapeA,.art-smartmom .shapeB{width:112px;height:46px;left:50%;border:10px solid #2b2f33;border-left-color:transparent;border-right-color:transparent;border-radius:50%;animation:artHelix 8s ease-in-out infinite}
+.art-smartmom .shapeA{top:35%;transform:translate(-50%,-50%) rotate(14deg)}.art-smartmom .shapeB{top:65%;transform:translate(-50%,-50%) rotate(-14deg);animation-delay:-4s}
+.art-smartmom .shapeC{width:1px;height:126px;background:linear-gradient(transparent,#aeb3b7,transparent);left:50%;top:16px}
+
+/* 11 Culture Hybrid · stacked totem */
+.art-culture .shapeA{width:82px;height:82px;left:50%;top:34%;transform:translate(-50%,-50%) rotate(45deg);background:linear-gradient(135deg,#f7f8f8,#7d848a);border-radius:15px}
+.art-culture .shapeB{width:108px;height:46px;left:50%;top:67%;transform:translate(-50%,-50%) rotate(-8deg);background:#1c2024;border-radius:52% 48% 39% 61%}
+.art-culture .shapeC{width:42px;height:42px;left:38%;top:53%;border:1px solid #f8f8f8;border-radius:50%;box-shadow:46px 10px 0 -7px #bdc1c4}
+
+/* 12 Contrarian · mirror split */
+.art-contrarian .shapeA,.art-contrarian .shapeB{width:60px;height:112px;top:50%;background:linear-gradient(90deg,#f8f8f8,#4a5055);clip-path:polygon(0 0,100% 13%,78% 100%,5% 83%)}
+.art-contrarian .shapeA{left:38%;transform:translate(-50%,-50%) rotate(-8deg)}
+.art-contrarian .shapeB{right:38%;transform:translate(50%,-50%) scaleX(-1) rotate(-8deg);filter:brightness(.73)}
+.art-contrarian .shapeC{width:1px;height:142px;background:#17191c;left:50%;top:10px}
+
+/* 13 Patient Sniper · aperture / target */
+.art-sniper .shapeA{width:120px;height:120px;border:1px solid #5f666c;border-radius:50%;left:50%;top:51%;transform:translate(-50%,-50%);box-shadow:inset 0 0 0 23px #eef0f0,inset 0 0 0 24px #858b90}
+.art-sniper .shapeB{width:48px;height:48px;border-radius:50%;background:#121518;left:50%;top:51%;transform:translate(-50%,-50%);box-shadow:0 0 0 9px #b8bdc1}
+.art-sniper .shapeC{width:154px;height:1px;background:#151719;left:50%;top:51%;transform:translate(-50%,-50%);box-shadow:0 -58px 0 #b6bbc0,0 58px 0 #b6bbc0}
+
+/* 14 Champion · crown monolith */
+.art-champion .shapeA{width:118px;height:125px;left:50%;top:55%;transform:translate(-50%,-50%);background:linear-gradient(160deg,#fbfbfb,#8c9297 48%,#15181b);clip-path:polygon(0 26%,19% 44%,34% 9%,51% 43%,69% 0,82% 42%,100% 20%,90% 100%,10% 100%);filter:drop-shadow(14px 18px 13px rgba(0,0,0,.16))}
+.art-champion .shapeB{width:84px;height:1px;background:#fff;left:50%;top:68%;transform:translateX(-50%)}
+
+/* 15 Professional · shield slab */
+.art-professional .shapeA{width:108px;height:128px;left:50%;top:53%;transform:translate(-50%,-50%);background:linear-gradient(135deg,#fafafa,#b2b7bb 47%,#34383c);clip-path:polygon(50% 0,94% 18%,86% 70%,50% 100%,14% 70%,6% 18%);box-shadow:inset 8px 8px 18px rgba(255,255,255,.8)}
+.art-professional .shapeB{width:1px;height:105px;background:#f9f9f9;left:50%;top:31px;opacity:.8}
+
+/* 16 Adaptive Master · morphing frame */
+.art-adaptive .shapeA{width:126px;height:104px;left:50%;top:52%;transform:translate(-50%,-50%);border:11px solid #8e9499;border-radius:22% 78% 31% 69%/68% 28% 72% 32%;animation:artMorph 9s ease-in-out infinite alternate,artRotateSoft 22s ease-in-out infinite}
+.art-adaptive .shapeB{width:52px;height:52px;left:50%;top:52%;transform:translate(-50%,-50%);background:#1b1e22;border-radius:50%;filter:blur(1px)}
+
+/* 17 Unipcs · faceted conviction crystal */
+.art-unipcs .shapeA{width:118px;height:124px;left:50%;top:52%;transform:translate(-50%,-50%) rotate(-7deg);clip-path:polygon(50% 0,88% 20%,100% 60%,70% 100%,25% 91%,0 43%,18% 12%);background:linear-gradient(145deg,#f9f9f9 0,#d0d3d5 30%,#8a9095 52%,#25292d 74%,#eceeef 100%);filter:drop-shadow(14px 17px 14px rgba(0,0,0,.15));animation:artRotateSoft 17s ease-in-out infinite}
+.art-unipcs .shapeB{width:1px;height:160px;background:#1b1e21;left:31%;top:0}
+
+/* 18 Frank · consistency apparition */
+.art-frank .shapeA{width:136px;height:168px;left:50%;top:58%;transform:translate(-50%,-50%);border-radius:46% 54% 44% 56%;background:linear-gradient(180deg,#111418,#5d6368 42%,#171a1e 88%);filter:blur(10px);opacity:.93;animation:artBreath 8.5s ease-in-out infinite}
+.art-frank .shapeB{width:194px;height:45px;left:50%;top:50%;transform:translate(-50%,-50%);background:linear-gradient(90deg,#f4f5f5,#16191d,#f4f5f5);filter:blur(11px);opacity:.82}
+
+/* 19 Orangie · diversified droplets */
+.art-orangie .shapeA{width:18px;height:92px;background:#171a1d;border-radius:55%;left:37%;top:54%;transform:translate(-50%,-50%) rotate(4deg);filter:blur(1px);animation:artDropA 11s ease-in-out infinite}
+.art-orangie .shapeB{width:13px;height:116px;background:#050607;border-radius:50%;left:56%;top:34%;transform:translate(-50%,-50%) rotate(2deg);filter:blur(1px);animation:artDropB 13s ease-in-out infinite}
+.art-orangie .shapeC{width:20px;height:83px;background:#272b2f;border-radius:50%;left:70%;top:59%;transform:translate(-50%,-50%) rotate(-3deg);filter:blur(1px);animation:artDropA 9s ease-in-out infinite reverse}
+
+/* 20 Rasmr · velocity ridge */
+.art-rasmr .shapeA{width:178px;height:93px;left:50%;bottom:4px;transform:translateX(-50%);clip-path:polygon(0 100%,0 72%,20% 53%,31% 68%,51% 15%,63% 48%,76% 34%,100% 80%,100% 100%);background:linear-gradient(180deg,#c8cccf,#202428);animation:artDriftX 5.5s ease-in-out infinite}
+.art-rasmr .shapeB{width:150px;height:2px;background:linear-gradient(90deg,transparent,#fff,transparent);left:49%;top:44%;transform:translateX(-50%) rotate(-14deg);opacity:.65;animation:artPulse 3s ease-in-out infinite}
+
+/* 21 Smart Wallet Consensus · node convergence */
+.art-consensus .shapeA{width:44px;height:44px;border-radius:50%;background:radial-gradient(circle at 30% 25%,#fff,#858b90 56%,#15181b);left:50%;top:50%;transform:translate(-50%,-50%);box-shadow:-55px -30px 0 -9px #4d5358,54px -28px 0 -7px #a8adb1,-45px 39px 0 -12px #16191c,48px 42px 0 -10px #73797e}
+.art-consensus .shapeB{width:135px;height:1px;background:#a1a7ac;left:50%;top:50%;transform:translate(-50%,-50%) rotate(28deg);box-shadow:0 34px 0 #c1c5c8,0 -31px 0 #858b90}
+.art-consensus .shapeC{width:94px;height:1px;background:#7d8489;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-39deg);animation:artPulse 5s ease-in-out infinite}
+
+/* 22 Confirmed Runner · ascending track */
+.art-runner .shapeA{width:18px;height:136px;left:46%;top:54%;transform:translate(-50%,-50%) rotate(29deg);background:linear-gradient(#202327,#dfe1e2);border-radius:20px}
+.art-runner .shapeB{width:18px;height:136px;left:60%;top:50%;transform:translate(-50%,-50%) rotate(29deg);background:linear-gradient(#b3b8bc,#15181b);border-radius:20px}
+.art-runner .shapeC{width:19px;height:19px;border-radius:50%;background:#0b0d0f;left:71%;top:16%;box-shadow:-23px 37px 0 -5px #9fa5aa;animation:artRun 4s ease-in-out infinite}
+
+/* 23 Asymmetric Swing · unequal balance */
+.art-asym .shapeA{width:140px;height:2px;background:#171a1d;left:50%;top:48%;transform:translate(-50%,-50%) rotate(-8deg)}
+.art-asym .shapeB{width:74px;height:74px;border-radius:50%;background:radial-gradient(circle at 32% 27%,#fff,#969ca1 52%,#171a1d);left:30%;top:62%;box-shadow:98px -35px 0 -23px #5d6368}
+.art-asym .shapeC{width:2px;height:105px;background:#8b9196;left:50%;top:35px}
+
+/* 24 Megga Direct Copy · game token / stacked disk */
+.art-megga .shapeA{width:124px;height:124px;border-radius:50%;left:50%;top:51%;transform:translate(-50%,-50%);background:conic-gradient(from 35deg,#f9f9f9,#6e7479,#171a1d,#c6cace,#f9f9f9);box-shadow:inset 0 0 0 15px #eceeee,inset 0 0 0 17px #5e6469}
+.art-megga .shapeB{width:68px;height:68px;border-radius:50%;left:50%;top:51%;transform:translate(-50%,-50%);background:#f5f6f6;box-shadow:inset 9px 9px 17px #fff,inset -8px -8px 16px #aeb3b7}
+.art-megga .shapeC{width:12px;height:12px;border-radius:50%;background:#111418;left:50%;top:51%;transform:translate(-50%,-50%);animation:artPulse 2.8s ease-in-out infinite}
+
+/* 25 Megga Scout · satellite probe */
+.art-scout .shapeA{width:69px;height:69px;border-radius:50%;left:52%;top:47%;transform:translate(-50%,-50%);background:radial-gradient(circle at 31% 25%,#fff,#a9aeb2 55%,#23272b);box-shadow:0 0 0 1px #797f84}
+.art-scout .shapeB{width:150px;height:50px;border:1px solid #858b90;border-left-color:transparent;border-right-color:transparent;border-radius:50%;left:52%;top:47%;transform:translate(-50%,-50%) rotate(-17deg);animation:artRotate 16s linear infinite}
+.art-scout .shapeC{width:10px;height:10px;border-radius:50%;background:#15181b;left:78%;top:23%;box-shadow:-117px 73px 0 -2px #9da3a8;animation:artScout 7s ease-in-out infinite}
+
+/* deterministic future-agent fallback remains unique through CSS variables */
+.agentVisual.art-future .shapeA{width:var(--aw,105px);height:var(--ah,105px);left:var(--ax,50%);top:var(--ay,52%);transform:translate(-50%,-50%) rotate(var(--rot,0deg));border-radius:var(--r1,45%) var(--r2,55%) var(--r3,60%) var(--r4,40%);background:linear-gradient(var(--grad,145deg),#fafafa,#a8adb1 48%,#1a1d20);clip-path:polygon(var(--poly,50% 0,93% 28%,82% 84%,50% 100%,10% 75%,4% 28%));animation:artMorph var(--dur,13s) ease-in-out infinite alternate}
+.agentVisual.art-future .shapeB{width:var(--bw,130px);height:1px;background:#747b81;left:50%;top:50%;transform:translate(-50%,-50%) rotate(var(--brot,22deg));opacity:.7}
+.agentVisual.art-future .shapeC{width:var(--dot,11px);height:var(--dot,11px);border-radius:50%;background:#14171a;left:var(--cx,70%);top:var(--cy,28%);animation:artPulse 4s ease-in-out infinite}
+
+@keyframes artMorph{0%{border-radius:44% 56% 61% 39%/42% 36% 64% 58%}100%{border-radius:53% 47% 42% 58%/35% 58% 42% 65%}}
+@keyframes artFloat{0%,100%{transform:translate(-50%,-50%) translate(0,0) rotate(0)}50%{transform:translate(-50%,-50%) translate(3px,-5px) rotate(4deg)}}
+@keyframes artRotate{to{transform:translate(-50%,-50%) rotate(360deg)}}
+@keyframes artRotateSoft{0%,100%{transform:translate(-50%,-50%) rotate(-7deg)}50%{transform:translate(-50%,-53%) rotate(5deg)}}
+@keyframes artPulse{0%,100%{opacity:.42}50%{opacity:1}}
+@keyframes artDriftX{0%,100%{translate:-3px 0}50%{translate:4px -2px}}
+@keyframes artRise{0%,100%{transform:translate(-50%,-45%) scale(.92)}50%{transform:translate(-50%,-62%) scale(1.05)}}
+@keyframes artSwing{0%,100%{transform:rotate(-11deg)}50%{transform:rotate(11deg)}}
+@keyframes artJitter{0%,100%{transform:translate(-50%,-50%) rotate(7deg)}40%{transform:translate(-52%,-51%) rotate(12deg)}70%{transform:translate(-48%,-48%) rotate(4deg)}}
+@keyframes artHelix{0%,100%{scale:1 1;filter:blur(0)}50%{scale:.86 1.08;filter:blur(.4px)}}
+@keyframes artBreath{0%,100%{filter:blur(10px);opacity:.88;scale:.96}50%{filter:blur(13px);opacity:1;scale:1.04}}
+@keyframes artDropA{0%,100%{translate:0 -3px;scale:1 .97}50%{translate:3px 5px;scale:.93 1.06}}
+@keyframes artDropB{0%,100%{translate:0 4px;scale:.96 1.04}50%{translate:-2px -5px;scale:1.05 .94}}
+@keyframes artRun{0%,100%{translate:0 8px;opacity:.55}50%{translate:8px -7px;opacity:1}}
+@keyframes artScout{0%,100%{translate:-2px 3px}50%{translate:8px -7px}}
+
 .strategy .topline{padding:0 4px}
 .strategy .topline b{font-size:15px;letter-spacing:-.03em}
 .strategy .money{font-size:30px;color:#0d1013!important;padding:0 4px;margin:12px 0 6px}
@@ -2102,9 +2270,38 @@ hr{border-color:#e0e3e5!important}
 </div><div class="drawer" id="drawer"><button class="close" onclick="closeDrawer()">Close</button><div id="drawerBody"></div></div><script>
 const $=x=>document.getElementById(x);const money=n=>'$'+Number(n||0).toLocaleString(undefined,{maximumFractionDigits:0});const one=n=>Number(n||0).toFixed(1);let S=null;
 function age(ms){const m=Math.max(0,Date.now()-ms)/60000;if(m<60)return m.toFixed(0)+'m';return(m/60).toFixed(1)+'h'}function esc(x){return String(x??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
+
+const TRADER_ART_PROFILES={
+  banker:'art-banker',quant:'art-quant',smart:'art-smart',social:'art-social',momentum:'art-momentum',
+  graduation:'art-graduation',dip:'art-dip',swing:'art-swing',degen:'art-degen',smartmom:'art-smartmom',
+  culture:'art-culture',contrarian:'art-contrarian',sniper:'art-sniper',champion:'art-champion',
+  professional:'art-professional',adaptive:'art-adaptive',copy_unipcs:'art-unipcs',copy_frank:'art-frank',
+  copy_orangie:'art-orangie',copy_rasmr:'art-rasmr',wallet_consensus:'art-consensus',
+  confirmed_runner:'art-runner',asym_swing:'art-asym',copy_megga:'art-megga',megga_scout:'art-scout'
+};
+function traderArt(id){
+  const fixed=TRADER_ART_PROFILES[id];if(fixed)return{cls:fixed,style:''};
+  let h=2166136261>>>0;for(const ch of String(id||'')){h^=ch.charCodeAt(0);h=Math.imul(h,16777619)>>>0;}
+  const n=(shift,min,max)=>min+((h>>>shift)%1000)/999*(max-min);
+  const style=[
+    '--aw:'+n(0,76,138).toFixed(0)+'px','--ah:'+n(3,72,139).toFixed(0)+'px',
+    '--ax:'+n(6,39,61).toFixed(1)+'%','--ay:'+n(9,42,60).toFixed(1)+'%',
+    '--rot:'+n(12,-23,23).toFixed(1)+'deg','--brot:'+n(15,-70,70).toFixed(1)+'deg',
+    '--grad:'+n(18,105,230).toFixed(0)+'deg','--dur:'+n(21,8,19).toFixed(1)+'s',
+    '--bw:'+n(5,88,168).toFixed(0)+'px','--dot:'+n(11,7,17).toFixed(0)+'px',
+    '--cx:'+n(16,22,80).toFixed(1)+'%','--cy:'+n(20,18,74).toFixed(1)+'%',
+    '--r1:'+n(2,28,68).toFixed(0)+'%','--r2:'+n(7,32,72).toFixed(0)+'%',
+    '--r3:'+n(13,30,70).toFixed(0)+'%','--r4:'+n(19,27,73).toFixed(0)+'%'
+  ].join(';');
+  return{cls:'art-future',style};
+}
+function traderArtMarkup(x,i){
+  const a=traderArt(x.id),idx=String(i+1).padStart(2,'0');
+  return '<div class="agentVisual '+a.cls+'" data-art="'+esc(x.id)+'" style="'+a.style+'"><i class="shapeA"></i><i class="shapeB"></i><i class="shapeC"></i><span class="agentIndex">'+idx+' / AGENT</span><span class="agentLive"></span></div>';
+}
 function render(s){S=s;$('version').textContent=s.version;$('capital').textContent=money(s.summary.capital);$('capitalDelta').textContent=(s.summary.capital>=s.summary.start?'+':'')+money(s.summary.capital-s.summary.start)+' vs start';$('tradeCount').textContent=s.summary.trades;$('decisionCount').textContent=s.summary.decisions+' immutable decisions recorded';$('open').textContent=s.summary.open;$('tokenCount').textContent=s.summary.tokens;$('uptime').textContent='engine up '+age(s.startedAt);const c=s.strategies.find(x=>x.id==='champion');$('champ').textContent=money(c.equity)+' → $100,000 ('+(c.equity/100000*100).toFixed(2)+'%)';$('champMeta').textContent='P&L '+(c.equity>=1000?'+':'')+money(c.equity-1000)+' · max DD '+one(c.dd)+'% · '+c.n+' exits';$('champBar').style.width=Math.min(100,c.equity/100000*100)+'%';$('weather').textContent=s.weather.regime+' · '+one(s.weather.temperature)+'/100';$('weatherMeta').textContent='buy pressure '+one(s.weather.buyPressure)+'% · launch velocity '+one(s.weather.launchVelocity)+'/min · collapse rate '+one(s.weather.collapseRate)+'%';
 $('health').innerHTML=s.providers.map(x=>'<span>'+esc(x.component)+': <b class="'+(x.status==='ok'?'green':x.status==='warn'?'amber':'')+'">'+esc(x.status)+'</b><small class="muted"> · '+esc(x.detail)+'</small></span>').join('');
-$('strats').innerHTML=s.strategies.filter(x=>x.risk!=='CONTROL'&&!x.specialist).sort((a,b)=>b.equity-a.equity).map((x,i)=>'<div class="card strategy" data-bot="'+esc(x.id)+'" onclick="openBotProfile(this.dataset.bot)"><div class="agentVisual v'+(i%5)+'"><span class="agentIndex">0'+(i+1)+' / AGENT</span><span class="agentLive"></span></div><div class="topline"><b>'+x.icon+' '+esc(x.name)+'</b><span class="pill">'+esc(x.risk)+'</span></div><div class="money '+(x.equity>=1000?'green':'red')+'">'+money(x.equity)+'</div><div class="mini">'+x.n+' exits · '+one(x.winRate)+'% wins · '+one(x.dd)+'% max DD · '+x.open+' open</div><div class="mini">entry gate '+one(x.effectiveMin)+(x.coldStart&&x.thresholdRelief?' <span class="amber">(cold-start −'+one(x.thresholdRelief)+')</span>':'')+' · '+x.entryRejects+' rejects</div><div class="truth" style="margin-top:8px">'+esc(x.playbook||x.thesis)+'</div><div class="mini" style="margin-top:6px">'+esc(x.era||'current era')+' exits '+(x.eraN||0)+' · '+one(x.eraWinRate||0)+'% wins · era P&L '+((x.eraPnl||0)>=0?'+':'')+money(x.eraPnl||0)+' · avg '+one(x.eraAvgPnl||0)+'%</div><div class="mini" style="margin-top:10px;color:#555d65"><b>Click for full bot profile →</b></div></div>').join('');
+$('strats').innerHTML=s.strategies.filter(x=>x.risk!=='CONTROL'&&!x.specialist).sort((a,b)=>b.equity-a.equity).map((x,i)=>'<div class="card strategy" data-bot="'+esc(x.id)+'" onclick="openBotProfile(this.dataset.bot)">'+traderArtMarkup(x,i)+'<div class="topline"><b>'+x.icon+' '+esc(x.name)+'</b><span class="pill">'+esc(x.risk)+'</span></div><div class="money '+(x.equity>=1000?'green':'red')+'">'+money(x.equity)+'</div><div class="mini">'+x.n+' exits · '+one(x.winRate)+'% wins · '+one(x.dd)+'% max DD · '+x.open+' open</div><div class="mini">entry gate '+one(x.effectiveMin)+(x.coldStart&&x.thresholdRelief?' <span class="amber">(cold-start −'+one(x.thresholdRelief)+')</span>':'')+' · '+x.entryRejects+' rejects</div><div class="truth" style="margin-top:8px">'+esc(x.playbook||x.thesis)+'</div><div class="mini" style="margin-top:6px">'+esc(x.era||'current era')+' exits '+(x.eraN||0)+' · '+one(x.eraWinRate||0)+'% wins · era P&L '+((x.eraPnl||0)>=0?'+':'')+money(x.eraPnl||0)+' · avg '+one(x.eraAvgPnl||0)+'%</div></div>').join('');
 $('feed').innerHTML=s.activity.slice(0,90).map(x=>'<div class="feedrow"><span class="muted">'+new Date(x.ts).toLocaleTimeString()+'</span><span>'+esc(x.text)+'</span></div>').join('');
 $('narrMini').innerHTML=s.narratives.slice(0,8).map(n=>'<div class="smallcard" style="margin:7px 0"><b>'+esc(n.name)+'</b><span style="float:right">'+one(n.heat)+'</span><div class="meter" style="margin:6px 0"><i style="width:'+n.heat+'%"></i></div><div class="mini">'+n.count+' tokens · '+one(n.buyPressure)+'% buys · '+n.recent+' fresh</div></div>').join('');
 $('tokenRows').innerHTML=s.tokens.map(t=>'<tr class="token" data-mint="'+esc(t.mint)+'" onclick="openToken(this.dataset.mint)"><td><b>$'+esc(t.symbol)+'</b><br><span class="muted">'+esc(t.name)+'</span></td><td>'+money(t.mc)+'</td><td>'+money(t.liq)+'</td><td>'+one(t.features.score)+'</td><td class="'+(t.detective.score>65?'red':t.detective.score>45?'amber':'green')+'">'+one(t.detective.score)+'</td><td>'+one(t.quality.score)+'</td><td>'+t.consensus.yes+'/'+t.consensus.total+'</td><td class="muted">'+esc((t.sources||[]).join(' + '))+'</td></tr>').join('');
