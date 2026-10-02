@@ -1,0 +1,23 @@
+name: Collect Production Monster Export
+on:
+  push:
+    branches:
+      - pump-lab-monster-export-temp
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch production monster export
+        run: |
+          ok=0
+          for i in $(seq 1 50); do
+            code=$(curl -sS -o monster-export.json -w "%{http_code}" https://pump-lab-live.onrender.com/api/monster-export || true)
+            if [ "$code" = "200" ]; then ok=1; break; fi
+            echo "export not ready yet: HTTP $code"
+            sleep 10
+          done
+          test "$ok" = "1"
+      - name: Analyze complete export
+        run: python3 scripts/analyze-monster-export.py monster-export.json
