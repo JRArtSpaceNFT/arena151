@@ -408,7 +408,7 @@ function narrativeFor(t) {
   return 'Memes';
 }
 
-function canonicalSource(source='live'){return source.startsWith('dexscreener')?'dexscreener':source.startsWith('pump.fun')?'pump.fun':source;}
+function canonicalSource(source='live'){return source.startsWith('dexscreener')?'dexscreener':source.startsWith('pump.fun')?'pump.fun':source.startsWith('solana')?'solana-rpc':source;}
 function normalize(raw,source='live') {
   const mint = raw.mint || raw.tokenAddress || raw.address || raw.baseToken?.address;
   if(!mint) return null;
@@ -444,7 +444,7 @@ function normalize(raw,source='live') {
   const quoteSymbol=(raw.quoteToken?.symbol||raw.quoteSymbol||'').toString().toUpperCase();
   const dexId=(raw.dexId||raw.dex||'').toString().toLowerCase(),pairAddress=raw.pairAddress||raw.pair||'';
   return {mint,symbol,name,source,price,mc,liq,vol,buys,sells,createdAt,firstSeenAt:ts,updatedAt:ts,narrative:narrativeFor({name,symbol}),graduated:!!raw.complete,
-    twitter,telegram,website,image:raw.image_uri||raw.image||raw.info?.imageUrl||'',creator,boosts,quoteSymbol,dexId,pairAddress,history:[],sources:[src],sourceSeen:{[src]:ts},
+    twitter,telegram,website,image:raw.image_uri||raw.image||raw.info?.imageUrl||'',metadataUri:raw.uri||raw.metadataUri||'',onchainProvisional:!!raw.onchainProvisional,creator,boosts,quoteSymbol,dexId,pairAddress,history:[],sources:[src],sourceSeen:{[src]:ts},
     flowObserved,flowUpdatedAt:flowObserved?ts:0,flowSource:flowObserved?src:'',volumeObserved,volumeUpdatedAt:volumeObserved?ts:0,volumeSource:volumeObserved?src:'',
     liquidityObserved:liqObserved,liquidityUpdatedAt:liqObserved?ts:0,liquiditySource:liqObserved?src:'',liquidityKind,curveDepthUsd,inferredSolUsd,
     firstPrice:price,firstMc:mc,peakPrice:price,peakMc:mc,troughPrice:price||0,troughMc:mc||0};
@@ -466,7 +466,7 @@ function mergeToken(old,t) {
     peakPrice:Math.max(old.peakPrice||0,t.price||0),peakMc:Math.max(old.peakMc||0,t.mc||0),
     troughPrice:Math.min(old.troughPrice||t.price||0,t.price||old.troughPrice||0),troughMc:Math.min(old.troughMc||t.mc||0,t.mc||old.troughMc||0),
     sourceSeen:seen,sources:Object.keys(seen),
-    twitter:t.twitter||old.twitter,telegram:t.telegram||old.telegram,website:t.website||old.website,image:t.image||old.image,creator:t.creator||old.creator,
+    twitter:t.twitter||old.twitter,telegram:t.telegram||old.telegram,website:t.website||old.website,image:t.image||old.image,metadataUri:t.metadataUri||old.metadataUri||'',onchainProvisional:!!t.onchainProvisional,creator:t.creator||old.creator,
     buys:freshFlow?t.buys:old.buys,sells:freshFlow?t.sells:old.sells,flowObserved:freshFlow||old.flowObserved,
     flowUpdatedAt:freshFlow?t.flowUpdatedAt:old.flowUpdatedAt,flowSource:freshFlow?t.flowSource:old.flowSource,
     vol:freshVol?t.vol:old.vol,volumeObserved:freshVol||old.volumeObserved,volumeUpdatedAt:freshVol?t.volumeUpdatedAt:old.volumeUpdatedAt,volumeSource:freshVol?t.volumeSource:old.volumeSource,
