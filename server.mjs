@@ -1531,8 +1531,8 @@ async function fetchHistoricalJson(url,timeoutMs=8000){
 }
 async function refreshHistoricalMonsterSeed(){
   if(!HISTORICAL_RESEARCH_URL)return false;historicalMonsterSeed.lastAttempt=now();
-  const base=HISTORICAL_RESEARCH_URL.replace(/\/api\/research(?:\?.*)?$/,'');
-  const candidates=[HISTORICAL_RESEARCH_URL,base+'/api/state'];
+  const base=HISTORICAL_RESEARCH_URL.replace(/\/api\/[^/?]+(?:\?.*)?$/,'');
+  const candidates=[HISTORICAL_RESEARCH_URL,base+'/api/archive-monster-export',base+'/api/research',base+'/api/state'].filter((x,i,a)=>a.indexOf(x)===i);
   let lastErr='',used='';
   for(const url of candidates){
     try{
