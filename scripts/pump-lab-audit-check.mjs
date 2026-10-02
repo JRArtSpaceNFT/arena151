@@ -39,6 +39,20 @@ if(!src.includes("hold.n>=10"))failures.push('Hypothesis holdout retirement gate
 if(!src.includes("d.hypothesis&&d.hypothesisRetiredAt"))failures.push('Retired hypotheses can still open new positions');
 if(!src.includes("hypothesisArena:hypothesisArenaSnapshot()"))failures.push('Hypothesis Arena missing from live state');
 
+
+// Meme/chart theory regression guards.
+for(const id of ['meme_smooth_curve','meme_retest','meme_compression','meme_postgrad','meme_survival']){
+  if(!src.includes("'"+id+"'"))failures.push('Meme/chart theory bot missing '+id);
+}
+if(!src.includes('function chartTheory(t)'))failures.push('Chart theory engine missing');
+if(!src.includes('function memeTheory(t,f,chart)'))failures.push('Meme theory engine missing');
+if(!src.includes("structure='BREAKOUT_RETEST'"))failures.push('Breakout/retest classifier missing');
+if(!src.includes("structure='COMPRESSION'"))failures.push('Compression classifier missing');
+if(!src.includes('manipulationSuspicion'))failures.push('Manipulation suspicion proxy missing');
+if(!src.includes("meme chart thesis broke"))failures.push('Chart-aware meme exit missing');
+if(!src.includes('function memeChartLabSnapshot()'))failures.push('Meme/chart expectancy lab missing');
+if(!src.includes('memeChartLab:memeChartLabSnapshot()'))failures.push('Meme/chart lab missing from deep research state');
+
 if (failures.length) {
   console.error('PUMP LAB AUDIT STATIC CHECK FAILED');
   for (const [name] of failures) console.error(' - ' + name);
