@@ -73,7 +73,12 @@ const checks = [
   ['on-chain initialized mint extraction', 'initializedMintsFromTx'],
   ['direct launch mint hydration', 'hydrateLaunchMint'],
   ['bounded create confirmation retry', 'solanaCreateAttempts'],
-  ['200ms launch resolver cadence', 'setInterval(drainSolanaQueue,200)']
+  ['200ms launch resolver cadence', 'setInterval(drainSolanaQueue,200)'],
+  ['deferred rejection batch', 'flushDeferredRejects'],
+  ['pending rejection dedupe', 'pendingRejectKeys'],
+  ['first audited buy latency', 'firstBuyP95Ms'],
+  ['first buy timing hook', 'firstBuyMs=performance.now()-auditStarted'],
+  ['on-chain launch metrics', 'onchainLaunch']
 ];
 
 const failures = checks.filter(([, needle]) => !src.includes(needle)).map(([name])=>name);
