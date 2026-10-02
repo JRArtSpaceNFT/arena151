@@ -1310,7 +1310,8 @@ const TRADE_EVENT_DISC=Buffer.from([189,219,127,211,78,230,97,238]);
 const B58='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 function b58encode(bytes){
   const src=Buffer.from(bytes);if(!src.length)return'';let zeros=0;while(zeros<src.length&&src[zeros]===0)zeros++;
-  const digits=[0];for(const byte of src){let carry=byte;for(let j=0;j<digits.length;j++){carry+=digits[j]<<8;digits[j]=carry%58;carry=Math.floor(carry/58);}while(carry){digits.push(carry%58);carry=Math.floor(carry/58);}}
+  if(zeros===src.length)return'1'.repeat(zeros);
+  const digits=[0];for(const byte of src.subarray(zeros)){let carry=byte;for(let j=0;j<digits.length;j++){carry+=digits[j]<<8;digits[j]=carry%58;carry=Math.floor(carry/58);}while(carry){digits.push(carry%58);carry=Math.floor(carry/58);}}
   return'1'.repeat(zeros)+digits.reverse().map(x=>B58[x]).join('');
 }
 function eventReader(buf){
