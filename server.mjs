@@ -136,6 +136,7 @@ let saveQueued = false;
 let kv = null;
 let kvConnecting = false;
 let kvReady = false;
+let kvReconnectTimer = null;
 let kvStateRestored = false;
 let lastKvSaveAt = 0;
 let lastKvRestoreAt = 0;
@@ -1972,15 +1973,19 @@ function restoreIfNewer(s,source,sourceTs=0){
   console.log('STATE_RESTORE '+JSON.stringify({source,savedAt:ts,current:stateVersionTs}));
   return true;
 }
+function scheduleKvReconnect(delay=5000){
+  if(!REDIS_URL||kvReconnectTimer)return;
+  kvReconnectTimer=setTimeout(()=>{kvReconnectTimer=null;initKv(false);},delay);kvReconnectTimer.unref?.();
+}
 async function initKv(restoreState=true){
   if(!REDIS_URL)return false;
   if(kvReady||kvConnecting)return kvReady;
-  kvConnecting=true;
+  kvConnecting=true;let client=null;
   try{
     const {createClient}=await import('redis');
-    const client=createClient({url:REDIS_URL,socket:{connectTimeout:7000,reconnectStrategy:r=>Math.min(5000,250*Math.max(1,r))}});
-    client.on('error',e=>{kvReady=false;setHealth('research-failover','warn','Key Value failover reconnecting: '+e.message,{truth:'observed'});});
-    client.on('ready',()=>{kvReady=true;setHealth('research-failover','ok','Free Key Value failover online',{truth:'observed'});});
+    client=createClient({url:REDIS_URL,socket:{connectTimeout:5000,reconnectStrategy:false}});
+    client.on('error',e=>{if(kv===client){kvReady=false;kv=null;}setHealth('research-failover','warn','Key Value failover interrupted: '+e.message,{truth:'observed'});scheduleKvReconnect(5000);});
+    client.on('end',()=>{if(kv===client){kvReady=false;kv=null;}scheduleKvReconnect(5000);});
     await client.connect();kv=client;kvReady=true;
     if(restoreState){
       const raw=await kv.get(KV_STATE_KEY);
@@ -1993,8 +1998,10 @@ async function initKv(restoreState=true){
     setHealth('research-failover','ok','Free Key Value failover online · Postgres remains canonical',{truth:'observed'});
     return true;
   }catch(e){
-    kvReady=false;setHealth('research-failover','warn','Key Value failover unavailable: '+e.message,{truth:'observed'});
-    console.warn('Key Value connection failed:',e.message);return false;
+    kvReady=false;if(kv===client)kv=null;
+    try{client?.destroy?.();}catch{}
+    setHealth('research-failover','warn','Key Value failover unavailable · retry scheduled: '+e.message,{truth:'observed'});
+    console.warn('Key Value connection failed:',e.message);scheduleKvReconnect(5000);return false;
   }finally{kvConnecting=false;}
 }
 async function initDb(restoreState=true){
@@ -3071,4 +3078,4 @@ setTimeout(stateSelfTest,5000).unref?.();const fastAuditFirst=setTimeout(logFast
 setInterval(()=>{alphaOS.observeWorld({weather:marketWeather(),tokens:[...tokens.values()].filter(t=>now()-t.updatedAt<900000),strategyEquity:Object.fromEntries(allTraders().map(d=>[d.id,d.equity]))});alphaOS.prune();},60000).unref?.();
 setInterval(()=>alphaOS.pollExternal(),30000).unref?.();
 setInterval(stalePositionSweep,60000).unref?.();setInterval(pruneRuntimeMemory,300000).unref?.();setInterval(drainSolanaQueue,200).unref?.();setInterval(pumpPoll,3000).unref?.();setInterval(dexPoll,20000).unref?.();setInterval(openPositionPoll,5000).unref?.();setInterval(takeTimeline,30000).unref?.();setInterval(takeReplay,30000).unref?.();setInterval(researchCycle,3600000).unref?.();setInterval(()=>save(),30000).unref?.();const diagTimer=setTimeout(()=>{logStrategyDiagnostics();logPerformanceSnapshot();logFullPostmortem();},20000);diagTimer.unref?.();const diagLoop=setInterval(()=>{logStrategyDiagnostics();logPerformanceSnapshot();logFullPostmortem();},300000);diagLoop.unref?.();takeTimeline();takeReplay();alphaOS.observeWorld({weather:marketWeather(),tokens:[...tokens.values()],strategyEquity:Object.fromEntries(allTraders().map(d=>[d.id,d.equity]))});alphaOS.pollExternal();openPositionPoll();
-process.on('SIGTERM',async()=>{await save();try{await kv?.quit();}catch{}server.close(()=>process.exit(0));});process.on('SIGINT',async()=>{await save();try{await kv?.quit();}catch{}server.close(()=>process.exit(0));});
+process.on('SIGTERM',async()=>{if(kvReconnectTimer)clearTimeout(kvReconnectTimer);await save();try{await kv?.quit();}catch{}server.close(()=>process.exit(0));});process.on('SIGINT',async()=>{if(kvReconnectTimer)clearTimeout(kvReconnectTimer);await save();try{await kv?.quit();}catch{}server.close(()=>process.exit(0));});
