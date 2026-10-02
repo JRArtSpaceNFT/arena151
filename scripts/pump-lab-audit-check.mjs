@@ -67,7 +67,13 @@ const checks = [
   ['fast lifecycle advisory', 'lifecycle.fastAdvisory'],
   ['deferred deep research', 'setImmediate(()=>{try{observeResearchLayers(t,fastCtx)'],
   ['allocator cache', 'allocatorCache'],
-  ['reused Alpha evaluation', 'proposeCapital({strategy:d,token:t,features:f,score,threshold:activeGuard.requiredScore||policy.min,quality,similar,regime},alpha)']
+  ['reused Alpha evaluation', 'proposeCapital({strategy:d,token:t,features:f,score,threshold:activeGuard.requiredScore||policy.min,quality,similar,regime},alpha)'],
+  ['create-only Pump log detector', "Instruction:\\s*Create"],
+  ['priority Pump create queue', 'solanaCreateQueue'],
+  ['on-chain initialized mint extraction', 'initializedMintsFromTx'],
+  ['direct launch mint hydration', 'hydrateLaunchMint'],
+  ['bounded create confirmation retry', 'solanaCreateAttempts'],
+  ['200ms launch resolver cadence', 'setInterval(drainSolanaQueue,200)']
 ];
 
 const failures = checks.filter(([, needle]) => !src.includes(needle)).map(([name])=>name);
