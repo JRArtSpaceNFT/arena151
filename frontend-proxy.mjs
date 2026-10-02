@@ -12,6 +12,7 @@ let xFeedCache = [];
 let xFeedLastFetch = 0;
 let xFeedSinceId = null;
 let xFeedInFlight = null;
+let xPublicFailures = new Map();
 const source = fs.readFileSync(new URL('./server.mjs', import.meta.url), 'utf8');
 const start = source.indexOf('const HTML=`');
 const end = source.indexOf('</html>`', start);
@@ -62,6 +63,64 @@ function xNormalizeResponse(j){
     };
   });
 }
+function xPublicNormalizeTweet(t,fallbackHandle=''){
+  if(!t)return null;
+  const u=t.user||{},id=String(t.id_str||t.id||'').trim(),username=u.screen_name||fallbackHandle;
+  if(!id)return null;
+  const media=(t.mediaDetails||t.photos||[]).map(m=>({
+    type:m.type||'photo',
+    url:m.media_url_https||m.url||m.preview_image_url||null,
+    width:m.original_info?.width||m.width||null,
+    height:m.original_info?.height||m.height||null
+  })).filter(m=>m.url);
+  return{
+    id,
+    text:t.full_text||t.text||'',
+    createdAt:t.created_at||null,
+    conversationId:t.conversation_id_str||null,
+    metrics:{like_count:Number(t.favorite_count||0),retweet_count:Number(t.retweet_count||0),reply_count:Number(t.reply_count||0),quote_count:Number(t.quote_count||0)},
+    author:{id:String(u.id_str||u.id||''),name:u.name||username,username,verified:!!(u.verified||u.is_blue_verified),profileImage:u.profile_image_url_https||u.profile_image_url||''},
+    media,
+    url:t.permalink?('https://x.com'+t.permalink.replace(/^https?:\/\/[^/]+/,'')):'https://x.com/'+username+'/status/'+id
+  };
+}
+async function fetchPublicTimeline(handle){
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),9000);
+  try{
+    const r=await fetch('https://syndication.twitter.com/srv/timeline-profile/screen-name/'+encodeURIComponent(handle),{
+      headers:{'user-agent':'Mozilla/5.0 (compatible; PumpLab/1.0)','accept':'text/html,application/xhtml+xml'},
+      signal:controller.signal
+    });
+    if(!r.ok)throw new Error('X public timeline '+r.status);
+    const html=await r.text(),marker='<script id="__NEXT_DATA__" type="application/json">';
+    const start=html.indexOf(marker);if(start<0)throw new Error('X public timeline payload missing');
+    const end=html.indexOf('</script>',start);if(end<0)throw new Error('X public timeline payload incomplete');
+    const data=JSON.parse(html.slice(start+marker.length,end)),entries=data?.props?.pageProps?.timeline?.entries||[];
+    return entries.map(e=>xPublicNormalizeTweet(e?.content?.tweet,handle)).filter(Boolean).slice(0,8);
+  }finally{clearTimeout(timer)}
+}
+async function refreshPublicXFeed(force=false){
+  const configured=X_FEED_HANDLES.length>0,now=Date.now();
+  if(!configured)return{ok:true,configured:false,source:'none',handles:[],posts:[],fetchedAt:xFeedLastFetch||null};
+  if(!force&&xFeedCache.length&&now-xFeedLastFetch<Math.max(X_REFRESH_MS,120000))return{ok:true,configured:true,source:'public-syndication',handles:X_FEED_HANDLES,posts:xFeedCache,fetchedAt:xFeedLastFetch,cached:true};
+  if(xFeedInFlight)return xFeedInFlight;
+  xFeedInFlight=(async()=>{
+    const fresh=[],errors=[];
+    for(let i=0;i<X_FEED_HANDLES.length;i++){
+      const h=X_FEED_HANDLES[i],blockedUntil=xPublicFailures.get(h)||0;
+      if(blockedUntil>Date.now())continue;
+      try{fresh.push(...await fetchPublicTimeline(h));xPublicFailures.delete(h)}
+      catch(e){errors.push('@'+h+': '+String(e?.message||e));xPublicFailures.set(h,Date.now()+180000)}
+      if(i<X_FEED_HANDLES.length-1)await new Promise(r=>setTimeout(r,750));
+    }
+    const merged=new Map(xFeedCache.map(p=>[p.id,p]));for(const p of fresh)merged.set(p.id,p);
+    xFeedCache=[...merged.values()].sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0)).slice(0,X_MAX_CACHE);
+    if(fresh.length)xFeedLastFetch=Date.now();
+    return{ok:xFeedCache.length>0,configured:true,source:'public-syndication',handles:X_FEED_HANDLES,posts:xFeedCache,fetchedAt:xFeedLastFetch||null,cached:false,newCount:fresh.length,errors};
+  })();
+  try{return await xFeedInFlight}finally{xFeedInFlight=null}
+}
+
 async function fetchXChunk(handles,sinceId){
   const q='('+handles.map(h=>'from:'+h).join(' OR ')+') -is:retweet';
   const u=new URL('https://api.x.com/2/tweets/search/recent');
@@ -78,23 +137,22 @@ async function fetchXChunk(handles,sinceId){
   return {posts:xNormalizeResponse(j),newestId:j.meta?.newest_id||null};
 }
 async function refreshXFeed(force=false){
-  const configured=!!X_BEARER_TOKEN&&X_FEED_HANDLES.length>0;
-  if(!configured)return{ok:true,configured:false,handles:X_FEED_HANDLES,posts:[],fetchedAt:xFeedLastFetch||null};
+  if(!X_BEARER_TOKEN)return refreshPublicXFeed(force);
+  const configured=X_FEED_HANDLES.length>0;
+  if(!configured)return{ok:true,configured:false,source:'none',handles:[],posts:[],fetchedAt:xFeedLastFetch||null};
   const now=Date.now();
-  if(!force&&xFeedCache.length&&now-xFeedLastFetch<X_REFRESH_MS)return{ok:true,configured:true,handles:X_FEED_HANDLES,posts:xFeedCache,fetchedAt:xFeedLastFetch,cached:true};
+  if(!force&&xFeedCache.length&&now-xFeedLastFetch<X_REFRESH_MS)return{ok:true,configured:true,source:'x-api',handles:X_FEED_HANDLES,posts:xFeedCache,fetchedAt:xFeedLastFetch,cached:true};
   if(xFeedInFlight)return xFeedInFlight;
   xFeedInFlight=(async()=>{
     const chunks=xHandleChunks(X_FEED_HANDLES),fresh=[];let newest=xFeedSinceId;
     for(const chunk of chunks){
-      const out=await fetchXChunk(chunk,xFeedSinceId);
-      fresh.push(...out.posts);
+      const out=await fetchXChunk(chunk,xFeedSinceId);fresh.push(...out.posts);
       if(out.newestId&&(!newest||BigInt(out.newestId)>BigInt(newest)))newest=out.newestId;
     }
-    const merged=new Map(xFeedCache.map(p=>[p.id,p]));
-    for(const p of fresh)merged.set(p.id,p);
+    const merged=new Map(xFeedCache.map(p=>[p.id,p]));for(const p of fresh)merged.set(p.id,p);
     xFeedCache=[...merged.values()].sort((a,b)=>String(b.id).localeCompare(String(a.id),undefined,{numeric:true})).slice(0,X_MAX_CACHE);
     xFeedLastFetch=Date.now();if(newest)xFeedSinceId=newest;
-    return{ok:true,configured:true,handles:X_FEED_HANDLES,posts:xFeedCache,fetchedAt:xFeedLastFetch,cached:false,newCount:fresh.length};
+    return{ok:true,configured:true,source:'x-api',handles:X_FEED_HANDLES,posts:xFeedCache,fetchedAt:xFeedLastFetch,cached:false,newCount:fresh.length};
   })();
   try{return await xFeedInFlight}finally{xFeedInFlight=null}
 }
@@ -126,7 +184,7 @@ const server = http.createServer(async (req,res) => {
   const u = new URL(req.url, 'http://pump-lab-ui.local');
   if (u.pathname === '/api/x-feed') {
     try{return xJson(res,200,await refreshXFeed(u.searchParams.get('refresh')==='1'))}
-    catch(err){return xJson(res,502,{ok:false,configured:true,handles:X_FEED_HANDLES,posts:xFeedCache,fetchedAt:xFeedLastFetch||null,error:String(err?.message||err)})}
+    catch(err){return xJson(res,502,{ok:xFeedCache.length>0,configured:X_FEED_HANDLES.length>0,source:X_BEARER_TOKEN?'x-api':'public-syndication',handles:X_FEED_HANDLES,posts:xFeedCache,fetchedAt:xFeedLastFetch||null,error:String(err?.message||err)})}
   }
   if (u.pathname === '/ui-health') {
     const body = JSON.stringify({ok:true,frontend:'future-lab',backend:BACKEND_ORIGIN,expectations:EXPECTATIONS});
