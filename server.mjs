@@ -102,6 +102,7 @@ let lastDurableSaveAt = 0;
 let lastDurableRestoreAt = 0;
 let saveInProgress = false;
 let saveQueued = false;
+let criticalSaveTimer = null;
 let kv = null;
 let kvConnecting = false;
 let kvReady = false;
@@ -1058,7 +1059,7 @@ function maybeTrade(t) {
     if(cost>d.cash)continue;
     d.cash-=cost;
     const p={id:'p'+now()+Math.random(),strategy:d.id,mint:t.mint,symbol:t.symbol,entry,units:budget/entry,originalUnits:budget/entry,invested:budget,entryCost:cost,entryExecution:entryExec,realizedProceeds:0,partialExits:[],scaleOutHits:[],sourceEntrySig:d.copyLab?(verifiedWalletSignal(t,d.copyWindowMin||15,d.copySource||null).events[0]?.signature||null):null,opened:now(),closed:false,lastPrice:t.price,lastMarkedAt:now(),markSource:'entry',score,entryFeatures:{...f,mc:t.mc,liq:t.liq},entryMc:t.mc,entryLiq:t.liq,entryQuality:quality.score,dnaHit25:similar.hit25,dnaSample:similar.n,allocationMult:allocatorMult,sizingMode:'alpha-os-ev-v1',samplePartition:partitionForMint(t.mint),sizing,alphaOS:alpha,budgetPct:d.equity>0?budget/d.equity:0,live100Equivalent:sizing.live100Equivalent,exitMode:exitModeFor(d),policyVersion:STRATEGY_ERA,guard:{requiredScore:activeGuard.requiredScore,minQuality:activeGuard.minQuality,minBuyRatio:activeGuard.minBuyRatio,recentAvg:activeGuard.health.avg,recentN:activeGuard.health.n,exploratory},reason:`${exploratory?'cold-start exploration · ':''}score ${score.toFixed(0)} · gate ${policy.min.toFixed(0)} · risk ${f.risk.toFixed(0)} · Q${quality.score.toFixed(0)} · stake ${(budget/Math.max(1,d.equity)*100).toFixed(1)}% · $100≈${sizing.live100Equivalent.toFixed(2)} · size×${sizing.mult.toFixed(2)} · EV ${alpha.expectedValue.toFixed(1)} · tox ${alpha.toxicity.score.toFixed(0)}`,entryRegime:regime,peakDuring:entry,troughDuring:entry};
-    p.season2Science=scienceGate;positions.push(p);science.recordEntry(p,t,{features:f,quality,market:marketWeather()});alphaOS.recordShadowEntry({position:p,token:t,alpha});recordDecision(d,t,f,score,'BUY',p.reason);
+    p.season2Science=scienceGate;positions.push(p);science.recordEntry(p,t,{features:f,quality,market:marketWeather()});alphaOS.recordShadowEntry({position:p,token:t,alpha});recordDecision(d,t,f,score,'BUY',p.reason);scheduleCriticalSave();
     if(d.risk!=='R&D')log('buy',`${d.icon} ${d.name} bought ${t.symbol} · ${budget.toFixed(0)} paper · ${p.reason}`,'good',{strategy:d.id,mint:t.mint});
   }
 }
@@ -1082,7 +1083,7 @@ function closePos(d,p,t,why){
   const modeledRoundTrip=(num(p.entryExecution?.slippage)+num(p.exitExecution?.slippage)+num(p.entryExecution?.feeRate)+num(p.exitExecution?.feeRate))*100;const stressPenalty=Math.max(2.5,modeledRoundTrip+Math.min(8,(p.invested/Math.max(1000,t.liq))*100));
   p.executionStress={easy:p.pnlPct+1.5,realistic:p.pnlPct,nightmare:p.pnlPct-stressPenalty,penalty:stressPenalty};
   d.n++;if(p.pnl>0)d.wins++;else d.losses++;p.season2ScienceResult=science.recordTrade(p,t,{market:marketWeather()});trades.unshift({...p,name:t.name,narrative:t.narrative});trades.splice(MAX_TRADES);const pi=positions.indexOf(p);if(pi>=0)positions.splice(pi,1);markEquity(d);
-  alphaOS.recordShadowClose(p);const aut=buildAutopsy(d,p,t);autopsies.unshift(aut);autopsies.splice(250);
+  alphaOS.recordShadowClose(p);const aut=buildAutopsy(d,p,t);autopsies.unshift(aut);autopsies.splice(250);scheduleCriticalSave();
   if(d.risk!=='R&D')log('sell',`${d.icon} ${d.name} sold $${t.symbol} ${p.pnlPct>=0?'+':''}${p.pnlPct.toFixed(1)}% · ${why}`,p.pnl>=0?'good':'bad',{strategy:d.id,mint:t.mint});
 }
 
@@ -1989,6 +1990,12 @@ async function save(){
   }
 }
 
+function scheduleCriticalSave(delay=750){
+  if(criticalSaveTimer)return;
+  criticalSaveTimer=setTimeout(()=>{criticalSaveTimer=null;save();},delay);
+  criticalSaveTimer.unref?.();
+}
+
 function strategyDiagnostics(){
   return strategyDefs.map(d=>{
     markEquity(d);
@@ -2158,7 +2165,7 @@ function snapshot(){
 let stateJsonCache={ts:0,json:''};
 function getStateJsonCached(){
   const ts=now();
-  if(stateJsonCache.json&&ts-stateJsonCache.ts<2500)return stateJsonCache.json;
+  if(stateJsonCache.json&&ts-stateJsonCache.ts<15000)return stateJsonCache.json;
   const started=Date.now(),json=JSON.stringify(snapshot());
   stateJsonCache={ts,json};
   const ms=Date.now()-started;lastStateBuildMs=ms;lastStateBytes=json.length;lastStateBuildAt=now();
@@ -2168,6 +2175,7 @@ function getStateJsonCached(){
 function stateSelfTest(){
   try{
     const started=Date.now(),json=JSON.stringify(snapshot()),ms=Date.now()-started;lastStateBuildMs=ms;lastStateBytes=json.length;lastStateBuildAt=now();
+    stateJsonCache={ts:now(),json};
     console.log('STATE_SELFTEST '+JSON.stringify({ok:true,bytes:json.length,ms,tokens:tokens.size,positions:positions.filter(p=>!p.closed).length,trades:trades.length}));
     setHealth('dashboard-api','ok','Dashboard state API healthy · '+Math.round(json.length/1024)+' KB',{truth:'observed'});
   }catch(e){
@@ -2804,7 +2812,7 @@ async function go(){
     if(h)h.innerHTML='<span class="bad">DASHBOARD DATA RETRYING · '+esc(e?.message||e)+' · attempt '+stateFailures+'</span>';
   }finally{clearTimeout(timer);stateLoading=false;}
 }
-go();setInterval(go,5000);const es=new EventSource('/api/events');es.addEventListener('tick',()=>go());let deepLoading=false,deepLoadedAt=0;
+go();setInterval(go,15000);const es=new EventSource('/api/events');es.addEventListener('tick',()=>go());let deepLoading=false,deepLoadedAt=0;
 async function loadDeepResearch(){
   if(deepLoading||Date.now()-deepLoadedAt<300000)return;deepLoading=true;
   try{
