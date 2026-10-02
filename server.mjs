@@ -1463,7 +1463,7 @@ async function drainSolanaQueue(){
       if(attempt<4){const timer=setTimeout(()=>{if(!solanaCreateQueue.includes(sig))solanaCreateQueue.unshift(sig);},250*attempt);timer.unref?.();}
       else solanaCreateAttempts.delete(sig);
     }else if(tx){
-      if(create){solanaCreateAttempts.delete(sig);launchSignalStats.resolvedTx++;const provisional=provisionalLaunchFromTx(tx,sig);for(const raw of provisional){ingest(raw,'solana-create-event');launchSignalStats.provisionalIngested++;}const eventMints=provisional.map(x=>x.mint),mints=[...new Set([...eventMints,...initializedMintsFromTx(tx)])];launchSignalStats.mintsFound+=mints.length;for(const mint of mints.slice(0,3))void hydrateLaunchMint(mint,sig);}
+      if(create){solanaCreateAttempts.delete(sig);launchSignalStats.resolvedTx++;const provisional=provisionalLaunchFromTx(tx,sig);for(const raw of provisional){const fresh=!tokens.has(raw.mint);ingest(raw,'solana-create-confirmed');if(fresh)launchSignalStats.provisionalIngested++;}const eventMints=provisional.map(x=>x.mint),mints=eventMints.length?[...new Set(eventMints)]:initializedMintsFromTx(tx);launchSignalStats.mintsFound+=mints.length;for(const mint of mints.slice(0,2))void hydrateLaunchMint(mint,sig);}
       await parseWalletTx(sig,tx);
     }
     setHealth('wallet-intel','ok',`Create ${solanaCreateQueue.length} · priority ${solanaPriorityQueue.length} · normal ${solanaQueue.length} · ${solanaResolved} resolved`,{truth:'observed'});
