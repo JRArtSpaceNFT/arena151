@@ -1,6 +1,7 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import { createPumpLabAlphaOS } from './lib/pump-lab-alpha-os.mjs';
+import { createPumpLabSeason2Science } from './lib/pump-lab-season2-science.mjs';
 import { renderBotProfileHtml } from './lib/bot-profile.mjs';
 
 const PORT = Number(process.env.PORT || 3000);
@@ -8,13 +9,14 @@ const PUMP_KEY = process.env.PUMPPORTAL_API_KEY || '';
 const ALLOW_METERED = (process.env.ALLOW_METERED_PUMPPORTAL || 'false') === 'true';
 const START = 1000;
 const TARGET = 100000;
-const STRATEGY_ERA = 'v3.3-alpha-os';
+const STRATEGY_ERA = 'v4.0-season2-science';
 const FEE_RATE = 0.0125; // conservative fallback for unknown venue/lifecycle
 const PAPER_FIXED_TX_COST_USD = Number(process.env.PAPER_FIXED_TX_COST_USD || 0.02);
 const STATE_FILE = process.env.STATE_FILE || '/tmp/pump-lab-state-v06.json';
 const DATABASE_URL = process.env.DATABASE_URL || '';
 const AUDIT_VERSION = '2026-10-01-process-audit';
 const ALLOW_AUTO_PROMOTION = (process.env.ALLOW_AUTO_PROMOTION || 'false') === 'true';
+const SEASON2_SCIENCE_VETO = (process.env.SEASON2_SCIENCE_VETO || 'true') === 'true';
 const RESET_SEASON = (process.env.RESET_SEASON || '').trim();
 const DURABLE_WRITE_GRACE_MS = Number(process.env.DURABLE_WRITE_GRACE_MS || 120000);
 const STALE_MARK_WARN_MS = Number(process.env.STALE_MARK_WARN_MS || 120000);
@@ -104,6 +106,7 @@ const alphaOS = createPumpLabAlphaOS({
   routeQuoteUrl:SHADOW_ROUTE_QUOTE_URL,
   shadowWalletPublicKey:SHADOW_WALLET_PUBLIC_KEY
 });
+const science = createPumpLabSeason2Science({start:START});
 let research = { last: 0, notes: [], hypotheses: [] };
 let startedAt = Date.now();
 let seasonInfo = {label:'legacy',startedAt,archiveId:null,resetApplied:false};
@@ -1030,11 +1033,11 @@ function maybeTrade(t) {
     if(alpha.veto){recordDecision(d,t,f,score,'REJECT','Alpha OS · '+alpha.vetoReason);continue;}
     const budget=Math.min(sizing.budget*alpha.sizeMultiplier,d.cash*(exploratory?.08:.25),d.equity*(exploratory?.035:.15),t.liq>0?Math.max(d.equity*(exploratory?.0075:.02),t.liq*.015):sizing.budget);
     if(budget<Math.max(exploratory?3:5,d.equity*(exploratory?.0075:.02))){recordDecision(d,t,f,score,'REJECT','Alpha OS · stake below minimum after EV adjustment');continue;}
-    const entryExec=executionQuote(t,budget,'buy');entryExec.networkCostUsd=Number(alpha.execution?.networkCostUsd||0);entryExec.priorityLamports=Number(alpha.execution?.priorityLamports||0);entryExec.jitoTipLamports=Number(alpha.execution?.jitoTipLamports||0);entryExec.executionMode=alpha.execution?.mode||'STANDARD_RPC';if(entryExec.slippage>.065){recordDecision(d,t,f,score,'REJECT','execution veto: modeled slippage');continue;}const entry=entryExec.fillPrice;const cost=budget*(1+entryExec.feeRate)+entryExec.fixedCost+entryExec.networkCostUsd;
+    const scienceGate=science.evaluateEntry({strategy:d,token:t,features:f,quality,market:marketWeather(),alpha,baseExecution:{...executionQuote(t,budget,'buy'),notional:budget}});if(SEASON2_SCIENCE_VETO&&scienceGate.veto){recordDecision(d,t,f,score,'REJECT','Season 2 Do Nothing · '+(scienceGate.reasons.join(', ')||('score '+scienceGate.score.toFixed(0))));continue;}const entryExec=scienceGate.execution;if(entryExec.slippage>.065){recordDecision(d,t,f,score,'REJECT','execution veto: modeled slippage');continue;}const entry=entryExec.fillPrice;const cost=budget*(1+entryExec.feeRate)+num(entryExec.fixedCost)+num(entryExec.expectedFailureCost);
     if(cost>d.cash)continue;
     d.cash-=cost;
     const p={id:'p'+now()+Math.random(),strategy:d.id,mint:t.mint,symbol:t.symbol,entry,units:budget/entry,originalUnits:budget/entry,invested:budget,entryCost:cost,entryExecution:entryExec,realizedProceeds:0,partialExits:[],scaleOutHits:[],sourceEntrySig:d.copyLab?(verifiedWalletSignal(t,d.copyWindowMin||15,d.copySource||null).events[0]?.signature||null):null,opened:now(),closed:false,lastPrice:t.price,lastMarkedAt:now(),markSource:'entry',score,entryFeatures:{...f,mc:t.mc,liq:t.liq},entryMc:t.mc,entryLiq:t.liq,entryQuality:quality.score,dnaHit25:similar.hit25,dnaSample:similar.n,allocationMult:allocatorMult,sizingMode:'alpha-os-ev-v1',samplePartition:partitionForMint(t.mint),sizing,alphaOS:alpha,budgetPct:d.equity>0?budget/d.equity:0,live100Equivalent:sizing.live100Equivalent,exitMode:exitModeFor(d),policyVersion:STRATEGY_ERA,guard:{requiredScore:activeGuard.requiredScore,minQuality:activeGuard.minQuality,minBuyRatio:activeGuard.minBuyRatio,recentAvg:activeGuard.health.avg,recentN:activeGuard.health.n,exploratory},reason:`${exploratory?'cold-start exploration · ':''}score ${score.toFixed(0)} · gate ${policy.min.toFixed(0)} · risk ${f.risk.toFixed(0)} · Q${quality.score.toFixed(0)} · stake ${(budget/Math.max(1,d.equity)*100).toFixed(1)}% · $100≈${sizing.live100Equivalent.toFixed(2)} · size×${sizing.mult.toFixed(2)} · EV ${alpha.expectedValue.toFixed(1)} · tox ${alpha.toxicity.score.toFixed(0)}`,entryRegime:regime,peakDuring:entry,troughDuring:entry};
-    positions.push(p);alphaOS.recordShadowEntry({position:p,token:t,alpha});recordDecision(d,t,f,score,'BUY',p.reason);
+    p.season2Science=scienceGate;positions.push(p);science.recordEntry(p,t,{features:f,quality,market:marketWeather()});alphaOS.recordShadowEntry({position:p,token:t,alpha});recordDecision(d,t,f,score,'BUY',p.reason);
     if(d.risk!=='R&D')log('buy',`${d.icon} ${d.name} bought ${t.symbol} · ${budget.toFixed(0)} paper · ${p.reason}`,'good',{strategy:d.id,mint:t.mint});
   }
 }
@@ -1049,15 +1052,15 @@ function stalePositionSweep(){
     closePos(d,p,synthetic,'stale/unpriceable write-off');
   }
 }
-function updateOpenPositionExtremes(t){for(const p of positions){if(p.closed||p.mint!==t.mint)continue;p.lastPrice=t.price;p.lastMarkedAt=now();p.markSource=(t.sources||[]).join('+')||'live';p.peakDuring=Math.max(p.peakDuring||p.entry,t.price);p.troughDuring=Math.min(p.troughDuring||p.entry,t.price);}}
+function updateOpenPositionExtremes(t){const f=features(t);for(const p of positions){if(p.closed||p.mint!==t.mint)continue;p.lastPrice=t.price;p.lastMarkedAt=now();p.markSource=(t.sources||[]).join('+')||'live';p.peakDuring=Math.max(p.peakDuring||p.entry,t.price);p.troughDuring=Math.min(p.troughDuring||p.entry,t.price);science.observePosition(p,t,f);}}
 
 function closePos(d,p,t,why){
-  const notional=p.units*t.price,exec=executionQuote(t,notional,'sell'),exitAlpha=alphaOS.executionBrain(t,{features:features(t),score:p.score||50}),exit=exec.fillPrice,gross=p.units*exit;exec.networkCostUsd=Number(exitAlpha.networkCostUsd||0);exec.priorityLamports=Number(exitAlpha.priorityLamports||0);exec.jitoTipLamports=Number(exitAlpha.jitoTipLamports||0);exec.executionMode=exitAlpha.mode||'STANDARD_RPC';const proceeds=Math.max(0,gross*(1-exec.feeRate)-exec.fixedCost-exec.networkCostUsd);
+  const notional=p.units*t.price,exitAlpha=alphaOS.executionBrain(t,{features:features(t),score:p.score||50}),exec=science.executionSimulation(t,notional,'sell',{...executionQuote(t,notional,'sell'),notional},exitAlpha),exit=exec.fillPrice,gross=p.units*exit;const proceeds=Math.max(0,gross*(1-exec.feeRate)-num(exec.fixedCost)-num(exec.expectedFailureCost));
   d.cash+=proceeds;p.closed=true;p.closedAt=now();p.exit=exit;p.exitExecution=exec;const totalProceeds=num(p.realizedProceeds)+proceeds,entryCost=num(p.entryCost)||p.invested*(1+FEE_RATE);p.pnl=totalProceeds-entryCost;p.pnlPct=p.pnl/Math.max(.000001,entryCost)*100;p.why=why;
   p.mfe=pct(p.peakDuring||exit,p.entry);p.mae=pct(p.troughDuring||exit,p.entry);p.counterfactual={exitNow:p.pnlPct,holdAfterExit:{oneMin:null,fiveMin:null,fifteenMin:null},bestObservedAfterExit:null};
   const modeledRoundTrip=(num(p.entryExecution?.slippage)+num(p.exitExecution?.slippage)+num(p.entryExecution?.feeRate)+num(p.exitExecution?.feeRate))*100;const stressPenalty=Math.max(2.5,modeledRoundTrip+Math.min(8,(p.invested/Math.max(1000,t.liq))*100));
   p.executionStress={easy:p.pnlPct+1.5,realistic:p.pnlPct,nightmare:p.pnlPct-stressPenalty,penalty:stressPenalty};
-  d.n++;if(p.pnl>0)d.wins++;else d.losses++;trades.unshift({...p,name:t.name,narrative:t.narrative});trades.splice(MAX_TRADES);const pi=positions.indexOf(p);if(pi>=0)positions.splice(pi,1);markEquity(d);
+  d.n++;if(p.pnl>0)d.wins++;else d.losses++;p.season2ScienceResult=science.recordTrade(p,t,{market:marketWeather()});trades.unshift({...p,name:t.name,narrative:t.narrative});trades.splice(MAX_TRADES);const pi=positions.indexOf(p);if(pi>=0)positions.splice(pi,1);markEquity(d);
   alphaOS.recordShadowClose(p);const aut=buildAutopsy(d,p,t);autopsies.unshift(aut);autopsies.splice(250);
   if(d.risk!=='R&D')log('sell',`${d.icon} ${d.name} sold $${t.symbol} ${p.pnlPct>=0?'+':''}${p.pnlPct.toFixed(1)}% · ${why}`,p.pnl>=0?'good':'bad',{strategy:d.id,mint:t.mint});
 }
@@ -1083,7 +1086,7 @@ function updateCounterfactuals(t){
 
 function ingest(raw,source){
   const incoming=normalize(raw,source);if(!incoming||!(incoming.price>0))return;
-  const old=tokens.get(incoming.mint);const t=mergeToken(old,incoming);tokens.set(t.mint,t);updateCreator(t);updateOpportunities(t);updateOpenPositionExtremes(t);updateCounterfactuals(t);updateDnaArchive(t);recordMarketEvent(t,source);alphaOS.observeToken(t,{features:features(t),quality:tokenDataQuality(t)});
+  const old=tokens.get(incoming.mint);const t=mergeToken(old,incoming);tokens.set(t.mint,t);updateCreator(t);updateOpportunities(t);updateOpenPositionExtremes(t);updateCounterfactuals(t);updateDnaArchive(t);recordMarketEvent(t,source);(()=>{const sf=features(t),sq=tokenDataQuality(t),ao=alphaOS.observeToken(t,{features:sf,quality:sq}),wl=alphaOS.walletLeadLag(t);science.observeToken(t,{features:sf,quality:sq,market:marketWeather(),alpha:ao,earlyWallets:(wl.leaders||[]).map(x=>x.wallet)});})();
   if(!old)log('token',`🪙 LIVE token spotted: ${t.symbol} · ${t.name}`,'info',{mint:t.mint,source});
   maybeTrade(t);broadcast('tick',{mint:t.mint});
 }
@@ -1106,7 +1109,7 @@ async function openPositionPoll(){
         const incoming=normalize({...pair,mint},'dexscreener-open');
         if(!incoming||!(incoming.price>0))continue;
         const old=tokens.get(mint),t=mergeToken(old,incoming);tokens.set(mint,t);
-        updateOpportunities(t);updateOpenPositionExtremes(t);updateCounterfactuals(t);updateDnaArchive(t);recordMarketEvent(t,'dexscreener-open');alphaOS.observeToken(t,{features:features(t),quality:tokenDataQuality(t)});
+        updateOpportunities(t);updateOpenPositionExtremes(t);updateCounterfactuals(t);updateDnaArchive(t);recordMarketEvent(t,'dexscreener-open');(()=>{const sf=features(t),sq=tokenDataQuality(t),ao=alphaOS.observeToken(t,{features:sf,quality:sq}),wl=alphaOS.walletLeadLag(t);science.observeToken(t,{features:sf,quality:sq,market:marketWeather(),alpha:ao,earlyWallets:(wl.leaders||[]).map(x=>x.wallet)});})();
         const touched=new Set();
         for(const pos of positions.filter(x=>!x.closed&&x.mint===mint)){
           if(touched.has(pos.strategy))continue;touched.add(pos.strategy);
@@ -1750,7 +1753,7 @@ function resetSeasonInMemory(label,archiveId){
   entryPolicyCache.clear();regimeWeightCache.clear();dnaSimilarityCache.clear();corrCache={ts:0,rows:[]};
   research={last:0,notes:[],hypotheses:[]};lastScientistRun=0;lastDbEventFlush=0;
   const freshAlpha=createPumpLabAlphaOS({start:START,rpcUrl:SOLANA_RPC_HTTP,routeQuoteUrl:SHADOW_ROUTE_QUOTE_URL,shadowWalletPublicKey:SHADOW_WALLET_PUBLIC_KEY});
-  alphaOS.restore(freshAlpha.serialize());
+  alphaOS.restore(freshAlpha.serialize());science.reset();
   startedAt=now();
   seasonInfo={label,startedAt,archiveId,resetApplied:true};
 }
@@ -1842,9 +1845,9 @@ async function waitForInitialDurableRestore(maxMs=90000){
   return false;
 }
 
-function serialize(){return{auditVersion:AUDIT_VERSION,season:seasonInfo,alphaOS:alphaOS.serialize(),strategies:strategyDefs.map(stripTrader),challengers:challengers.map(stripTrader),positions:positions.filter(p=>!p.closed),trades,activity,decisions,opportunities:[...opportunities],research,timeline,replayFrames,autopsies,promotions,graveyard,walletEvents:walletEvents.slice(0,1200),marketEvents:marketEvents.slice(-1000),dnaArchive:[...dnaArchive],creators:[...creators].map(([k,v])=>[k,{...v,tokens:[...v.tokens]}])};}
+function serialize(){return{auditVersion:AUDIT_VERSION,season:seasonInfo,alphaOS:alphaOS.serialize(),science:science.serialize(),strategies:strategyDefs.map(stripTrader),challengers:challengers.map(stripTrader),positions:positions.filter(p=>!p.closed),trades,activity,decisions,opportunities:[...opportunities],research,timeline,replayFrames,autopsies,promotions,graveyard,walletEvents:walletEvents.slice(0,1200),marketEvents:marketEvents.slice(-1000),dnaArchive:[...dnaArchive],creators:[...creators].map(([k,v])=>[k,{...v,tokens:[...v.tokens]}])};}
 function stripTrader(d){return{id:d.id,name:d.name,icon:d.icon,risk:d.risk,type:d.type,parentId:d.parentId,mutation:d.mutation,auto:d.auto,bornAt:d.bornAt,cash:d.cash,peak:d.peak,dd:d.dd,auditPeak:d.auditPeak,auditDd:d.auditDd,wins:d.wins,losses:d.losses,n:d.n,version:d.version,min:d.min,stop:d.stop,take:d.take,size:d.size,maxOpen:d.maxOpen,riskCap:d.riskCap,exitMode:d.exitMode,sizeBias:d.sizeBias,promotionCandidateAt:d.promotionCandidateAt,promotedAt:d.promotedAt,graveyardAt:d.graveyardAt,hypothesisCandidateAt:d.hypothesisCandidateAt,hypothesisRetiredAt:d.hypothesisRetiredAt,hypothesisReason:d.hypothesisReason};}
-function restore(s){try{if(s.season)seasonInfo={...seasonInfo,...s.season};alphaOS.restore(s.alphaOS);
+function restore(s){try{if(s.season)seasonInfo={...seasonInfo,...s.season};alphaOS.restore(s.alphaOS);science.restore(s.science);
   for(const x of s.strategies||[]){
     const d=strategyDefs.find(q=>q.id===x.id);if(!d)continue;
     const codeVersion=num(d.version)||1;
@@ -1962,7 +1965,7 @@ function systemAudit(){
   if(!SHADOW_EXECUTION_VALIDATED)critical.push('live shadow-execution validation has not been completed');
   const alphaSnap=alphaOS.snapshot();
   if(!alphaSnap.shadow.routeQuoteConnected)warnings.push('Alpha OS shadow twin is measuring paper-vs-next-tick execution but exact route quote adapter is not connected');
-  passes.push('Alpha OS ten-subsystem decision layer active');
+  passes.push('Alpha OS ten-subsystem decision layer active');passes.push('Season 2 twelve-system science layer active');
   if(dbStateRestored)passes.push('durable state restore verified');
   if(!ALLOW_AUTO_PROMOTION)passes.push('production strategy auto-promotion disabled');
   passes.push('deterministic 80/20 holdout split active');
@@ -2025,7 +2028,7 @@ function deepResearchSnapshot(){
     masterAllocation:masterAllocation(),dynamicAllocation:dynamicAllocator(),statistics:strategyStatistics(),exitOptimizer:exitOptimizer(),
     opportunityCost:opportunityCostLab(),scientist:scientistInsights(),replayLab:replayLab(),specialistCohorts:specialistCohortStats(),
     walletGraph:walletGraphSnapshot(),riskBoard:riskScoreboard(),tournament:tournament(),providerAudit:providerAudit(),noTrade:noTradeAlpha(),memeChartLab:memeChartLabSnapshot(),
-    chaos:chaosLab(),walletBoard:walletLeaderboard()
+    chaos:chaosLab(),walletBoard:walletLeaderboard(),season2Science:science.snapshot(strategyDefs.map(d=>d.id))
   };
   data.deepResearchAt=now();data.deepResearchBuildMs=Date.now()-started;return data;
 }
@@ -2046,7 +2049,7 @@ function snapshot(){
       history:(t.history||[]).slice(-45).map(x=>({ts:x.ts,price:x.price})),features:features(t),detective:detective(t),adversarial:adversarialRisk(t),
       consensus:consensus(t,weather.regime),dna:creatorDNA(t),tokenDNA:tdna,similarity:dnaSimilarity(t,12,tdna),quality:tokenDataQuality(t)};
   });
-  return{now:now(),startedAt,paperOnly:true,alphaOS:alphaOS.snapshot(),executionAssumptions:{fallbackFeeRate:FEE_RATE,fixedTxCostUsd:PAPER_FIXED_TX_COST_USD,feeSource:'pump.fun docs 2026-05-20',maxModeledSlippagePct:8},researchGovernance:{partition:'deterministic 80/20 by mint',learningSet:'train only',autoPromotion:ALLOW_AUTO_PROMOTION,minPromotionTrades:60,minHoldoutTrades:12},stateLock:{databaseConfigured:!!DATABASE_URL,restored:dbStateRestored,tradingUnlocked:durableTradingReady(),dbConnected:!!db,lastDurableSaveAt,lastDurableRestoreAt,graceMs:DURABLE_WRITE_GRACE_MS},mode:'LIVE + V3.3 ALPHA OS + AUDITED HOLDOUT RESEARCH + DURABLE REPLAY',version:'3.3 Alpha OS',target:TARGET,weather,providers:[...health.values()],
+  return{now:now(),startedAt,paperOnly:true,alphaOS:alphaOS.snapshot(),season2Science:science.snapshot(strategyDefs.map(d=>d.id)),executionAssumptions:{fallbackFeeRate:FEE_RATE,fixedTxCostUsd:PAPER_FIXED_TX_COST_USD,feeSource:'pump.fun docs 2026-05-20',maxModeledSlippagePct:8},researchGovernance:{partition:'deterministic 80/20 by mint',learningSet:'train only',autoPromotion:ALLOW_AUTO_PROMOTION,minPromotionTrades:60,minHoldoutTrades:12},stateLock:{databaseConfigured:!!DATABASE_URL,restored:dbStateRestored,tradingUnlocked:durableTradingReady(),dbConnected:!!db,lastDurableSaveAt,lastDurableRestoreAt,graceMs:DURABLE_WRITE_GRACE_MS},mode:'LIVE PAPER + V4.0 SEASON 2 SCIENCE + ALPHA OS + AUDITED HOLDOUT RESEARCH',version:'4.0 Season 2 Science',target:TARGET,weather,providers:[...health.values()],
     summary:{capital:prod.reduce((a,d)=>a+d.equity,0),start:prod.length*START,trades:prod.reduce((a,d)=>a+d.n,0),open:positions.filter(p=>!p.closed&&prod.some(d=>d.id===p.strategy)).length,cohortCapital:cohort.reduce((a,d)=>a+d.equity,0),cohortStart:cohort.length*START,cohortTrades:cohort.reduce((a,d)=>a+d.n,0),cohortOpen:positions.filter(p=>!p.closed&&cohort.some(d=>d.id===p.strategy)).length,tokens:tokens.size,decisions:decisions.length},
     strategies:strategyDefs.map(d=>{const ep=entryPolicy(d),pb=strategyPlaybook(d),eraTrades=trades.filter(t=>t.strategy===d.id&&t.policyVersion===STRATEGY_ERA);return{...d,winRate:d.n?d.wins/d.n*100:0,open:openCount(d.id),effectiveMin:ep.min,coldStart:ep.coldStart,entryRejects:ep.rejects,thresholdRelief:ep.relief,playbook:pb.instruction,era:STRATEGY_ERA,eraN:eraTrades.length,eraWinRate:eraTrades.length?eraTrades.filter(t=>t.pnl>0).length/eraTrades.length*100:0,eraPnl:eraTrades.reduce((a,t)=>a+num(t.pnl),0),eraAvgPnl:eraTrades.length?avg(eraTrades.map(t=>t.pnlPct)):0}}),experiments:experimentSnapshot(),tokens:active,
     narratives:narrativeStats().slice(0,15),creators:creatorLeaderboard(),positions:positions.filter(p=>!p.closed).slice(-120),trades:trades.slice(0,150),activity:activity.slice(0,140),research,
@@ -2837,9 +2840,10 @@ logV3SelfTest();
 setHealth('engine','ok','v3.1 evidence playbooks + Megga copy/scout lab + 31 specialist cohorts + controls online',{truth:'observed'});
 setHealth('learning-core','ok','era-separated allocator + DNA memory + replay + exit optimizer + counterfactual lab online',{truth:'inferred'});
 setHealth('alpha-os','ok','10-system Alpha OS online · all execution remains paper/shadow only',{truth:'inferred'});
+setHealth('season2-science','ok','12-system Season 2 science layer online · walk-forward + Bayesian + survival + DNA + saturation + execution + counterfactuals + drift + kill switch + alpha + abstention',{truth:'inferred'});
 setHealth('x-social','standby','Full X stream not connected · social agent uses token social metadata only',{truth:'not connected'});
 setHealth('wallet-intel','standby','Connecting Solana stream + verified Fomo wallet watchlist…',{truth:'not connected'});setHealth('fomo-watchlist','standby','Preparing verified public wallet subscriptions',{truth:'not connected'});
-server.listen(PORT,'0.0.0.0',()=>{if(DATABASE_URL&&!dbStateRestored)console.log('STATE_LOCK engaged · trading paused until durable state restore');log('system','🚀 PUMP LAB v3.3 Alpha OS started','system');connectPumpPortal();connectSolanaStream();pumpPoll();dexPoll();console.log('PUMP LAB v3.3 on '+PORT);});
+server.listen(PORT,'0.0.0.0',()=>{if(DATABASE_URL&&!dbStateRestored)console.log('STATE_LOCK engaged · trading paused until durable state restore');log('system','🚀 PUMP LAB v4.0 Season 2 Science started · PAPER ONLY','system');connectPumpPortal();connectSolanaStream();pumpPoll();dexPoll();console.log('PUMP LAB v4.0 Season 2 Science on '+PORT);});
 setTimeout(stateSelfTest,5000).unref?.();setInterval(()=>alphaOS.runCapitalAuction(m=>tokens.get(m),executionQuote),2000).unref?.();
 setInterval(()=>{alphaOS.observeWorld({weather:marketWeather(),tokens:[...tokens.values()].filter(t=>now()-t.updatedAt<900000),strategyEquity:Object.fromEntries(allTraders().map(d=>[d.id,d.equity]))});alphaOS.prune();},60000).unref?.();
 setInterval(()=>alphaOS.pollExternal(),30000).unref?.();
