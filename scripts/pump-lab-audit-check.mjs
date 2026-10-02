@@ -47,7 +47,13 @@ const checks = [
   ['Lifecycle persistence', 'lifecycle:lifecycle.serialize()'],
   ['Lifecycle restore', 'lifecycle.restore(s.lifecycle)'],
   ['Lifecycle season reset', 'lifecycle.reset()'],
-  ['Lifecycle dashboard state', 'lifecycleResearch:lifecycle.snapshot']
+  ['Lifecycle dashboard state', 'lifecycleResearch:lifecycle.snapshot'],
+  ['pre-buy context cache', 'researchContextCache'],
+  ['audit latency telemetry', 'fastAuditSnapshot()'],
+  ['cached market weather', 'weatherCache'],
+  ['cached lifecycle advisory', 'lifecycleState=fresh?cached.lifecycleState'],
+  ['cached science evidence', 'evidenceDecisionCached'],
+  ['constant-time survival index', 'survivalStats']
 ];
 
 const failures = checks.filter(([, needle]) => !src.includes(needle)).map(([name])=>name);
@@ -68,6 +74,17 @@ const lifecycleStages=[
 ];
 for(const name of lifecycleStages)if(!lifecycleSrc.includes("'"+name+"'"))failures.push('Lifecycle stage missing '+name);
 if(!lifecycleSrc.includes("paperOnly:true"))failures.push('Lifecycle paper-only marker missing');
+const tradeStart=src.indexOf('function maybeTrade(t)');
+const tradeEnd=src.indexOf('function stalePositionSweep',tradeStart);
+const criticalPath=tradeStart>=0&&tradeEnd>tradeStart?src.slice(tradeStart,tradeEnd):'';
+if(!criticalPath)failures.push('pre-buy critical path could not be isolated');
+if(/\bawait\b/.test(criticalPath))failures.push('pre-buy critical path contains await');
+if(/\bfetch\s*\(/.test(criticalPath))failures.push('pre-buy critical path contains network fetch');
+if(!criticalPath.includes('recordFastAudit'))failures.push('pre-buy latency recording missing');
+if(!scienceSrc.includes('evidenceDecisionCached'))failures.push('science evidence cache missing');
+if(!scienceSrc.includes('survivalStats'))failures.push('constant-time survival hazard index missing');
+if(!lifecycleSrc.includes('decisionLookup'))failures.push('lifecycle decision index missing');
+if(!lifecycleSrc.includes('empiricalCache'))failures.push('lifecycle competing-risk cache missing');
 
 // Hypothesis Arena regression guards.
 const hypothesisIds=[
@@ -134,4 +151,4 @@ if (src.includes("agentVisual v'+(i%5)")) {
   process.exit(1);
 }
 
-console.log('PUMP LAB audit static checks passed: ' + checks.length + ' core checks + 12 Season 2 systems + 22 lifecycle stages + 25 unique trader visuals');
+console.log('PUMP LAB audit static checks passed: ' + checks.length + ' core checks + 12 Season 2 systems + 22 lifecycle stages + fast-path no-network audit + 25 unique trader visuals');
