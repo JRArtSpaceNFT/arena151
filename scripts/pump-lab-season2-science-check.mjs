@@ -13,6 +13,6 @@ const wf=s.walkForward('quant');ok(wf.windows.length>=1,'walk-forward windows mi
 const e=s.evidenceDecision('quant');ok(e.walkForward&&e.drift,'evidence decision incomplete');
 const ex=s.executionSimulation(token,50,'buy',{fillPrice:1.01,feeRate:.0125,fixedCost:.02},{congestion:30,networkCostUsd:.001});ok(ex.totalLatencyMs>0&&ex.txFailureProbability>0,'execution sim missing');
 const gate=s.evaluateEntry({strategy:{id:'quant'},token,features,quality:{score:80},market:{regime:'SELECTIVE'},alpha:{toxicity:{score:20},probability:{pStop15:.2},execution:{congestion:20}},baseExecution:{fillPrice:1.01,feeRate:.0125,fixedCost:.02}});ok(gate.doNothing&&gate.survival&&gate.narrative,'do-nothing model incomplete');
-const snap=s.snapshot(['quant']);ok(snap.subsystems.length===12,'expected 12 systems');
-const copy=createPumpLabSeason2Science();ok(copy.restore(s.serialize()),'restore failed');ok(copy.snapshot(['quant']).subsystems.length===12,'restored snapshot invalid');
-console.log('PUMP LAB Season 2 Science checks passed: 12 systems + persistence');
+const snap=s.snapshot(['quant']);ok(snap.subsystems.length>=13,'expected upgraded science systems');ok(snap.subsystems.some(x=>x.name==='Feature Importance Lab'),'feature-importance subsystem missing');ok(snap.featureImportance&&Array.isArray(snap.featureImportance.features),'feature-importance report missing');ok(snap.abstention&&snap.entryTiming,'abstention or entry-timing report missing');
+const copy=createPumpLabSeason2Science();ok(copy.restore(s.serialize()),'restore failed');const restored=copy.snapshot(['quant']);ok(restored.subsystems.length>=13&&restored.featureImportance,'restored snapshot invalid');
+console.log('PUMP LAB Season 2 Science checks passed: 13+ systems + evidence labs + persistence');
