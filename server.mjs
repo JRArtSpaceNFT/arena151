@@ -1533,8 +1533,8 @@ async function refreshHistoricalMonsterSeed(){
     const j=await r.json(),rows=Array.isArray(j?.missed)?j.missed:[];
     const clean=rows.filter(x=>x?.mint&&num(x.bestReturn)>75).map(x=>({...JSON.parse(JSON.stringify(x)),historicalSeed:true,historicalSource:'production-readonly'}));
     historicalMonsterSeed={ts:now(),rows:clean,source:HISTORICAL_RESEARCH_URL,error:'',lastAttempt:now()};monsterLabCache={ts:0,opps:0,events:0,trades:0,data:null};
-    setHealth('historical-monsters','ok','Read-only production monster seed · '+clean.length+' retained misses',{truth:'observed'});return true;
-  }catch(e){historicalMonsterSeed.error=String(e?.message||e);setHealth('historical-monsters','warn','Historical monster seed unavailable: '+historicalMonsterSeed.error,{truth:'observed'});return false;}
+    setHealth('historical-monsters','ok','Read-only production monster seed · '+clean.length+' retained misses',{truth:'observed'});console.log('HISTORICAL_MONSTER_IMPORT '+JSON.stringify({ok:true,n:clean.length,source:HISTORICAL_RESEARCH_URL,ts:historicalMonsterSeed.ts}));return true;
+  }catch(e){historicalMonsterSeed.error=String(e?.message||e);setHealth('historical-monsters','warn','Historical monster seed unavailable: '+historicalMonsterSeed.error,{truth:'observed'});console.warn('HISTORICAL_MONSTER_IMPORT '+JSON.stringify({ok:false,error:historicalMonsterSeed.error,source:HISTORICAL_RESEARCH_URL}));return false;}
 }
 function missedMonsterLab(){
   const ts=now();
