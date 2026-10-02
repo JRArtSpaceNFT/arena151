@@ -59,6 +59,8 @@ const checks = [
   ['priority watched-wallet Solana queue', 'solanaPriorityQueue'],
   ['Solana RPC adaptive backoff', 'solanaRpcBackoffUntil'],
   ['launch discovery latency telemetry', 'recordDiscoveryLatency'],
+  ['on-chain discovery percentile', 'onchainDiscoveryP95Ms'],
+  ['fallback discovery percentile', 'fallbackDiscoveryP95Ms'],
   ['discovery latency percentile telemetry', 'discoveryP95Ms'],
   ['isolated checkpoint namespace', 'KV_STATE_KEY'],
   ['late discovery backfill separation', 'lateDiscoveryBackfill'],
