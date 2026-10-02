@@ -15,6 +15,7 @@ const STATE_FILE = process.env.STATE_FILE || '/tmp/pump-lab-state-v06.json';
 const DATABASE_URL = process.env.DATABASE_URL || '';
 const AUDIT_VERSION = '2026-10-01-process-audit';
 const ALLOW_AUTO_PROMOTION = (process.env.ALLOW_AUTO_PROMOTION || 'false') === 'true';
+const RESET_SEASON = (process.env.RESET_SEASON || '').trim();
 const DURABLE_WRITE_GRACE_MS = Number(process.env.DURABLE_WRITE_GRACE_MS || 120000);
 const STALE_MARK_WARN_MS = Number(process.env.STALE_MARK_WARN_MS || 120000);
 const STALE_MARK_ZERO_MS = Number(process.env.STALE_MARK_ZERO_MS || 1800000);
@@ -105,6 +106,7 @@ const alphaOS = createPumpLabAlphaOS({
 });
 let research = { last: 0, notes: [], hypotheses: [] };
 let startedAt = Date.now();
+let seasonInfo = {label:'legacy',startedAt,archiveId:null,resetApplied:false};
 
 // PUMP LAB v2 learning memory. In-memory structures are bounded; the durable event
 // ledger is also flushed to Postgres so research survives process restarts.
@@ -1734,6 +1736,68 @@ function experimentSnapshot(){
 
 function takeTimeline(){const w=marketWeather();strategyDefs.forEach(markEquity);timeline.push({ts:now(),regime:w.regime,temperature:w.temperature,capital:strategyDefs.filter(x=>x.risk!=='CONTROL'&&!x.specialist).reduce((a,d)=>a+d.equity,0),champion:strategyDefs.find(x=>x.id==='champion').equity,tokens:tokens.size,topNarrative:narrativeStats()[0]?.name||'n/a'});while(timeline.length>MAX_TIMELINE)timeline.shift();}
 
+
+function resetTraderRuntime(d){
+  d.equity=START;d.cash=START;d.peak=START;d.dd=0;d.auditPeak=START;d.auditDd=0;d.wins=0;d.losses=0;d.n=0;
+  for(const k of ['promotionCandidateAt','promotedAt','graveyardAt','hypothesisCandidateAt','hypothesisRetiredAt','hypothesisReason'])delete d[k];
+}
+function resetSeasonInMemory(label,archiveId){
+  for(const d of strategyDefs)resetTraderRuntime(d);
+  for(const d of challengers)resetTraderRuntime(d);
+  positions.splice(0);trades.splice(0);activity.splice(0);decisions.splice(0);timeline.splice(0);autopsies.splice(0);experiments.splice(0);replayFrames.splice(0);
+  promotions.splice(0);graveyard.splice(0);walletEvents.splice(0);marketEvents.splice(0);pendingDbEvents.splice(0);solanaQueue.splice(0);
+  opportunities.clear();opportunityKeysByMint.clear();tokens.clear();creators.clear();dnaArchive.clear();marketEventClock.clear();solanaSeen.clear();
+  entryPolicyCache.clear();regimeWeightCache.clear();dnaSimilarityCache.clear();corrCache={ts:0,rows:[]};
+  research={last:0,notes:[],hypotheses:[]};lastScientistRun=0;lastDbEventFlush=0;
+  const freshAlpha=createPumpLabAlphaOS({start:START,rpcUrl:SOLANA_RPC_HTTP,routeQuoteUrl:SHADOW_ROUTE_QUOTE_URL,shadowWalletPublicKey:SHADOW_WALLET_PUBLIC_KEY});
+  alphaOS.restore(freshAlpha.serialize());
+  startedAt=now();
+  seasonInfo={label,startedAt,archiveId,resetApplied:true};
+}
+function seasonArchiveEnvelope(label,state){
+  const postmortems=allTraders().map(traderPostmortem);
+  const strategyRows=strategyDiagnostics();
+  return{
+    archiveVersion:1,label,archivedAt:now(),strategyEra:STRATEGY_ERA,auditVersion:AUDIT_VERSION,
+    summary:{
+      completedTrades:trades.length,openPositions:positions.filter(p=>!p.closed).length,
+      traders:allTraders().length,marketEventsInState:marketEvents.length,
+      bankrollStart:START,totalEquity:allTraders().reduce((z,d)=>{markEquity(d);return z+num(d.equity)},0)
+    },
+    strategyDiagnostics:strategyRows,postmortems,
+    hypothesisArena:typeof hypothesisArenaSnapshot==='function'?hypothesisArenaSnapshot():null,
+    memeChartLab:typeof memeChartLabSnapshot==='function'?memeChartLabSnapshot():null,
+    specialistCohorts:typeof specialistCohortStats==='function'?specialistCohortStats():null,
+    state
+  };
+}
+async function archiveAndResetSeason(label){
+  if(!db||!label)return false;
+  const safe=label.replace(/[^a-zA-Z0-9._-]/g,'_').slice(0,80),archiveId='archive:'+safe;
+  const exists=await db.query('SELECT id FROM pump_lab_state WHERE id=$1',[archiveId]);
+  if(exists.rows[0]){
+    seasonInfo={...seasonInfo,label:safe,archiveId,resetApplied:false};
+    console.log('SEASON_RESET already applied · archive exists '+archiveId);
+    return false;
+  }
+  const oldState=serialize(),archive=seasonArchiveEnvelope(safe,oldState);
+  await db.query('BEGIN');
+  try{
+    await db.query('INSERT INTO pump_lab_state(id,payload,updated_at) VALUES($1,$2,now())',[archiveId,archive]);
+    resetSeasonInMemory(safe,archiveId);
+    const fresh=serialize();
+    await db.query("INSERT INTO pump_lab_state(id,payload,updated_at) VALUES('main',$1,now()) ON CONFLICT(id) DO UPDATE SET payload=$1,updated_at=now()",[fresh]);
+    await db.query('COMMIT');
+    lastDurableSaveAt=now();
+    console.log('SEASON_RESET complete '+JSON.stringify({label:safe,archiveId,archivedTrades:archive.summary.completedTrades,archivedOpen:archive.summary.openPositions,newTrades:trades.length,newOpen:positions.length}));
+    return true;
+  }catch(e){
+    try{await db.query('ROLLBACK')}catch{}
+    restore(oldState);
+    throw e;
+  }
+}
+
 async function initDb(restoreState=true){
   if(!DATABASE_URL){setHealth('research-memory','standby','Render Postgres provisioned but DATABASE_URL is not attached to this service yet',{truth:'not connected'});return;}
   if(db||dbConnecting)return;dbConnecting=true;let client=null;
@@ -1754,6 +1818,7 @@ async function initDb(restoreState=true){
     if(restoreState||!dbStateRestored){
       const r=await db.query("SELECT payload FROM pump_lab_state WHERE id='main'");
       if(r.rows[0]?.payload)restore(r.rows[0].payload);
+      if(RESET_SEASON)await archiveAndResetSeason(RESET_SEASON);
       dbStateRestored=true;lastDurableRestoreAt=now();
       console.log('STATE_LOCK unlocked · durable state restored');
       logStrategyDiagnostics();
@@ -1777,9 +1842,9 @@ async function waitForInitialDurableRestore(maxMs=90000){
   return false;
 }
 
-function serialize(){return{auditVersion:AUDIT_VERSION,alphaOS:alphaOS.serialize(),strategies:strategyDefs.map(stripTrader),challengers:challengers.map(stripTrader),positions:positions.filter(p=>!p.closed),trades,activity,decisions,opportunities:[...opportunities],research,timeline,replayFrames,autopsies,promotions,graveyard,walletEvents:walletEvents.slice(0,1200),marketEvents:marketEvents.slice(-1000),dnaArchive:[...dnaArchive],creators:[...creators].map(([k,v])=>[k,{...v,tokens:[...v.tokens]}])};}
+function serialize(){return{auditVersion:AUDIT_VERSION,season:seasonInfo,alphaOS:alphaOS.serialize(),strategies:strategyDefs.map(stripTrader),challengers:challengers.map(stripTrader),positions:positions.filter(p=>!p.closed),trades,activity,decisions,opportunities:[...opportunities],research,timeline,replayFrames,autopsies,promotions,graveyard,walletEvents:walletEvents.slice(0,1200),marketEvents:marketEvents.slice(-1000),dnaArchive:[...dnaArchive],creators:[...creators].map(([k,v])=>[k,{...v,tokens:[...v.tokens]}])};}
 function stripTrader(d){return{id:d.id,name:d.name,icon:d.icon,risk:d.risk,type:d.type,parentId:d.parentId,mutation:d.mutation,auto:d.auto,bornAt:d.bornAt,cash:d.cash,peak:d.peak,dd:d.dd,auditPeak:d.auditPeak,auditDd:d.auditDd,wins:d.wins,losses:d.losses,n:d.n,version:d.version,min:d.min,stop:d.stop,take:d.take,size:d.size,maxOpen:d.maxOpen,riskCap:d.riskCap,exitMode:d.exitMode,sizeBias:d.sizeBias,promotionCandidateAt:d.promotionCandidateAt,promotedAt:d.promotedAt,graveyardAt:d.graveyardAt,hypothesisCandidateAt:d.hypothesisCandidateAt,hypothesisRetiredAt:d.hypothesisRetiredAt,hypothesisReason:d.hypothesisReason};}
-function restore(s){try{alphaOS.restore(s.alphaOS);
+function restore(s){try{if(s.season)seasonInfo={...seasonInfo,...s.season};alphaOS.restore(s.alphaOS);
   for(const x of s.strategies||[]){
     const d=strategyDefs.find(q=>q.id===x.id);if(!d)continue;
     const codeVersion=num(d.version)||1;
@@ -2726,6 +2791,13 @@ const server=http.createServer((req,res)=>{
     }
     const json=JSON.stringify(payload);res.writeHead(200,{'content-type':'application/json','cache-control':'no-store','content-length':Buffer.byteLength(json)});return res.end(json);
   }}
+  if(req.url==='/api/archives'){
+    if(!db){res.writeHead(503,{'content-type':'application/json','cache-control':'no-store'});return res.end(JSON.stringify({ok:false,error:'durable archive store unavailable'}));}
+    try{
+      const r=await db.query("SELECT id,updated_at,payload->>'label' AS label,(payload->'summary'->>'completedTrades')::int AS trades,(payload->'summary'->>'openPositions')::int AS open_positions FROM pump_lab_state WHERE id LIKE 'archive:%' ORDER BY updated_at DESC");
+      const body=JSON.stringify({ok:true,season:seasonInfo,archives:r.rows});res.writeHead(200,{'content-type':'application/json','cache-control':'no-store','content-length':Buffer.byteLength(body)});return res.end(body);
+    }catch(e){res.writeHead(500,{'content-type':'application/json','cache-control':'no-store'});return res.end(JSON.stringify({ok:false,error:e.message}));}
+  }
   if(req.url==='/api/state'){
     try{
       const json=getStateJsonCached();
