@@ -51,7 +51,14 @@ const checks = [
   ['pre-buy context cache', 'researchContextCache'],
   ['audit latency telemetry', 'fastAuditSnapshot()'],
   ['cached market weather', 'weatherCache'],
-  ['cached lifecycle advisory', 'lifecycleState=fresh?cached.lifecycleState']
+  ['cached lifecycle advisory', 'lifecycleState=fresh?cached.lifecycleState'],
+  ['adaptive Pump.fun polling guard', 'pumpPollInFlight'],
+  ['3-second launch fallback cadence', 'setInterval(pumpPoll,3000)'],
+  ['5-second open-position mark cadence', 'setInterval(openPositionPoll,5000)'],
+  ['priority watched-wallet Solana queue', 'solanaPriorityQueue'],
+  ['Solana RPC adaptive backoff', 'solanaRpcBackoffUntil'],
+  ['launch discovery latency telemetry', 'recordDiscoveryLatency'],
+  ['discovery latency percentile telemetry', 'discoveryP95Ms']
 ];
 
 const failures = checks.filter(([, needle]) => !src.includes(needle)).map(([name])=>name);
