@@ -78,7 +78,13 @@ const checks = [
   ['pending rejection dedupe', 'pendingRejectKeys'],
   ['first audited buy latency', 'firstBuyP95Ms'],
   ['first buy timing hook', 'firstBuyMs=performance.now()-auditStarted'],
-  ['on-chain launch metrics', 'onchainLaunch']
+  ['on-chain launch metrics', 'onchainLaunch'],
+  ['processed launch wake subscription', "id:901,method:'logsSubscribe'"],
+  ['confirmed launch resolver subscription', "id:902,method:'logsSubscribe'"],
+  ['nonblocking launch hydration', 'void hydrateLaunchMint'],
+  ['extended launch hydration retries', '3000'],
+  ['bounded KV connect', 'reconnectStrategy:false'],
+  ['KV reconnect scheduler', 'scheduleKvReconnect']
 ];
 
 const failures = checks.filter(([, needle]) => !src.includes(needle)).map(([name])=>name);
