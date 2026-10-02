@@ -71,6 +71,7 @@ const checks = [
   ['create-only Pump log detector', "Instruction:\\s*Create"],
   ['priority Pump create queue', 'solanaCreateQueue'],
   ['on-chain initialized mint extraction', 'initializedMintsFromTx'],
+  ['Pump instruction account-zero mint extraction', "const mint=typeof first==='number'?keys[first]:keyText(first)"],
   ['direct launch mint hydration', 'hydrateLaunchMint'],
   ['bounded create confirmation retry', 'solanaCreateAttempts'],
   ['200ms launch resolver cadence', 'setInterval(drainSolanaQueue,200)'],
