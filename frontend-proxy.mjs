@@ -99,24 +99,47 @@ async function fetchPublicTimeline(handle){
     return entries.map(e=>xPublicNormalizeTweet(e?.content?.tweet,handle)).filter(Boolean).slice(0,8);
   }finally{clearTimeout(timer)}
 }
+function xFxNormalizeStatus(t,fallbackHandle=''){
+  if(!t||t.type!=='status')return null;const a=t.author||{},username=a.screen_name||fallbackHandle,id=String(t.id||'').trim();if(!id)return null;
+  const photos=(t.media?.photos||[]).map(m=>({type:m.type||'photo',url:m.url||null,width:m.width||null,height:m.height||null})),videos=(t.media?.videos||[]).map(m=>({type:m.type||'video',url:m.thumbnail_url||null,width:m.width||null,height:m.height||null}));
+  return{id,text:t.text||'',createdAt:t.created_at||null,conversationId:null,metrics:{like_count:Number(t.likes||0),retweet_count:Number(t.reposts||0),reply_count:Number(t.replies||0),quote_count:Number(t.quotes||0)},author:{id:String(a.id||''),name:a.name||username,username,verified:!!a.verification?.verified,profileImage:a.avatar_url||''},media:[...photos,...videos].filter(m=>m.url),url:t.url||('https://x.com/'+username+'/status/'+id)};
+}
+async function fetchFxTimeline(handle){
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),9000);
+  try{
+    const u='https://api.fxtwitter.com/2/profile/'+encodeURIComponent(handle)+'/statuses?count=8';
+    const r=await fetch(u,{headers:{accept:'application/json','user-agent':'PumpLab/1.0'},signal:controller.signal});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok||Number(j.code||r.status)>=400)throw new Error('FxTwitter timeline '+(j.code||r.status)+' '+(j.message||''));
+    return (j.results||[]).map(t=>xFxNormalizeStatus(t,handle)).filter(Boolean).slice(0,8);
+  }finally{clearTimeout(timer)}
+}
+
 async function refreshPublicXFeed(force=false){
   const configured=X_FEED_HANDLES.length>0,now=Date.now();
   if(!configured)return{ok:true,configured:false,source:'none',handles:[],posts:[],fetchedAt:xFeedLastFetch||null};
-  if(!force&&xFeedCache.length&&now-xFeedLastFetch<Math.max(X_REFRESH_MS,120000))return{ok:true,configured:true,source:'public-syndication',handles:X_FEED_HANDLES,posts:xFeedCache,fetchedAt:xFeedLastFetch,cached:true};
+  if(!force&&xFeedCache.length&&now-xFeedLastFetch<Math.max(X_REFRESH_MS,120000))return{ok:true,configured:true,source:'cached-public-feed',handles:X_FEED_HANDLES,posts:xFeedCache,fetchedAt:xFeedLastFetch,cached:true};
   if(xFeedInFlight)return xFeedInFlight;
   xFeedInFlight=(async()=>{
-    const fresh=[],errors=[];
+    const fresh=[],errors=[],sources=new Set();
     for(let i=0;i<X_FEED_HANDLES.length;i++){
       const h=X_FEED_HANDLES[i],blockedUntil=xPublicFailures.get(h)||0;
       if(blockedUntil>Date.now())continue;
-      try{fresh.push(...await fetchPublicTimeline(h));xPublicFailures.delete(h)}
-      catch(e){errors.push('@'+h+': '+String(e?.message||e));xPublicFailures.set(h,Date.now()+180000)}
-      if(i<X_FEED_HANDLES.length-1)await new Promise(r=>setTimeout(r,750));
+      try{
+        let rows=[],primaryError=null;
+        try{rows=await fetchPublicTimeline(h)}catch(e){primaryError=e}
+        if(!rows.length){
+          try{rows=await fetchFxTimeline(h);if(rows.length)sources.add('fxtwitter-public-api')}
+          catch(fxErr){throw new Error((primaryError?String(primaryError?.message||primaryError)+' · ':'')+String(fxErr?.message||fxErr))}
+        }else sources.add('x-public-syndication');
+        fresh.push(...rows);xPublicFailures.delete(h);
+      }catch(e){errors.push('@'+h+': '+String(e?.message||e));xPublicFailures.set(h,Date.now()+180000)}
+      if(i<X_FEED_HANDLES.length-1)await new Promise(r=>setTimeout(r,250));
     }
     const merged=new Map(xFeedCache.map(p=>[p.id,p]));for(const p of fresh)merged.set(p.id,p);
     xFeedCache=[...merged.values()].sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0)).slice(0,X_MAX_CACHE);
     if(fresh.length)xFeedLastFetch=Date.now();
-    return{ok:xFeedCache.length>0,configured:true,source:'public-syndication',handles:X_FEED_HANDLES,posts:xFeedCache,fetchedAt:xFeedLastFetch||null,cached:false,newCount:fresh.length,errors};
+    return{ok:xFeedCache.length>0,configured:true,source:sources.has('fxtwitter-public-api')?'fxtwitter-public-api':'x-public-syndication',sources:[...sources],handles:X_FEED_HANDLES,posts:xFeedCache,fetchedAt:xFeedLastFetch||null,cached:false,newCount:fresh.length,errors};
   })();
   try{return await xFeedInFlight}finally{xFeedInFlight=null}
 }
@@ -184,7 +207,7 @@ const server = http.createServer(async (req,res) => {
   const u = new URL(req.url, 'http://pump-lab-ui.local');
   if (u.pathname === '/api/x-feed') {
     try{return xJson(res,200,await refreshXFeed(u.searchParams.get('refresh')==='1'))}
-    catch(err){return xJson(res,502,{ok:xFeedCache.length>0,configured:X_FEED_HANDLES.length>0,source:X_BEARER_TOKEN?'x-api':'public-syndication',handles:X_FEED_HANDLES,posts:xFeedCache,fetchedAt:xFeedLastFetch||null,error:String(err?.message||err)})}
+    catch(err){return xJson(res,502,{ok:xFeedCache.length>0,configured:X_FEED_HANDLES.length>0,source:X_BEARER_TOKEN?'x-api':'public-fallback',handles:X_FEED_HANDLES,posts:xFeedCache,fetchedAt:xFeedLastFetch||null,error:String(err?.message||err)})}
   }
   if (u.pathname === '/ui-health') {
     const body = JSON.stringify({ok:true,frontend:'future-lab',backend:BACKEND_ORIGIN,expectations:EXPECTATIONS});
@@ -205,5 +228,5 @@ const server = http.createServer(async (req,res) => {
 server.listen(PORT,'0.0.0.0',()=>{
   console.log('PUMP LAB UI proxy live on '+PORT+' -> '+BACKEND_ORIGIN);
   console.log('UI_SELFTEST '+JSON.stringify(EXPECTATIONS));
-  refreshXFeed(false).then(x=>console.log('X_FEED_WARMUP '+JSON.stringify({ok:x.ok,configured:x.configured,source:x.source,handles:x.handles,posts:x.posts?.length||0,authors:[...new Set((x.posts||[]).map(p=>p.author?.username).filter(Boolean))],errors:x.errors||[]}))).catch(e=>console.warn('X_FEED_WARMUP_FAILED '+String(e?.message||e)));
+  refreshXFeed(false).then(x=>console.log('X_FEED_WARMUP '+JSON.stringify({ok:x.ok,configured:x.configured,source:x.source,sources:x.sources||[],handles:x.handles,posts:x.posts?.length||0,authors:[...new Set((x.posts||[]).map(p=>p.author?.username).filter(Boolean))],errors:x.errors||[]}))).catch(e=>console.warn('X_FEED_WARMUP_FAILED '+String(e?.message||e)));
 });
