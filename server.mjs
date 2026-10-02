@@ -1525,6 +1525,36 @@ function monsterReasonLift(rows,reason){
   const withReason=rows.filter(r=>r.reasons.includes(reason)),monsterN=withReason.filter(r=>r.monster).length,base=rows.filter(r=>r.monster).length/rows.length,rate=withReason.length?monsterN/withReason.length:0;
   return{n:withReason.length,monsterN,rate:rate*100,base:base*100,lift:base?rate/base:0};
 }
+function strategyMinForRow(row){
+  const d=strategyDefs.find(x=>x.id===row?.strategy)||challengers.find(x=>x.id===row?.strategy);
+  return d?num(d.min):null;
+}
+function monsterMissType(rejects,catchable,featureChange){
+  const cats=rejects.map(x=>monsterReasonCategory(x.why)),n=Math.max(1,rejects.length),count=k=>cats.filter(x=>x===k).length/n;
+  const gaps=rejects.map(x=>{const m=strategyMinForRow(x);return m==null?null:num(x.score)-m;}).filter(Number.isFinite);
+  const near=gaps.length?gaps.filter(x=>x>=-5&&x<0).length/gaps.length:0;
+  if(near>=.45)return{type:'THRESHOLD_TOO_STRICT',confidence:near,evidence:'many rejecting bots were within 5 score points of their gate'};
+  if(count('data quality / confirmation')>=.35)return{type:'CONFIRMATION_LAG',confidence:count('data quality / confirmation'),evidence:'confirmation/data-quality rules dominated rejection'};
+  if(count('risk / manipulation')>=.35)return{type:'SAFETY_FILTER_TRADEOFF',confidence:count('risk / manipulation'),evidence:'risk/manipulation protection dominated rejection'};
+  if(count('liquidity / market cap')>=.35)return{type:'MC_LIQUIDITY_GATE',confidence:count('liquidity / market cap'),evidence:'market-cap/liquidity rules dominated rejection'};
+  if(catchable&&featureChange){
+    const improvement=num(featureChange.momentum)+num(featureChange.acceleration)+num(featureChange.flow)+num(featureChange.buyRatio)+num(featureChange.liqScore)+num(featureChange.volScore)-Math.max(0,num(featureChange.risk));
+    if(improvement>=35)return{type:'POST_REJECT_TRANSFORMATION',confidence:clamp(improvement/120,.35,.95),evidence:'features improved materially after the initial rejection'};
+  }
+  return{type:'MULTI_FACTOR_MISS',confidence:.35,evidence:'no single rejection mechanism dominated'};
+}
+function monsterStrategyProfiles(byMint,rejectedRows){
+  const truth=new Map(rejectedRows.map(r=>[r.mint,!!r.monster])),parts=new Map(rejectedRows.map(r=>[r.mint,r.partition])),out=[];
+  const ids=new Set();for(const rows of byMint.values())for(const r of rows)if(r.action==='REJECT'&&r.strategy)ids.add(r.strategy);
+  for(const id of ids){
+    const tokenRows=[];for(const [mint,rows] of byMint){const rs=rows.filter(r=>r.action==='REJECT'&&r.strategy===id);if(!rs.length||!truth.has(mint))continue;rs.sort((a,b)=>num(a.ts)-num(b.ts));const r=rs[0],min=strategyMinForRow(r),gap=min==null?null:num(r.score)-min;tokenRows.push({mint,monster:truth.get(mint),partition:parts.get(mint),gap,reason:monsterReasonCategory(r.why),score:num(r.score),min});}
+    if(!tokenRows.length)continue;const train=tokenRows.filter(x=>x.partition==='train'),hold=tokenRows.filter(x=>x.partition==='holdout'),rate=a=>a.length?a.filter(x=>x.monster).length/a.length*100:0;
+    const monsters=tokenRows.filter(x=>x.monster),near=monsters.filter(x=>Number.isFinite(x.gap)&&x.gap>=-5&&x.gap<0),reasonCounts=new Map();for(const x of monsters)reasonCounts.set(x.reason,(reasonCounts.get(x.reason)||0)+1);
+    const trainRate=rate(train),holdoutRate=rate(hold),validated=train.length>=10&&hold.length>=3&&train.filter(x=>x.monster).length>=2&&hold.filter(x=>x.monster).length>=1;
+    out.push({strategy:id,name:strategyDefs.find(x=>x.id===id)?.name||challengers.find(x=>x.id===id)?.name||id,rejectedMints:tokenRows.length,monsterMints:monsters.length,falseRejectRate:rate(tokenRows),trainN:train.length,holdoutN:hold.length,trainFalseRejectRate:trainRate,holdoutFalseRejectRate:holdoutRate,nearThresholdMonsters:near.length,nearThresholdPct:monsters.length?near.length/monsters.length*100:0,avgMonsterGap:avg(monsters.map(x=>x.gap).filter(Number.isFinite)),topReasons:[...reasonCounts.entries()].sort((a,b)=>b[1]-a[1]).slice(0,4).map(([reason,n])=>({reason,n})),validated});
+  }
+  return out.sort((a,b)=>b.falseRejectRate-a.falseRejectRate||b.monsterMints-a.monsterMints);
+}
 async function fetchHistoricalJson(url,timeoutMs=8000){
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
   try{const r=await fetch(url,{headers:{accept:'application/json','user-agent':'PUMP-LAB-STAGING-HISTORICAL-READONLY/1.0'},signal:controller.signal});if(!r.ok)throw Error('HTTP '+r.status);return await r.json();}
@@ -1597,11 +1627,12 @@ function missedMonsterLab(){
     const topReasons=[...counts.entries()].sort((a,b)=>b[1]-a[1]).map(([reason,n])=>({reason,n,pct:n/rejects.length*100}));
     const firstF=first.features||{},catchF=catchable?.features||{},featureChange=catchable?{momentum:num(catchF.momentum)-num(firstF.momentum),acceleration:num(catchF.acceleration)-num(firstF.acceleration),flow:num(catchF.flow)-num(firstF.flow),buyRatio:(num(catchF.buyRatio)-num(firstF.buyRatio))*100,liqScore:num(catchF.liqScore)-num(firstF.liqScore),volScore:num(catchF.volScore)-num(firstF.volScore),risk:num(catchF.risk)-num(firstF.risk),sourceQuality:num(catchF.sourceQuality)-num(firstF.sourceQuality)}:null;
     const missedBy=[...new Set(rejects.map(o=>o.strategyName||o.strategy))],caughtBy=[...new Set([...entered.map(o=>o.strategyName||o.strategy),...caughtTrades.map(t=>t.strategyName||t.strategy)])];
+    const catchableRow=catchable?{ts:catchable.ts,secondsAfterReject:Math.max(0,(catchable.ts-num(first.firstTs||first.ts))/1000),mc:num(catchable.mc),moveAlreadyMade:pct(catchable.price,firstPrice),remainingUpside:peakPrice>0?pct(peakPrice,catchable.price):null,quality:num(catchable.quality),risk:num(catchF.risk),scoreMax:Math.max(0,...Object.values(catchable.scores||{}).map(num))}:null;
+    const missType=monsterMissType(rejects,catchableRow,featureChange);
     monsters.push({mint:base.mint,symbol:base.symbol,partition:base.partition,historicalSeed:!!first.historicalSeed,historicalSource:first.historicalSource||'',archiveTimeline:!!historicalMonsterSeed.events.find(e=>e.mint===base.mint),firstRejectTs:num(first.firstTs||first.ts),firstRejectMc:num(first.mc),firstRejectScore:num(first.score),firstRejectRisk:num(first.risk),peakReturn,worstReturn:base.worstReturn,labWideMiss:caughtBy.length===0,partialMiss:caughtBy.length>0,missedBy,caughtBy,rejectCount:rejects.length,
-      topReasons,rawReasons:rejects.map(o=>({strategy:o.strategyName||o.strategy,why:o.why,score:num(o.score),risk:num(o.risk),mc:num(o.mc)})),
+      missType,rescueCandidate:!!(catchableRow&&num(catchableRow.remainingUpside)>=25),topReasons,rawReasons:rejects.map(o=>({strategy:o.strategyName||o.strategy,why:o.why,score:num(o.score),risk:num(o.risk),mc:num(o.mc),gate:strategyMinForRow(o),gap:strategyMinForRow(o)==null?null:num(o.score)-strategyMinForRow(o)})),
       timelineCoverage:valid.length,timeToPeakSec:peakEvent?Math.max(0,(peakEvent.ts-num(first.firstTs||first.ts))/1000):null,
-      catchable:catchable?{ts:catchable.ts,secondsAfterReject:Math.max(0,(catchable.ts-num(first.firstTs||first.ts))/1000),mc:num(catchable.mc),moveAlreadyMade:pct(catchable.price,firstPrice),remainingUpside:peakPrice>0?pct(peakPrice,catchable.price):null,quality:num(catchable.quality),risk:num(catchF.risk),scoreMax:Math.max(0,...Object.values(catchable.scores||{}).map(num))}:null,
-      recovery:{s15:atDelay(15),s30:atDelay(30),s60:atDelay(60),s120:atDelay(120)},featureChange});
+      catchable:catchableRow,recovery:{s15:atDelay(15),s30:atDelay(30),s60:atDelay(60),s120:atDelay(120)},featureChange});
   }
   monsters.sort((a,b)=>b.peakReturn-a.peakReturn);
   const featureLabels={score:'entry score',risk:'risk',mc:'market cap',momentum:'momentum',acceleration:'acceleration',flow:'flow',buyRatio:'buy ratio',volScore:'volume score',liqScore:'liquidity score',age:'token age',sourceQuality:'source quality',chartQuality:'chart quality',spikeRisk:'spike risk',memeQuality:'meme quality',manipulation:'manipulation suspicion',flowPersistence:'flow persistence'};
@@ -1616,10 +1647,11 @@ function missedMonsterLab(){
     return{kind:'reason',reason,label:reason,train:tr,holdout:ho,validated,strength:(tr.lift+ho.lift)/2};}).sort((a,b)=>b.validated-a.validated||b.strength-a.strength);
   const validatedPatterns=[...featurePatterns.filter(x=>x.validated),...reasonPatterns.filter(x=>x.validated)].sort((a,b)=>b.strength-a.strength);
   const rates=rows=>rows.length?rows.filter(r=>r.monster).length/rows.length*100:0,recent=[...rejectedRows].sort((a,b)=>b.ts-a.ts),last50=recent.slice(0,50),prior50=recent.slice(50,100);
-  const labWide=monsters.filter(m=>m.labWideMiss),partial=monsters.filter(m=>m.partialMiss);
+  const labWide=monsters.filter(m=>m.labWideMiss),partial=monsters.filter(m=>m.partialMiss),strategyProfiles=monsterStrategyProfiles(byMint,rejectedRows);
+  const missTypes=[...new Set(monsters.map(m=>m.missType?.type||'UNKNOWN'))].map(type=>{const rows=monsters.filter(m=>(m.missType?.type||'UNKNOWN')===type);return{type,n:rows.length,pct:monsters.length?rows.length/monsters.length*100:0,labWide:rows.filter(x=>x.labWideMiss).length,rescueCandidates:rows.filter(x=>x.rescueCandidate).length,avgPeak:avg(rows.map(x=>x.peakReturn))};}).sort((a,b)=>b.n-a.n);
   const recoveries=[15,30,60,120].map(sec=>{const key='s'+sec,rows=labWide.map(m=>m.recovery[key]).filter(Boolean);return{seconds:sec,n:rows.length,avgMoveAtEntry:avg(rows.map(x=>x.entryMove)),avgRemainingUpside:avg(rows.map(x=>x.remainingUpside).filter(Number.isFinite)),still25PctAvailable:rows.length?rows.filter(x=>num(x.remainingUpside)>=25).length/rows.length*100:0};});
   const data={summary:{rejectedTokens:rejectedRows.length,monsters:monsters.length,labWideMisses:labWide.length,partialMisses:partial.length,historicalSeedRows:historicalMonsterSeed.rows.length,historicalAvoidRows:historicalMonsterSeed.avoids.length,historicalRejectRows:historicalMonsterSeed.rejects.length,historicalEventRows:historicalMonsterSeed.events.length,historicalTradeRows:historicalMonsterSeed.trades.length,historicalSeedSource:historicalMonsterSeed.source,historicalSeedAt:historicalMonsterSeed.ts,historicalSeedError:historicalMonsterSeed.error,monsterRate:rates(rejectedRows),trainMonsterRate:rates(train),holdoutMonsterRate:rates(holdout),recent50Rate:rates(last50),prior50Rate:rates(prior50),validatedPatterns:validatedPatterns.length},
-    monsters,featurePatterns:featurePatterns.slice(0,20),reasonPatterns:reasonPatterns.slice(0,20),validatedPatterns:validatedPatterns.slice(0,20),recoveries,
+    monsters,missTypes,strategyProfiles:strategyProfiles.slice(0,40),featurePatterns:featurePatterns.slice(0,20),reasonPatterns:reasonPatterns.slice(0,20),validatedPatterns:validatedPatterns.slice(0,20),recoveries,
     methodology:{monster:'+75% or better after a recorded rejection',grouping:'one row per mint, not one row per strategy',validation:'patterns must agree in deterministic train and holdout before validated',productionChanges:'none; findings create research hypotheses/challengers only'}};
   monsterLabCache={ts,opps:opportunities.size,events:marketEvents.length,trades:trades.length,data};return data;
 }
