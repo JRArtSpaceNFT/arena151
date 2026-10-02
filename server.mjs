@@ -1129,11 +1129,17 @@ function updateCounterfactuals(t){
   }
 }
 
+function postDecisionMaintenance(t,source){
+  setImmediate(()=>{
+    try{updateOpportunities(t);updateCounterfactuals(t);updateDnaArchive(t);recordMarketEvent(t,source);}
+    catch(e){console.warn('Post-decision research maintenance warning:',e.message);}
+  });
+}
 function ingest(raw,source){
   const incoming=normalize(raw,source);if(!incoming||!(incoming.price>0))return;
-  const old=tokens.get(incoming.mint);const t=mergeToken(old,incoming);tokens.set(t.mint,t);updateCreator(t);updateOpportunities(t);updateOpenPositionExtremes(t);updateCounterfactuals(t);updateDnaArchive(t);recordMarketEvent(t,source);observeResearchLayers(t);
+  const old=tokens.get(incoming.mint),t=mergeToken(old,incoming);tokens.set(t.mint,t);updateCreator(t);updateOpenPositionExtremes(t);observeResearchLayers(t);
   if(!old)log('token',`🪙 LIVE token spotted: ${t.symbol} · ${t.name}`,'info',{mint:t.mint,source});
-  maybeTrade(t);broadcast('tick',{mint:t.mint});
+  maybeTrade(t);postDecisionMaintenance(t,source);broadcast('tick',{mint:t.mint});
 }
 
 async function fetchJson(url){const r=await fetch(url,{headers:{accept:'application/json','user-agent':'PUMP-LAB-LIVE/0.9'}});if(!r.ok)throw Error(`HTTP ${r.status}`);return r.json();}
@@ -1286,7 +1292,7 @@ async function parseWalletTx(sig,tx){
       tok.chainBuys=num(tok.chainBuys)+(action==='BUY'?1:0);tok.chainSells=num(tok.chainSells)+(action==='SELL'?1:0);tok.chainTx=num(tok.chainTx)+1;tok.lastChainAt=now();
       tok.chainFlow=(tok.chainFlow||[]).filter(e=>now()-e.ts<120000);
       if(action==='BUY'||action==='SELL')tok.chainFlow.push({ts:now(),slot:tx?.slot||null,signature:sig,wallet:x.owner,action,tokenDelta:delta,notionalUsd:Math.abs(delta)*num(tok.price),watchlist:!!watch,traderId:watch?.traderId||null});
-      if(watch?.confidence==='verified'&&(action==='BUY'||action==='SELL'))maybeTrade(tok);
+      if(watch?.confidence==='verified'&&(action==='BUY'||action==='SELL')){researchContextCache.delete(tok.mint);observeResearchLayers(tok);maybeTrade(tok);}
     }
   }
   if(found)solanaResolved++;
