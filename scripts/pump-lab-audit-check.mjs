@@ -53,6 +53,17 @@ if(!src.includes("meme chart thesis broke"))failures.push('Chart-aware meme exit
 if(!src.includes('function memeChartLabSnapshot()'))failures.push('Meme/chart expectancy lab missing');
 if(!src.includes('memeChartLab:memeChartLabSnapshot()'))failures.push('Meme/chart lab missing from deep research state');
 
+
+// Season reset/archive invariants.
+if(!src.includes('async function archiveAndResetSeason'))failures.push('atomic season archive/reset missing');
+if(!src.includes("archiveId='archive:'"))failures.push('season archive durable id missing');
+if(!src.includes("await db.query('BEGIN')"))failures.push('season reset transaction BEGIN missing');
+if(!src.includes("await db.query('COMMIT')"))failures.push('season reset transaction COMMIT missing');
+if(!src.includes("await db.query('ROLLBACK')"))failures.push('season reset rollback missing');
+if(!src.includes("if(RESET_SEASON)await archiveAndResetSeason(RESET_SEASON)"))failures.push('season reset startup gate missing');
+if(!src.includes("req.url==='/api/archives'"))failures.push('season archive metadata endpoint missing');
+if(!src.includes("freshAlpha=createPumpLabAlphaOS"))failures.push('Alpha OS fresh-season reset missing');
+
 if (failures.length) {
   console.error('PUMP LAB AUDIT STATIC CHECK FAILED');
   for (const [name] of failures) console.error(' - ' + name);
