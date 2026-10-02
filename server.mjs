@@ -1901,8 +1901,10 @@ function memeChartLabSnapshot(){
 }
 
 function scientistInsights(){
-  const hypotheses=[];const stats=strategyStatistics(),replay=replayLab(),op=opportunityCostLab(),ex=exitOptimizer();
+  const hypotheses=[];const stats=strategyStatistics(),replay=replayLab(),op=opportunityCostLab(),ex=exitOptimizer(),monster=missedMonsterLab();
   const bestReplay=replay.strategies.find(x=>x.n>=5);if(bestReplay)hypotheses.push({kind:'entry',text:`${bestReplay.name} replay signals currently show ${bestReplay.hit25.toFixed(0)}% reaching +25% in the captured archive.`,evidence:{n:bestReplay.n,avgPeak:bestReplay.avgPeak}});
+  const mp=monster.validatedPatterns?.[0];if(mp)hypotheses.push({kind:'monster',text:`Missed Monster holdout pattern: ${mp.label} is repeating in both train and holdout. Keep it in a separate recovery challenger until that challenger earns its own holdout promotion gate.`,evidence:{labWideMisses:monster.summary.labWideMisses,monsterRate:monster.summary.monsterRate,pattern:mp}});
+  else if(monster.summary?.labWideMisses>=3)hypotheses.push({kind:'monster',text:`${monster.summary.labWideMisses} lab-wide monsters are under autopsy, but no missed-winner pattern has passed holdout validation yet. Do not loosen production filters from hindsight alone.`,evidence:{trainRate:monster.summary.trainMonsterRate,holdoutRate:monster.summary.holdoutMonsterRate}});
   if(ex.n>=8&&ex.direction!=='CURRENT MIX BALANCED')hypotheses.push({kind:'exit',text:`${ex.direction}: post-exit continuation and adverse excursion evidence justify a controlled exit challenger.`,evidence:{n:ex.n,capture:ex.capture,fiveMin:ex.fiveMin}});
   if(op.n>=8&&op.avgCost>15)hypotheses.push({kind:'capital',text:`Observed opportunity cost is elevated at ${op.avgCost.toFixed(1)} percentage points on average; allocator should penalize long low-edge holds.`,evidence:{n:op.n,highCost:op.highCost}});
   const proven=stats.filter(x=>x.n>=10&&x.ciLow>0);if(proven.length)hypotheses.push({kind:'statistics',text:`${proven[0].name} has a positive 95% mean-return interval in the current sample; keep validating before promotion.`,evidence:{n:proven[0].n,ciLow:proven[0].ciLow,ciHigh:proven[0].ciHigh}});
@@ -2000,9 +2002,11 @@ function familyTree(){return strategyDefs.filter(p=>p.risk!=='CONTROL'&&!p.speci
 function spawnResearchChallenger(){
   const active=challengers.filter(c=>!c.promotedAt&&!c.graveyardAt);if(active.length>=8||challengers.length>=30)return null;
   strategyDefs.filter(d=>d.risk!=='CONTROL'&&!d.specialist).forEach(markEquity);
-  const exit=exitOptimizer(),noTrade=noTradeAlpha(),risk=riskScoreboard();
+  const exit=exitOptimizer(),noTrade=noTradeAlpha(),risk=riskScoreboard(),monster=missedMonsterLab(),monsterPattern=monster.validatedPatterns?.[0];
   let parentId='momentum',mutation='longer winners',mods={takeDelta:15};
-  if(noTrade.n>=30&&noTrade.falseRejectRate>25){parentId='quant';mutation='confirmation-preserving runner for missed upside';mods={minDelta:2,takeDelta:15,exitMode:'runner'};}
+  if(monster.summary?.labWideMisses>=5&&monsterPattern){
+    parentId='confirmed_runner';mutation=`holdout-backed monster recovery · ${monsterPattern.label}`;mods={minDelta:-2,takeDelta:20,exitMode:'runner',sizeBias:.35,maxHold:180};
+  }else if(noTrade.n>=30&&noTrade.falseRejectRate>25){parentId='quant';mutation='confirmation-preserving runner for missed upside';mods={minDelta:2,takeDelta:15,exitMode:'runner'};}
   else if(risk[0]&&risk[0].dd>25){parentId='professional';mutation='defensive drawdown response';mods={minDelta:3,stopDelta:-3,riskCap:34};}
   else if(exit.n>=10&&exit.direction==='TEST LONGER HOLDS'){parentId='smartmom';mutation='runner exit from post-exit continuation evidence';mods={takeDelta:12,exitMode:'runner'};}
   else if(exit.n>=10&&exit.direction==='TEST TIGHTER RISK'){parentId='professional';mutation='defensive exit from adverse-excursion evidence';mods={stopDelta:-3,exitMode:'defensive',riskCap:36};}
