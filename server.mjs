@@ -1508,17 +1508,17 @@ function strategyStatistics(){
   }).sort((a,b)=>b.shrunkMean-a.shrunkMean);
 }
 function dynamicAllocator(){
-  const regime=marketWeather().regime,stats=strategyStatistics();const rows=stats.map(st=>{
+  const regime=marketWeather().regime,stats=strategyStatistics(),focus=new Set(edgeResearchFocus().strategies.map(x=>x.id));const rows=stats.map(st=>{
     const d=strategyDefs.find(x=>x.id===st.id),reg=strategyRegimeWeight(st.id,regime),sample=st.n/(st.n+20);
-    const evidence=st.n>=3?clamp(1+st.shrunkMean/35,.55,1.55):1;
-    const independence=diversityWeight(st.id),raw=Math.max(.10,reg*(.75+.25*sample)*evidence*independence);
-    return{id:st.id,name:st.name,raw,n:st.n,legacyN:st.legacyN,shrunkMean:st.shrunkMean,dd:st.dd,risk:d?.risk||'MED'};
+    const evidence=st.n>=3?clamp(1+st.shrunkMean/35,.55,1.55):1,focused=focus.has(st.id),focusMult=focused?1:.22;
+    const independence=diversityWeight(st.id),raw=Math.max(focused?.10:.02,reg*(.75+.25*sample)*evidence*independence*focusMult);
+    return{id:st.id,name:st.name,raw,n:st.n,legacyN:st.legacyN,shrunkMean:st.shrunkMean,dd:st.dd,risk:d?.risk||'MED',focused,tier:focused?'CORE EVIDENCE':'EXPLORATION'};
   });const sum=rows.reduce((a,x)=>a+x.raw,0)||1;
-  return{regime,era:STRATEGY_ERA,weights:rows.map(x=>({...x,pct:x.raw/sum*100})).sort((a,b)=>b.pct-a.pct),concentration:rows.length?Math.max(...rows.map(x=>x.raw/sum*100)):0};
+  return{regime,era:STRATEGY_ERA,focusCount:focus.size,weights:rows.map(x=>({...x,pct:x.raw/sum*100})).sort((a,b)=>b.pct-a.pct),concentration:rows.length?Math.max(...rows.map(x=>x.raw/sum*100)):0};
 }
 function allocationWeight(id){
   const a=dynamicAllocator(),w=a.weights.find(x=>x.id===id);if(!w)return 1;
-  const equal=100/Math.max(1,a.weights.length);return clamp(w.pct/equal,.55,1.65);
+  const equal=100/Math.max(1,a.weights.length);return clamp(w.pct/equal,w.focused?.55:.18,w.focused?1.75:.55);
 }
 function exitModeFor(d){
   if(d.exitMode)return d.exitMode;
