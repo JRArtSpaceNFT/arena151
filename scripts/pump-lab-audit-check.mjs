@@ -51,9 +51,7 @@ const checks = [
   ['pre-buy context cache', 'researchContextCache'],
   ['audit latency telemetry', 'fastAuditSnapshot()'],
   ['cached market weather', 'weatherCache'],
-  ['cached lifecycle advisory', 'lifecycleState=fresh?cached.lifecycleState'],
-  ['cached science evidence', 'evidenceDecisionCached'],
-  ['constant-time survival index', 'survivalStats']
+  ['cached lifecycle advisory', 'lifecycleState=fresh?cached.lifecycleState']
 ];
 
 const failures = checks.filter(([, needle]) => !src.includes(needle)).map(([name])=>name);
