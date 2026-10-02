@@ -95,7 +95,8 @@ const deferredRejectRows=[];const pendingRejectKeys=new Set();let rejectFlushSch
 let pumpPollInFlight=false,pumpPollBackoffUntil=0,openPositionPollInFlight=false,lastPumpWakeAt=0,pumpWakeTimer=null;
 let allocatorCache={ts:0,tradeCount:-1,value:null};
 const solanaCreateQueue=[];const solanaCreateAttempts=new Map();const solanaPriorityQueue=[];const solanaSubscriptionMeta=new Map();let solanaRpcInFlight=0,solanaRpcBackoffUntil=0,lastGenericSolanaQueuedAt=0;
-const launchSignalStats={createSignals:0,resolvedTx:0,mintsFound:0,hydrated:0,hydrateFailures:0,lastCreateAt:0,lastHydrateAt:0,hydrateMs:[]};
+const launchHydrationInFlight=new Set();
+const launchSignalStats={processedCreateSignals:0,createSignals:0,resolvedTx:0,mintsFound:0,hydrated:0,hydrateFailures:0,lastCreateAt:0,lastHydrateAt:0,hydrateMs:[]};
 function pushLatency(a,x){a.push(x);if(a.length>1200)a.splice(0,a.length-1000)}
 function latencyPercentile(a,p){if(!a.length)return 0;const s=a.slice().sort((x,y)=>x-y);return s[Math.min(s.length-1,Math.max(0,Math.ceil((s.length-1)*p)))]}
 function recordDiscoveryLatency(ms){if(!Number.isFinite(ms)||ms<0)return;if(ms<=60000)pushLatency(fastAuditLatency.discovery,ms);else fastAuditLatency.lateDiscoveryBackfill++}
@@ -109,7 +110,7 @@ function fastAuditSnapshot(){
   return{samples:a.length,lastAt:fastAuditLatency.lastAt,p50Ms:latencyPercentile(a,.50),p95Ms:latencyPercentile(a,.95),p99Ms:latencyPercentile(a,.99),precomputeP95Ms:latencyPercentile(fastAuditLatency.precompute,.95),decisionP95Ms:latencyPercentile(fastAuditLatency.decision,.95),slowOver150ms:fastAuditLatency.slow,targetP95Ms:75,targetP99Ms:150,
     buySamples:b.length,firstBuyP50Ms:latencyPercentile(b,.50),firstBuyP95Ms:latencyPercentile(b,.95),firstBuyTargetMs:25,
     discoverySamples:d.length,lateDiscoveryBackfill:fastAuditLatency.lateDiscoveryBackfill,discoveryP50Ms:latencyPercentile(d,.50),discoveryP95Ms:latencyPercentile(d,.95),discoveryTargetMs:PUMP_KEY?500:4000,discoveryMode:PUMP_KEY?'PumpPortal realtime websocket':'Solana Create signal + Pump.fun polling fallback',
-    onchainLaunch:{createSignals:launchSignalStats.createSignals,resolvedTx:launchSignalStats.resolvedTx,mintsFound:launchSignalStats.mintsFound,hydrated:launchSignalStats.hydrated,hydrateFailures:launchSignalStats.hydrateFailures,hydrateP50Ms:latencyPercentile(h,.50),hydrateP95Ms:latencyPercentile(h,.95),createQueued:solanaCreateQueue.length},
+    onchainLaunch:{processedCreateSignals:launchSignalStats.processedCreateSignals,createSignals:launchSignalStats.createSignals,resolvedTx:launchSignalStats.resolvedTx,mintsFound:launchSignalStats.mintsFound,hydrated:launchSignalStats.hydrated,hydrateFailures:launchSignalStats.hydrateFailures,hydrationInFlight:launchHydrationInFlight.size,hydrateP50Ms:latencyPercentile(h,.50),hydrateP95Ms:latencyPercentile(h,.95),createQueued:solanaCreateQueue.length},
     criticalPath:['cached token features','hard eligibility/risk vetoes','strategy score + guard','Alpha OS local inference','cached lifecycle advisory','cached Season 2 science + execution simulation'],networkCallsOnCriticalPath:false};
 }
 function logFastAuditMetrics(){console.log('FAST_AUDIT_METRICS '+JSON.stringify(fastAuditSnapshot()));}
@@ -1269,24 +1270,26 @@ function connectSolanaStream(){
       setHealth('solana-stream','ok',`WebSocket open · requesting Pump.fun + ${watched.length} Fomo wallet subscriptions`,{truth:'observed'});
       setHealth('fomo-watchlist','standby',`Waiting for ${watched.length} watched-wallet subscription acknowledgements`,{truth:'observed'});
       solanaWs.send(JSON.stringify({jsonrpc:'2.0',id:901,method:'logsSubscribe',params:[{mentions:[PUMP_PROGRAM]},{commitment:'processed'}]}));
+      solanaWs.send(JSON.stringify({jsonrpc:'2.0',id:902,method:'logsSubscribe',params:[{mentions:[PUMP_PROGRAM]},{commitment:'confirmed'}]}));
       watched.forEach((address,i)=>solanaWs.send(JSON.stringify({jsonrpc:'2.0',id:1000+i,method:'logsSubscribe',params:[{mentions:[address]},{commitment:'confirmed'}]})));
-      console.log(`Solana WS open · requested ${1+watched.length} subscriptions`);
+      console.log(`Solana WS open · requested ${2+watched.length} subscriptions`);
     });
     solanaWs.addEventListener('message',ev=>{try{
       const m=JSON.parse(String(ev.data));
       if(m?.error){const msg=m.error?.message||'unknown subscription error';setHealth('solana-stream','warn','Subscription error: '+msg,{truth:'observed'});console.warn('Solana subscription error',m.error);return;}
       if(m?.result!==undefined&&Number.isInteger(m?.id)&&m.id>=901){
-        solanaSubAcks++;solanaSubscriptionMeta.set(m.result,{kind:m.id===901?'pump':'watch',requestId:m.id});
+        solanaSubAcks++;solanaSubscriptionMeta.set(m.result,{kind:m.id===901?'pump-processed':m.id===902?'pump-confirmed':'watch',requestId:m.id});
         const watched=WATCHED_WALLET_LOOKUP.size;
-        if(m.id>=1000)setHealth('fomo-watchlist','ok',`${Math.min(watched,Math.max(0,solanaSubAcks-1))}/${watched} watched-wallet streams acknowledged`,{truth:'observed'});
-        if(solanaSubAcks>=1+watched)setHealth('solana-stream','ok',`Pump.fun + ${watched} Fomo wallet subscriptions acknowledged`,{truth:'observed'});
+        if(m.id>=1000)setHealth('fomo-watchlist','ok',`${Math.min(watched,Math.max(0,solanaSubAcks-2))}/${watched} watched-wallet streams acknowledged`,{truth:'observed'});
+        if(solanaSubAcks>=2+watched)setHealth('solana-stream','ok',`Pump.fun processed+confirmed + ${watched} Fomo wallet subscriptions acknowledged`,{truth:'observed'});
         return;
       }
       const value=m?.params?.result?.value,sig=value?.signature,sub=solanaSubscriptionMeta.get(m?.params?.subscription);
       if(sig){
-        const logs=Array.isArray(value?.logs)?value.logs:[],isPumpCreate=sub?.kind==='pump'&&logs.some(x=>/Instruction:\s*Create(?:V2)?\b/i.test(String(x)));
-        if(isPumpCreate){queueCreateSignature(sig);wakePumpPoll('solana-create');}
-        else queueSolanaSignature(sig,sub?.kind==='watch');
+        const logs=Array.isArray(value?.logs)?value.logs:[],isCreate=logs.some(x=>/Instruction:\s*Create(?:V2)?\b/i.test(String(x)));
+        if(sub?.kind==='pump-processed'&&isCreate){launchSignalStats.processedCreateSignals++;wakePumpPoll('solana-create-processed');}
+        else if(sub?.kind==='pump-confirmed'&&isCreate)queueCreateSignature(sig);
+        else if(sub?.kind==='watch')queueSolanaSignature(sig,true);
       }
     }catch{}});
     solanaWs.addEventListener('close',()=>{setHealth('solana-stream','warn','Solana websocket disconnected · reconnecting',{truth:'observed'});setTimeout(connectSolanaStream,5000);});
@@ -1307,15 +1310,19 @@ function initializedMintsFromTx(tx){
   return [...out];
 }
 async function hydrateLaunchMint(mint,sig){
-  if(!mint||tokens.has(mint))return tokens.get(mint)||null;const started=performance.now();
-  for(const delay of [0,120,280]){
-    if(delay)await new Promise(r=>setTimeout(r,delay));
-    try{
-      const p=await fetchJson('https://frontend-api-v3.pump.fun/coins/'+encodeURIComponent(mint));
-      if(p&&typeof p==='object'&&(p.mint||p.address||p.tokenAddress)){ingest({...p,mint,launchSignature:sig},'pump.fun-onchain');launchSignalStats.hydrated++;launchSignalStats.lastHydrateAt=now();pushLatency(launchSignalStats.hydrateMs,performance.now()-started);return tokens.get(mint)||null;}
-    }catch{}
-  }
-  launchSignalStats.hydrateFailures++;return null;
+  if(!mint||tokens.has(mint)||launchHydrationInFlight.has(mint))return tokens.get(mint)||null;
+  launchHydrationInFlight.add(mint);const started=performance.now(),delays=[0,180,320,600,1000,1800,3000];
+  try{
+    for(const delay of delays){
+      if(delay)await new Promise(r=>setTimeout(r,delay));
+      if(tokens.has(mint))return tokens.get(mint);
+      try{
+        const p=await fetchJson('https://frontend-api-v3.pump.fun/coins/'+encodeURIComponent(mint));
+        if(p&&typeof p==='object'&&(p.mint||p.address||p.tokenAddress)){ingest({...p,mint,launchSignature:sig},'pump.fun-onchain');launchSignalStats.hydrated++;launchSignalStats.lastHydrateAt=now();pushLatency(launchSignalStats.hydrateMs,performance.now()-started);return tokens.get(mint)||null;}
+      }catch{}
+    }
+    launchSignalStats.hydrateFailures++;return null;
+  }finally{launchHydrationInFlight.delete(mint);}
 }
 function keyText(k){return typeof k==='string'?k:(k?.pubkey||'');}
 function solDeltaFor(tx,wallet){
@@ -1389,7 +1396,7 @@ async function drainSolanaQueue(){
       if(attempt<4){const timer=setTimeout(()=>{if(!solanaCreateQueue.includes(sig))solanaCreateQueue.unshift(sig);},250*attempt);timer.unref?.();}
       else solanaCreateAttempts.delete(sig);
     }else if(tx){
-      if(create){solanaCreateAttempts.delete(sig);launchSignalStats.resolvedTx++;const mints=initializedMintsFromTx(tx);launchSignalStats.mintsFound+=mints.length;for(const mint of mints.slice(0,2))await hydrateLaunchMint(mint,sig);}
+      if(create){solanaCreateAttempts.delete(sig);launchSignalStats.resolvedTx++;const mints=initializedMintsFromTx(tx);launchSignalStats.mintsFound+=mints.length;for(const mint of mints.slice(0,2))void hydrateLaunchMint(mint,sig);}
       await parseWalletTx(sig,tx);
     }
     setHealth('wallet-intel','ok',`Create ${solanaCreateQueue.length} · priority ${solanaPriorityQueue.length} · normal ${solanaQueue.length} · ${solanaResolved} resolved`,{truth:'observed'});
@@ -1896,7 +1903,7 @@ function resetSeasonInMemory(label,archiveId){
   for(const d of strategyDefs)resetTraderRuntime(d);
   for(const d of challengers)resetTraderRuntime(d);
   positions.splice(0);trades.splice(0);activity.splice(0);decisions.splice(0);timeline.splice(0);autopsies.splice(0);experiments.splice(0);replayFrames.splice(0);
-  promotions.splice(0);graveyard.splice(0);walletEvents.splice(0);marketEvents.splice(0);pendingDbEvents.splice(0);solanaQueue.splice(0);solanaPriorityQueue.splice(0);solanaCreateQueue.splice(0);solanaCreateAttempts.clear();solanaSubscriptionMeta.clear();launchSignalStats.createSignals=0;launchSignalStats.resolvedTx=0;launchSignalStats.mintsFound=0;launchSignalStats.hydrated=0;launchSignalStats.hydrateFailures=0;launchSignalStats.lastCreateAt=0;launchSignalStats.lastHydrateAt=0;launchSignalStats.hydrateMs.splice(0);
+  promotions.splice(0);graveyard.splice(0);walletEvents.splice(0);marketEvents.splice(0);pendingDbEvents.splice(0);solanaQueue.splice(0);solanaPriorityQueue.splice(0);solanaCreateQueue.splice(0);solanaCreateAttempts.clear();launchHydrationInFlight.clear();solanaSubscriptionMeta.clear();launchSignalStats.processedCreateSignals=0;launchSignalStats.createSignals=0;launchSignalStats.resolvedTx=0;launchSignalStats.mintsFound=0;launchSignalStats.hydrated=0;launchSignalStats.hydrateFailures=0;launchSignalStats.lastCreateAt=0;launchSignalStats.lastHydrateAt=0;launchSignalStats.hydrateMs.splice(0);
   opportunities.clear();opportunityKeysByMint.clear();tokens.clear();creators.clear();dnaArchive.clear();marketEventClock.clear();solanaSeen.clear();researchContextCache.clear();weatherCache={ts:0,value:null};fastAuditLatency.precompute.splice(0);fastAuditLatency.decision.splice(0);fastAuditLatency.total.splice(0);fastAuditLatency.firstBuy.splice(0);fastAuditLatency.discovery.splice(0);fastAuditLatency.lateDiscoveryBackfill=0;deferredRejectRows.splice(0);pendingRejectKeys.clear();rejectFlushScheduled=false;fastAuditLatency.lastAt=0;fastAuditLatency.slow=0;
   entryPolicyCache.clear();regimeWeightCache.clear();dnaSimilarityCache.clear();walletSignalCache.clear();strategyPerfCache.clear();allocatorCache={ts:0,tradeCount:-1,value:null};corrCache={ts:0,rows:[]};
   research={last:0,notes:[],hypotheses:[]};lastScientistRun=0;lastDbEventFlush=0;
