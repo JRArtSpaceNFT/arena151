@@ -60,7 +60,13 @@ const checks = [
   ['launch discovery latency telemetry', 'recordDiscoveryLatency'],
   ['discovery latency percentile telemetry', 'discoveryP95Ms'],
   ['isolated checkpoint namespace', 'KV_STATE_KEY'],
-  ['late discovery backfill separation', 'lateDiscoveryBackfill']
+  ['late discovery backfill separation', 'lateDiscoveryBackfill'],
+  ['event-driven Pump wake', 'wakePumpPoll'],
+  ['processed Pump program subscription', "commitment:'processed'"],
+  ['fast lifecycle advisory', 'lifecycle.fastAdvisory'],
+  ['deferred deep research', 'setImmediate(()=>{try{observeResearchLayers(t,fastCtx)'],
+  ['allocator cache', 'allocatorCache'],
+  ['reused Alpha evaluation', 'proposeCapital({strategy:d,token:t,features:f,score,threshold:activeGuard.requiredScore||policy.min,quality,similar,regime},alpha)']
 ];
 
 const failures = checks.filter(([, needle]) => !src.includes(needle)).map(([name])=>name);
@@ -92,6 +98,11 @@ if(!scienceSrc.includes('evidenceDecisionCached'))failures.push('science evidenc
 if(!scienceSrc.includes('survivalStats'))failures.push('constant-time survival hazard index missing');
 if(!lifecycleSrc.includes('decisionLookup'))failures.push('lifecycle decision index missing');
 if(!lifecycleSrc.includes('empiricalCache'))failures.push('lifecycle competing-risk cache missing');
+if(!lifecycleSrc.includes('fastAdvisory'))failures.push('lifecycle fast advisory missing');
+if(!lifecycleSrc.includes('cacheOnly=true'))failures.push('lifecycle cache-only historical path missing');
+if(!alphaSrc.includes('worldContextCache'))failures.push('Alpha world context cache missing');
+if(!alphaSrc.includes('settled.length<40'))failures.push('bounded Alpha nearest-neighbor scan missing');
+if(!alphaSrc.includes('proposeCapital(c,evaluated=null)'))failures.push('Alpha evaluation reuse hook missing');
 
 // Hypothesis Arena regression guards.
 const hypothesisIds=[
