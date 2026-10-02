@@ -95,6 +95,7 @@ let solanaObserved = 0;
 let solanaResolved = 0;
 let solanaSubAcks = 0;
 let db = null;
+let archiveMonsterExportCache = null;
 let dbConnecting = false;
 let dbStateRestored = false;
 let lastDurableSaveAt = 0;
@@ -1777,6 +1778,14 @@ function resetSeasonInMemory(label,archiveId){
   startedAt=now();
   seasonInfo={label,startedAt,archiveId,resetApplied:true};
 }
+function buildArchiveMonsterExport(archive,updatedAt){
+  const s=archive?.state||{},rawOpps=Array.isArray(s.opportunities)?s.opportunities:[],opps=rawOpps.map(x=>Array.isArray(x)?x[1]:x).filter(o=>o&&o.action==='REJECT');
+  const mints=new Set(opps.map(o=>o.mint).filter(Boolean));
+  const safeRejects=opps.map(o=>({ts:o.ts,firstTs:o.firstTs,era:o.era,samplePartition:o.samplePartition,strategy:o.strategy,strategyName:o.strategyName,mint:o.mint,symbol:o.symbol,action:o.action,score:o.score,risk:o.risk,price:o.price,firstPrice:o.firstPrice,mc:o.mc,narrative:o.narrative,regime:o.regime,why:o.why,features:o.features,bestReturn:o.bestReturn,worstReturn:o.worstReturn,latestReturn:o.latestReturn,entered:o.entered,entryTs:o.entryTs,entryPrice:o.entryPrice}));
+  const events=(s.marketEvents||[]).filter(e=>mints.has(e.mint)).map(e=>({ts:e.ts,era:e.era,mint:e.mint,symbol:e.symbol,source:e.source,price:e.price,mc:e.mc,liq:e.liq,vol:e.vol,buys:e.buys,sells:e.sells,narrative:e.narrative,regime:e.regime,quality:e.quality,features:e.features,scores:e.scores}));
+  const relatedTrades=(s.trades||[]).filter(t=>mints.has(t.mint)).map(t=>({strategy:t.strategy,strategyName:t.strategyName,mint:t.mint,symbol:t.symbol,opened:t.opened,closedAt:t.closedAt,entry:t.entry,exit:t.exit,entryMc:t.entryMc,exitMc:t.exitMc,pnl:t.pnl,pnlPct:t.pnlPct,mfe:t.mfe,mae:t.mae,reason:t.reason,samplePartition:t.samplePartition,policyVersion:t.policyVersion}));
+  return{ok:true,archiveId:'archive:season2-2026-10-01',label:archive?.label,archivedAt:archive?.archivedAt,updatedAt,summary:archive?.summary,counts:{rejectOpportunities:safeRejects.length,uniqueRejectedMints:mints.size,marketEvents:events.length,trades:relatedTrades.length},opportunities:safeRejects,marketEvents:events,trades:relatedTrades};
+}
 function seasonArchiveEnvelope(label,state){
   const postmortems=allTraders().map(traderPostmortem);
   const strategyRows=strategyDiagnostics();
@@ -1882,6 +1891,10 @@ async function initDb(restoreState=true){
       const r=await db.query("SELECT payload,updated_at FROM pump_lab_state WHERE id='main'");
       if(r.rows[0]?.payload)restoreIfNewer(r.rows[0].payload,'postgres',new Date(r.rows[0].updated_at).getTime());
       else {dbStateRestored=true;lastDurableRestoreAt=now();}
+      try{
+        const ar=await db.query("SELECT payload,updated_at FROM pump_lab_state WHERE id='archive:season2-2026-10-01'");
+        if(ar.rows[0]?.payload){archiveMonsterExportCache=buildArchiveMonsterExport(ar.rows[0].payload,ar.rows[0].updated_at);console.log('ARCHIVE_MONSTER_CACHE '+JSON.stringify(archiveMonsterExportCache.counts));}
+      }catch(e){console.warn('Archive monster preload warning:',e.message);}
       if(RESET_SEASON)await archiveAndResetSeason(RESET_SEASON);
       dbStateRestored=true;lastDurableRestoreAt=now();
       console.log('STATE_LOCK unlocked · Postgres connected');
@@ -2888,18 +2901,9 @@ const server=http.createServer(async (req,res)=>{
     }catch(e){res.writeHead(500,{'content-type':'application/json','cache-control':'no-store'});return res.end(JSON.stringify({ok:false,error:e.message}));}
   }
   if(req.url==='/api/archive-monster-export'){
-    if(!db){res.writeHead(503,{'content-type':'application/json','cache-control':'no-store'});return res.end(JSON.stringify({ok:false,error:'durable archive store unavailable'}));}
     try{
-      const archiveId='archive:season2-2026-10-01';
-      const r=await db.query('SELECT payload,updated_at FROM pump_lab_state WHERE id=$1',[archiveId]);
-      const archive=r.rows[0]?.payload;if(!archive){res.writeHead(404,{'content-type':'application/json','cache-control':'no-store'});return res.end(JSON.stringify({ok:false,error:'archive not found'}));}
-      const s=archive.state||{},rawOpps=Array.isArray(s.opportunities)?s.opportunities:[],opps=rawOpps.map(x=>Array.isArray(x)?x[1]:x).filter(o=>o&&o.action==='REJECT');
-      const mints=new Set(opps.map(o=>o.mint).filter(Boolean));
-      const safeRejects=opps.map(o=>({ts:o.ts,firstTs:o.firstTs,era:o.era,samplePartition:o.samplePartition,strategy:o.strategy,strategyName:o.strategyName,mint:o.mint,symbol:o.symbol,action:o.action,score:o.score,risk:o.risk,price:o.price,firstPrice:o.firstPrice,mc:o.mc,narrative:o.narrative,regime:o.regime,why:o.why,features:o.features,bestReturn:o.bestReturn,worstReturn:o.worstReturn,latestReturn:o.latestReturn,entered:o.entered,entryTs:o.entryTs,entryPrice:o.entryPrice}));
-      const events=(s.marketEvents||[]).filter(e=>mints.has(e.mint)).map(e=>({ts:e.ts,era:e.era,mint:e.mint,symbol:e.symbol,source:e.source,price:e.price,mc:e.mc,liq:e.liq,vol:e.vol,buys:e.buys,sells:e.sells,narrative:e.narrative,regime:e.regime,quality:e.quality,features:e.features,scores:e.scores}));
-      const relatedTrades=(s.trades||[]).filter(t=>mints.has(t.mint)).map(t=>({strategy:t.strategy,strategyName:t.strategyName,mint:t.mint,symbol:t.symbol,opened:t.opened,closedAt:t.closedAt,entry:t.entry,exit:t.exit,entryMc:t.entryMc,exitMc:t.exitMc,pnl:t.pnl,pnlPct:t.pnlPct,mfe:t.mfe,mae:t.mae,reason:t.reason,samplePartition:t.samplePartition,policyVersion:t.policyVersion}));
-      const payload={ok:true,archiveId,label:archive.label,archivedAt:archive.archivedAt,updatedAt:r.rows[0].updated_at,summary:archive.summary,counts:{rejectOpportunities:safeRejects.length,uniqueRejectedMints:mints.size,marketEvents:events.length,trades:relatedTrades.length},opportunities:safeRejects,marketEvents:events,trades:relatedTrades};
-      const body=JSON.stringify(payload);console.log('ARCHIVE_MONSTER_EXPORT '+JSON.stringify({archiveId,...payload.counts}));
+      if(!archiveMonsterExportCache){res.writeHead(503,{'content-type':'application/json','cache-control':'no-store'});return res.end(JSON.stringify({ok:false,error:'archive cache not ready'}));}
+      const body=JSON.stringify(archiveMonsterExportCache);console.log('ARCHIVE_MONSTER_EXPORT '+JSON.stringify(archiveMonsterExportCache.counts));
       res.writeHead(200,{'content-type':'application/json','cache-control':'no-store','content-length':Buffer.byteLength(body),'x-robots-tag':'noindex, nofollow'});return res.end(body);
     }catch(e){
       console.error('ARCHIVE_MONSTER_EXPORT_ERROR '+(e?.stack||e));res.writeHead(500,{'content-type':'application/json','cache-control':'no-store'});return res.end(JSON.stringify({ok:false,error:'archive monster export unavailable'}));
