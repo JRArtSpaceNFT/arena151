@@ -141,13 +141,19 @@ const alphaOS = createPumpLabAlphaOS({
 });
 const science = createPumpLabSeason2Science({start:START});
 const lifecycle = createPumpLabLifecycleResearch({start:START});
-function observeResearchLayers(t){
-  const started=performance.now(),weather=marketWeather(),sf=features(t),sq=tokenDataQuality(t,sf),adv=adversarialRisk(t,sf,sq),tdna=tokenDNA(t,sf,sq),similar=dnaSimilarity(t,12,tdna);
+function prepareFastContext(t){
+  const started=performance.now(),weather=marketWeather(),sf=features(t),sq=tokenDataQuality(t,sf),adv=adversarialRisk(t,sf,sq);
+  const simCache=dnaSimilarityCache.get(t.mint+':12'),similar=simCache&&simCache.archiveSize===dnaArchive.size&&now()-simCache.ts<60000?simCache.value:{n:0,avgSimilarity:0,hit25:25,hit100:8,avgPeak:0,avgWorst:0,matches:[]};
+  const life=lifecycle.fastAdvisory(t,{features:sf,quality:sq,market:weather}),ctx={ts:now(),f:sf,quality:sq,adv,similar,weather,lifecycleState:life,precomputeMs:performance.now()-started,fastPath:true};
+  researchContextCache.set(t.mint,ctx);return ctx;
+}
+function observeResearchLayers(t,fastCtx=null){
+  const ctx=fastCtx||prepareFastContext(t),sf=ctx.f,sq=ctx.quality,weather=ctx.weather,tdna=tokenDNA(t,sf,sq),similar=dnaSimilarity(t,12,tdna);
   const ao=alphaOS.observeToken(t,{features:sf,quality:sq}),wl=alphaOS.walletLeadLag(t);
   science.observeToken(t,{features:sf,quality:sq,market:weather,alpha:ao,earlyWallets:(wl.leaders||[]).map(x=>x.wallet)});
-  const life=lifecycle.observeToken(t,{features:sf,quality:sq,market:weather,alpha:ao}),ctx={ts:now(),f:sf,quality:sq,adv,similar,weather,lifecycleState:life,precomputeMs:performance.now()-started};
-  researchContextCache.set(t.mint,ctx);if(researchContextCache.size>2000){const old=[...researchContextCache.entries()].sort((a,b)=>a[1].ts-b[1].ts).slice(0,researchContextCache.size-1500);for(const [k] of old)researchContextCache.delete(k)}
-  return ctx;
+  const life=lifecycle.observeToken(t,{features:sf,quality:sq,market:weather,alpha:ao}),full={...ctx,ts:now(),similar,lifecycleState:life,deepAt:now(),fastPath:false};
+  researchContextCache.set(t.mint,full);if(researchContextCache.size>2000){const old=[...researchContextCache.entries()].sort((a,b)=>a[1].ts-b[1].ts).slice(0,researchContextCache.size-1500);for(const [k] of old)researchContextCache.delete(k)}
+  return full;
 }
 let research = { last: 0, notes: [], hypotheses: [] };
 let startedAt = Date.now();
@@ -1147,9 +1153,9 @@ function postDecisionMaintenance(t,source){
 }
 function ingest(raw,source){
   const incoming=normalize(raw,source);if(!incoming||!(incoming.price>0))return;
-  const old=tokens.get(incoming.mint),t=mergeToken(old,incoming);tokens.set(t.mint,t);updateCreator(t);updateOpenPositionExtremes(t);observeResearchLayers(t);
+  const old=tokens.get(incoming.mint),t=mergeToken(old,incoming);tokens.set(t.mint,t);updateCreator(t);updateOpenPositionExtremes(t);const fastCtx=prepareFastContext(t);
   if(!old){recordDiscoveryLatency(Math.max(0,num(t.firstSeenAt)-num(t.createdAt)));log('token',`🪙 LIVE token spotted: ${t.symbol} · ${t.name}`,'info',{mint:t.mint,source});}
-  maybeTrade(t);postDecisionMaintenance(t,source);broadcast('tick',{mint:t.mint});
+  maybeTrade(t);setImmediate(()=>{try{observeResearchLayers(t,fastCtx);}catch(e){console.warn('Deferred research warning:',e.message);}});postDecisionMaintenance(t,source);broadcast('tick',{mint:t.mint});
 }
 
 async function fetchJson(url){const r=await fetch(url,{headers:{accept:'application/json','user-agent':'PUMP-LAB-LIVE/0.9'}});if(!r.ok)throw Error(`HTTP ${r.status}`);return r.json();}
@@ -1317,7 +1323,7 @@ async function parseWalletTx(sig,tx){
       tok.chainBuys=num(tok.chainBuys)+(action==='BUY'?1:0);tok.chainSells=num(tok.chainSells)+(action==='SELL'?1:0);tok.chainTx=num(tok.chainTx)+1;tok.lastChainAt=now();
       tok.chainFlow=(tok.chainFlow||[]).filter(e=>now()-e.ts<120000);
       if(action==='BUY'||action==='SELL')tok.chainFlow.push({ts:now(),slot:tx?.slot||null,signature:sig,wallet:x.owner,action,tokenDelta:delta,notionalUsd:Math.abs(delta)*num(tok.price),watchlist:!!watch,traderId:watch?.traderId||null});
-      if(watch?.confidence==='verified'&&(action==='BUY'||action==='SELL')){researchContextCache.delete(tok.mint);observeResearchLayers(tok);maybeTrade(tok);}
+      if(watch?.confidence==='verified'&&(action==='BUY'||action==='SELL')){researchContextCache.delete(tok.mint);const fastCtx=prepareFastContext(tok);maybeTrade(tok);setImmediate(()=>{try{observeResearchLayers(tok,fastCtx);}catch{}});}
     }
   }
   if(found)solanaResolved++;
