@@ -2132,7 +2132,8 @@ function monsterExportJson(){
   const mints=new Set(rejects.map(o=>o.mint));
   const events=marketEvents.filter(e=>mints.has(e.mint)).map(e=>({ts:e.ts,era:e.era,mint:e.mint,symbol:e.symbol,source:e.source,price:e.price,mc:e.mc,liq:e.liq,vol:e.vol,buys:e.buys,sells:e.sells,narrative:e.narrative,regime:e.regime,quality:e.quality,features:e.features,scores:e.scores}));
   const relatedTrades=trades.filter(t=>t.policyVersion===STRATEGY_ERA&&mints.has(t.mint)).map(t=>({strategy:t.strategy,strategyName:t.strategyName,mint:t.mint,symbol:t.symbol,opened:t.opened,closedAt:t.closedAt,entry:t.entry,exit:t.exit,entryMc:t.entryMc,exitMc:t.exitMc,pnl:t.pnl,pnlPct:t.pnlPct,mfe:t.mfe,mae:t.mae,reason:t.reason,samplePartition:t.samplePartition}));
-  const payload={generatedAt:now(),era:STRATEGY_ERA,season:seasonInfo,counts:{rejectOpportunities:rejects.length,uniqueRejectedMints:mints.size,marketEvents:events.length,trades:relatedTrades.length},opportunities:rejects,marketEvents:events,trades:relatedTrades};
+  const safeRejects=rejects.map(o=>({ts:o.ts,firstTs:o.firstTs,era:o.era,samplePartition:o.samplePartition,strategy:o.strategy,strategyName:o.strategyName,mint:o.mint,symbol:o.symbol,action:o.action,score:o.score,risk:o.risk,price:o.price,firstPrice:o.firstPrice,mc:o.mc,narrative:o.narrative,regime:o.regime,why:o.why,features:o.features,bestReturn:o.bestReturn,worstReturn:o.worstReturn,latestReturn:o.latestReturn,entered:o.entered,entryTs:o.entryTs,entryPrice:o.entryPrice}));
+  const payload={generatedAt:now(),era:STRATEGY_ERA,season:seasonInfo,counts:{rejectOpportunities:safeRejects.length,uniqueRejectedMints:mints.size,marketEvents:events.length,trades:relatedTrades.length},opportunities:safeRejects,marketEvents:events,trades:relatedTrades};
   const json=JSON.stringify(payload);monsterExportCache={ts:now(),json};
   console.log('MONSTER_EXPORT '+JSON.stringify({bytes:json.length,...payload.counts}));
   return json;
