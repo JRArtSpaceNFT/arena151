@@ -100,7 +100,7 @@ const checks = [
   ['read-only historical importer', 'refreshHistoricalMonsterSeed'],
   ['production historical seed marker', 'production-readonly'],
   ['historical monster seed summary', 'historicalSeedRows'],
-  ['historical import periodic refresh', 'setInterval(refreshHistoricalMonsterSeed,300000)'],
+  ['historical import adaptive refresh', 'delay=ok?300000:30000'],
   ['historical state-endpoint fallback', "base+'/api/state'"],
   ['historical correct-avoid controls', 'historicalAvoidRows'],
   ['historical import source reporting', 'historicalSeedSource'],
