@@ -1531,7 +1531,7 @@ async function refreshHistoricalMonsterSeed(){
     const r=await fetch(HISTORICAL_RESEARCH_URL,{headers:{accept:'application/json','user-agent':'PUMP-LAB-STAGING-HISTORICAL-READONLY/1.0'},signal:controller.signal});
     clearTimeout(timer);if(!r.ok)throw Error('historical research HTTP '+r.status);
     const j=await r.json(),rows=Array.isArray(j?.missed)?j.missed:[];
-    const clean=rows.filter(x=>x?.mint&&num(x.bestReturn)>75).map(x=>({...safe(x),historicalSeed:true,historicalSource:'production-readonly'}));
+    const clean=rows.filter(x=>x?.mint&&num(x.bestReturn)>75).map(x=>({...JSON.parse(JSON.stringify(x)),historicalSeed:true,historicalSource:'production-readonly'}));
     historicalMonsterSeed={ts:now(),rows:clean,source:HISTORICAL_RESEARCH_URL,error:'',lastAttempt:now()};monsterLabCache={ts:0,opps:0,events:0,trades:0,data:null};
     setHealth('historical-monsters','ok','Read-only production monster seed · '+clean.length+' retained misses',{truth:'observed'});return true;
   }catch(e){historicalMonsterSeed.error=String(e?.message||e);setHealth('historical-monsters','warn','Historical monster seed unavailable: '+historicalMonsterSeed.error,{truth:'observed'});return false;}
