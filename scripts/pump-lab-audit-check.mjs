@@ -58,7 +58,9 @@ const checks = [
   ['priority watched-wallet Solana queue', 'solanaPriorityQueue'],
   ['Solana RPC adaptive backoff', 'solanaRpcBackoffUntil'],
   ['launch discovery latency telemetry', 'recordDiscoveryLatency'],
-  ['discovery latency percentile telemetry', 'discoveryP95Ms']
+  ['discovery latency percentile telemetry', 'discoveryP95Ms'],
+  ['isolated checkpoint namespace', 'KV_STATE_KEY'],
+  ['late discovery backfill separation', 'lateDiscoveryBackfill']
 ];
 
 const failures = checks.filter(([, needle]) => !src.includes(needle)).map(([name])=>name);
