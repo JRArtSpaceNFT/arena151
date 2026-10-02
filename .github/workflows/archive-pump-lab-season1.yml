@@ -1,0 +1,51 @@
+name: Archive Pump Lab Season 1
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/archive-pump-lab-season1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Fetch live Season 1 state
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p archive
+          curl --fail --location --retry 12 --retry-delay 5 --max-time 120 \
+            https://pump-lab-live.onrender.com/api/state \
+            -o archive/season1-state.json
+          curl --fail --location --retry 12 --retry-delay 5 --max-time 120 \
+            https://pump-lab-live.onrender.com/api/research \
+            -o archive/season1-research.json
+          python - <<'PY'
+          import json, pathlib, datetime
+          s=json.loads(pathlib.Path('archive/season1-state.json').read_text())
+          r=json.loads(pathlib.Path('archive/season1-research.json').read_text())
+          manifest={
+            'archivedAt': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            'source':'https://pump-lab-live.onrender.com',
+            'trades': len(s.get('trades',[])),
+            'positions': len(s.get('positions',[])),
+            'version': s.get('version'),
+            'researchKeys': sorted(r.keys())
+          }
+          pathlib.Path('archive/manifest.json').write_text(json.dumps(manifest,indent=2))
+          print(json.dumps(manifest,indent=2))
+          PY
+      - name: Upload Season 1 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pump-lab-season1-archive
+          path: archive/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 9
