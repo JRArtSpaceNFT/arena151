@@ -2,6 +2,7 @@ import fs from 'node:fs';
 
 const src = fs.readFileSync(new URL('../server.mjs', import.meta.url), 'utf8');
 const scienceSrc = fs.readFileSync(new URL('../lib/pump-lab-season2-science.mjs', import.meta.url), 'utf8');
+const lifecycleSrc = fs.readFileSync(new URL('../lib/pump-lab-lifecycle-research.mjs', import.meta.url), 'utf8');
 const checks = [
   ['durable startup gate', "STARTUP_STATE_GATE waiting for Postgres / Key Value / local recovery"],
   ['durable trading gate', 'durableTradingReady()'],
@@ -17,7 +18,7 @@ const checks = [
   ['live launch audit gate', 'function systemAudit()'],
   ['lazy deep research endpoint', "req.url==='/api/research'"],
   ['serialized state writes', 'if(saveInProgress){saveQueued=true;return;}'],
-  ['Season 2 analytical era', "v4.0-season2-science"],
+  ['Lifecycle analytical era', "v4.1-coin-lifecycle"],
   ['Alpha OS integration', 'alphaOS.evaluateCandidate'],
   ['CIO capital auction', 'alphaOS.runCapitalAuction'],
   ['adaptive exit intelligence', 'alphaOS.exitPlan'],
@@ -35,7 +36,18 @@ const checks = [
   ['atomic local checkpoint', 'writeLocalAtomic(s)'],
   ['newest-state restore guard', 'restoreIfNewer'],
   ['Postgres reconnect scheduler', 'scheduleDbReconnect'],
-  ['multi-layer storage status', 'storageStatus()']
+  ['multi-layer storage status', 'storageStatus()'],
+  ['Lifecycle research import', 'createPumpLabLifecycleResearch'],
+  ['Lifecycle token observation', 'observeResearchLayers(t)'],
+  ['Lifecycle wallet events', 'lifecycle.observeWalletEvent'],
+  ['Lifecycle decision tracking', 'lifecycle.recordDecision'],
+  ['Lifecycle entry advisory', 'lifecycleEntry'],
+  ['Lifecycle exit advisory', 'lifecycleExit'],
+  ['Lifecycle trade decomposition', 'lifecycle.recordTrade'],
+  ['Lifecycle persistence', 'lifecycle:lifecycle.serialize()'],
+  ['Lifecycle restore', 'lifecycle.restore(s.lifecycle)'],
+  ['Lifecycle season reset', 'lifecycle.reset()'],
+  ['Lifecycle dashboard state', 'lifecycleResearch:lifecycle.snapshot']
 ];
 
 const failures = checks.filter(([, needle]) => !src.includes(needle)).map(([name])=>name);
@@ -47,6 +59,15 @@ const scienceSystems=[
 for(const name of scienceSystems)if(!scienceSrc.includes("'"+name+"'"))failures.push('Season 2 science subsystem missing '+name);
 if(!scienceSrc.includes("paperOnly:true"))failures.push('Season 2 science paper-only marker missing');
 if(!scienceSrc.includes("autoPromotion:false"))failures.push('Season 2 manual-promotion safeguard missing');
+const lifecycleStages=[
+  'Universe Capture','Creator Quality','First Buyer DNA','Organic Demand','Manipulation Detection','Attention Quality',
+  'Market Cap Journey','Bonding Curve Journey','Entry Opportunity','Waiting Model','Execution Reality Link',
+  'Evidence Position Sizing','Hold Time Model','Holder Profit Overhang','Sell Pressure Forecast','Exit Decision',
+  'Post Graduation Model','Market Environment','Missed Winner Research','Avoided Loser Research',
+  'Decision Decomposition','Perfect Coin Fingerprint'
+];
+for(const name of lifecycleStages)if(!lifecycleSrc.includes("'"+name+"'"))failures.push('Lifecycle stage missing '+name);
+if(!lifecycleSrc.includes("paperOnly:true"))failures.push('Lifecycle paper-only marker missing');
 
 // Hypothesis Arena regression guards.
 const hypothesisIds=[
@@ -113,4 +134,4 @@ if (src.includes("agentVisual v'+(i%5)")) {
   process.exit(1);
 }
 
-console.log('PUMP LAB audit static checks passed: ' + checks.length + ' core checks + 12 Season 2 systems + 25 unique trader visuals');
+console.log('PUMP LAB audit static checks passed: ' + checks.length + ' core checks + 12 Season 2 systems + 22 lifecycle stages + 25 unique trader visuals');
