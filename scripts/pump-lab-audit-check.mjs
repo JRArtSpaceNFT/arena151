@@ -3,7 +3,7 @@ import fs from 'node:fs';
 const src = fs.readFileSync(new URL('../server.mjs', import.meta.url), 'utf8');
 const scienceSrc = fs.readFileSync(new URL('../lib/pump-lab-season2-science.mjs', import.meta.url), 'utf8');
 const checks = [
-  ['durable startup gate', "STARTUP_STATE_GATE waiting for durable restore"],
+  ['durable startup gate', "STARTUP_STATE_GATE waiting for Postgres / Key Value / local recovery"],
   ['durable trading gate', 'durableTradingReady()'],
   ['deterministic control', "deterministicScore('random-control:'"],
   ['holdout partition', "partitionForMint(mint)"],
@@ -30,7 +30,12 @@ const checks = [
   ['Season 2 persistence', 'science:science.serialize()'],
   ['Season 2 restore', 'science.restore(s.science)'],
   ['Season 2 fresh-season reset', 'science.reset()'],
-  ['Season 2 dashboard state', 'season2Science:science.snapshot']
+  ['Season 2 dashboard state', 'season2Science:science.snapshot'],
+  ['free Key Value failover', 'initKv(true)'],
+  ['atomic local checkpoint', 'writeLocalAtomic(s)'],
+  ['newest-state restore guard', 'restoreIfNewer'],
+  ['Postgres reconnect scheduler', 'scheduleDbReconnect'],
+  ['multi-layer storage status', 'storageStatus()']
 ];
 
 const failures = checks.filter(([, needle]) => !src.includes(needle)).map(([name])=>name);
