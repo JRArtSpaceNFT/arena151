@@ -18,6 +18,7 @@ const STATE_FILE = process.env.STATE_FILE || '/tmp/pump-lab-state-v06.json';
 const DATABASE_URL = process.env.DATABASE_URL || '';
 const REDIS_URL = process.env.REDIS_URL || '';
 const STATE_NAMESPACE = (process.env.STATE_NAMESPACE || 'main').replace(/[^a-zA-Z0-9._-]/g,'_').slice(0,40);
+const ALLOW_FRESH_EMPTY_STATE = process.env.ALLOW_FRESH_EMPTY_STATE === 'true';
 const KV_STATE_KEY = `pump-lab:state:${STATE_NAMESPACE}`;
 const LOCAL_RECOVERY_MAX_AGE_MS = Number(process.env.LOCAL_RECOVERY_MAX_AGE_MS || 1800000);
 const AUDIT_VERSION = '2026-10-01-process-audit';
@@ -3059,6 +3060,10 @@ const server=http.createServer(async (req,res)=>{
 loadLocal();
 await initKv(true);
 await initDb(true);
+if((DATABASE_URL||REDIS_URL)&&!(dbStateRestored||kvStateRestored||localStateRestored)&&ALLOW_FRESH_EMPTY_STATE){
+  localStateRestored=true;lastLocalRestoreAt=now();stateVersionTs=Math.max(stateVersionTs,now());
+  console.log('STATE_RESTORE '+JSON.stringify({source:'explicit-fresh-empty',namespace:STATE_NAMESPACE,current:stateVersionTs}));
+}
 if((DATABASE_URL||REDIS_URL)&&!(dbStateRestored||kvStateRestored||localStateRestored)){
   console.log('STARTUP_STATE_GATE waiting for Postgres / Key Value / local recovery before accepting traffic');
   const restored=await waitForInitialDurableRestore();
