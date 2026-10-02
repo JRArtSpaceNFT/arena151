@@ -19,6 +19,7 @@ const DATABASE_URL = process.env.DATABASE_URL || '';
 const REDIS_URL = process.env.REDIS_URL || '';
 const STATE_NAMESPACE = (process.env.STATE_NAMESPACE || 'main').replace(/[^a-zA-Z0-9._-]/g,'_').slice(0,40);
 const ALLOW_FRESH_EMPTY_STATE = process.env.ALLOW_FRESH_EMPTY_STATE === 'true';
+const HISTORICAL_RESEARCH_URL = process.env.HISTORICAL_RESEARCH_URL || '';
 const KV_STATE_KEY = `pump-lab:state:${STATE_NAMESPACE}`;
 const LOCAL_RECOVERY_MAX_AGE_MS = Number(process.env.LOCAL_RECOVERY_MAX_AGE_MS || 1800000);
 const AUDIT_VERSION = '2026-10-01-process-audit';
@@ -88,6 +89,7 @@ const experiments = [];
 const replayFrames = [];
 let corrCache = {ts:0, rows:[]};
 let monsterLabCache={ts:0,opps:0,events:0,trades:0,data:null};
+let historicalMonsterSeed={ts:0,rows:[],source:'',error:'',lastAttempt:0};
 let weatherCache={ts:0,value:null};
 const researchContextCache=new Map();
 const walletSignalCache=new Map();
@@ -1522,16 +1524,34 @@ function monsterReasonLift(rows,reason){
   const withReason=rows.filter(r=>r.reasons.includes(reason)),monsterN=withReason.filter(r=>r.monster).length,base=rows.filter(r=>r.monster).length/rows.length,rate=withReason.length?monsterN/withReason.length:0;
   return{n:withReason.length,monsterN,rate:rate*100,base:base*100,lift:base?rate/base:0};
 }
+async function refreshHistoricalMonsterSeed(){
+  if(!HISTORICAL_RESEARCH_URL)return false;historicalMonsterSeed.lastAttempt=now();
+  try{
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000);
+    const r=await fetch(HISTORICAL_RESEARCH_URL,{headers:{accept:'application/json','user-agent':'PUMP-LAB-STAGING-HISTORICAL-READONLY/1.0'},signal:controller.signal});
+    clearTimeout(timer);if(!r.ok)throw Error('historical research HTTP '+r.status);
+    const j=await r.json(),rows=Array.isArray(j?.missed)?j.missed:[];
+    const clean=rows.filter(x=>x?.mint&&num(x.bestReturn)>75).map(x=>({...safe(x),historicalSeed:true,historicalSource:'production-readonly'}));
+    historicalMonsterSeed={ts:now(),rows:clean,source:HISTORICAL_RESEARCH_URL,error:'',lastAttempt:now()};monsterLabCache={ts:0,opps:0,events:0,trades:0,data:null};
+    setHealth('historical-monsters','ok','Read-only production monster seed · '+clean.length+' retained misses',{truth:'observed'});return true;
+  }catch(e){historicalMonsterSeed.error=String(e?.message||e);setHealth('historical-monsters','warn','Historical monster seed unavailable: '+historicalMonsterSeed.error,{truth:'observed'});return false;}
+}
 function missedMonsterLab(){
   const ts=now();
   if(monsterLabCache.data&&monsterLabCache.opps===opportunities.size&&monsterLabCache.events===marketEvents.length&&monsterLabCache.trades===trades.length&&ts-monsterLabCache.ts<60000)return monsterLabCache.data;
   const eraOpp=[...opportunities.values()].filter(o=>o.era===STRATEGY_ERA),byMint=new Map();
   for(const o of eraOpp){if(!byMint.has(o.mint))byMint.set(o.mint,[]);byMint.get(o.mint).push(o);}
   const rejectedRows=[];
+  for(const seed of historicalMonsterSeed.rows){
+    if(byMint.has(seed.mint))continue;
+    const fake={...seed,action:'REJECT',era:seed.era||'historical-production',samplePartition:seed.samplePartition||partitionForMint(seed.mint),firstTs:num(seed.firstTs||seed.ts),firstPrice:num(seed.firstPrice||seed.price),features:seed.features||{}};
+    byMint.set(seed.mint,[fake]);rejectedRows.push(monsterFeatureRow(fake,[fake]));
+  }
   for(const [mint,all] of byMint){
     const rejects=all.filter(o=>o.action==='REJECT');if(!rejects.length)continue;
     rejects.sort((a,b)=>num(a.firstTs||a.ts)-num(b.firstTs||b.ts));const first=rejects[0];
-    if(ts-num(first.firstTs||first.ts)<5*60000)continue;rejectedRows.push(monsterFeatureRow(first,rejects));
+    if(ts-num(first.firstTs||first.ts)<5*60000)continue;
+    if(!first.historicalSeed)rejectedRows.push(monsterFeatureRow(first,rejects));
   }
   const eventMap=new Map();for(const e of marketEvents){if(e.era!==STRATEGY_ERA)continue;if(!eventMap.has(e.mint))eventMap.set(e.mint,[]);eventMap.get(e.mint).push(e);}
   for(const rows of eventMap.values())rows.sort((a,b)=>a.ts-b.ts);
@@ -1554,7 +1574,7 @@ function missedMonsterLab(){
     const topReasons=[...counts.entries()].sort((a,b)=>b[1]-a[1]).map(([reason,n])=>({reason,n,pct:n/rejects.length*100}));
     const firstF=first.features||{},catchF=catchable?.features||{},featureChange=catchable?{momentum:num(catchF.momentum)-num(firstF.momentum),acceleration:num(catchF.acceleration)-num(firstF.acceleration),flow:num(catchF.flow)-num(firstF.flow),buyRatio:(num(catchF.buyRatio)-num(firstF.buyRatio))*100,liqScore:num(catchF.liqScore)-num(firstF.liqScore),volScore:num(catchF.volScore)-num(firstF.volScore),risk:num(catchF.risk)-num(firstF.risk),sourceQuality:num(catchF.sourceQuality)-num(firstF.sourceQuality)}:null;
     const missedBy=[...new Set(rejects.map(o=>o.strategyName||o.strategy))],caughtBy=[...new Set([...entered.map(o=>o.strategyName||o.strategy),...caughtTrades.map(t=>t.strategyName||t.strategy)])];
-    monsters.push({mint:base.mint,symbol:base.symbol,partition:base.partition,firstRejectTs:num(first.firstTs||first.ts),firstRejectMc:num(first.mc),firstRejectScore:num(first.score),firstRejectRisk:num(first.risk),peakReturn,worstReturn:base.worstReturn,labWideMiss:caughtBy.length===0,partialMiss:caughtBy.length>0,missedBy,caughtBy,rejectCount:rejects.length,
+    monsters.push({mint:base.mint,symbol:base.symbol,partition:base.partition,historicalSeed:!!first.historicalSeed,historicalSource:first.historicalSource||'',firstRejectTs:num(first.firstTs||first.ts),firstRejectMc:num(first.mc),firstRejectScore:num(first.score),firstRejectRisk:num(first.risk),peakReturn,worstReturn:base.worstReturn,labWideMiss:caughtBy.length===0,partialMiss:caughtBy.length>0,missedBy,caughtBy,rejectCount:rejects.length,
       topReasons,rawReasons:rejects.map(o=>({strategy:o.strategyName||o.strategy,why:o.why,score:num(o.score),risk:num(o.risk),mc:num(o.mc)})),
       timelineCoverage:valid.length,timeToPeakSec:peakEvent?Math.max(0,(peakEvent.ts-num(first.firstTs||first.ts))/1000):null,
       catchable:catchable?{ts:catchable.ts,secondsAfterReject:Math.max(0,(catchable.ts-num(first.firstTs||first.ts))/1000),mc:num(catchable.mc),moveAlreadyMade:pct(catchable.price,firstPrice),remainingUpside:peakPrice>0?pct(peakPrice,catchable.price):null,quality:num(catchable.quality),risk:num(catchF.risk),scoreMax:Math.max(0,...Object.values(catchable.scores||{}).map(num))}:null,
@@ -1575,7 +1595,7 @@ function missedMonsterLab(){
   const rates=rows=>rows.length?rows.filter(r=>r.monster).length/rows.length*100:0,recent=[...rejectedRows].sort((a,b)=>b.ts-a.ts),last50=recent.slice(0,50),prior50=recent.slice(50,100);
   const labWide=monsters.filter(m=>m.labWideMiss),partial=monsters.filter(m=>m.partialMiss);
   const recoveries=[15,30,60,120].map(sec=>{const key='s'+sec,rows=labWide.map(m=>m.recovery[key]).filter(Boolean);return{seconds:sec,n:rows.length,avgMoveAtEntry:avg(rows.map(x=>x.entryMove)),avgRemainingUpside:avg(rows.map(x=>x.remainingUpside).filter(Number.isFinite)),still25PctAvailable:rows.length?rows.filter(x=>num(x.remainingUpside)>=25).length/rows.length*100:0};});
-  const data={summary:{rejectedTokens:rejectedRows.length,monsters:monsters.length,labWideMisses:labWide.length,partialMisses:partial.length,monsterRate:rates(rejectedRows),trainMonsterRate:rates(train),holdoutMonsterRate:rates(holdout),recent50Rate:rates(last50),prior50Rate:rates(prior50),validatedPatterns:validatedPatterns.length},
+  const data={summary:{rejectedTokens:rejectedRows.length,monsters:monsters.length,labWideMisses:labWide.length,partialMisses:partial.length,historicalSeedRows:historicalMonsterSeed.rows.length,historicalSeedAt:historicalMonsterSeed.ts,historicalSeedError:historicalMonsterSeed.error,monsterRate:rates(rejectedRows),trainMonsterRate:rates(train),holdoutMonsterRate:rates(holdout),recent50Rate:rates(last50),prior50Rate:rates(prior50),validatedPatterns:validatedPatterns.length},
     monsters,featurePatterns:featurePatterns.slice(0,20),reasonPatterns:reasonPatterns.slice(0,20),validatedPatterns:validatedPatterns.slice(0,20),recoveries,
     methodology:{monster:'+75% or better after a recorded rejection',grouping:'one row per mint, not one row per strategy',validation:'patterns must agree in deterministic train and holdout before validated',productionChanges:'none; findings create research hypotheses/challengers only'}};
   monsterLabCache={ts,opps:opportunities.size,events:marketEvents.length,trades:trades.length,data};return data;
@@ -3246,7 +3266,7 @@ setHealth('coin-lifecycle','ok','v4.1 lifecycle research online · 22 stages fro
 setHealth('x-social','standby','Full X stream not connected · social agent uses token social metadata only',{truth:'not connected'});
 setHealth('wallet-intel','standby','Connecting Solana stream + verified Fomo wallet watchlist…',{truth:'not connected'});setHealth('fomo-watchlist','standby','Preparing verified public wallet subscriptions',{truth:'not connected'});
 server.listen(PORT,'0.0.0.0',()=>{if((DATABASE_URL||REDIS_URL)&&!durableTradingReady())console.log('STATE_LOCK engaged · trading paused until a recovery source is healthy');log('system','🚀 PUMP LAB v4.1 Coin Lifecycle started · PAPER ONLY','system');connectPumpPortal();connectSolanaStream();pumpPoll();dexPoll();console.log('PUMP LAB v4.1 Coin Lifecycle on '+PORT);});
-setTimeout(stateSelfTest,5000).unref?.();const fastAuditFirst=setTimeout(logFastAuditMetrics,20000);fastAuditFirst.unref?.();const fastAuditLoop=setInterval(logFastAuditMetrics,60000);fastAuditLoop.unref?.();setInterval(()=>alphaOS.runCapitalAuction(m=>tokens.get(m),executionQuote),2000).unref?.();
+setTimeout(stateSelfTest,5000).unref?.();const fastAuditFirst=setTimeout(logFastAuditMetrics,20000);fastAuditFirst.unref?.();const fastAuditLoop=setInterval(logFastAuditMetrics,60000);fastAuditLoop.unref?.();if(HISTORICAL_RESEARCH_URL){const histFirst=setTimeout(refreshHistoricalMonsterSeed,8000);histFirst.unref?.();const histLoop=setInterval(refreshHistoricalMonsterSeed,300000);histLoop.unref?.();}setInterval(()=>alphaOS.runCapitalAuction(m=>tokens.get(m),executionQuote),2000).unref?.();
 setInterval(()=>{alphaOS.observeWorld({weather:marketWeather(),tokens:[...tokens.values()].filter(t=>now()-t.updatedAt<900000),strategyEquity:Object.fromEntries(allTraders().map(d=>[d.id,d.equity]))});alphaOS.prune();},60000).unref?.();
 setInterval(()=>alphaOS.pollExternal(),30000).unref?.();
 setInterval(stalePositionSweep,60000).unref?.();setInterval(pruneRuntimeMemory,300000).unref?.();setInterval(drainSolanaQueue,200).unref?.();setInterval(pumpPoll,3000).unref?.();setInterval(dexPoll,20000).unref?.();setInterval(openPositionPoll,5000).unref?.();setInterval(takeTimeline,30000).unref?.();setInterval(takeReplay,30000).unref?.();setInterval(researchCycle,3600000).unref?.();setInterval(()=>save(),30000).unref?.();const diagTimer=setTimeout(()=>{logStrategyDiagnostics();logPerformanceSnapshot();logFullPostmortem();},20000);diagTimer.unref?.();const diagLoop=setInterval(()=>{logStrategyDiagnostics();logPerformanceSnapshot();logFullPostmortem();},300000);diagLoop.unref?.();takeTimeline();takeReplay();alphaOS.observeWorld({weather:marketWeather(),tokens:[...tokens.values()],strategyEquity:Object.fromEntries(allTraders().map(d=>[d.id,d.equity]))});alphaOS.pollExternal();openPositionPoll();
