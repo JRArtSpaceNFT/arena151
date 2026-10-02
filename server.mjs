@@ -2125,6 +2125,18 @@ function getDeepResearchJson(){
   console.log('DEEP_RESEARCH_SNAPSHOT '+JSON.stringify({bytes:json.length,ms:data.deepResearchBuildMs}));
   return json;
 }
+let monsterExportCache={ts:0,json:''};
+function monsterExportJson(){
+  if(monsterExportCache.json&&now()-monsterExportCache.ts<300000)return monsterExportCache.json;
+  const rejects=[...opportunities.values()].filter(o=>o.era===STRATEGY_ERA&&o.action==='REJECT');
+  const mints=new Set(rejects.map(o=>o.mint));
+  const events=marketEvents.filter(e=>mints.has(e.mint)).map(e=>({ts:e.ts,era:e.era,mint:e.mint,symbol:e.symbol,source:e.source,price:e.price,mc:e.mc,liq:e.liq,vol:e.vol,buys:e.buys,sells:e.sells,narrative:e.narrative,regime:e.regime,quality:e.quality,features:e.features,scores:e.scores}));
+  const relatedTrades=trades.filter(t=>t.policyVersion===STRATEGY_ERA&&mints.has(t.mint)).map(t=>({strategy:t.strategy,strategyName:t.strategyName,mint:t.mint,symbol:t.symbol,opened:t.opened,closedAt:t.closedAt,entry:t.entry,exit:t.exit,entryMc:t.entryMc,exitMc:t.exitMc,pnl:t.pnl,pnlPct:t.pnlPct,mfe:t.mfe,mae:t.mae,reason:t.reason,samplePartition:t.samplePartition}));
+  const payload={generatedAt:now(),era:STRATEGY_ERA,season:seasonInfo,counts:{rejectOpportunities:rejects.length,uniqueRejectedMints:mints.size,marketEvents:events.length,trades:relatedTrades.length},opportunities:rejects,marketEvents:events,trades:relatedTrades};
+  const json=JSON.stringify(payload);monsterExportCache={ts:now(),json};
+  console.log('MONSTER_EXPORT '+JSON.stringify({bytes:json.length,...payload.counts}));
+  return json;
+}
 
 function snapshot(){
   allTraders().forEach(markEquity);
@@ -2886,6 +2898,17 @@ const server=http.createServer(async (req,res)=>{
       const r=await db.query("SELECT id,updated_at,payload->>'label' AS label,(payload->'summary'->>'completedTrades')::int AS trades,(payload->'summary'->>'openPositions')::int AS open_positions FROM pump_lab_state WHERE id LIKE 'archive:%' ORDER BY updated_at DESC");
       const body=JSON.stringify({ok:true,season:seasonInfo,archives:r.rows});res.writeHead(200,{'content-type':'application/json','cache-control':'no-store','content-length':Buffer.byteLength(body)});return res.end(body);
     }catch(e){res.writeHead(500,{'content-type':'application/json','cache-control':'no-store'});return res.end(JSON.stringify({ok:false,error:e.message}));}
+  }
+  if(req.url==='/api/monster-export'){
+    try{
+      const json=monsterExportJson();
+      res.writeHead(200,{'content-type':'application/json','cache-control':'no-store','content-length':Buffer.byteLength(json),'x-robots-tag':'noindex, nofollow'});
+      return res.end(json);
+    }catch(e){
+      console.error('MONSTER_EXPORT_ERROR '+(e?.stack||e));
+      res.writeHead(500,{'content-type':'application/json','cache-control':'no-store'});
+      return res.end(JSON.stringify({ok:false,error:'monster export unavailable'}));
+    }
   }
   if(req.url==='/api/state'){
     try{
