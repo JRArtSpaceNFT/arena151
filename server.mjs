@@ -2708,15 +2708,18 @@ hr{border-color:#e0e3e5!important}
 .xEmpty{padding:34px;text-align:center;border:1px dashed #cfd3d6;border-radius:18px;color:#777f87;background:rgba(255,255,255,.55)}.xEmpty b{display:block;color:#14171a;font-size:17px;margin-bottom:7px}
 .xRefresh{appearance:none;border:1px solid #d5d9dc;background:white;border-radius:999px;padding:8px 12px;font-size:9px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;cursor:pointer}.xRefresh:hover{background:#111;color:white}
 .xKeyword{display:inline-block;padding:2px 5px;border-radius:6px;background:#eceeff;color:#5262d8;font-size:9px;font-weight:800}
-.xEmbedGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-.xEmbedCard{background:rgba(250,251,251,.88);border:1px solid #d7dade;border-radius:18px;overflow:hidden;box-shadow:0 8px 28px rgba(22,29,36,.05);min-height:560px}
-.xEmbedHead{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid #e0e3e5;background:rgba(255,255,255,.82);position:sticky;top:0;z-index:2}
-.xEmbedName{font-weight:950;font-size:12px;letter-spacing:-.02em}.xEmbedMode{font:8px ui-monospace,SFMono-Regular,Menlo,monospace;color:#939aa1;letter-spacing:.12em;text-transform:uppercase}
-.xEmbedOpen{font-size:9px;font-weight:900;color:#171a1d;text-decoration:none}.xEmbedOpen:hover{text-decoration:underline}
-.xEmbedBody{min-height:515px;background:#fff}
-.xEmbedBody .twitter-timeline{display:block;min-height:500px}
-.xNoApiNote{padding:10px 12px;border:1px solid #d7dade;border-radius:12px;background:#fafafa;color:#727a82;font-size:10px;line-height:1.45;margin-bottom:10px}
-@media(max-width:980px){.xEmbedGrid{grid-template-columns:1fr}}
+.xProfileGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.xProfileCard{background:rgba(250,251,251,.9);border:1px solid #d7dade;border-radius:18px;overflow:hidden;box-shadow:0 8px 28px rgba(22,29,36,.05);min-height:430px}
+.xProfileHead{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid #e0e3e5;background:rgba(255,255,255,.88)}
+.xProfileName{font-weight:950;font-size:12px;letter-spacing:-.02em}.xProfileMode{font:8px ui-monospace,SFMono-Regular,Menlo,monospace;color:#939aa1;letter-spacing:.12em;text-transform:uppercase}
+.xProfileOpen{font-size:9px;font-weight:900;color:#171a1d;text-decoration:none}.xProfileOpen:hover{text-decoration:underline}
+.xProfilePosts{display:grid;gap:0;background:#fff}
+.xProfilePost{padding:15px 16px;border-bottom:1px solid #eceeef}.xProfilePost:last-child{border-bottom:0}
+.xProfilePost:hover{background:#fafbfb}
+.xProfilePost .xPostHead{margin-bottom:9px}.xProfilePost .xAvatar{width:32px;height:32px}.xProfilePost .xText{font-size:13px;line-height:1.5}
+.xProfilePost .xMetrics{margin-top:10px;padding-top:8px;gap:12px}
+.xFeedSource{padding:10px 12px;border:1px solid #d7dade;border-radius:12px;background:#fafafa;color:#727a82;font-size:10px;line-height:1.45;margin-bottom:10px}
+@media(max-width:980px){.xProfileGrid{grid-template-columns:1fr}}
 
 @media(max-width:900px){.xFeedHero,.xFeedGrid{grid-template-columns:1fr}.xSidebar{position:static}.xFeedIntro{min-height:180px}}
 .pane{animation:paneIn .28s ease}
@@ -2913,40 +2916,23 @@ let xFeedTimer=null,xFeedLoading=false;
 function xNum(n){n=Number(n||0);if(n>=1000000)return(n/1000000).toFixed(1)+'M';if(n>=1000)return(n/1000).toFixed(1)+'K';return String(n)}
 function xHighlight(t){return esc(t||'').replace(/(\$[A-Za-z][A-Za-z0-9]{1,12}|#[A-Za-z0-9_]{2,30})/g,'<span class="xKeyword">$1</span>')}
 
-function ensureXWidgets(){
-  if(window.twttr&&window.twttr.widgets){window.twttr.widgets.load();return;}
-  if(document.getElementById('x-widgets-js'))return;
-  const s=document.createElement('script');s.id='x-widgets-js';s.async=true;s.src='https://platform.twitter.com/widgets.js';s.charset='utf-8';
-  s.onload=()=>{try{window.twttr&&window.twttr.widgets&&window.twttr.widgets.load()}catch{}};
-  document.head.appendChild(s);
-}
-function renderXEmbedFallback(handles){
-  $('xFeedState').textContent='PUBLIC EMBED MODE · '+handles.length+' ACCOUNTS';
-  $('xFeedState').className='green';
-  $('xFeedUpdated').textContent=' · no API required';
-  $('xSignalSummary').innerHTML='<b>'+handles.length+' live profile timelines</b><br>Official X embeds · API key not required<br><br>When API access is added later, this page can automatically switch to the merged newest-first Pump Lab feed.';
-  $('xTimeline').innerHTML='<div class="xNoApiNote"><b>NO API MODE</b> · Pump Lab is loading the public X timeline for each selected account directly from X. This keeps the page useful now without requiring credentials.</div><div class="xEmbedGrid">'+handles.map(h=>'<section class="xEmbedCard"><div class="xEmbedHead"><div><div class="xEmbedName">@'+esc(h)+'</div><div class="xEmbedMode">LIVE PROFILE TIMELINE</div></div><a class="xEmbedOpen" href="https://x.com/'+encodeURIComponent(h)+'" target="_blank" rel="noopener">OPEN X ↗</a></div><div class="xEmbedBody"><a class="twitter-timeline" data-theme="light" data-chrome="noheader nofooter noborders transparent" data-height="520" data-dnt="true" href="https://twitter.com/'+encodeURIComponent(h)+'">Posts by @'+esc(h)+'</a></div></section>').join('')+'</div>';
-  ensureXWidgets();
-  window.setTimeout(()=>{try{window.twttr&&window.twttr.widgets&&window.twttr.widgets.load($('xTimeline'))}catch{}},500);
+function xPostHtml(p,compact=false){
+  const m=p.metrics||{},media=p.media||[],author=p.author||{},avatar=author.profileImage?'<img class="xAvatar" src="'+esc(author.profileImage)+'" alt="">':'<div class="xAvatar"></div>',mediaHtml=media.length?'<div class="xMedia">'+media.slice(0,4).filter(x=>x.url).map(x=>'<img src="'+esc(x.url)+'" alt="">').join('')+'</div>':'';
+  return '<article class="'+(compact?'xProfilePost':'card xPost')+'"><div class="xPostHead">'+avatar+'<div class="xWho"><div class="xName">'+esc(author.name||author.username||'')+'</div><div class="xUser">@'+esc(author.username||'')+'</div></div><div class="xWhen">'+(p.createdAt?new Date(p.createdAt).toLocaleString():'')+'</div></div><div class="xText">'+xHighlight(p.text)+'</div>'+mediaHtml+'<div class="xMetrics"><span>♡ '+xNum(m.like_count)+'</span><span>↻ '+xNum(m.retweet_count)+'</span><span>◌ '+xNum(m.reply_count)+'</span><span>◈ '+xNum(m.quote_count)+'</span><a class="xOpen" href="'+esc(p.url)+'" target="_blank" rel="noopener">OPEN ↗</a></div></article>';
 }
 function renderXFeed(data){
-  const handles=data.handles||[],posts=data.posts||[];
+  const handles=data.handles||[],posts=data.posts||[],source=data.source||'';
   $('xFeedHandles').innerHTML=handles.length?handles.map(h=>'<span class="xHandle">@'+esc(h)+'</span>').join(''):'<span class="xHandle">No accounts configured</span>';
-  $('xFeedState').textContent=data.configured?(data.ok?'LIVE · '+posts.length+' POSTS':'FEED ERROR'):'WAITING FOR CONFIG';
-  $('xFeedState').className=data.ok?'green':data.configured?'red':'amber';
+  $('xFeedState').textContent=data.configured?(data.ok?'LIVE · '+posts.length+' POSTS':'FEED RETRYING'):'WAITING FOR CONFIG';
+  $('xFeedState').className=data.ok?'green':data.configured?'amber':'amber';
   $('xFeedUpdated').textContent=data.fetchedAt?' · refreshed '+age(data.fetchedAt):'';
-  if(!data.configured){if(handles.length){renderXEmbedFallback(handles);return}$('xTimeline').innerHTML='<div class="xEmpty"><b>No accounts configured.</b>Add X handles to start the public embed feed.</div>';$('xSignalSummary').textContent='No watched accounts configured.';return}
-  if(!posts.length){$('xTimeline').innerHTML='<div class="xEmpty"><b>No new posts yet.</b>The feed is connected and will refresh automatically.</div>';$('xSignalSummary').textContent='Watching '+handles.length+' accounts · no cached posts.';return}
-  $('xTimeline').innerHTML=posts.map(p=>{
-    const m=p.metrics||{},media=p.media||[],author=p.author||{};
-    const avatar=author.profileImage?'<img class="xAvatar" src="'+esc(author.profileImage)+'" alt="">':'<div class="xAvatar"></div>';
-    const mediaHtml=media.length?'<div class="xMedia">'+media.slice(0,4).filter(x=>x.url).map(x=>'<img src="'+esc(x.url)+'" alt="">').join('')+'</div>':'';
-    return '<article class="card xPost"><div class="xPostHead">'+avatar+'<div class="xWho"><div class="xName">'+esc(author.name||author.username||'')+'</div><div class="xUser">@'+esc(author.username||'')+'</div></div><div class="xWhen">'+(p.createdAt?new Date(p.createdAt).toLocaleString():'')+'</div></div><div class="xText">'+xHighlight(p.text)+'</div>'+mediaHtml+'<div class="xMetrics"><span>♡ '+xNum(m.like_count)+'</span><span>↻ '+xNum(m.retweet_count)+'</span><span>◌ '+xNum(m.reply_count)+'</span><span>◈ '+xNum(m.quote_count)+'</span><a class="xOpen" href="'+esc(p.url)+'" target="_blank" rel="noopener">OPEN ON X ↗</a></div></article>';
-  }).join('');
-  const totalLikes=posts.reduce((s,p)=>s+Number((p.metrics||{}).like_count||0),0),byAuthor={};
-  posts.forEach(p=>{const u=(p.author||{}).username||'unknown';byAuthor[u]=(byAuthor[u]||0)+1});
+  if(!data.configured){$('xTimeline').innerHTML='<div class="xEmpty"><b>No accounts configured.</b>Add X handles to start the Pump Lab feed.</div>';$('xSignalSummary').textContent='No watched accounts configured.';return}
+  if(!posts.length){$('xTimeline').innerHTML='<div class="xEmpty"><b>Feed is warming up.</b>Pump Lab will retry the public timeline automatically. OPEN X remains available in each profile once posts arrive.</div>';$('xSignalSummary').textContent='Watching '+handles.length+' accounts · waiting for cached posts.';return}
+  const groups=handles.map(h=>{const hp=posts.filter(p=>String((p.author||{}).username||'').toLowerCase()===String(h).toLowerCase()).slice(0,5);return{h,posts:hp}}).filter(g=>g.posts.length);
+  $('xTimeline').innerHTML='<div class="xFeedSource"><b>PUMP LAB RENDER</b> · tweets are fetched server-side, cached, and drawn in Pump Lab’s own interface. '+(source==='x-api'?'Official X API source.':'Public X syndication source.')+'</div><div class="xProfileGrid">'+groups.map(g=>'<section class="xProfileCard"><div class="xProfileHead"><div><div class="xProfileName">@'+esc(g.h)+'</div><div class="xProfileMode">'+g.posts.length+' RECENT POSTS · LIVE CACHE</div></div><a class="xProfileOpen" href="https://x.com/'+encodeURIComponent(g.h)+'" target="_blank" rel="noopener">OPEN X ↗</a></div><div class="xProfilePosts">'+g.posts.map(p=>xPostHtml(p,true)).join('')+'</div></section>').join('')+'</div>';
+  const totalLikes=posts.reduce((s,p)=>s+Number((p.metrics||{}).like_count||0),0),byAuthor={};posts.forEach(p=>{const u=(p.author||{}).username||'unknown';byAuthor[u]=(byAuthor[u]||0)+1});
   const top=Object.entries(byAuthor).sort((a,b)=>b[1]-a[1]).slice(0,5);
-  $('xSignalSummary').innerHTML='<b>'+posts.length+' cached posts</b><br>'+handles.length+' watched accounts · '+xNum(totalLikes)+' visible likes'+(top.length?'<br><br>'+top.map(x=>'@'+esc(x[0])+' · '+x[1]).join('<br>'):'');
+  $('xSignalSummary').innerHTML='<b>'+posts.length+' cached posts</b><br>'+handles.length+' watched accounts · '+xNum(totalLikes)+' visible likes<br><span class="muted">'+esc(source==='x-api'?'X API':'public syndication')+' · custom Pump Lab render</span>'+(top.length?'<br><br>'+top.map(x=>'@'+esc(x[0])+' · '+x[1]).join('<br>'):'');
 }
 async function loadXFeed(force){
   if(xFeedLoading)return;xFeedLoading=true;
