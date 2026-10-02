@@ -90,6 +90,7 @@ const replayFrames = [];
 let corrCache = {ts:0, rows:[]};
 let monsterLabCache={ts:0,opps:0,events:0,trades:0,data:null};
 let historicalMonsterSeed={ts:0,rows:[],avoids:[],rejects:[],events:[],trades:[],source:'',error:'',lastAttempt:0};
+let historicalMonsterRetryTimer=null;
 let weatherCache={ts:0,value:null};
 const researchContextCache=new Map();
 const walletSignalCache=new Map();
@@ -1548,7 +1549,9 @@ async function refreshHistoricalMonsterSeed(){
       const histTrades=archiveTrades.filter(x=>x?.mint).map(x=>({...JSON.parse(JSON.stringify(x)),historicalSeed:true}));
       historicalMonsterSeed={ts:now(),rows:clean,avoids,rejects,events,trades:histTrades,source:url,error:'',lastAttempt:now()};monsterLabCache={ts:0,opps:0,events:0,trades:0,data:null};used=url;
       setHealth('historical-monsters','ok','Read-only archive seed · '+rejects.length+' rejects / '+new Set(rejects.map(x=>x.mint)).size+' mints / '+events.length+' frames',{truth:'observed'});
-      console.log('HISTORICAL_MONSTER_IMPORT '+JSON.stringify({ok:true,rejects:rejects.length,uniqueMints:new Set(rejects.map(x=>x.mint)).size,monsterRows:clean.length,avoidRows:avoids.length,events:events.length,trades:histTrades.length,source:url,ts:historicalMonsterSeed.ts}));return true;
+      console.log('HISTORICAL_MONSTER_IMPORT '+JSON.stringify({ok:true,rejects:rejects.length,uniqueMints:new Set(rejects.map(x=>x.mint)).size,monsterRows:clean.length,avoidRows:avoids.length,events:events.length,trades:histTrades.length,source:url,ts:historicalMonsterSeed.ts}));
+      setImmediate(()=>{try{const lab=missedMonsterLab();console.log('MONSTER_LAB_ANALYSIS '+JSON.stringify({summary:lab.summary,validatedPatterns:(lab.validatedPatterns||[]).slice(0,10),topMonsters:(lab.monsters||[]).slice(0,12).map(m=>({symbol:m.symbol,mint:m.mint,peakReturn:m.peakReturn,labWideMiss:m.labWideMiss,partialMiss:m.partialMiss,topReasons:m.topReasons,firstRejectMc:m.firstRejectMc,firstRejectScore:m.firstRejectScore,firstRejectRisk:m.firstRejectRisk,catchable:m.catchable,timeToPeakSec:m.timeToPeakSec,archiveTimeline:m.archiveTimeline}))}));}catch(e){console.warn('MONSTER_LAB_ANALYSIS_ERROR '+e.message);}});
+      return true;
     }catch(e){lastErr=url+' · '+String(e?.message||e);}
   }
   historicalMonsterSeed.error=lastErr;setHealth('historical-monsters','warn','Historical research seed unavailable: '+lastErr,{truth:'observed'});
@@ -3286,8 +3289,11 @@ setHealth('coin-lifecycle','ok','v4.1 lifecycle research online · 22 stages fro
 setHealth('x-social','standby','Full X stream not connected · social agent uses token social metadata only',{truth:'not connected'});
 setHealth('wallet-intel','standby','Connecting Solana stream + verified Fomo wallet watchlist…',{truth:'not connected'});setHealth('fomo-watchlist','standby','Preparing verified public wallet subscriptions',{truth:'not connected'});
 server.listen(PORT,'0.0.0.0',()=>{if((DATABASE_URL||REDIS_URL)&&!durableTradingReady())console.log('STATE_LOCK engaged · trading paused until a recovery source is healthy');log('system','🚀 PUMP LAB v4.1 Coin Lifecycle started · PAPER ONLY','system');connectPumpPortal();connectSolanaStream();pumpPoll();dexPoll();console.log('PUMP LAB v4.1 Coin Lifecycle on '+PORT);});
-setTimeout(stateSelfTest,5000).unref?.();const fastAuditFirst=setTimeout(logFastAuditMetrics,20000);fastAuditFirst.unref?.();const fastAuditLoop=setInterval(logFastAuditMetrics,60000);fastAuditLoop.unref?.();if(HISTORICAL_RESEARCH_URL){const histFirst=setTimeout(refreshHistoricalMonsterSeed,8000);histFirst.unref?.();const histLoop=setInterval(refreshHistoricalMonsterSeed,300000);histLoop.unref?.();}setInterval(()=>alphaOS.runCapitalAuction(m=>tokens.get(m),executionQuote),2000).unref?.();
+setTimeout(stateSelfTest,5000).unref?.();const fastAuditFirst=setTimeout(logFastAuditMetrics,20000);fastAuditFirst.unref?.();const fastAuditLoop=setInterval(logFastAuditMetrics,60000);fastAuditLoop.unref?.();if(HISTORICAL_RESEARCH_URL){
+  const runHistoricalImport=async()=>{const ok=await refreshHistoricalMonsterSeed();const delay=ok?300000:30000;historicalMonsterRetryTimer=setTimeout(runHistoricalImport,delay);historicalMonsterRetryTimer.unref?.();};
+  historicalMonsterRetryTimer=setTimeout(runHistoricalImport,8000);historicalMonsterRetryTimer.unref?.();
+}setInterval(()=>alphaOS.runCapitalAuction(m=>tokens.get(m),executionQuote),2000).unref?.();
 setInterval(()=>{alphaOS.observeWorld({weather:marketWeather(),tokens:[...tokens.values()].filter(t=>now()-t.updatedAt<900000),strategyEquity:Object.fromEntries(allTraders().map(d=>[d.id,d.equity]))});alphaOS.prune();},60000).unref?.();
 setInterval(()=>alphaOS.pollExternal(),30000).unref?.();
 setInterval(stalePositionSweep,60000).unref?.();setInterval(pruneRuntimeMemory,300000).unref?.();setInterval(drainSolanaQueue,200).unref?.();setInterval(pumpPoll,3000).unref?.();setInterval(dexPoll,20000).unref?.();setInterval(openPositionPoll,5000).unref?.();setInterval(takeTimeline,30000).unref?.();setInterval(takeReplay,30000).unref?.();setInterval(researchCycle,3600000).unref?.();setInterval(()=>save(),30000).unref?.();const diagTimer=setTimeout(()=>{logStrategyDiagnostics();logPerformanceSnapshot();logFullPostmortem();},20000);diagTimer.unref?.();const diagLoop=setInterval(()=>{logStrategyDiagnostics();logPerformanceSnapshot();logFullPostmortem();},300000);diagLoop.unref?.();takeTimeline();takeReplay();alphaOS.observeWorld({weather:marketWeather(),tokens:[...tokens.values()],strategyEquity:Object.fromEntries(allTraders().map(d=>[d.id,d.equity]))});alphaOS.pollExternal();openPositionPoll();
-process.on('SIGTERM',async()=>{if(kvReconnectTimer)clearTimeout(kvReconnectTimer);await save();try{await kv?.quit();}catch{}server.close(()=>process.exit(0));});process.on('SIGINT',async()=>{if(kvReconnectTimer)clearTimeout(kvReconnectTimer);await save();try{await kv?.quit();}catch{}server.close(()=>process.exit(0));});
+process.on('SIGTERM',async()=>{if(kvReconnectTimer)clearTimeout(kvReconnectTimer);if(historicalMonsterRetryTimer)clearTimeout(historicalMonsterRetryTimer);await save();try{await kv?.quit();}catch{}server.close(()=>process.exit(0));});process.on('SIGINT',async()=>{if(kvReconnectTimer)clearTimeout(kvReconnectTimer);if(historicalMonsterRetryTimer)clearTimeout(historicalMonsterRetryTimer);await save();try{await kv?.quit();}catch{}server.close(()=>process.exit(0));});
