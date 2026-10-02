@@ -1850,6 +1850,10 @@ async function initKv(restoreState=true){
     if(restoreState){
       const raw=await kv.get('pump-lab:state:main');
       if(raw){try{restoreIfNewer(JSON.parse(raw),'key-value');}catch(e){console.warn('Key Value restore warning:',e.message);}}
+      else if(!DATABASE_URL){
+        kvStateRestored=true;lastKvRestoreAt=now();
+        console.log('STATE_RESTORE '+JSON.stringify({source:'key-value-empty-fresh',savedAt:0,current:stateVersionTs}));
+      }
     }
     setHealth('research-failover','ok','Free Key Value failover online · Postgres remains canonical',{truth:'observed'});
     return true;
