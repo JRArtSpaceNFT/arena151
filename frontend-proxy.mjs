@@ -13,6 +13,10 @@ let xFeedLastFetch = 0;
 let xFeedSinceId = null;
 let xFeedInFlight = null;
 let xPublicFailures = new Map();
+let stateCache=null;
+let stateCacheAt=0;
+let stateRefreshInFlight=null;
+let backendWakeFailures=0;
 const source = fs.readFileSync(new URL('./server.mjs', import.meta.url), 'utf8');
 const start = source.indexOf('const HTML=`');
 const end = source.indexOf('</html>`', start);
@@ -179,6 +183,39 @@ async function refreshXFeed(force=false){
   })();
   try{return await xFeedInFlight}finally{xFeedInFlight=null}
 }
+async function fetchBackendJson(pathname,timeoutMs=45000){
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
+  try{
+    const r=await fetch(new URL(pathname,BACKEND_ORIGIN),{headers:{accept:'application/json','user-agent':'pump-lab-ui-state-cache/1.0','cache-control':'no-cache'},cache:'no-store',signal:controller.signal});
+    if(!r.ok)throw new Error(pathname+' HTTP '+r.status);
+    return await r.json();
+  }finally{clearTimeout(timer)}
+}
+async function refreshStateCache(force=false){
+  if(!force&&stateCache&&Date.now()-stateCacheAt<12000)return stateCache;
+  if(stateRefreshInFlight)return stateRefreshInFlight;
+  stateRefreshInFlight=(async()=>{
+    let lastErr=null;
+    for(let attempt=1;attempt<=2;attempt++){
+      try{
+        const state=await fetchBackendJson('/api/state',attempt===1?45000:30000);
+        stateCache=state;stateCacheAt=Date.now();backendWakeFailures=0;
+        console.log('STATE_CACHE_REFRESH '+JSON.stringify({ok:true,attempt,version:state?.version||null,trades:state?.summary?.trades||0,tokens:state?.summary?.tokens||0,bytes:Buffer.byteLength(JSON.stringify(state))}));
+        return state;
+      }catch(e){
+        lastErr=e;backendWakeFailures++;console.warn('STATE_CACHE_REFRESH_FAILED '+JSON.stringify({attempt,error:String(e?.message||e)}));
+        if(attempt<2)await new Promise(r=>setTimeout(r,2500));
+      }
+    }
+    throw lastErr||new Error('backend state unavailable');
+  })();
+  try{return await stateRefreshInFlight}finally{stateRefreshInFlight=null}
+}
+function serveState(res,state,{stale=false,warming=false}={}){
+  const body=JSON.stringify(state);
+  res.writeHead(200,{'content-type':'application/json','cache-control':'no-store','content-length':Buffer.byteLength(body),'x-pump-state-cache':stale?'stale':'fresh','x-pump-state-age-ms':String(stateCacheAt?Date.now()-stateCacheAt:0),'x-pump-backend-warming':warming?'1':'0'});
+  res.end(body);
+}
 function proxy(req, res) {
   const target = new URL(req.url, BACKEND_ORIGIN);
   const lib = target.protocol === 'https:' ? https : http;
@@ -205,12 +242,19 @@ function proxy(req, res) {
 
 const server = http.createServer(async (req,res) => {
   const u = new URL(req.url, 'http://pump-lab-ui.local');
+  if (u.pathname === '/api/state') {
+    const age=stateCacheAt?Date.now()-stateCacheAt:Infinity;
+    if(stateCache&&age<30000)return serveState(res,stateCache,{stale:false});
+    if(stateCache){refreshStateCache(true).catch(()=>{});return serveState(res,stateCache,{stale:true,warming:true});}
+    try{return serveState(res,await refreshStateCache(true),{stale:false})}
+    catch(err){return xJson(res,503,{ok:false,warming:true,error:'Pump Lab engine is waking',detail:String(err?.message||err),retryAfterMs:5000})}
+  }
   if (u.pathname === '/api/x-feed') {
     try{return xJson(res,200,await refreshXFeed(u.searchParams.get('refresh')==='1'))}
     catch(err){return xJson(res,502,{ok:xFeedCache.length>0,configured:X_FEED_HANDLES.length>0,source:X_BEARER_TOKEN?'x-api':'public-fallback',handles:X_FEED_HANDLES,posts:xFeedCache,fetchedAt:xFeedLastFetch||null,error:String(err?.message||err)})}
   }
   if (u.pathname === '/ui-health') {
-    const body = JSON.stringify({ok:true,frontend:'future-lab',backend:BACKEND_ORIGIN,expectations:EXPECTATIONS});
+    const body = JSON.stringify({ok:true,frontend:'future-lab',backend:BACKEND_ORIGIN,expectations:EXPECTATIONS,stateCache:{ready:!!stateCache,ageMs:stateCacheAt?Date.now()-stateCacheAt:null,lastRefresh:stateCacheAt||null,wakeFailures:backendWakeFailures}});
     res.writeHead(200, {'content-type':'application/json','cache-control':'no-store','content-length':Buffer.byteLength(body)});
     return res.end(body);
   }
@@ -229,4 +273,6 @@ server.listen(PORT,'0.0.0.0',()=>{
   console.log('PUMP LAB UI proxy live on '+PORT+' -> '+BACKEND_ORIGIN);
   console.log('UI_SELFTEST '+JSON.stringify(EXPECTATIONS));
   refreshXFeed(false).then(x=>console.log('X_FEED_WARMUP '+JSON.stringify({ok:x.ok,configured:x.configured,source:x.source,sources:x.sources||[],handles:x.handles,posts:x.posts?.length||0,authors:[...new Set((x.posts||[]).map(p=>p.author?.username).filter(Boolean))],errors:x.errors||[]}))).catch(e=>console.warn('X_FEED_WARMUP_FAILED '+String(e?.message||e)));
+  refreshStateCache(true).then(s=>console.log('BACKEND_WARMUP '+JSON.stringify({ok:true,version:s?.version||null,trades:s?.summary?.trades||0,tokens:s?.summary?.tokens||0}))).catch(e=>console.warn('BACKEND_WARMUP_FAILED '+String(e?.message||e)));
+  setInterval(()=>refreshStateCache(true).catch(()=>{}),60000).unref?.();
 });
