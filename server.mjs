@@ -1291,8 +1291,12 @@ function connectSolanaStream(){
       const value=m?.params?.result?.value,sig=value?.signature,sub=solanaSubscriptionMeta.get(m?.params?.subscription);
       if(sig){
         const logs=Array.isArray(value?.logs)?value.logs:[],isCreate=logs.some(x=>/Instruction:\s*Create(?:V2)?\b/i.test(String(x)));
-        if(sub?.kind==='pump-processed'&&isCreate){launchSignalStats.processedCreateSignals++;wakePumpPoll('solana-create-processed');}
-        else if(sub?.kind==='pump-confirmed'&&isCreate)queueCreateSignature(sig);
+        if(sub?.kind==='pump-processed'&&isCreate){
+          launchSignalStats.processedCreateSignals++;
+          const observed=pumpEventsFromLogs(logs),rows=provisionalLaunchFromEvents(observed,sig);launchSignalStats.processedEventsDecoded+=observed.creates.length;
+          for(const raw of rows){const fresh=!tokens.has(raw.mint);ingest(raw,'solana-create-processed');if(fresh){launchSignalStats.processedProvisionalIngested++;launchSignalStats.provisionalIngested++;}}
+          wakePumpPoll('solana-create-processed');
+        } else if(sub?.kind==='pump-confirmed'&&isCreate)queueCreateSignature(sig);
         else if(sub?.kind==='watch')queueSolanaSignature(sig,true);
       }
     }catch{}});
