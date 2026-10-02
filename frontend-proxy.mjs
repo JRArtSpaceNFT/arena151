@@ -196,18 +196,19 @@ async function refreshStateCache(force=false){
   if(stateRefreshInFlight)return stateRefreshInFlight;
   stateRefreshInFlight=(async()=>{
     let lastErr=null;
-    for(let attempt=1;attempt<=2;attempt++){
+    const delays=[0,2500,5000,7500,10000,10000,10000,10000];
+    for(let i=0;i<delays.length;i++){
+      const attempt=i+1;if(delays[i])await new Promise(r=>setTimeout(r,delays[i]));
       try{
-        const state=await fetchBackendJson('/api/state',attempt===1?45000:30000);
+        const state=await fetchBackendJson('/api/state',20000);
         stateCache=state;stateCacheAt=Date.now();backendWakeFailures=0;
         console.log('STATE_CACHE_REFRESH '+JSON.stringify({ok:true,attempt,version:state?.version||null,trades:state?.summary?.trades||0,tokens:state?.summary?.tokens||0,bytes:Buffer.byteLength(JSON.stringify(state))}));
         return state;
       }catch(e){
-        lastErr=e;backendWakeFailures++;console.warn('STATE_CACHE_REFRESH_FAILED '+JSON.stringify({attempt,error:String(e?.message||e)}));
-        if(attempt<2)await new Promise(r=>setTimeout(r,2500));
+        lastErr=e;backendWakeFailures++;console.warn('STATE_CACHE_REFRESH_FAILED '+JSON.stringify({attempt,error:String(e?.message||e),coldStartWindow:true}));
       }
     }
-    throw lastErr||new Error('backend state unavailable');
+    throw lastErr||new Error('backend state unavailable after cold-start window');
   })();
   try{return await stateRefreshInFlight}finally{stateRefreshInFlight=null}
 }
