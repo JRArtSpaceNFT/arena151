@@ -2,6 +2,7 @@ import fs from 'node:fs';
 
 const src = fs.readFileSync(new URL('../server.mjs', import.meta.url), 'utf8');
 const scienceSrc = fs.readFileSync(new URL('../lib/pump-lab-season2-science.mjs', import.meta.url), 'utf8');
+const alphaSrc = fs.readFileSync(new URL('../lib/pump-lab-alpha-os.mjs', import.meta.url), 'utf8');
 const lifecycleSrc = fs.readFileSync(new URL('../lib/pump-lab-lifecycle-research.mjs', import.meta.url), 'utf8');
 const checks = [
   ['durable startup gate', "STARTUP_STATE_GATE waiting for Postgres / Key Value / local recovery"],
