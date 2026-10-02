@@ -92,7 +92,7 @@ let weatherCache={ts:0,value:null};
 const researchContextCache=new Map();
 const walletSignalCache=new Map();
 const strategyPerfCache=new Map();
-const fastAuditLatency={precompute:[],decision:[],total:[],firstBuy:[],discovery:[],lateDiscoveryBackfill:0,lastAt:0,slow:0};
+const fastAuditLatency={precompute:[],decision:[],total:[],firstBuy:[],discovery:[],discoveryOnchain:[],discoveryFallback:[],lateDiscoveryBackfill:0,lastAt:0,slow:0};
 const deferredRejectRows=[];const pendingRejectKeys=new Set();let rejectFlushScheduled=false;
 let pumpPollInFlight=false,pumpPollBackoffUntil=0,openPositionPollInFlight=false,lastPumpWakeAt=0,pumpWakeTimer=null;
 let allocatorCache={ts:0,tradeCount:-1,value:null};
@@ -101,17 +101,17 @@ const launchHydrationInFlight=new Set();
 const launchSignalStats={processedCreateSignals:0,createSignals:0,resolvedTx:0,mintsFound:0,eventsDecoded:0,provisionalIngested:0,provisionalNoSolUsd:0,provisionalQuoteRejected:0,provisionalReserveRejected:0,lastQuoteMint:'',lastDecodedSymbol:'',lastVirtualTokenReserves:0,lastVirtualSolReserves:0,lastSupply:0,hydrated:0,hydrateFailures:0,lastCreateAt:0,lastHydrateAt:0,hydrateMs:[]};
 function pushLatency(a,x){a.push(x);if(a.length>1200)a.splice(0,a.length-1000)}
 function latencyPercentile(a,p){if(!a.length)return 0;const s=a.slice().sort((x,y)=>x-y);return s[Math.min(s.length-1,Math.max(0,Math.ceil((s.length-1)*p)))]}
-function recordDiscoveryLatency(ms){if(!Number.isFinite(ms)||ms<0)return;if(ms<=60000)pushLatency(fastAuditLatency.discovery,ms);else fastAuditLatency.lateDiscoveryBackfill++}
+function recordDiscoveryLatency(ms,source=''){if(!Number.isFinite(ms)||ms<0)return;if(ms<=60000){pushLatency(fastAuditLatency.discovery,ms);if(String(source).startsWith('solana'))pushLatency(fastAuditLatency.discoveryOnchain,ms);else pushLatency(fastAuditLatency.discoveryFallback,ms);}else fastAuditLatency.lateDiscoveryBackfill++}
 function recordFastAudit(precomputeMs,decisionMs,firstBuyMs=null){
   const total=precomputeMs+decisionMs;pushLatency(fastAuditLatency.precompute,precomputeMs);pushLatency(fastAuditLatency.decision,decisionMs);pushLatency(fastAuditLatency.total,total);
   if(Number.isFinite(firstBuyMs))pushLatency(fastAuditLatency.firstBuy,firstBuyMs);
   fastAuditLatency.lastAt=now();if(total>150)fastAuditLatency.slow++;
 }
 function fastAuditSnapshot(){
-  const a=fastAuditLatency.total,d=fastAuditLatency.discovery,b=fastAuditLatency.firstBuy,h=launchSignalStats.hydrateMs;
+  const a=fastAuditLatency.total,d=fastAuditLatency.discovery,od=fastAuditLatency.discoveryOnchain,fd=fastAuditLatency.discoveryFallback,b=fastAuditLatency.firstBuy,h=launchSignalStats.hydrateMs;
   return{samples:a.length,lastAt:fastAuditLatency.lastAt,p50Ms:latencyPercentile(a,.50),p95Ms:latencyPercentile(a,.95),p99Ms:latencyPercentile(a,.99),precomputeP95Ms:latencyPercentile(fastAuditLatency.precompute,.95),decisionP95Ms:latencyPercentile(fastAuditLatency.decision,.95),slowOver150ms:fastAuditLatency.slow,targetP95Ms:75,targetP99Ms:150,
     buySamples:b.length,firstBuyP50Ms:latencyPercentile(b,.50),firstBuyP95Ms:latencyPercentile(b,.95),firstBuyTargetMs:25,
-    discoverySamples:d.length,lateDiscoveryBackfill:fastAuditLatency.lateDiscoveryBackfill,discoveryP50Ms:latencyPercentile(d,.50),discoveryP95Ms:latencyPercentile(d,.95),discoveryTargetMs:PUMP_KEY?500:4000,discoveryMode:PUMP_KEY?'PumpPortal realtime websocket':'Solana Create signal + Pump.fun polling fallback',
+    discoverySamples:d.length,lateDiscoveryBackfill:fastAuditLatency.lateDiscoveryBackfill,discoveryP50Ms:latencyPercentile(d,.50),discoveryP95Ms:latencyPercentile(d,.95),onchainDiscoverySamples:od.length,onchainDiscoveryP50Ms:latencyPercentile(od,.50),onchainDiscoveryP95Ms:latencyPercentile(od,.95),fallbackDiscoverySamples:fd.length,fallbackDiscoveryP50Ms:latencyPercentile(fd,.50),fallbackDiscoveryP95Ms:latencyPercentile(fd,.95),discoveryTargetMs:PUMP_KEY?500:4000,discoveryMode:PUMP_KEY?'PumpPortal realtime websocket':'Solana Create signal + Pump.fun polling fallback',
     onchainLaunch:{processedCreateSignals:launchSignalStats.processedCreateSignals,createSignals:launchSignalStats.createSignals,resolvedTx:launchSignalStats.resolvedTx,mintsFound:launchSignalStats.mintsFound,eventsDecoded:launchSignalStats.eventsDecoded,provisionalIngested:launchSignalStats.provisionalIngested,provisionalNoSolUsd:launchSignalStats.provisionalNoSolUsd,provisionalQuoteRejected:launchSignalStats.provisionalQuoteRejected,provisionalReserveRejected:launchSignalStats.provisionalReserveRejected,lastQuoteMint:launchSignalStats.lastQuoteMint,lastDecodedSymbol:launchSignalStats.lastDecodedSymbol,lastVirtualTokenReserves:launchSignalStats.lastVirtualTokenReserves,lastVirtualSolReserves:launchSignalStats.lastVirtualSolReserves,lastSupply:launchSignalStats.lastSupply,hydrated:launchSignalStats.hydrated,hydrateFailures:launchSignalStats.hydrateFailures,hydrationInFlight:launchHydrationInFlight.size,hydrateP50Ms:latencyPercentile(h,.50),hydrateP95Ms:latencyPercentile(h,.95),createQueued:solanaCreateQueue.length},
     criticalPath:['cached token features','hard eligibility/risk vetoes','strategy score + guard','Alpha OS local inference','cached lifecycle advisory','cached Season 2 science + execution simulation'],networkCallsOnCriticalPath:false};
 }
@@ -1179,7 +1179,7 @@ function postDecisionMaintenance(t,source){
 function ingest(raw,source){
   const incoming=normalize(raw,source);if(!incoming||!(incoming.price>0))return;
   const old=tokens.get(incoming.mint),t=mergeToken(old,incoming);tokens.set(t.mint,t);updateCreator(t);updateOpenPositionExtremes(t);const fastCtx=prepareFastContext(t);
-  if(!old){recordDiscoveryLatency(Math.max(0,num(t.firstSeenAt)-num(t.createdAt)));log('token',`🪙 LIVE token spotted: ${t.symbol} · ${t.name}`,'info',{mint:t.mint,source});}
+  if(!old){recordDiscoveryLatency(Math.max(0,num(t.firstSeenAt)-num(t.createdAt)),source);log('token',`🪙 LIVE token spotted: ${t.symbol} · ${t.name}`,'info',{mint:t.mint,source});}
   maybeTrade(t);setImmediate(()=>{try{observeResearchLayers(t,fastCtx);}catch(e){console.warn('Deferred research warning:',e.message);}});postDecisionMaintenance(t,source);broadcast('tick',{mint:t.mint});
 }
 
@@ -2056,7 +2056,7 @@ function resetSeasonInMemory(label,archiveId){
   for(const d of challengers)resetTraderRuntime(d);
   positions.splice(0);trades.splice(0);activity.splice(0);decisions.splice(0);timeline.splice(0);autopsies.splice(0);experiments.splice(0);replayFrames.splice(0);
   promotions.splice(0);graveyard.splice(0);walletEvents.splice(0);marketEvents.splice(0);pendingDbEvents.splice(0);solanaQueue.splice(0);solanaPriorityQueue.splice(0);solanaCreateQueue.splice(0);solanaCreateAttempts.clear();launchHydrationInFlight.clear();solanaSubscriptionMeta.clear();launchSignalStats.processedCreateSignals=0;launchSignalStats.createSignals=0;launchSignalStats.resolvedTx=0;launchSignalStats.mintsFound=0;launchSignalStats.eventsDecoded=0;launchSignalStats.provisionalIngested=0;launchSignalStats.provisionalNoSolUsd=0;launchSignalStats.provisionalQuoteRejected=0;launchSignalStats.provisionalReserveRejected=0;launchSignalStats.lastQuoteMint='';launchSignalStats.lastDecodedSymbol='';launchSignalStats.lastVirtualTokenReserves=0;launchSignalStats.lastVirtualSolReserves=0;launchSignalStats.lastSupply=0;launchSignalStats.hydrated=0;launchSignalStats.hydrateFailures=0;launchSignalStats.lastCreateAt=0;launchSignalStats.lastHydrateAt=0;launchSignalStats.hydrateMs.splice(0);
-  opportunities.clear();opportunityKeysByMint.clear();tokens.clear();creators.clear();dnaArchive.clear();marketEventClock.clear();solanaSeen.clear();researchContextCache.clear();weatherCache={ts:0,value:null};monsterLabCache={ts:0,opps:0,events:0,trades:0,data:null};fastAuditLatency.precompute.splice(0);fastAuditLatency.decision.splice(0);fastAuditLatency.total.splice(0);fastAuditLatency.firstBuy.splice(0);fastAuditLatency.discovery.splice(0);fastAuditLatency.lateDiscoveryBackfill=0;deferredRejectRows.splice(0);pendingRejectKeys.clear();rejectFlushScheduled=false;fastAuditLatency.lastAt=0;fastAuditLatency.slow=0;
+  opportunities.clear();opportunityKeysByMint.clear();tokens.clear();creators.clear();dnaArchive.clear();marketEventClock.clear();solanaSeen.clear();researchContextCache.clear();weatherCache={ts:0,value:null};monsterLabCache={ts:0,opps:0,events:0,trades:0,data:null};fastAuditLatency.precompute.splice(0);fastAuditLatency.decision.splice(0);fastAuditLatency.total.splice(0);fastAuditLatency.firstBuy.splice(0);fastAuditLatency.discovery.splice(0);fastAuditLatency.discoveryOnchain.splice(0);fastAuditLatency.discoveryFallback.splice(0);fastAuditLatency.lateDiscoveryBackfill=0;deferredRejectRows.splice(0);pendingRejectKeys.clear();rejectFlushScheduled=false;fastAuditLatency.lastAt=0;fastAuditLatency.slow=0;
   entryPolicyCache.clear();regimeWeightCache.clear();dnaSimilarityCache.clear();walletSignalCache.clear();strategyPerfCache.clear();allocatorCache={ts:0,tradeCount:-1,value:null};corrCache={ts:0,rows:[]};
   research={last:0,notes:[],hypotheses:[]};lastScientistRun=0;lastDbEventFlush=0;
   const freshAlpha=createPumpLabAlphaOS({start:START,rpcUrl:SOLANA_RPC_HTTP,routeQuoteUrl:SHADOW_ROUTE_QUOTE_URL,shadowWalletPublicKey:SHADOW_WALLET_PUBLIC_KEY});
