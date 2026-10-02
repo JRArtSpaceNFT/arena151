@@ -93,7 +93,7 @@ const strategyPerfCache=new Map();
 const fastAuditLatency={precompute:[],decision:[],total:[],discovery:[],lateDiscoveryBackfill:0,lastAt:0,slow:0};
 let pumpPollInFlight=false,pumpPollBackoffUntil=0,openPositionPollInFlight=false,lastPumpWakeAt=0,pumpWakeTimer=null;
 let allocatorCache={ts:0,tradeCount:-1,value:null};
-const solanaCreateQueue=[];const solanaPriorityQueue=[];const solanaSubscriptionMeta=new Map();let solanaRpcInFlight=0,solanaRpcBackoffUntil=0,lastGenericSolanaQueuedAt=0;
+const solanaCreateQueue=[];const solanaCreateAttempts=new Map();const solanaPriorityQueue=[];const solanaSubscriptionMeta=new Map();let solanaRpcInFlight=0,solanaRpcBackoffUntil=0,lastGenericSolanaQueuedAt=0;
 const launchSignalStats={createSignals:0,resolvedTx:0,mintsFound:0,hydrated:0,hydrateFailures:0,lastCreateAt:0,lastHydrateAt:0,hydrateMs:[]};
 function pushLatency(a,x){a.push(x);if(a.length>1200)a.splice(0,a.length-1000)}
 function latencyPercentile(a,p){if(!a.length)return 0;const s=a.slice().sort((x,y)=>x-y);return s[Math.min(s.length-1,Math.max(0,Math.ceil((s.length-1)*p)))]}
@@ -1365,8 +1365,12 @@ async function drainSolanaQueue(){
   const create=solanaCreateQueue.length>0,priority=!create&&solanaPriorityQueue.length>0,queue=create?solanaCreateQueue:(priority?solanaPriorityQueue:solanaQueue),sig=queue.shift();if(!sig)return;solanaRpcInFlight++;
   try{
     const tx=await rpcTransaction(sig);
-    if(tx){
-      if(create){launchSignalStats.resolvedTx++;const mints=initializedMintsFromTx(tx);launchSignalStats.mintsFound+=mints.length;for(const mint of mints.slice(0,2))await hydrateLaunchMint(mint,sig);}
+    if(!tx&&create){
+      const attempt=(solanaCreateAttempts.get(sig)||0)+1;solanaCreateAttempts.set(sig,attempt);
+      if(attempt<4){const timer=setTimeout(()=>{if(!solanaCreateQueue.includes(sig))solanaCreateQueue.unshift(sig);},250*attempt);timer.unref?.();}
+      else solanaCreateAttempts.delete(sig);
+    }else if(tx){
+      if(create){solanaCreateAttempts.delete(sig);launchSignalStats.resolvedTx++;const mints=initializedMintsFromTx(tx);launchSignalStats.mintsFound+=mints.length;for(const mint of mints.slice(0,2))await hydrateLaunchMint(mint,sig);}
       await parseWalletTx(sig,tx);
     }
     setHealth('wallet-intel','ok',`Create ${solanaCreateQueue.length} · priority ${solanaPriorityQueue.length} · normal ${solanaQueue.length} · ${solanaResolved} resolved`,{truth:'observed'});
@@ -1873,7 +1877,7 @@ function resetSeasonInMemory(label,archiveId){
   for(const d of strategyDefs)resetTraderRuntime(d);
   for(const d of challengers)resetTraderRuntime(d);
   positions.splice(0);trades.splice(0);activity.splice(0);decisions.splice(0);timeline.splice(0);autopsies.splice(0);experiments.splice(0);replayFrames.splice(0);
-  promotions.splice(0);graveyard.splice(0);walletEvents.splice(0);marketEvents.splice(0);pendingDbEvents.splice(0);solanaQueue.splice(0);solanaPriorityQueue.splice(0);solanaCreateQueue.splice(0);solanaSubscriptionMeta.clear();launchSignalStats.createSignals=0;launchSignalStats.resolvedTx=0;launchSignalStats.mintsFound=0;launchSignalStats.hydrated=0;launchSignalStats.hydrateFailures=0;launchSignalStats.lastCreateAt=0;launchSignalStats.lastHydrateAt=0;launchSignalStats.hydrateMs.splice(0);
+  promotions.splice(0);graveyard.splice(0);walletEvents.splice(0);marketEvents.splice(0);pendingDbEvents.splice(0);solanaQueue.splice(0);solanaPriorityQueue.splice(0);solanaCreateQueue.splice(0);solanaCreateAttempts.clear();solanaSubscriptionMeta.clear();launchSignalStats.createSignals=0;launchSignalStats.resolvedTx=0;launchSignalStats.mintsFound=0;launchSignalStats.hydrated=0;launchSignalStats.hydrateFailures=0;launchSignalStats.lastCreateAt=0;launchSignalStats.lastHydrateAt=0;launchSignalStats.hydrateMs.splice(0);
   opportunities.clear();opportunityKeysByMint.clear();tokens.clear();creators.clear();dnaArchive.clear();marketEventClock.clear();solanaSeen.clear();researchContextCache.clear();weatherCache={ts:0,value:null};fastAuditLatency.precompute.splice(0);fastAuditLatency.decision.splice(0);fastAuditLatency.total.splice(0);fastAuditLatency.discovery.splice(0);fastAuditLatency.lateDiscoveryBackfill=0;fastAuditLatency.lastAt=0;fastAuditLatency.slow=0;
   entryPolicyCache.clear();regimeWeightCache.clear();dnaSimilarityCache.clear();walletSignalCache.clear();strategyPerfCache.clear();allocatorCache={ts:0,tradeCount:-1,value:null};corrCache={ts:0,rows:[]};
   research={last:0,notes:[],hypotheses:[]};lastScientistRun=0;lastDbEventFlush=0;
