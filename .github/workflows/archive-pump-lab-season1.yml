@@ -13,38 +13,38 @@ permissions:
 jobs:
   archive:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 6
     steps:
-      - name: Fetch live Season 1 state
+      - name: Fetch live Season 1 core state
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p archive
-          curl --fail --location --retry 12 --retry-delay 5 --max-time 120 \
+          curl --fail --location --retry 10 --retry-all-errors --retry-delay 3 --connect-timeout 15 --max-time 90 \
             https://pump-lab-live.onrender.com/api/state \
             -o archive/season1-state.json
-          curl --fail --location --retry 12 --retry-delay 5 --max-time 120 \
-            https://pump-lab-live.onrender.com/api/research \
-            -o archive/season1-research.json
           python - <<'PY'
-          import json, pathlib, datetime
-          s=json.loads(pathlib.Path('archive/season1-state.json').read_text())
-          r=json.loads(pathlib.Path('archive/season1-research.json').read_text())
+          import json, pathlib, datetime, hashlib
+          p=pathlib.Path('archive/season1-state.json')
+          s=json.loads(p.read_text())
           manifest={
             'archivedAt': datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            'source':'https://pump-lab-live.onrender.com',
-            'trades': len(s.get('trades',[])),
-            'positions': len(s.get('positions',[])),
-            'version': s.get('version'),
-            'researchKeys': sorted(r.keys())
+            'source':'https://pump-lab-live.onrender.com/api/state',
+            'bytes':p.stat().st_size,
+            'sha256':hashlib.sha256(p.read_bytes()).hexdigest(),
+            'trades':len(s.get('trades',[])),
+            'positions':len(s.get('positions',[])),
+            'version':s.get('version'),
+            'season':s.get('season'),
+            'strategyCount':len(s.get('strategies',[]))
           }
           pathlib.Path('archive/manifest.json').write_text(json.dumps(manifest,indent=2))
           print(json.dumps(manifest,indent=2))
           PY
-      - name: Upload immutable Season 1 artifact
+      - name: Upload immutable Season 1 core artifact
         uses: actions/upload-artifact@v4
         with:
-          name: pump-lab-season1-archive
+          name: pump-lab-season1-core
           path: archive/
           if-no-files-found: error
           retention-days: 90
