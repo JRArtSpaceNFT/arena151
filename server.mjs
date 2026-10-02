@@ -14,11 +14,13 @@ const FEE_RATE = 0.0125; // conservative fallback for unknown venue/lifecycle
 const PAPER_FIXED_TX_COST_USD = Number(process.env.PAPER_FIXED_TX_COST_USD || 0.02);
 const STATE_FILE = process.env.STATE_FILE || '/tmp/pump-lab-state-v06.json';
 const DATABASE_URL = process.env.DATABASE_URL || '';
+const REDIS_URL = process.env.REDIS_URL || '';
+const LOCAL_RECOVERY_MAX_AGE_MS = Number(process.env.LOCAL_RECOVERY_MAX_AGE_MS || 1800000);
 const AUDIT_VERSION = '2026-10-01-process-audit';
 const ALLOW_AUTO_PROMOTION = (process.env.ALLOW_AUTO_PROMOTION || 'false') === 'true';
 const SEASON2_SCIENCE_VETO = (process.env.SEASON2_SCIENCE_VETO || 'true') === 'true';
 const RESET_SEASON = (process.env.RESET_SEASON || '').trim();
-const DURABLE_WRITE_GRACE_MS = Number(process.env.DURABLE_WRITE_GRACE_MS || 120000);
+const DURABLE_WRITE_GRACE_MS = Number(process.env.DURABLE_WRITE_GRACE_MS || 900000);
 const STALE_MARK_WARN_MS = Number(process.env.STALE_MARK_WARN_MS || 120000);
 const STALE_MARK_ZERO_MS = Number(process.env.STALE_MARK_ZERO_MS || 1800000);
 const MAX_RUNTIME_TOKENS = Number(process.env.MAX_RUNTIME_TOKENS || 1200);
@@ -99,6 +101,16 @@ let lastDurableSaveAt = 0;
 let lastDurableRestoreAt = 0;
 let saveInProgress = false;
 let saveQueued = false;
+let kv = null;
+let kvConnecting = false;
+let kvReady = false;
+let kvStateRestored = false;
+let lastKvSaveAt = 0;
+let lastKvRestoreAt = 0;
+let localStateRestored = false;
+let lastLocalRestoreAt = 0;
+let stateVersionTs = 0;
+let dbReconnectTimer = null;
 const opportunityKeysByMint = new Map();
 const alphaOS = createPumpLabAlphaOS({
   start:START,
@@ -738,10 +750,18 @@ function pruneOpportunities(){
   }
 }
 function durableTradingReady(){
-  if(!DATABASE_URL)return true;
-  if(!dbStateRestored)return false;
-  const anchor=Math.max(lastDurableSaveAt,lastDurableRestoreAt);
-  return !!db || (anchor>0&&now()-anchor<=DURABLE_WRITE_GRACE_MS);
+  if(!DATABASE_URL&&!REDIS_URL)return true;
+  if(!(dbStateRestored||kvStateRestored||localStateRestored))return false;
+  const anchor=Math.max(lastDurableSaveAt,lastDurableRestoreAt,lastKvSaveAt,lastKvRestoreAt,lastLocalRestoreAt);
+  return !!db||kvReady||(anchor>0&&now()-anchor<=DURABLE_WRITE_GRACE_MS);
+}
+function storageStatus(){
+  return{
+    postgres:{configured:!!DATABASE_URL,connected:!!db,restored:dbStateRestored,lastSaveAt:lastDurableSaveAt,lastRestoreAt:lastDurableRestoreAt},
+    keyValue:{configured:!!REDIS_URL,connected:kvReady,restored:kvStateRestored,lastSaveAt:lastKvSaveAt,lastRestoreAt:lastKvRestoreAt,persistent:false},
+    local:{restored:localStateRestored,lastRestoreAt:lastLocalRestoreAt,maxRecoveryAgeMs:LOCAL_RECOVERY_MAX_AGE_MS},
+    tradingUnlocked:durableTradingReady(),stateVersionTs,graceMs:DURABLE_WRITE_GRACE_MS
+  };
 }
 function pruneRuntimeMemory(){
   const openMints=new Set(positions.filter(p=>!p.closed).map(p=>p.mint));
@@ -1801,17 +1821,53 @@ async function archiveAndResetSeason(label){
   }
 }
 
+function scheduleDbReconnect(delay=5000){
+  if(dbReconnectTimer)return;
+  dbReconnectTimer=setTimeout(()=>{dbReconnectTimer=null;initDb(!dbStateRestored);},delay);
+  dbReconnectTimer.unref?.();
+}
+function restoreIfNewer(s,source,sourceTs=0){
+  if(!s||typeof s!=='object')return false;
+  const ts=num(s?.stateMeta?.savedAt)||num(sourceTs)||0;
+  if(stateVersionTs&&ts&&ts<stateVersionTs)return false;
+  restore(s);stateVersionTs=Math.max(stateVersionTs,ts);
+  if(source==='postgres'){dbStateRestored=true;lastDurableRestoreAt=now();}
+  if(source==='key-value'){kvStateRestored=true;lastKvRestoreAt=now();}
+  if(source==='local'){localStateRestored=true;lastLocalRestoreAt=now();}
+  console.log('STATE_RESTORE '+JSON.stringify({source,savedAt:ts,current:stateVersionTs}));
+  return true;
+}
+async function initKv(restoreState=true){
+  if(!REDIS_URL)return false;
+  if(kvReady||kvConnecting)return kvReady;
+  kvConnecting=true;
+  try{
+    const {createClient}=await import('redis');
+    const client=createClient({url:REDIS_URL,socket:{connectTimeout:7000,reconnectStrategy:r=>Math.min(5000,250*Math.max(1,r))}});
+    client.on('error',e=>{kvReady=false;setHealth('research-failover','warn','Key Value failover reconnecting: '+e.message,{truth:'observed'});});
+    client.on('ready',()=>{kvReady=true;setHealth('research-failover','ok','Free Key Value failover online',{truth:'observed'});});
+    await client.connect();kv=client;kvReady=true;
+    if(restoreState){
+      const raw=await kv.get('pump-lab:state:main');
+      if(raw){try{restoreIfNewer(JSON.parse(raw),'key-value');}catch(e){console.warn('Key Value restore warning:',e.message);}}
+    }
+    setHealth('research-failover','ok','Free Key Value failover online · Postgres remains canonical',{truth:'observed'});
+    return true;
+  }catch(e){
+    kvReady=false;setHealth('research-failover','warn','Key Value failover unavailable: '+e.message,{truth:'observed'});
+    console.warn('Key Value connection failed:',e.message);return false;
+  }finally{kvConnecting=false;}
+}
 async function initDb(restoreState=true){
-  if(!DATABASE_URL){setHealth('research-memory','standby','Render Postgres provisioned but DATABASE_URL is not attached to this service yet',{truth:'not connected'});return;}
+  if(!DATABASE_URL){setHealth('research-memory','standby','Render Postgres not attached · using failover storage when available',{truth:'not connected'});return;}
   if(db||dbConnecting)return;dbConnecting=true;let client=null;
   try{
     const {Client}=await import('pg');
-    client=new Client({connectionString:DATABASE_URL,ssl:DATABASE_URL.includes('render.com')?{rejectUnauthorized:false}:undefined});
+    client=new Client({connectionString:DATABASE_URL,ssl:DATABASE_URL.includes('render.com')?{rejectUnauthorized:false}:undefined,connectionTimeoutMillis:8000,keepAlive:true,keepAliveInitialDelayMillis:5000});
     client.on('error',e=>{
       if(db===client)db=null;
-      setHealth('research-memory','warn','Postgres connection interrupted · reconnecting',{truth:'observed'});
-      console.warn('Postgres connection interrupted:',e.message);
-      const timer=setTimeout(()=>initDb(!dbStateRestored),5000);timer.unref?.();
+      setHealth('research-memory','warn','Postgres interrupted · failover remains active while reconnecting',{truth:'observed'});
+      console.warn('Postgres connection interrupted:',e.message);scheduleDbReconnect(5000);
     });
     await client.connect();db=client;
     await db.query('CREATE TABLE IF NOT EXISTS pump_lab_state (id text primary key, payload jsonb not null, updated_at timestamptz default now())');
@@ -1819,33 +1875,34 @@ async function initDb(restoreState=true){
     await db.query('CREATE INDEX IF NOT EXISTS pump_lab_market_events_ts_idx ON pump_lab_market_events(ts)');
     await db.query('CREATE INDEX IF NOT EXISTS pump_lab_market_events_mint_idx ON pump_lab_market_events(mint)');
     if(restoreState||!dbStateRestored){
-      const r=await db.query("SELECT payload FROM pump_lab_state WHERE id='main'");
-      if(r.rows[0]?.payload)restore(r.rows[0].payload);
+      const r=await db.query("SELECT payload,updated_at FROM pump_lab_state WHERE id='main'");
+      if(r.rows[0]?.payload)restoreIfNewer(r.rows[0].payload,'postgres',new Date(r.rows[0].updated_at).getTime());
+      else {dbStateRestored=true;lastDurableRestoreAt=now();}
       if(RESET_SEASON)await archiveAndResetSeason(RESET_SEASON);
       dbStateRestored=true;lastDurableRestoreAt=now();
-      console.log('STATE_LOCK unlocked · durable state restored');
+      console.log('STATE_LOCK unlocked · Postgres connected');
       logStrategyDiagnostics();
     }
-    setHealth('research-memory','ok','Postgres durable memory online',{truth:'observed'});
+    setHealth('research-memory','ok','Postgres durable memory online · Key Value failover armed',{truth:'observed'});
     console.log('Postgres durable memory online');
+    if(stateVersionTs&&kvStateRestored)await save();
   }catch(e){
     if(db===client)db=null;
     try{await client?.end();}catch{}
-    setHealth('research-memory','warn','Postgres connection failed · retrying: '+e.message,{truth:'observed'});
-    console.warn('Postgres connection failed:',e.message);
-    const timer=setTimeout(()=>initDb(!dbStateRestored),10000);timer.unref?.();
+    setHealth('research-memory','warn','Postgres connection failed · failover active while retrying: '+e.message,{truth:'observed'});
+    console.warn('Postgres connection failed:',e.message);scheduleDbReconnect(10000);
   }finally{dbConnecting=false;}
 }
 async function waitForInitialDurableRestore(maxMs=90000){
-  if(!DATABASE_URL)return true;
+  if(!DATABASE_URL&&!REDIS_URL)return true;
   const deadline=now()+maxMs;
-  while(!dbStateRestored&&now()<deadline){await new Promise(r=>setTimeout(r,1000));}
-  if(dbStateRestored)return true;
+  while(!(dbStateRestored||kvStateRestored||localStateRestored)&&now()<deadline){await new Promise(r=>setTimeout(r,1000));}
+  if(dbStateRestored||kvStateRestored||localStateRestored)return true;
   console.error('FATAL_STATE_RESTORE_TIMEOUT · refusing to serve fresh defaults');
   return false;
 }
 
-function serialize(){return{auditVersion:AUDIT_VERSION,season:seasonInfo,alphaOS:alphaOS.serialize(),science:science.serialize(),strategies:strategyDefs.map(stripTrader),challengers:challengers.map(stripTrader),positions:positions.filter(p=>!p.closed),trades,activity,decisions,opportunities:[...opportunities],research,timeline,replayFrames,autopsies,promotions,graveyard,walletEvents:walletEvents.slice(0,1200),marketEvents:marketEvents.slice(-1000),dnaArchive:[...dnaArchive],creators:[...creators].map(([k,v])=>[k,{...v,tokens:[...v.tokens]}])};}
+function serialize(){return{stateMeta:{version:2,savedAt:now(),era:STRATEGY_ERA},auditVersion:AUDIT_VERSION,season:seasonInfo,alphaOS:alphaOS.serialize(),science:science.serialize(),strategies:strategyDefs.map(stripTrader),challengers:challengers.map(stripTrader),positions:positions.filter(p=>!p.closed),trades,activity,decisions,opportunities:[...opportunities],research,timeline,replayFrames,autopsies,promotions,graveyard,walletEvents:walletEvents.slice(0,1200),marketEvents:marketEvents.slice(-1000),dnaArchive:[...dnaArchive],creators:[...creators].map(([k,v])=>[k,{...v,tokens:[...v.tokens]}])};}
 function stripTrader(d){return{id:d.id,name:d.name,icon:d.icon,risk:d.risk,type:d.type,parentId:d.parentId,mutation:d.mutation,auto:d.auto,bornAt:d.bornAt,cash:d.cash,peak:d.peak,dd:d.dd,auditPeak:d.auditPeak,auditDd:d.auditDd,wins:d.wins,losses:d.losses,n:d.n,version:d.version,min:d.min,stop:d.stop,take:d.take,size:d.size,maxOpen:d.maxOpen,riskCap:d.riskCap,exitMode:d.exitMode,sizeBias:d.sizeBias,promotionCandidateAt:d.promotionCandidateAt,promotedAt:d.promotedAt,graveyardAt:d.graveyardAt,hypothesisCandidateAt:d.hypothesisCandidateAt,hypothesisRetiredAt:d.hypothesisRetiredAt,hypothesisReason:d.hypothesisReason};}
 function restore(s){try{if(s.season)seasonInfo={...seasonInfo,...s.season};alphaOS.restore(s.alphaOS);science.restore(s.science);
   for(const x of s.strategies||[]){
@@ -1871,26 +1928,49 @@ async function flushMarketEvents(){
   try{await db.query("INSERT INTO pump_lab_market_events(ts,mint,payload) SELECT (x->>'ts')::bigint,x->>'mint',x FROM jsonb_array_elements($1::jsonb) x",[JSON.stringify(batch)]);lastDbEventFlush=now();}
   catch(e){pendingDbEvents.unshift(...batch);pendingDbEvents.splice(1500);setHealth('research-memory','warn','Event ledger flush failed: '+e.message);}
 }
+function writeLocalAtomic(s){
+  try{
+    const tmp=STATE_FILE+'.tmp',bak=STATE_FILE+'.bak',json=JSON.stringify(s);
+    if(fs.existsSync(STATE_FILE)){try{fs.copyFileSync(STATE_FILE,bak);}catch{}}
+    fs.writeFileSync(tmp,json);fs.renameSync(tmp,STATE_FILE);return true;
+  }catch(e){console.warn('Local checkpoint write warning:',e.message);return false;}
+}
+function loadLocal(){
+  for(const file of [STATE_FILE,STATE_FILE+'.bak']){
+    try{
+      if(!fs.existsSync(file))continue;
+      const age=now()-fs.statSync(file).mtimeMs;if(age>LOCAL_RECOVERY_MAX_AGE_MS)continue;
+      const s=JSON.parse(fs.readFileSync(file,'utf8'));if(restoreIfNewer(s,'local',fs.statSync(file).mtimeMs))return true;
+    }catch(e){console.warn('Local checkpoint restore warning:',e.message);}
+  }
+  return false;
+}
 async function save(){
   if(saveInProgress){saveQueued=true;return;}
   saveInProgress=true;
   try{
     pruneRuntimeMemory();
-    const s=serialize();try{fs.writeFileSync(STATE_FILE,JSON.stringify(s));}catch{}
+    const s=serialize();stateVersionTs=num(s.stateMeta?.savedAt)||stateVersionTs;writeLocalAtomic(s);
+    if(kvReady&&kv){
+      try{await kv.set('pump-lab:state:main',JSON.stringify(s));lastKvSaveAt=now();setHealth('research-failover','ok','Free Key Value failover synchronized',{truth:'observed'});}
+      catch(e){kvReady=false;setHealth('research-failover','warn','Key Value checkpoint failed: '+e.message,{truth:'observed'});initKv(false);}
+    }
     if(db){
       try{
         await flushMarketEvents();
         await db.query("INSERT INTO pump_lab_state(id,payload,updated_at) VALUES('main',$1,now()) ON CONFLICT(id) DO UPDATE SET payload=$1,updated_at=now()",[s]);
         lastDurableSaveAt=now();
-        setHealth('research-memory','ok','Postgres durable memory online · writes serialized',{truth:'observed'});
-      }catch(e){setHealth('research-memory','warn','Postgres save failed: '+e.message,{truth:'observed'});}
+        setHealth('research-memory','ok','Postgres durable memory online · failover synchronized',{truth:'observed'});
+      }catch(e){
+        setHealth('research-memory','warn','Postgres save failed · failover checkpoint retained: '+e.message,{truth:'observed'});
+        const bad=db;db=null;try{await bad?.end();}catch{}scheduleDbReconnect(5000);
+      }
     }
   }finally{
     saveInProgress=false;
     if(saveQueued){saveQueued=false;const timer=setTimeout(()=>save(),0);timer.unref?.();}
   }
 }
-function loadLocal(){try{restore(JSON.parse(fs.readFileSync(STATE_FILE,'utf8')));}catch{}}
 
 function strategyDiagnostics(){
   return strategyDefs.map(d=>{
@@ -1951,8 +2031,10 @@ function systemAudit(){
   const open=positions.filter(p=>!p.closed),markDetails=open.map(p=>({p,d:positionMarkDetail(p)})),stale=markDetails.filter(x=>x.d.stale),zeroed=markDetails.filter(x=>x.d.multiplier<=0);
   const providers=providerAudit(),stats=strategyStatistics(),qualified=stats.filter(s=>s.holdoutN>=20&&s.holdoutMean>0&&s.holdoutProfitFactor>1.10&&s.dd<PAPER_MAX_DRAWDOWN_PCT);
   const critical=[],warnings=[],passes=[];
-  if(DATABASE_URL&&!dbStateRestored)critical.push('durable state has not restored');
-  if(DATABASE_URL&&!durableTradingReady())critical.push('durable persistence is outside the safe write grace window');
+  if((DATABASE_URL||REDIS_URL)&&!(dbStateRestored||kvStateRestored||localStateRestored))critical.push('no recovery source has restored state');
+  if((DATABASE_URL||REDIS_URL)&&!durableTradingReady())critical.push('all persistence layers are outside the safe recovery window');
+  if(DATABASE_URL&&!db&&kvReady)warnings.push('Postgres temporarily offline; free Key Value failover is carrying checkpoints');
+  if(REDIS_URL&&!kvReady&&db)warnings.push('Key Value failover offline; Postgres remains canonical');
   if(zeroed.length)critical.push(`${zeroed.length} open positions have no executable fresh mark`);
   if(lastStateBuildMs>5000)warnings.push(`dashboard state build is slow at ${lastStateBuildMs} ms`);
   if(lastStateBytes>1500000)warnings.push(`dashboard state payload is large at ${Math.round(lastStateBytes/1024)} KB`);
@@ -2049,7 +2131,7 @@ function snapshot(){
       history:(t.history||[]).slice(-45).map(x=>({ts:x.ts,price:x.price})),features:features(t),detective:detective(t),adversarial:adversarialRisk(t),
       consensus:consensus(t,weather.regime),dna:creatorDNA(t),tokenDNA:tdna,similarity:dnaSimilarity(t,12,tdna),quality:tokenDataQuality(t)};
   });
-  return{now:now(),startedAt,paperOnly:true,alphaOS:alphaOS.snapshot(),season2Science:science.snapshot(strategyDefs.map(d=>d.id)),executionAssumptions:{fallbackFeeRate:FEE_RATE,fixedTxCostUsd:PAPER_FIXED_TX_COST_USD,feeSource:'pump.fun docs 2026-05-20',maxModeledSlippagePct:8},researchGovernance:{partition:'deterministic 80/20 by mint',learningSet:'train only',autoPromotion:ALLOW_AUTO_PROMOTION,minPromotionTrades:60,minHoldoutTrades:12},stateLock:{databaseConfigured:!!DATABASE_URL,restored:dbStateRestored,tradingUnlocked:durableTradingReady(),dbConnected:!!db,lastDurableSaveAt,lastDurableRestoreAt,graceMs:DURABLE_WRITE_GRACE_MS},mode:'LIVE PAPER + V4.0 SEASON 2 SCIENCE + ALPHA OS + AUDITED HOLDOUT RESEARCH',version:'4.0 Season 2 Science',target:TARGET,weather,providers:[...health.values()],
+  return{now:now(),startedAt,paperOnly:true,alphaOS:alphaOS.snapshot(),season2Science:science.snapshot(strategyDefs.map(d=>d.id)),executionAssumptions:{fallbackFeeRate:FEE_RATE,fixedTxCostUsd:PAPER_FIXED_TX_COST_USD,feeSource:'pump.fun docs 2026-05-20',maxModeledSlippagePct:8},researchGovernance:{partition:'deterministic 80/20 by mint',learningSet:'train only',autoPromotion:ALLOW_AUTO_PROMOTION,minPromotionTrades:60,minHoldoutTrades:12},stateLock:storageStatus(),mode:'LIVE PAPER + V4.0 SEASON 2 SCIENCE + ALPHA OS + AUDITED HOLDOUT RESEARCH',version:'4.0 Season 2 Science',target:TARGET,weather,providers:[...health.values()],
     summary:{capital:prod.reduce((a,d)=>a+d.equity,0),start:prod.length*START,trades:prod.reduce((a,d)=>a+d.n,0),open:positions.filter(p=>!p.closed&&prod.some(d=>d.id===p.strategy)).length,cohortCapital:cohort.reduce((a,d)=>a+d.equity,0),cohortStart:cohort.length*START,cohortTrades:cohort.reduce((a,d)=>a+d.n,0),cohortOpen:positions.filter(p=>!p.closed&&cohort.some(d=>d.id===p.strategy)).length,tokens:tokens.size,decisions:decisions.length},
     strategies:strategyDefs.map(d=>{const ep=entryPolicy(d),pb=strategyPlaybook(d),eraTrades=trades.filter(t=>t.strategy===d.id&&t.policyVersion===STRATEGY_ERA);return{...d,winRate:d.n?d.wins/d.n*100:0,open:openCount(d.id),effectiveMin:ep.min,coldStart:ep.coldStart,entryRejects:ep.rejects,thresholdRelief:ep.relief,playbook:pb.instruction,era:STRATEGY_ERA,eraN:eraTrades.length,eraWinRate:eraTrades.length?eraTrades.filter(t=>t.pnl>0).length/eraTrades.length*100:0,eraPnl:eraTrades.reduce((a,t)=>a+num(t.pnl),0),eraAvgPnl:eraTrades.length?avg(eraTrades.map(t=>t.pnlPct)):0}}),experiments:experimentSnapshot(),tokens:active,
     narratives:narrativeStats().slice(0,15),creators:creatorLeaderboard(),positions:positions.filter(p=>!p.closed).slice(-120),trades:trades.slice(0,150),activity:activity.slice(0,140),research,
@@ -2823,15 +2905,16 @@ const server=http.createServer(async (req,res)=>{
       return res.end(JSON.stringify({ok:false,error:'deep research unavailable',detail:String(e?.message||e)}));
     }
   }
-  if(req.url==='/api/health'){res.writeHead(200,{'content-type':'application/json','cache-control':'no-store'});return res.end(JSON.stringify({ok:true,paperOnly:true,version:'3.3 Alpha OS',weather:marketWeather(),providers:[...health.values()]}));}
+  if(req.url==='/api/health'){res.writeHead(200,{'content-type':'application/json','cache-control':'no-store'});return res.end(JSON.stringify({ok:true,paperOnly:true,version:'4.0 Season 2 Science',storage:storageStatus(),weather:marketWeather(),providers:[...health.values()]}));}
   if(req.url==='/api/events'){res.writeHead(200,{'content-type':'text/event-stream','cache-control':'no-cache','connection':'keep-alive'});res.write('data: {}\n\n');clients.add(res);req.on('close',()=>clients.delete(res));return;}
   res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store'});res.end(HTML);
 });
 
 loadLocal();
-await initDb();
-if(DATABASE_URL&&!dbStateRestored){
-  console.log('STARTUP_STATE_GATE waiting for durable restore before accepting traffic');
+await initKv(true);
+await initDb(true);
+if((DATABASE_URL||REDIS_URL)&&!(dbStateRestored||kvStateRestored||localStateRestored)){
+  console.log('STARTUP_STATE_GATE waiting for Postgres / Key Value / local recovery before accepting traffic');
   const restored=await waitForInitialDurableRestore();
   if(!restored)process.exit(1);
 }
@@ -2843,9 +2926,9 @@ setHealth('alpha-os','ok','10-system Alpha OS online · all execution remains pa
 setHealth('season2-science','ok','12-system Season 2 science layer online · walk-forward + Bayesian + survival + DNA + saturation + execution + counterfactuals + drift + kill switch + alpha + abstention',{truth:'inferred'});
 setHealth('x-social','standby','Full X stream not connected · social agent uses token social metadata only',{truth:'not connected'});
 setHealth('wallet-intel','standby','Connecting Solana stream + verified Fomo wallet watchlist…',{truth:'not connected'});setHealth('fomo-watchlist','standby','Preparing verified public wallet subscriptions',{truth:'not connected'});
-server.listen(PORT,'0.0.0.0',()=>{if(DATABASE_URL&&!dbStateRestored)console.log('STATE_LOCK engaged · trading paused until durable state restore');log('system','🚀 PUMP LAB v4.0 Season 2 Science started · PAPER ONLY','system');connectPumpPortal();connectSolanaStream();pumpPoll();dexPoll();console.log('PUMP LAB v4.0 Season 2 Science on '+PORT);});
+server.listen(PORT,'0.0.0.0',()=>{if((DATABASE_URL||REDIS_URL)&&!durableTradingReady())console.log('STATE_LOCK engaged · trading paused until a recovery source is healthy');log('system','🚀 PUMP LAB v4.0 Season 2 Science started · PAPER ONLY','system');connectPumpPortal();connectSolanaStream();pumpPoll();dexPoll();console.log('PUMP LAB v4.0 Season 2 Science on '+PORT);});
 setTimeout(stateSelfTest,5000).unref?.();setInterval(()=>alphaOS.runCapitalAuction(m=>tokens.get(m),executionQuote),2000).unref?.();
 setInterval(()=>{alphaOS.observeWorld({weather:marketWeather(),tokens:[...tokens.values()].filter(t=>now()-t.updatedAt<900000),strategyEquity:Object.fromEntries(allTraders().map(d=>[d.id,d.equity]))});alphaOS.prune();},60000).unref?.();
 setInterval(()=>alphaOS.pollExternal(),30000).unref?.();
 setInterval(stalePositionSweep,60000).unref?.();setInterval(pruneRuntimeMemory,300000).unref?.();setInterval(drainSolanaQueue,1100).unref?.();setInterval(pumpPoll,7000).unref?.();setInterval(dexPoll,20000).unref?.();setInterval(openPositionPoll,15000).unref?.();setInterval(takeTimeline,30000).unref?.();setInterval(takeReplay,30000).unref?.();setInterval(researchCycle,3600000).unref?.();setInterval(()=>save(),30000).unref?.();const diagTimer=setTimeout(()=>{logStrategyDiagnostics();logPerformanceSnapshot();logFullPostmortem();},20000);diagTimer.unref?.();const diagLoop=setInterval(()=>{logStrategyDiagnostics();logPerformanceSnapshot();logFullPostmortem();},300000);diagLoop.unref?.();takeTimeline();takeReplay();alphaOS.observeWorld({weather:marketWeather(),tokens:[...tokens.values()],strategyEquity:Object.fromEntries(allTraders().map(d=>[d.id,d.equity]))});alphaOS.pollExternal();openPositionPoll();
-process.on('SIGTERM',async()=>{await save();server.close(()=>process.exit(0));});process.on('SIGINT',async()=>{await save();server.close(()=>process.exit(0));});
+process.on('SIGTERM',async()=>{await save();try{await kv?.quit();}catch{}server.close(()=>process.exit(0));});process.on('SIGINT',async()=>{await save();try{await kv?.quit();}catch{}server.close(()=>process.exit(0));});
