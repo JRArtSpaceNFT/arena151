@@ -159,6 +159,12 @@ const strategyDefs = [
   ['hyp_hotbalanced','H9','Hot Regime Balanced','R&D',.02,61,10,110,1,'H9: in HOT regimes, balanced pressure outperforms euphoric pressure'],
   ['hyp_riskoff','H10','Risk-Off Momentum','R&D',.015,63,8,70,1,'H10: only the cleanest low-risk momentum can retain positive expectancy in RISK OFF'],
 
+  ['meme_smooth_curve','◒','Smooth Curve Climber','R&D',.02,61,9,110,1,'smooth pre-graduation climb with persistent participation; reject vertical mechanical curve spikes'],
+  ['meme_retest','↗','Breakout Retest','R&D',.02,61,9,120,1,'enter only when a prior resistance area is reclaimed and retested with healthy flow'],
+  ['meme_compression','◇','Compression Release','R&D',.02,62,9,125,1,'trade controlled volatility compression followed by expansion, not already-extended price'],
+  ['meme_postgrad','◎','Post-Grad Continuation','R&D',.02,62,9,130,1,'post-graduation continuation on deeper canonical liquidity with clean chart structure'],
+  ['meme_survival','△','Five-Minute Survivor','R&D',.02,62,8,100,1,'require survival beyond the most fragile launch window plus cross-checked quality and path continuity'],
+
   ['random','🎲','Random Control','CONTROL',.05,70,22,45,1,'random baseline'],
   ['volume','📊','Volume Control','CONTROL',.06,68,22,50,1,'simple volume baseline'],
   ['launchctl','🧱','Every Launch Control','CONTROL',.035,0,30,50,3,'buy-everything launch baseline'],
@@ -218,6 +224,12 @@ const specialistProfiles = {
   hyp_quality:{hypothesis:true,cohort:'HYPOTHESIS ARENA',tokenAgeMin:1,tokenAgeMax:12,mcMin:35000,mcMax:250000,buyRatioMin:.50,buyRatioMax:.68,sourceMin:2,scoreMode:'hypothesis',exitMode:'balanced',maxHold:150,playbookOverride:{minQuality:88,minBuy:.50,maxBuy:.68,minTx:9,maxRisk:54,minMomentum:55,maxMomentum:84,minAccel:46,minLiq:10000,minAge:1,maxAge:12,mcMin:35000,mcMax:250000,requireCross:true,minEvidence:4,instruction:'quality first: very strong data quality and moderate momentum instead of chasing maximum speed'}},
   hyp_hotbalanced:{hypothesis:true,cohort:'HYPOTHESIS ARENA',regime:'HOT',tokenAgeMin:.8,tokenAgeMax:8,mcMin:30000,mcMax:200000,buyRatioMin:.52,buyRatioMax:.70,sourceMin:2,scoreMode:'hypothesis',exitMode:'runner',maxHold:150,scaleOut:true,playbookOverride:{minQuality:78,minBuy:.52,maxBuy:.70,minTx:8,maxRisk:58,minMomentum:62,maxMomentum:90,minAccel:50,minLiq:8000,minAge:.8,maxAge:8,mcMin:30000,mcMax:200000,requireCross:true,minEvidence:4,instruction:'hot-regime balanced: test whether healthy pressure beats euphoria when the overall market is hot'}},
   hyp_riskoff:{hypothesis:true,cohort:'HYPOTHESIS ARENA',regime:'RISK OFF',tokenAgeMin:2,tokenAgeMax:15,mcMin:60000,mcMax:300000,liqMin:18000,buyRatioMin:.50,buyRatioMax:.66,sourceMin:2,scoreMode:'hypothesis',exitMode:'defensive',maxHold:75,playbookOverride:{minQuality:88,minBuy:.50,maxBuy:.66,minTx:10,maxRisk:46,minMomentum:58,maxMomentum:82,minAccel:48,minLiq:18000,minAge:2,maxAge:15,mcMin:60000,mcMax:300000,requireCross:true,minEvidence:5,instruction:'risk-off momentum: only exceptional quality, deep liquidity and low structural risk are allowed'}},
+
+  meme_smooth_curve:{memeTheory:true,cohort:'MEME / CHART THEORY',requireGraduated:false,tokenAgeMin:.8,tokenAgeMax:8,mcMin:25000,mcMax:180000,buyRatioMin:.50,buyRatioMax:.70,sourceMin:2,scoreMode:'meme',exitMode:'runner',maxHold:150,scaleOut:true,sizeBias:.35,minChartQuality:64,minPathQuality:58,maxSpikeRisk:58,maxManipulationRisk:62,minFlowPersistence:52,allowedStructures:['SMOOTH_TREND','BREAKOUT','BREAKOUT_RETEST']},
+  meme_retest:{memeTheory:true,cohort:'MEME / CHART THEORY',tokenAgeMin:2,tokenAgeMax:15,mcMin:40000,mcMax:300000,buyRatioMin:.50,buyRatioMax:.70,sourceMin:2,scoreMode:'meme',exitMode:'runner',maxHold:180,scaleOut:true,sizeBias:.35,minChartQuality:62,maxSpikeRisk:60,maxManipulationRisk:60,minFlowPersistence:50,allowedStructures:['BREAKOUT_RETEST']},
+  meme_compression:{memeTheory:true,cohort:'MEME / CHART THEORY',tokenAgeMin:2,tokenAgeMax:15,mcMin:30000,mcMax:250000,buyRatioMin:.50,buyRatioMax:.70,sourceMin:2,scoreMode:'meme',exitMode:'runner',maxHold:150,scaleOut:true,sizeBias:.35,minChartQuality:56,maxSpikeRisk:45,maxManipulationRisk:58,minCompression:45,minFlowPersistence:48,allowedStructures:['COMPRESSION','BREAKOUT']},
+  meme_postgrad:{memeTheory:true,cohort:'MEME / CHART THEORY',requireGraduated:true,tokenAgeMin:1,tokenAgeMax:30,buyRatioMin:.50,buyRatioMax:.72,sourceMin:2,liqMin:12000,scoreMode:'meme',exitMode:'structure',maxHold:210,scaleOut:true,sizeBias:.35,minChartQuality:60,minPathQuality:52,maxSpikeRisk:62,maxManipulationRisk:58,minFlowPersistence:50,allowedStructures:['SMOOTH_TREND','BREAKOUT','BREAKOUT_RETEST','RECOVERY']},
+  meme_survival:{memeTheory:true,cohort:'MEME / CHART THEORY',tokenAgeMin:5,tokenAgeMax:20,mcMin:40000,mcMax:300000,buyRatioMin:.50,buyRatioMax:.68,sourceMin:2,liqMin:10000,scoreMode:'meme',exitMode:'balanced',maxHold:120,sizeBias:.30,minChartQuality:60,minPathQuality:50,maxSpikeRisk:50,maxManipulationRisk:52,minFlowPersistence:55,minSurvival:58,allowedStructures:['SMOOTH_TREND','BREAKOUT_RETEST','RECOVERY','BASE']},
 
   mc_u25:{cohort:'MARKET CAP',mcMax:25000,scoreMode:'early'},
   mc_25_50:{cohort:'MARKET CAP',mcMin:25000,mcMax:50000,scoreMode:'early'},
@@ -293,8 +305,9 @@ function makeChallenger(parentId,id,name,mutation,mods={}) {
 
 const allTraders = () => [...strategyDefs, ...challengers.filter(c=>!c.graveyardAt&&!c.promotedAt)];
 const coreStrategies = () => strategyDefs.filter(d=>d.risk!=='CONTROL'&&!d.specialist);
-const specialistStrategies = () => strategyDefs.filter(d=>d.specialist&&!d.hypothesis);
+const specialistStrategies = () => strategyDefs.filter(d=>d.specialist&&!d.hypothesis&&!d.memeTheory);
 const hypothesisStrategies = () => strategyDefs.filter(d=>d.hypothesis);
+const memeTheoryStrategies = () => strategyDefs.filter(d=>d.memeTheory);
 const now = () => Date.now();
 const clamp = (x,a=0,b=100) => Math.max(a, Math.min(b, Number.isFinite(x)?x:0));
 const num = x => Number.isFinite(Number(x)) ? Number(x) : 0;
@@ -415,6 +428,58 @@ function creatorDNA(t) {
     repeatCreator:(c?.launches||0)>1,observedOnly:true};
 }
 
+
+function chartTheory(t){
+  const prices=(t.history||[]).filter(x=>num(x.price)>0).slice(-39).map(x=>num(x.price));
+  if(num(t.price)>0&&(prices.length===0||prices.at(-1)!==num(t.price)))prices.push(num(t.price));
+  const n=prices.length;
+  if(n<4)return{n,net:0,pathEfficiency:0,bullContinuity:0,upRatio:0,realizedVol:0,rangePct:0,extensionPct:0,compression:0,expansion:0,breakout:false,retest:false,whipsaw:0,spikeRisk:0,chartQuality:0,structure:'INSUFFICIENT'};
+  const rs=[];for(let i=1;i<n;i++)rs.push(pct(prices[i],prices[i-1]));
+  const net=pct(prices.at(-1),prices[0]),absPath=rs.reduce((a,x)=>a+Math.abs(x),0);
+  const pathEfficiency=clamp(absPath?Math.abs(net)/absPath*100:0),upRatio=rs.length?rs.filter(x=>x>0).length/rs.length*100:50;
+  let flips=0;for(let i=1;i<rs.length;i++)if(Math.sign(rs[i])&&Math.sign(rs[i-1])&&Math.sign(rs[i])!==Math.sign(rs[i-1]))flips++;
+  const whipsaw=clamp(rs.length>1?flips/(rs.length-1)*100:0),realizedVol=stdev(rs);
+  const maxP=Math.max(...prices),minP=Math.min(...prices),rangePct=minP>0?pct(maxP,minP):0;
+  const fast=prices.slice(-6),slow=prices.slice(-16),fastMean=avg(fast),slowMean=avg(slow),extensionPct=fastMean>0?pct(prices.at(-1),fastMean):0;
+  const prior=prices.slice(Math.max(0,n-22),Math.max(1,n-3)),priorHigh=prior.length?Math.max(...prior):prices[0];
+  const recentBefore=prices.slice(Math.max(0,n-6),n-1),recentPeak=recentBefore.length?Math.max(...recentBefore):prices.at(-1);
+  const breakout=priorHigh>0&&prices.at(-1)>priorHigh*1.025&&net>3;
+  const retest=priorHigh>0&&recentPeak>priorHigh*1.045&&prices.at(-1)>=priorHigh*.965&&prices.at(-1)<=priorHigh*1.07&&fastMean>=slowMean;
+  const recentRs=rs.slice(-5),olderRs=rs.slice(Math.max(0,rs.length-15),Math.max(0,rs.length-5)),recentVol=stdev(recentRs),olderVol=stdev(olderRs);
+  const compression=olderVol>0?clamp((1-recentVol/olderVol)*100):0,expansion=olderVol>0?clamp((recentVol/olderVol-1)*55):0;
+  const largest=Math.max(...rs.map(x=>Math.abs(x))),oneBarDominance=absPath?largest/absPath*100:0;
+  const spikeRisk=clamp(Math.max(0,Math.abs(extensionPct)-12)*2.2+Math.max(0,oneBarDominance-38)*1.35+Math.max(0,realizedVol-18)*1.2);
+  const bullContinuity=net>0?clamp(pathEfficiency*.58+upRatio*.42):0,trendBias=fastMean>slowMean?75:35;
+  const chartQuality=clamp(bullContinuity*.42+(100-whipsaw)*.18+trendBias*.15+(100-spikeRisk)*.15+(net>0?70:25)*.10);
+  let structure='BASE';
+  if(spikeRisk>=72)structure='VERTICAL_SPIKE';
+  else if(retest)structure='BREAKOUT_RETEST';
+  else if(breakout)structure='BREAKOUT';
+  else if(compression>=55&&Math.abs(extensionPct)<12)structure='COMPRESSION';
+  else if(net>7&&bullContinuity>=62)structure='SMOOTH_TREND';
+  else if(whipsaw>=62)structure='CHOP';
+  else if(net<0&&prices.at(-1)>fastMean)structure='RECOVERY';
+  return{n,net,pathEfficiency,bullContinuity,upRatio,realizedVol,rangePct,extensionPct,compression,expansion,breakout,retest,whipsaw,spikeRisk,chartQuality,structure,fastMean,slowMean};
+}
+function memeTheory(t,f,chart){
+  const rows=(t.history||[]).slice(-12).map(x=>({buys:num(x.buys),sells:num(x.sells)})).filter(x=>x.buys+x.sells>0);
+  const flowPersistence=rows.length?rows.filter(x=>x.buys/(x.buys+x.sells)>=.50).length/rows.length*100:50;
+  const priorTotals=rows.slice(0,-1).map(x=>x.buys+x.sells),activityBase=avg(priorTotals),activityRatio=activityBase>0?f.totalTx/activityBase:1;
+  const turnover=t.liq>0&&f.activeVol>0?f.activeVol/t.liq:0;
+  const curveMechanicalRisk=!t.graduated?clamp(Math.max(0,chart.net-18)*1.15+Math.max(0,f.buyRatio-.72)*130+Math.max(0,12-f.totalTx)*2.2+chart.spikeRisk*.25):0;
+  const crowdingRisk=clamp(Math.max(0,f.buyRatio-.68)*150+Math.max(0,f.momentum-82)*1.5+Math.max(0,chart.extensionPct-14)*1.4);
+  const attentionDecay=clamp((1-Math.min(1.5,activityRatio))*75+Math.max(0,50-flowPersistence)*.8);
+  const manipulationSuspicion=clamp(f.creatorRisk*.7+(100-f.sourceQuality)*.22+curveMechanicalRisk*.30+chart.spikeRisk*.25+(f.buyRatio>.78&&f.totalTx<12?18:0));
+  const survival=clamp(Math.min(35,f.age*5)+Math.min(25,f.totalTx*1.3)+f.sourceQuality*.18+f.liqScore*.22);
+  const antiCrowd=100-Math.max(crowdingRisk,curveMechanicalRisk);
+  const memeQuality=clamp(chart.chartQuality*.32+flowPersistence*.17+survival*.18+antiCrowd*.18+(100-attentionDecay)*.08+(100-manipulationSuspicion)*.07);
+  const phase=t.graduated?'PUMPSWAP':'BONDING_CURVE';
+  let setup=phase+'_'+chart.structure;
+  if(attentionDecay>=65)setup=phase+'_ATTENTION_FADE';
+  if(manipulationSuspicion>=72)setup=phase+'_SUSPICIOUS';
+  return{phase,setup,flowPersistence,activityRatio,turnover,curveMechanicalRisk,crowdingRisk,attentionDecay,manipulationSuspicion,survival,memeQuality};
+}
+
 function features(t) {
   const hist=(t.history||[]).filter(x=>x.price>0),age=ageMin(t),ts=now();
   const one=hist.at(-1)||{price:t.price},five=hist[Math.max(0,hist.length-5)]||one,twenty=hist[Math.max(0,hist.length-20)]||five;
@@ -442,8 +507,10 @@ function features(t) {
   const rebound=recentLow>0?pct(t.price,recentLow):0;
   const stalePenalty=(!flowFresh?10:0)+(!volumeFresh?7:0)+(!liqFresh?14:0);
   const risk=clamp(72-liqScore*.32-(total>8?8:0)+(age<.6?9:0)+(t.website?0:3)+(t.twitter||t.telegram?0:4)+creatorRisk-sourceQuality*.07+stalePenalty);
-  const score=clamp(momentum*.20+acceleration*.10+flow*.18+liqScore*.13+volScore*.14+early*.05+social*.07+(100-risk)*.09+sourceQuality*.04);
-  return {momentum,acceleration,shortRet,mediumRet,longRet,drawdown,rebound,flow,flowFresh,buyRatio,totalTx:total,age,liqScore,liqFresh,volScore,volumeFresh,early,graduation,social,risk,score,sourceQuality,freshSources,creatorRisk};
+  const chart=chartTheory(t),score=clamp(momentum*.20+acceleration*.10+flow*.18+liqScore*.13+volScore*.14+early*.05+social*.07+(100-risk)*.09+sourceQuality*.04);
+  const base={momentum,acceleration,shortRet,mediumRet,longRet,drawdown,rebound,flow,flowFresh,buyRatio,totalTx:total,age,liqScore,liqFresh,volScore,volumeFresh,activeVol,early,graduation,social,risk,score,sourceQuality,freshSources,creatorRisk,chart};
+  const meme=memeTheory(t,base,chart);
+  return {...base,meme};
 }
 
 function strategyRegimeWeight(id,regime){
@@ -476,11 +543,26 @@ function specialistEligibility(d,t,f=features(t)){
   if(d.regime&&regime!==d.regime)return{ok:false,reason:'wrong market regime'};
   if(d.requireGraduated===true&&!t.graduated)return{ok:false,reason:'not graduated'};
   if(d.requireGraduated===false&&t.graduated)return{ok:false,reason:'already graduated'};
+  if(d.memeTheory){
+    const ch=f.chart||{},m=f.meme||{};
+    if(Number.isFinite(d.minChartQuality)&&ch.chartQuality<d.minChartQuality)return{ok:false,reason:'chart quality below theory floor'};
+    if(Number.isFinite(d.minPathQuality)&&ch.bullContinuity<d.minPathQuality)return{ok:false,reason:'price path lacks continuity'};
+    if(Number.isFinite(d.maxSpikeRisk)&&ch.spikeRisk>d.maxSpikeRisk)return{ok:false,reason:'vertical extension / spike risk'};
+    if(Number.isFinite(d.maxManipulationRisk)&&m.manipulationSuspicion>d.maxManipulationRisk)return{ok:false,reason:'manipulation-suspicion proxy too high'};
+    if(Number.isFinite(d.minFlowPersistence)&&m.flowPersistence<d.minFlowPersistence)return{ok:false,reason:'participation not persistent'};
+    if(Number.isFinite(d.minSurvival)&&m.survival<d.minSurvival)return{ok:false,reason:'survival score too low'};
+    if(Number.isFinite(d.minCompression)&&ch.compression<d.minCompression&&ch.structure!=='BREAKOUT')return{ok:false,reason:'no qualifying compression'};
+    if(Array.isArray(d.allowedStructures)&&!d.allowedStructures.includes(ch.structure))return{ok:false,reason:'chart structure mismatch'};
+  }
   return{ok:true,reason:'specialist population match'};
 }
 
 function specialistScore(d,f,t){
   const mode=d.scoreMode||'quality',q=tokenDataQuality(t);
+  if(mode==='meme'){
+    const m=f.meme||{},ch=f.chart||{};
+    return clamp((m.memeQuality||0)*.36+(ch.chartQuality||0)*.25+f.acceleration*.12+f.flow*.10+f.liqScore*.07+(100-f.risk)*.10);
+  }
   if(mode==='hypothesis'){
     const balancedFlow=f.buyRatio>=.50&&f.buyRatio<=.72?90:f.buyRatio>.80?25:55;
     const exhaustion=f.momentum>92?18:100;
@@ -606,7 +688,7 @@ function markEquity(d){
 
 function recordDecision(d,t,f,score,action,why='') {
   const row={ts:now(),era:STRATEGY_ERA,samplePartition:partitionForMint(t.mint),strategy:d.id,strategyName:d.name,mint:t.mint,symbol:t.symbol,action,score,risk:f.risk,price:t.price,mc:t.mc,narrative:t.narrative,regime:marketWeather().regime,why,
-    features:{momentum:f.momentum,acceleration:f.acceleration,flow:f.flow,buyRatio:f.buyRatio,volScore:f.volScore,liqScore:f.liqScore,drawdown:f.drawdown,rebound:f.rebound,social:f.social,age:f.age,sourceQuality:f.sourceQuality}};
+    features:{momentum:f.momentum,acceleration:f.acceleration,flow:f.flow,buyRatio:f.buyRatio,volScore:f.volScore,liqScore:f.liqScore,drawdown:f.drawdown,rebound:f.rebound,social:f.social,age:f.age,sourceQuality:f.sourceQuality,chartQuality:f.chart?.chartQuality,pathContinuity:f.chart?.bullContinuity,chartStructure:f.chart?.structure,spikeRisk:f.chart?.spikeRisk,memeSetup:f.meme?.setup,memeQuality:f.meme?.memeQuality,manipulationSuspicion:f.meme?.manipulationSuspicion,flowPersistence:f.meme?.flowPersistence}};
   decisions.unshift(row); decisions.splice(MAX_DECISIONS);
   const key=`${d.id}:${t.mint}`;
   if(!opportunities.has(key)){
@@ -1421,8 +1503,10 @@ function exitDecision(d,p,t,f){
   const deadOnArrival=hold>=1.25&&pnl<=-8&&peakPnl<6&&(f.acceleration<48||f.momentum<58||f.buyRatio<.50);
   const failedBreakout=hold>=2.5&&pnl<=-6&&peakPnl<10&&f.acceleration<45;
   const catastrophic=(f.flowFresh&&f.buyRatio<.28)||(f.risk>=84);
+  const memeChartBreak=!!d.memeTheory&&hold>=1.5&&((f.chart?.chartQuality||0)<32||(f.meme?.manipulationSuspicion||0)>=78||((f.meme?.attentionDecay||0)>=72&&pnl<12));
   const fade=f.flowFresh&&f.acceleration<38&&f.momentum<42&&f.buyRatio<((mode==='runner'||mode==='conviction') ? .38 : .44);
   if(catastrophic&&hold>.75)return{exit:true,why:'catastrophic thesis break',mode};
+  if(memeChartBreak)return{exit:true,why:'meme chart thesis broke',mode};
   if(deadOnArrival)return{exit:true,why:'dead-on-arrival invalidation',mode};
   if(failedBreakout)return{exit:true,why:'failed breakout invalidation',mode};
   if(pnl<=-stop)return{exit:true,why:'stop',mode};
@@ -1495,6 +1579,23 @@ function specialistCohortStats(){
   });
   return{count:traders.length,capital:traders.reduce((a,x)=>a+x.equity,0),start:traders.length*START,trades:traders.reduce((a,x)=>a+x.n,0),open:traders.reduce((a,x)=>a+x.open,0),groups,traders};
 }
+
+function memeChartLabSnapshot(){
+  const active=[...tokens.values()].filter(t=>now()-t.updatedAt<900000);
+  const traders=memeTheoryStrategies().map(d=>{markEquity(d);const rows=trades.filter(x=>x.strategy===d.id&&x.policyVersion===STRATEGY_ERA),hold=eraPerformance(d.id,'holdout');
+    return{id:d.id,name:d.name,thesis:d.thesis,equity:d.equity,n:rows.length,winRate:rows.length?rows.filter(x=>x.pnl>0).length/rows.length*100:0,avg:avg(rows.map(x=>x.pnlPct)),holdoutN:hold.n,holdoutMean:hold.mean,holdoutPF:hold.profitFactor,dd:d.dd,open:openCount(d.id),eligibleNow:active.filter(t=>specialistEligibility(d,t,features(t)).ok).length};
+  });
+  const setupMap=new Map();
+  for(const t of trades.filter(x=>x.policyVersion===STRATEGY_ERA).slice(0,750)){
+    const setup=t.entryFeatures?.meme?.setup||t.features?.memeSetup||'UNKNOWN';if(setup==='UNKNOWN')continue;
+    if(!setupMap.has(setup))setupMap.set(setup,[]);setupMap.get(setup).push(t);
+  }
+  const setups=[...setupMap].map(([setup,rows])=>{const hold=rows.filter(x=>(x.samplePartition||partitionForMint(x.mint))==='holdout');return{setup,n:rows.length,avg:avg(rows.map(x=>x.pnlPct)),winRate:rows.length?rows.filter(x=>x.pnl>0).length/rows.length*100:0,holdoutN:hold.length,holdoutAvg:avg(hold.map(x=>x.pnlPct))};}).sort((a,b)=>b.holdoutN-a.holdoutN||b.avg-a.avg);
+  const structures={};for(const t of active){const f=features(t),k=f.chart?.structure||'UNKNOWN';structures[k]=(structures[k]||0)+1;}
+  const best=active.map(t=>{const f=features(t);return{mint:t.mint,symbol:t.symbol,mc:t.mc,liq:t.liq,chart:f.chart,meme:f.meme,score:f.score};}).sort((a,b)=>(b.meme?.memeQuality||0)-(a.meme?.memeQuality||0)).slice(0,12);
+  return{traders,setups:setups.slice(0,20),structures,best};
+}
+
 function scientistInsights(){
   const hypotheses=[];const stats=strategyStatistics(),replay=replayLab(),op=opportunityCostLab(),ex=exitOptimizer();
   const bestReplay=replay.strategies.find(x=>x.n>=5);if(bestReplay)hypotheses.push({kind:'entry',text:`${bestReplay.name} replay signals currently show ${bestReplay.hit25.toFixed(0)}% reaching +25% in the captured archive.`,evidence:{n:bestReplay.n,avgPeak:bestReplay.avgPeak}});
@@ -1858,7 +1959,7 @@ function deepResearchSnapshot(){
     holdTime:holdTimeLab(),coalitions:coalitionStats(),correlation:strategyCorrelation().slice(0,20),regimeMatrix:regimeMatrix(),
     masterAllocation:masterAllocation(),dynamicAllocation:dynamicAllocator(),statistics:strategyStatistics(),exitOptimizer:exitOptimizer(),
     opportunityCost:opportunityCostLab(),scientist:scientistInsights(),replayLab:replayLab(),specialistCohorts:specialistCohortStats(),
-    walletGraph:walletGraphSnapshot(),riskBoard:riskScoreboard(),tournament:tournament(),providerAudit:providerAudit(),noTrade:noTradeAlpha(),
+    walletGraph:walletGraphSnapshot(),riskBoard:riskScoreboard(),tournament:tournament(),providerAudit:providerAudit(),noTrade:noTradeAlpha(),memeChartLab:memeChartLabSnapshot(),
     chaos:chaosLab(),walletBoard:walletLeaderboard()
   };
   data.deepResearchAt=now();data.deepResearchBuildMs=Date.now()-started;return data;
