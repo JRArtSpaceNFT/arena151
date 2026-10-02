@@ -205,4 +205,5 @@ const server = http.createServer(async (req,res) => {
 server.listen(PORT,'0.0.0.0',()=>{
   console.log('PUMP LAB UI proxy live on '+PORT+' -> '+BACKEND_ORIGIN);
   console.log('UI_SELFTEST '+JSON.stringify(EXPECTATIONS));
+  refreshXFeed(false).then(x=>console.log('X_FEED_WARMUP '+JSON.stringify({ok:x.ok,configured:x.configured,source:x.source,handles:x.handles,posts:x.posts?.length||0,authors:[...new Set((x.posts||[]).map(p=>p.author?.username).filter(Boolean))]}))).catch(e=>console.warn('X_FEED_WARMUP_FAILED '+String(e?.message||e)));
 });
