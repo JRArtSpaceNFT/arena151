@@ -1,0 +1,18 @@
+name: Inspect Pump Lab Archives
+on:
+  push:
+    branches:
+      - pump-lab-monster-export-temp
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fetch archive inventory
+        run: |
+          curl -fsSL https://pump-lab-live.onrender.com/api/archives -o archives.json
+          python3 - <<'PY'
+          import json
+          d=json.load(open("archives.json"))
+          print("ARCHIVE_INVENTORY "+json.dumps(d,separators=(",",":")))
+          PY
