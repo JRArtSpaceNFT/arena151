@@ -82,6 +82,8 @@ const autopsies = [];
 const experiments = [];
 const replayFrames = [];
 let corrCache = {ts:0, rows:[]};
+let edgeFocusCache = {ts:0,data:null};
+let allocatorCache = {ts:0,regime:'',data:null};
 const entryPolicyCache = new Map();
 const regimeWeightCache = new Map();
 const dnaSimilarityCache = new Map();
@@ -1133,9 +1135,10 @@ function monsterPatternLab(){
   return{monsters:monsters.length,controls:ctl.length,matched:matched.length>0,features:features.slice(0,12),timeline,examples:monsters.sort((a,b)=>b.bestReturn-a.bestReturn).slice(0,12).map(x=>({symbol:x.symbol,mint:x.mint,bestReturn:x.bestReturn,worstReturn:x.worstReturn,why:x.why,regime:x.regime,mc:x.mc}))};
 }
 function edgeResearchFocus(){
+  if(edgeFocusCache.data&&now()-edgeFocusCache.ts<30000)return edgeFocusCache.data;
   const stats=strategyStatistics(),ranked=stats.map(x=>{const d=strategyDefs.find(q=>q.id===x.id),distinct=diversityWeight(x.id),evidence=x.holdoutN>=5?x.holdoutMean:0,score=evidence*.45+x.shrunkMean*.30+distinct*10-Math.max(0,x.dd-12)*.35;return{id:x.id,name:x.name,n:x.n,holdoutN:x.holdoutN,holdoutMean:x.holdoutMean,score,distinct,thesis:d?.thesis||''}}).filter(x=>!['champion','professional','adaptive'].includes(x.id)).sort((a,b)=>b.score-a.score);
   const anchors=['momentum','smart','wallet_consensus','confirmed_runner','sniper'];const chosen=[];for(const id of anchors){const x=ranked.find(r=>r.id===id);if(x)chosen.push(x)}for(const x of ranked)if(chosen.length<10&&!chosen.some(y=>y.id===x.id))chosen.push(x);
-  return{mode:'focused evidence slate; all other bots remain paper/shadow research',count:chosen.length,strategies:chosen.slice(0,10)};
+  const data={mode:'focused evidence slate; all other bots remain paper/shadow research',count:chosen.length,strategies:chosen.slice(0,10)};edgeFocusCache={ts:now(),data};return data;
 }
 function ingest(raw,source){
   const incoming=normalize(raw,source);if(!incoming||!(incoming.price>0))return;
@@ -1509,13 +1512,13 @@ function strategyStatistics(){
   }).sort((a,b)=>b.shrunkMean-a.shrunkMean);
 }
 function dynamicAllocator(){
-  const regime=marketWeather().regime,stats=strategyStatistics(),focus=new Set(edgeResearchFocus().strategies.map(x=>x.id));const rows=stats.map(st=>{
+  const regime=marketWeather().regime;if(allocatorCache.data&&allocatorCache.regime===regime&&now()-allocatorCache.ts<10000)return allocatorCache.data;
+  const stats=strategyStatistics(),focus=new Set(edgeResearchFocus().strategies.map(x=>x.id));const rows=stats.map(st=>{
     const d=strategyDefs.find(x=>x.id===st.id),reg=strategyRegimeWeight(st.id,regime),sample=st.n/(st.n+20);
     const evidence=st.n>=3?clamp(1+st.shrunkMean/35,.55,1.55):1,focused=focus.has(st.id),focusMult=focused?1:.22;
     const independence=diversityWeight(st.id),raw=Math.max(focused?.10:.02,reg*(.75+.25*sample)*evidence*independence*focusMult);
     return{id:st.id,name:st.name,raw,n:st.n,legacyN:st.legacyN,shrunkMean:st.shrunkMean,dd:st.dd,risk:d?.risk||'MED',focused,tier:focused?'CORE EVIDENCE':'EXPLORATION'};
-  });const sum=rows.reduce((a,x)=>a+x.raw,0)||1;
-  return{regime,era:STRATEGY_ERA,focusCount:focus.size,weights:rows.map(x=>({...x,pct:x.raw/sum*100})).sort((a,b)=>b.pct-a.pct),concentration:rows.length?Math.max(...rows.map(x=>x.raw/sum*100)):0};
+  });const sum=rows.reduce((a,x)=>a+x.raw,0)||1,data={regime,era:STRATEGY_ERA,focusCount:focus.size,weights:rows.map(x=>({...x,pct:x.raw/sum*100})).sort((a,b)=>b.pct-a.pct),concentration:rows.length?Math.max(...rows.map(x=>x.raw/sum*100)):0};allocatorCache={ts:now(),regime,data};return data;
 }
 function allocationWeight(id){
   const a=dynamicAllocator(),w=a.weights.find(x=>x.id===id);if(!w)return 1;
@@ -1815,7 +1818,7 @@ function resetSeasonInMemory(label,archiveId){
   positions.splice(0);trades.splice(0);activity.splice(0);decisions.splice(0);timeline.splice(0);autopsies.splice(0);experiments.splice(0);replayFrames.splice(0);
   promotions.splice(0);graveyard.splice(0);walletEvents.splice(0);marketEvents.splice(0);pendingDbEvents.splice(0);solanaQueue.splice(0);solanaPriorityQueue.splice(0);discoveryLedger.splice(0);discoveryFirstByMint.clear();solanaSubscriptionKinds.clear();solanaCreateSignals=0;
   opportunities.clear();opportunityKeysByMint.clear();tokens.clear();creators.clear();dnaArchive.clear();marketEventClock.clear();solanaSeen.clear();
-  entryPolicyCache.clear();regimeWeightCache.clear();dnaSimilarityCache.clear();corrCache={ts:0,rows:[]};
+  entryPolicyCache.clear();regimeWeightCache.clear();dnaSimilarityCache.clear();corrCache={ts:0,rows:[]};edgeFocusCache={ts:0,data:null};allocatorCache={ts:0,regime:'',data:null};
   research={last:0,notes:[],hypotheses:[]};lastScientistRun=0;lastDbEventFlush=0;
   const freshAlpha=createPumpLabAlphaOS({start:START,rpcUrl:SOLANA_RPC_HTTP,routeQuoteUrl:SHADOW_ROUTE_QUOTE_URL,shadowWalletPublicKey:SHADOW_WALLET_PUBLIC_KEY});
   alphaOS.restore(freshAlpha.serialize());science.reset();
