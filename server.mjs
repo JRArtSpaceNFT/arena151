@@ -138,6 +138,7 @@ let kv = null;
 let kvConnecting = false;
 let kvReady = false;
 let kvReconnectTimer = null;
+let kvReconnectAttempt = 0;
 let kvStateRestored = false;
 let lastKvSaveAt = 0;
 let lastKvRestoreAt = 0;
@@ -1974,9 +1975,10 @@ function restoreIfNewer(s,source,sourceTs=0){
   console.log('STATE_RESTORE '+JSON.stringify({source,savedAt:ts,current:stateVersionTs}));
   return true;
 }
-function scheduleKvReconnect(delay=5000){
+function scheduleKvReconnect(delay=null){
   if(!REDIS_URL||kvReconnectTimer)return;
-  kvReconnectTimer=setTimeout(()=>{kvReconnectTimer=null;initKv(false);},delay);kvReconnectTimer.unref?.();
+  kvReconnectAttempt=Math.min(8,kvReconnectAttempt+1);const wait=delay??Math.min(60000,2500*Math.pow(1.6,kvReconnectAttempt-1));
+  kvReconnectTimer=setTimeout(()=>{kvReconnectTimer=null;initKv(false);},wait);kvReconnectTimer.unref?.();
 }
 async function initKv(restoreState=true){
   if(!REDIS_URL)return false;
@@ -1985,9 +1987,9 @@ async function initKv(restoreState=true){
   try{
     const {createClient}=await import('redis');
     client=createClient({url:REDIS_URL,socket:{connectTimeout:5000,reconnectStrategy:false}});
-    client.on('error',e=>{if(kv===client){kvReady=false;kv=null;}setHealth('research-failover','warn','Key Value failover interrupted: '+e.message,{truth:'observed'});scheduleKvReconnect(5000);});
+    client.on('error',e=>{if(kv===client){kvReady=false;kv=null;}setHealth('research-failover','warn','Key Value failover interrupted: '+e.message,{truth:'observed'});scheduleKvReconnect();});
     client.on('end',()=>{if(kv===client){kvReady=false;kv=null;}scheduleKvReconnect(5000);});
-    await client.connect();kv=client;kvReady=true;
+    await client.connect();kv=client;kvReady=true;kvReconnectAttempt=0;
     if(restoreState){
       const raw=await kv.get(KV_STATE_KEY);
       if(raw){try{restoreIfNewer(JSON.parse(raw),'key-value');}catch(e){console.warn('Key Value restore warning:',e.message);}}
