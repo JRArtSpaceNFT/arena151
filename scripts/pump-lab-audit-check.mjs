@@ -75,6 +75,7 @@ const checks = [
   ['Pump CreateEvent discriminator', 'CREATE_EVENT_DISC'],
   ['Pump TradeEvent discriminator', 'TRADE_EVENT_DISC'],
   ['on-chain event decoder', 'pumpEventsFromTx'],
+  ['correct zero-pubkey base58 handling', "if(zeros===src.length)return'1'.repeat(zeros)"],
   ['provisional launch constructor', 'provisionalLaunchFromTx'],
   ['recent SOL/USD estimator', 'recentSolUsd'],
   ['provisional launch source tag', 'onchainProvisional'],
