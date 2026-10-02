@@ -1327,10 +1327,11 @@ function decodeCreateEventBuffer(buf){
 function decodeTradeEventBuffer(buf){
   if(buf.length<9||!buf.subarray(0,8).equals(TRADE_EVENT_DISC))return null;try{const r=eventReader(buf);return{mint:r.pk(),solAmount:r.u64(),tokenAmount:r.u64(),isBuy:r.bool(),user:r.pk(),timestamp:r.i64(),virtualSolReserves:r.u64(),virtualTokenReserves:r.u64(),realSolReserves:r.u64(),realTokenReserves:r.u64()};}catch{return null;}
 }
-function pumpEventsFromTx(tx){
-  const creates=[],trades=[];for(const line of (tx?.meta?.logMessages||[])){const m=/^Program data:\s+([A-Za-z0-9+/=]+)$/.exec(String(line));if(!m)continue;try{const b=Buffer.from(m[1],'base64'),ce=decodeCreateEventBuffer(b),te=decodeTradeEventBuffer(b);if(ce)creates.push(ce);if(te)trades.push(te);}catch{}}
+function pumpEventsFromLogs(logs=[]){
+  const creates=[],trades=[];for(const line of logs){const m=/^Program data:\s+([A-Za-z0-9+/=]+)$/.exec(String(line));if(!m)continue;try{const b=Buffer.from(m[1],'base64'),ce=decodeCreateEventBuffer(b),te=decodeTradeEventBuffer(b);if(ce)creates.push(ce);if(te)trades.push(te);}catch{}}
   return{creates,trades};
 }
+function pumpEventsFromTx(tx){return pumpEventsFromLogs(tx?.meta?.logMessages||[]);}
 function recentSolUsd(){
   const ts=now(),vals=[...tokens.values()].filter(t=>ts-num(t.updatedAt)<300000&&num(t.inferredSolUsd)>=20&&num(t.inferredSolUsd)<=2000).map(t=>num(t.inferredSolUsd));return median(vals);
 }
