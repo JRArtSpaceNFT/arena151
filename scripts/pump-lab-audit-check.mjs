@@ -84,7 +84,9 @@ const checks = [
   ['nonblocking launch hydration', 'void hydrateLaunchMint'],
   ['extended launch hydration retries', '3000'],
   ['bounded KV connect', 'reconnectStrategy:false'],
-  ['KV reconnect scheduler', 'scheduleKvReconnect']
+  ['KV reconnect scheduler', 'scheduleKvReconnect'],
+  ['explicit fresh-state gate', 'ALLOW_FRESH_EMPTY_STATE'],
+  ['fresh-state audit marker', "source:'explicit-fresh-empty'"]
 ];
 
 const failures = checks.filter(([, needle]) => !src.includes(needle)).map(([name])=>name);
