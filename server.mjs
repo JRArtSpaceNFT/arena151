@@ -1335,9 +1335,8 @@ function pumpEventsFromTx(tx){return pumpEventsFromLogs(tx?.meta?.logMessages||[
 function recentSolUsd(){
   const ts=now(),vals=[...tokens.values()].filter(t=>ts-num(t.updatedAt)<300000&&num(t.inferredSolUsd)>=20&&num(t.inferredSolUsd)<=2000).map(t=>num(t.inferredSolUsd));return median(vals);
 }
-function provisionalLaunchFromTx(tx,sig){
-  const ev=pumpEventsFromTx(tx);if(!ev.creates.length)return[];
-  launchSignalStats.eventsDecoded+=ev.creates.length;const solUsd=recentSolUsd(),rows=[];
+function provisionalLaunchFromEvents(ev,sig){
+  if(!ev?.creates?.length)return[];const solUsd=recentSolUsd(),rows=[];
   for(const ce of ev.creates){
     const quote=ce.quoteMint||'11111111111111111111111111111111';launchSignalStats.lastQuoteMint=quote;launchSignalStats.lastDecodedSymbol=ce.symbol||'';
     const isSol=quote==='11111111111111111111111111111111'||quote==='So11111111111111111111111111111111111111112';
@@ -1349,6 +1348,12 @@ function provisionalLaunchFromTx(tx,sig){
     rows.push({mint:ce.mint,name:ce.name,symbol:ce.symbol,creator:ce.creator,created_timestamp:ce.timestamp,priceUsd,usd_market_cap:mcUsd,market_cap:mcSol,virtual_sol_reserves:vs,virtual_token_reserves:vt,real_sol_reserves:rs,real_token_reserves:rt,quoteSymbol:'SOL',uri:ce.uri,onchainProvisional:true,launchSignature:sig,buys:lastTrade?.isBuy?1:0,sells:lastTrade&&!lastTrade.isBuy?1:0});
   }
   return rows;
+}
+function provisionalLaunchFromTx(tx,sig){
+  const ev=pumpEventsFromTx(tx);if(!ev.creates.length)return[];launchSignalStats.eventsDecoded+=ev.creates.length;return provisionalLaunchFromEvents(ev,sig);
+}
+function provisionalLaunchFromLogs(logs,sig){
+  return provisionalLaunchFromEvents(pumpEventsFromLogs(logs),sig);
 }
 function initializedMintsFromTx(tx){
   const out=new Set(),keys=(tx?.transaction?.message?.accountKeys||[]).map(keyText);
