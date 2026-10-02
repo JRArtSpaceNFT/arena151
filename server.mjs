@@ -2026,8 +2026,9 @@ async function saveCritical(){
 }
 
 function scheduleCriticalSave(delay=750){
+  stateVersionTs=Math.max(stateVersionTs,now());
   if(criticalSaveTimer)return;
-  criticalSaveTimer=setTimeout(()=>{criticalSaveTimer=null;save();},delay);
+  criticalSaveTimer=setTimeout(()=>{criticalSaveTimer=null;saveCritical();},delay);
   criticalSaveTimer.unref?.();
 }
 
