@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 
 const src = fs.readFileSync(new URL('../server.mjs', import.meta.url), 'utf8');
+const scienceSrc = fs.readFileSync(new URL('../lib/pump-lab-season2-science.mjs', import.meta.url), 'utf8');
 const checks = [
   ['durable startup gate', "STARTUP_STATE_GATE waiting for durable restore"],
   ['durable trading gate', 'durableTradingReady()'],
@@ -16,14 +17,31 @@ const checks = [
   ['live launch audit gate', 'function systemAudit()'],
   ['lazy deep research endpoint', "req.url==='/api/research'"],
   ['serialized state writes', 'if(saveInProgress){saveQueued=true;return;}'],
-  ['Alpha OS analytical era', "v3.3-alpha-os"],
+  ['Season 2 analytical era', "v4.0-season2-science"],
   ['Alpha OS integration', 'alphaOS.evaluateCandidate'],
   ['CIO capital auction', 'alphaOS.runCapitalAuction'],
   ['adaptive exit intelligence', 'alphaOS.exitPlan'],
-  ['shadow execution twin', 'alphaOS.recordShadowEntry']
+  ['shadow execution twin', 'alphaOS.recordShadowEntry'],
+  ['Season 2 science import', 'createPumpLabSeason2Science'],
+  ['Season 2 global entry gate', 'science.evaluateEntry'],
+  ['Season 2 entry replay', 'science.recordEntry'],
+  ['Season 2 position path tracking', 'science.observePosition'],
+  ['Season 2 completed-trade learning', 'science.recordTrade'],
+  ['Season 2 persistence', 'science:science.serialize()'],
+  ['Season 2 restore', 'science.restore(s.science)'],
+  ['Season 2 fresh-season reset', 'science.reset()'],
+  ['Season 2 dashboard state', 'season2Science:science.snapshot']
 ];
 
-const failures = checks.filter(([, needle]) => !src.includes(needle));
+const failures = checks.filter(([, needle]) => !src.includes(needle)).map(([name])=>name);
+const scienceSystems=[
+  'Walk Forward Testing','Bayesian Strategy Confidence','Meme Coin Survival Model','Creator + Wallet Cluster DNA',
+  'Copycat / Narrative Saturation','Execution Reality Simulator','Entry Timing Counterfactuals','Exit Counterfactuals',
+  'Feature Drift Alarm','Evidence Strategy Kill Switch','Market Relative Performance','Ultimate Do Nothing Model'
+];
+for(const name of scienceSystems)if(!scienceSrc.includes("'"+name+"'"))failures.push('Season 2 science subsystem missing '+name);
+if(!scienceSrc.includes("paperOnly:true"))failures.push('Season 2 science paper-only marker missing');
+if(!scienceSrc.includes("autoPromotion:false"))failures.push('Season 2 manual-promotion safeguard missing');
 
 // Hypothesis Arena regression guards.
 const hypothesisIds=[
@@ -66,7 +84,7 @@ if(!src.includes("freshAlpha=createPumpLabAlphaOS"))failures.push('Alpha OS fres
 
 if (failures.length) {
   console.error('PUMP LAB AUDIT STATIC CHECK FAILED');
-  for (const [name] of failures) console.error(' - ' + name);
+  for (const name of failures) console.error(' - ' + name);
   process.exit(1);
 }
 if (/sid==='random'\)s=Math\.random\(\)\*100/.test(src)) {
@@ -90,4 +108,4 @@ if (src.includes("agentVisual v'+(i%5)")) {
   process.exit(1);
 }
 
-console.log('PUMP LAB audit static checks passed: ' + checks.length + ' + 25 unique trader visuals');
+console.log('PUMP LAB audit static checks passed: ' + checks.length + ' core checks + 12 Season 2 systems + 25 unique trader visuals');
