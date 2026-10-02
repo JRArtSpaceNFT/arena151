@@ -111,6 +111,7 @@ let criticalSaveTimer = null;
 let criticalSaveInProgress = false;
 let criticalSaveQueued = false;
 let lastCriticalSaveAt = 0;
+let dbWriteChain = Promise.resolve();
 let kv = null;
 let kvConnecting = false;
 let kvReady = false;
@@ -1997,10 +1998,13 @@ function restore(s){try{if(s.season)seasonInfo={...seasonInfo,...s.season};alpha
   }
   positions.splice(0,positions.length,...(s.positions||[]).filter(p=>!p.closed));trades.splice(0,trades.length,...(s.trades||[]));activity.splice(0,activity.length,...(s.activity||[]));decisions.splice(0,decisions.length,...(s.decisions||[]));opportunities.clear();for(const [k,v] of s.opportunities||[])opportunities.set(k,v);rebuildOpportunityIndex();pruneOpportunities();research=s.research||research;timeline.splice(0,timeline.length,...(s.timeline||[]));replayFrames.splice(0,replayFrames.length,...(s.replayFrames||[]));autopsies.splice(0,autopsies.length,...(s.autopsies||[]));promotions.splice(0,promotions.length,...(s.promotions||[]));graveyard.splice(0,graveyard.length,...(s.graveyard||[]));walletEvents.splice(0,walletEvents.length,...(s.walletEvents||[]));marketEvents.splice(0,marketEvents.length,...(s.marketEvents||[]));discoveryLedger.splice(0,discoveryLedger.length,...(s.discoveryLedger||[]));discoveryFirstByMint.clear();for(const x of discoveryLedger)if(x?.mint)discoveryFirstByMint.set(x.mint,x);dnaArchive.clear();for(const [k,v] of s.dnaArchive||[])dnaArchive.set(k,v);creators.clear();for(const [k,v] of s.creators||[])creators.set(k,{...v,tokens:new Set(v.tokens||[])});
 }catch(e){console.warn('State restore warning:',e.message)}}
-async function flushMarketEvents(){
-  if(!db||!pendingDbEvents.length)return;const batch=pendingDbEvents.splice(0,Math.min(750,pendingDbEvents.length));
-  try{await db.query("INSERT INTO pump_lab_market_events(ts,mint,payload) SELECT (x->>'ts')::bigint,x->>'mint',x FROM jsonb_array_elements($1::jsonb) x",[JSON.stringify(batch)]);lastDbEventFlush=now();}
-  catch(e){pendingDbEvents.unshift(...batch);pendingDbEvents.splice(1500);setHealth('research-memory','warn','Event ledger flush failed: '+e.message);}
+function queueDbWrite(fn){
+  const run=dbWriteChain.then(fn,fn);dbWriteChain=run.catch(()=>{});return run;
+}
+async function flushMarketEvents(client=db){
+  if(!client||!pendingDbEvents.length)return;const batch=pendingDbEvents.splice(0,Math.min(750,pendingDbEvents.length));
+  try{await client.query("INSERT INTO pump_lab_market_events(ts,mint,payload) SELECT (x->>'ts')::bigint,x->>'mint',x FROM jsonb_array_elements($1::jsonb) x",[JSON.stringify(batch)]);lastDbEventFlush=now();}
+  catch(e){pendingDbEvents.unshift(...batch);pendingDbEvents.splice(1500);setHealth('research-memory','warn','Event ledger flush failed: '+e.message);throw e;}
 }
 function writeLocalAtomic(s){
   try{
@@ -2031,10 +2035,8 @@ async function save(){
     }
     if(db){
       try{
-        await flushMarketEvents();
-        await db.query("INSERT INTO pump_lab_state(id,payload,updated_at) VALUES('main',$1,now()) ON CONFLICT(id) DO UPDATE SET payload=$1,updated_at=now()",[s]);
-        lastDurableSaveAt=now();
-        setHealth('research-memory','ok','Postgres durable memory online · failover synchronized',{truth:'observed'});
+        const wrote=await queueDbWrite(async()=>{const client=db;if(!client)return false;await flushMarketEvents(client);await client.query("INSERT INTO pump_lab_state(id,payload,updated_at) VALUES('main',$1,now()) ON CONFLICT(id) DO UPDATE SET payload=$1,updated_at=now()",[s]);return true;});
+        if(wrote){lastDurableSaveAt=now();setHealth('research-memory','ok','Postgres durable memory online · failover synchronized',{truth:'observed'});}
       }catch(e){
         setHealth('research-memory','warn','Postgres save failed · failover checkpoint retained: '+e.message,{truth:'observed'});
         const bad=db;db=null;try{await bad?.end();}catch{}scheduleDbReconnect(5000);
@@ -2052,8 +2054,8 @@ async function saveCritical(){
   try{
     if(!db)return;
     const s=serializeCritical(),savedAt=num(s.stateMeta?.savedAt)||now();
-    await db.query("INSERT INTO pump_lab_state(id,payload,updated_at) VALUES('main:critical',$1,now()) ON CONFLICT(id) DO UPDATE SET payload=$1,updated_at=now()",[s]);
-    stateVersionTs=Math.max(stateVersionTs,savedAt);lastCriticalSaveAt=now();lastDurableSaveAt=lastCriticalSaveAt;
+    const wrote=await queueDbWrite(async()=>{const client=db;if(!client)return false;await client.query("INSERT INTO pump_lab_state(id,payload,updated_at) VALUES('main:critical',$1,now()) ON CONFLICT(id) DO UPDATE SET payload=$1,updated_at=now()",[s]);return true;});
+    if(!wrote)return;stateVersionTs=Math.max(stateVersionTs,savedAt);lastCriticalSaveAt=now();lastDurableSaveAt=lastCriticalSaveAt;
     setHealth('research-memory','ok','Postgres critical trader state synchronized',{truth:'observed'});
   }catch(e){
     setHealth('research-memory','warn','Critical trader checkpoint failed: '+e.message,{truth:'observed'});
