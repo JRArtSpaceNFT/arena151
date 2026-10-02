@@ -2890,14 +2890,16 @@ function closeDrawer(){$('drawer').classList.remove('on')}function renderTime(tl
 let stateLoading=false,stateFailures=0;
 async function go(){
   if(stateLoading)return;stateLoading=true;
-  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),12000);
+  const firstLoad=!S,controller=new AbortController(),timer=setTimeout(()=>controller.abort(),firstLoad?60000:20000);
+  if(firstLoad){$('version').textContent='WAKING ENGINE';const h=document.getElementById('health');if(h)h.innerHTML='<span class="amber">ENGINE WAKING · restoring the latest durable paper-trading state…</span>';}
   try{
     const r=await fetch('/api/state',{cache:'no-store',signal:controller.signal});
-    if(!r.ok)throw new Error('state HTTP '+r.status);
-    const payload=await r.json();
+    const payload=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(payload?.error||('state HTTP '+r.status));
     render(payload);stateFailures=0;
   }catch(e){
     stateFailures++;console.error('PUMP LAB render error',e);
+    $('version').textContent=firstLoad?'WAKING ENGINE':'RETRYING';
     const h=document.getElementById('health');
     if(h)h.innerHTML='<span class="bad">DASHBOARD DATA RETRYING · '+esc(e?.message||e)+' · attempt '+stateFailures+'</span>';
   }finally{clearTimeout(timer);stateLoading=false;}
