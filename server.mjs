@@ -1305,7 +1305,15 @@ async function rpcTransaction(sig){
 }
 function uiAmt(x){return num(x?.uiTokenAmount?.uiAmountString??x?.uiTokenAmount?.uiAmount??0);}
 function initializedMintsFromTx(tx){
-  const out=new Set(),walk=arr=>{for(const ix of (arr||[])){const p=ix?.parsed;if(p&&/initializeMint/i.test(String(p.type||''))&&p.info?.mint)out.add(p.info.mint);}};
+  const out=new Set(),keys=(tx?.transaction?.message?.accountKeys||[]).map(keyText);
+  const pumpMintFromIx=ix=>{
+    const pid=keyText(ix?.programId)||keys[num(ix?.programIdIndex)];
+    if(pid!==PUMP_PROGRAM)return;
+    const accts=Array.isArray(ix?.accounts)?ix.accounts:[],first=accts[0];
+    const mint=typeof first==='number'?keys[first]:keyText(first);
+    if(mint)out.add(mint);
+  };
+  const walk=arr=>{for(const ix of (arr||[])){pumpMintFromIx(ix);const p=ix?.parsed;if(p&&/initializeMint/i.test(String(p.type||''))&&p.info?.mint)out.add(p.info.mint);}};
   walk(tx?.transaction?.message?.instructions);
   for(const group of (tx?.meta?.innerInstructions||[]))walk(group?.instructions);
   const pre=new Set((tx?.meta?.preTokenBalances||[]).map(x=>x.mint).filter(Boolean));
