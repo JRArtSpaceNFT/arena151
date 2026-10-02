@@ -2774,7 +2774,7 @@ if(magicOrb){
 }
 </script></body></html>`;
 
-const server=http.createServer((req,res)=>{
+const server=http.createServer(async (req,res)=>{
   {const u=new URL(req.url,'http://pump-lab.local');if(u.pathname==='/api/bot'){
     const id=u.searchParams.get('id')||'',d=allTraders().find(x=>x.id===id);
     if(!d){res.writeHead(404,{'content-type':'application/json','cache-control':'no-store'});return res.end(JSON.stringify({ok:false,error:'bot not found'}));}
