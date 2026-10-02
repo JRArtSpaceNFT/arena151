@@ -2936,6 +2936,9 @@ const server=http.createServer(async (req,res)=>{
   res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store'});res.end(HTML);
 });
 
+server.listen(PORT,'0.0.0.0',()=>{
+  console.log('PUMP LAB HTTP port bound on '+PORT+' · durable state recovery in progress');
+});
 loadLocal();
 await initKv(true);
 await initDb(true);
@@ -2952,7 +2955,8 @@ setHealth('alpha-os','ok','10-system Alpha OS online · all execution remains pa
 setHealth('season2-science','ok','12-system Season 2 science layer online · walk-forward + Bayesian + survival + DNA + saturation + execution + counterfactuals + drift + kill switch + alpha + abstention',{truth:'inferred'});
 setHealth('x-social','standby','Full X stream not connected · social agent uses token social metadata only',{truth:'not connected'});
 setHealth('wallet-intel','standby','Connecting Solana stream + verified Fomo wallet watchlist…',{truth:'not connected'});setHealth('fomo-watchlist','standby','Preparing verified public wallet subscriptions',{truth:'not connected'});
-server.listen(PORT,'0.0.0.0',()=>{if((DATABASE_URL||REDIS_URL)&&!durableTradingReady())console.log('STATE_LOCK engaged · trading paused until a recovery source is healthy');log('system','🚀 PUMP LAB v4.0 Season 2 Science started · PAPER ONLY','system');connectPumpPortal();connectSolanaStream();pumpPoll();dexPoll();console.log('PUMP LAB v4.0 Season 2 Science on '+PORT);});
+if((DATABASE_URL||REDIS_URL)&&!durableTradingReady())console.log('STATE_LOCK engaged · trading paused until a recovery source is healthy');
+log('system','🚀 PUMP LAB v4.0 Season 2 Science started · PAPER ONLY','system');connectPumpPortal();connectSolanaStream();pumpPoll();dexPoll();console.log('PUMP LAB v4.0 Season 2 Science runtime online · PAPER ONLY');
 setTimeout(stateSelfTest,5000).unref?.();setInterval(()=>alphaOS.runCapitalAuction(m=>tokens.get(m),executionQuote),2000).unref?.();
 setInterval(()=>{alphaOS.observeWorld({weather:marketWeather(),tokens:[...tokens.values()].filter(t=>now()-t.updatedAt<900000),strategyEquity:Object.fromEntries(allTraders().map(d=>[d.id,d.equity]))});alphaOS.prune();},60000).unref?.();
 setInterval(()=>alphaOS.pollExternal(),30000).unref?.();
