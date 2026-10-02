@@ -89,7 +89,7 @@ const experiments = [];
 const replayFrames = [];
 let corrCache = {ts:0, rows:[]};
 let monsterLabCache={ts:0,opps:0,events:0,trades:0,data:null};
-let historicalMonsterSeed={ts:0,rows:[],source:'',error:'',lastAttempt:0};
+let historicalMonsterSeed={ts:0,rows:[],avoids:[],source:'',error:'',lastAttempt:0};
 let weatherCache={ts:0,value:null};
 const researchContextCache=new Map();
 const walletSignalCache=new Map();
@@ -1524,17 +1524,29 @@ function monsterReasonLift(rows,reason){
   const withReason=rows.filter(r=>r.reasons.includes(reason)),monsterN=withReason.filter(r=>r.monster).length,base=rows.filter(r=>r.monster).length/rows.length,rate=withReason.length?monsterN/withReason.length:0;
   return{n:withReason.length,monsterN,rate:rate*100,base:base*100,lift:base?rate/base:0};
 }
+async function fetchHistoricalJson(url,timeoutMs=8000){
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
+  try{const r=await fetch(url,{headers:{accept:'application/json','user-agent':'PUMP-LAB-STAGING-HISTORICAL-READONLY/1.0'},signal:controller.signal});if(!r.ok)throw Error('HTTP '+r.status);return await r.json();}
+  finally{clearTimeout(timer);}
+}
 async function refreshHistoricalMonsterSeed(){
   if(!HISTORICAL_RESEARCH_URL)return false;historicalMonsterSeed.lastAttempt=now();
-  try{
-    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000);
-    const r=await fetch(HISTORICAL_RESEARCH_URL,{headers:{accept:'application/json','user-agent':'PUMP-LAB-STAGING-HISTORICAL-READONLY/1.0'},signal:controller.signal});
-    clearTimeout(timer);if(!r.ok)throw Error('historical research HTTP '+r.status);
-    const j=await r.json(),rows=Array.isArray(j?.missed)?j.missed:[];
-    const clean=rows.filter(x=>x?.mint&&num(x.bestReturn)>75).map(x=>({...JSON.parse(JSON.stringify(x)),historicalSeed:true,historicalSource:'production-readonly'}));
-    historicalMonsterSeed={ts:now(),rows:clean,source:HISTORICAL_RESEARCH_URL,error:'',lastAttempt:now()};monsterLabCache={ts:0,opps:0,events:0,trades:0,data:null};
-    setHealth('historical-monsters','ok','Read-only production monster seed · '+clean.length+' retained misses',{truth:'observed'});console.log('HISTORICAL_MONSTER_IMPORT '+JSON.stringify({ok:true,n:clean.length,source:HISTORICAL_RESEARCH_URL,ts:historicalMonsterSeed.ts}));return true;
-  }catch(e){historicalMonsterSeed.error=String(e?.message||e);setHealth('historical-monsters','warn','Historical monster seed unavailable: '+historicalMonsterSeed.error,{truth:'observed'});console.warn('HISTORICAL_MONSTER_IMPORT '+JSON.stringify({ok:false,error:historicalMonsterSeed.error,source:HISTORICAL_RESEARCH_URL}));return false;}
+  const base=HISTORICAL_RESEARCH_URL.replace(/\/api\/research(?:\?.*)?$/,'');
+  const candidates=[HISTORICAL_RESEARCH_URL,base+'/api/state'];
+  let lastErr='',used='';
+  for(const url of candidates){
+    try{
+      const j=await fetchHistoricalJson(url,url.endsWith('/api/state')?12000:8000),missed=Array.isArray(j?.missed)?j.missed:[],saved=Array.isArray(j?.saved)?j.saved:[];
+      if(!missed.length&&!saved.length)throw Error('no historical research rows in response');
+      const clean=missed.filter(x=>x?.mint&&num(x.bestReturn)>75).map(x=>({...JSON.parse(JSON.stringify(x)),historicalSeed:true,historicalMonster:true,historicalSource:'production-readonly'}));
+      const avoids=saved.filter(x=>x?.mint&&num(x.worstReturn)<-55).map(x=>({...JSON.parse(JSON.stringify(x)),historicalSeed:true,historicalMonster:false,historicalSource:'production-readonly'}));
+      historicalMonsterSeed={ts:now(),rows:clean,avoids,source:url,error:'',lastAttempt:now()};monsterLabCache={ts:0,opps:0,events:0,trades:0,data:null};used=url;
+      setHealth('historical-monsters','ok','Read-only production seed · '+clean.length+' monsters + '+avoids.length+' correct avoids',{truth:'observed'});
+      console.log('HISTORICAL_MONSTER_IMPORT '+JSON.stringify({ok:true,monsters:clean.length,avoids:avoids.length,source:url,ts:historicalMonsterSeed.ts}));return true;
+    }catch(e){lastErr=url+' · '+String(e?.message||e);}
+  }
+  historicalMonsterSeed.error=lastErr;setHealth('historical-monsters','warn','Historical research seed unavailable: '+lastErr,{truth:'observed'});
+  console.warn('HISTORICAL_MONSTER_IMPORT '+JSON.stringify({ok:false,error:lastErr,candidates}));return false;
 }
 function missedMonsterLab(){
   const ts=now();
@@ -1542,10 +1554,10 @@ function missedMonsterLab(){
   const eraOpp=[...opportunities.values()].filter(o=>o.era===STRATEGY_ERA),byMint=new Map();
   for(const o of eraOpp){if(!byMint.has(o.mint))byMint.set(o.mint,[]);byMint.get(o.mint).push(o);}
   const rejectedRows=[];
-  for(const seed of historicalMonsterSeed.rows){
+  for(const seed of [...historicalMonsterSeed.rows,...historicalMonsterSeed.avoids]){
     if(byMint.has(seed.mint))continue;
     const fake={...seed,action:'REJECT',era:seed.era||'historical-production',samplePartition:seed.samplePartition||partitionForMint(seed.mint),firstTs:num(seed.firstTs||seed.ts),firstPrice:num(seed.firstPrice||seed.price),features:seed.features||{}};
-    byMint.set(seed.mint,[fake]);rejectedRows.push(monsterFeatureRow(fake,[fake]));
+    byMint.set(seed.mint,[fake]);const row=monsterFeatureRow(fake,[fake]);if(seed.historicalMonster===false)row.monster=false;rejectedRows.push(row);
   }
   for(const [mint,all] of byMint){
     const rejects=all.filter(o=>o.action==='REJECT');if(!rejects.length)continue;
@@ -1595,7 +1607,7 @@ function missedMonsterLab(){
   const rates=rows=>rows.length?rows.filter(r=>r.monster).length/rows.length*100:0,recent=[...rejectedRows].sort((a,b)=>b.ts-a.ts),last50=recent.slice(0,50),prior50=recent.slice(50,100);
   const labWide=monsters.filter(m=>m.labWideMiss),partial=monsters.filter(m=>m.partialMiss);
   const recoveries=[15,30,60,120].map(sec=>{const key='s'+sec,rows=labWide.map(m=>m.recovery[key]).filter(Boolean);return{seconds:sec,n:rows.length,avgMoveAtEntry:avg(rows.map(x=>x.entryMove)),avgRemainingUpside:avg(rows.map(x=>x.remainingUpside).filter(Number.isFinite)),still25PctAvailable:rows.length?rows.filter(x=>num(x.remainingUpside)>=25).length/rows.length*100:0};});
-  const data={summary:{rejectedTokens:rejectedRows.length,monsters:monsters.length,labWideMisses:labWide.length,partialMisses:partial.length,historicalSeedRows:historicalMonsterSeed.rows.length,historicalSeedAt:historicalMonsterSeed.ts,historicalSeedError:historicalMonsterSeed.error,monsterRate:rates(rejectedRows),trainMonsterRate:rates(train),holdoutMonsterRate:rates(holdout),recent50Rate:rates(last50),prior50Rate:rates(prior50),validatedPatterns:validatedPatterns.length},
+  const data={summary:{rejectedTokens:rejectedRows.length,monsters:monsters.length,labWideMisses:labWide.length,partialMisses:partial.length,historicalSeedRows:historicalMonsterSeed.rows.length,historicalAvoidRows:historicalMonsterSeed.avoids.length,historicalSeedSource:historicalMonsterSeed.source,historicalSeedAt:historicalMonsterSeed.ts,historicalSeedError:historicalMonsterSeed.error,monsterRate:rates(rejectedRows),trainMonsterRate:rates(train),holdoutMonsterRate:rates(holdout),recent50Rate:rates(last50),prior50Rate:rates(prior50),validatedPatterns:validatedPatterns.length},
     monsters,featurePatterns:featurePatterns.slice(0,20),reasonPatterns:reasonPatterns.slice(0,20),validatedPatterns:validatedPatterns.slice(0,20),recoveries,
     methodology:{monster:'+75% or better after a recorded rejection',grouping:'one row per mint, not one row per strategy',validation:'patterns must agree in deterministic train and holdout before validated',productionChanges:'none; findings create research hypotheses/challengers only'}};
   monsterLabCache={ts,opps:opportunities.size,events:marketEvents.length,trades:trades.length,data};return data;
