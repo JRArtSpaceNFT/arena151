@@ -2221,21 +2221,28 @@ function getDeepResearchJson(){
   return json;
 }
 
+function compactAlphaSnapshot(){
+  const a=alphaOS.snapshot();
+  return{version:a.version,subsystems:a.subsystems||[],master:{cash:a.master?.cash||0,equity:a.master?.equity||0,peak:a.master?.peak||0,dd:a.master?.dd||0,open:a.master?.open||0,trades:a.master?.trades||0,proposalCount:a.master?.proposalCount||0},shadow:a.shadow||{},forecasts:{total:a.forecasts?.total||0,settledTrain:a.forecasts?.settledTrain||0,up25Rate:a.forecasts?.up25Rate||0,down15Rate:a.forecasts?.down15Rate||0},wallets:{nodes:a.wallets?.nodes||0,edges:a.wallets?.edges||0},world:{snapshots:a.world?.snapshots||0,settled:a.world?.settled||0,current:a.world?.current||null},execution:a.execution||{},counters:a.counters||{}};
+}
+function uiResearchSnapshot(){
+  const d=deepResearchCache.data||{};
+  return{missed:d.missed||[],saved:d.saved||[],hall:d.hall||[],autopsies:d.autopsies||[],calibration:d.calibration||[],entryLab:d.entryLab||{score:[],risk:[],age:[]},exitLab:d.exitLab||{},sizingLab:d.sizingLab||[],executionLab:d.executionLab||{},benchmarks:d.benchmarks||[],godBot:d.godBot||{},archetypes:d.archetypes||[],evolution:d.evolution||{family:[],promotions:[],graveyard:[]},holdTime:d.holdTime||[],coalitions:d.coalitions||[],correlation:d.correlation||[],regimeMatrix:d.regimeMatrix||[],masterAllocation:d.masterAllocation||{regime:'',weights:[]},specialistCohorts:d.specialistCohorts||{groups:[],capital:0,start:0,trades:0,open:0,count:0},riskBoard:d.riskBoard||[],tournament:d.tournament||[],providerAudit:d.providerAudit||{overall:0,stale:[],rows:[]},noTrade:d.noTrade||{},chaos:d.chaos||{},walletBoard:d.walletBoard||[],memeChartLab:d.memeChartLab||{traders:[]}};
+}
 function snapshot(){
   allTraders().forEach(markEquity);
   const prod=strategyDefs.filter(d=>d.risk!=='CONTROL'&&!d.specialist),cohort=specialistStrategies(),weather=marketWeather();
-  const active=[...tokens.values()].filter(t=>now()-t.updatedAt<900000).sort((a,b)=>b.updatedAt-a.updatedAt).slice(0,30).map(t=>{
-    const tdna=tokenDNA(t);
+  const active=[...tokens.values()].filter(t=>now()-t.updatedAt<900000).sort((a,b)=>b.updatedAt-a.updatedAt).slice(0,24).map(t=>{
+    const tdna=tokenDNA(t),con=consensus(t,weather.regime);
     return{mint:t.mint,symbol:t.symbol,name:t.name,price:t.price,mc:t.mc,liq:t.liq,narrative:t.narrative,creator:t.creator||'',sources:t.sources||[],
-      history:(t.history||[]).slice(-45).map(x=>({ts:x.ts,price:x.price})),features:features(t),detective:detective(t),adversarial:adversarialRisk(t),
-      consensus:consensus(t,weather.regime),dna:creatorDNA(t),tokenDNA:tdna,similarity:dnaSimilarity(t,12,tdna),quality:tokenDataQuality(t)};
+      history:(t.history||[]).slice(-30).map(x=>({ts:x.ts,price:x.price})),features:features(t),detective:detective(t),adversarial:adversarialRisk(t),
+      consensus:{yes:con.yes,total:con.total,pct:con.pct,weightedPct:con.weightedPct,hardVeto:con.hardVeto,votes:(con.votes||[]).sort((a,b)=>(b.yes-a.yes)||(b.score-a.score)).slice(0,20)},dna:creatorDNA(t),tokenDNA:tdna,similarity:dnaSimilarity(t,12,tdna),quality:tokenDataQuality(t)};
   });
-  return{now:now(),startedAt,paperOnly:true,alphaOS:alphaOS.snapshot(),season2Science:science.snapshot(strategyDefs.map(d=>d.id)),executionAssumptions:{fallbackFeeRate:FEE_RATE,fixedTxCostUsd:PAPER_FIXED_TX_COST_USD,feeSource:'pump.fun docs 2026-05-20',maxModeledSlippagePct:8},researchGovernance:{partition:'deterministic 80/20 by mint',learningSet:'train only',autoPromotion:ALLOW_AUTO_PROMOTION,minPromotionTrades:60,minHoldoutTrades:12},stateLock:storageStatus(),mode:'LIVE PAPER + V4.0 SEASON 2 SCIENCE + ALPHA OS + AUDITED HOLDOUT RESEARCH',version:'4.0 Season 2 Science',target:TARGET,weather,providers:[...health.values()],
+  return{now:now(),startedAt,paperOnly:true,alphaOS:compactAlphaSnapshot(),executionAssumptions:{fallbackFeeRate:FEE_RATE,fixedTxCostUsd:PAPER_FIXED_TX_COST_USD,feeSource:'pump.fun docs 2026-05-20',maxModeledSlippagePct:8},researchGovernance:{partition:'deterministic 80/20 by mint',learningSet:'train only',autoPromotion:ALLOW_AUTO_PROMOTION,minPromotionTrades:60,minHoldoutTrades:20},stateLock:storageStatus(),mode:'LIVE PAPER + V4.0 SEASON 2 SCIENCE + ALPHA OS + AUDITED HOLDOUT RESEARCH',version:'4.0 Season 2 Science',target:TARGET,weather,providers:[...health.values()],
     summary:{capital:prod.reduce((a,d)=>a+d.equity,0),start:prod.length*START,trades:prod.reduce((a,d)=>a+d.n,0),open:positions.filter(p=>!p.closed&&prod.some(d=>d.id===p.strategy)).length,cohortCapital:cohort.reduce((a,d)=>a+d.equity,0),cohortStart:cohort.length*START,cohortTrades:cohort.reduce((a,d)=>a+d.n,0),cohortOpen:positions.filter(p=>!p.closed&&cohort.some(d=>d.id===p.strategy)).length,tokens:tokens.size,decisions:decisions.length},
     strategies:strategyDefs.map(d=>{const ep=entryPolicy(d),pb=strategyPlaybook(d),eraTrades=trades.filter(t=>t.strategy===d.id&&t.policyVersion===STRATEGY_ERA);return{...d,winRate:d.n?d.wins/d.n*100:0,open:openCount(d.id),effectiveMin:ep.min,coldStart:ep.coldStart,entryRejects:ep.rejects,thresholdRelief:ep.relief,playbook:pb.instruction,era:STRATEGY_ERA,eraN:eraTrades.length,eraWinRate:eraTrades.length?eraTrades.filter(t=>t.pnl>0).length/eraTrades.length*100:0,eraPnl:eraTrades.reduce((a,t)=>a+num(t.pnl),0),eraAvgPnl:eraTrades.length?avg(eraTrades.map(t=>t.pnlPct)):0}}),experiments:experimentSnapshot(),tokens:active,
-    narratives:narrativeStats().slice(0,15),creators:creatorLeaderboard(),positions:positions.filter(p=>!p.closed).slice(-120),trades:trades.slice(0,150),activity:activity.slice(0,140),research,
-    ...deepResearchCache.data,timeline:timeline.slice(-120),decisions:decisions.slice(0,160),replay:replayFrames.slice(-120),
-    fomoWatchlist:fomoWatchlistSnapshot(),fomoEvents:walletEvents.filter(e=>e.watchlist).slice(0,100),hypothesisArena:hypothesisArenaSnapshot(),audit:systemAudit(),eventLedger:{memory:marketEvents.length,pending:pipelineSafe(pendingDbEvents.length),lastFlush:lastDbEventFlush,dnaArchive:dnaArchive.size},discovery:discoveryLab(),solana:{observed:solanaObserved,resolved:solanaResolved,createSignals:solanaCreateSignals,priorityQueued:solanaPriorityQueue.length,queued:solanaQueue.length,watchedWallets:WATCHED_WALLET_LOOKUP.size,subscriptionAcks:solanaSubAcks}};
+    narratives:narrativeStats().slice(0,12),creators:creatorLeaderboard().slice(0,20),activity:activity.slice(0,100),research,...uiResearchSnapshot(),timeline:timeline.slice(-80),decisions:decisions.slice(0,120),replay:replayFrames.slice(-3),
+    fomoWatchlist:fomoWatchlistSnapshot(),fomoEvents:walletEvents.filter(e=>e.watchlist).slice(0,60),hypothesisArena:hypothesisArenaSnapshot(),audit:systemAudit(),eventLedger:{memory:marketEvents.length,pending:pipelineSafe(pendingDbEvents.length),lastFlush:lastDbEventFlush,dnaArchive:dnaArchive.size},discovery:discoveryLab(),solana:{observed:solanaObserved,resolved:solanaResolved,createSignals:solanaCreateSignals,priorityQueued:solanaPriorityQueue.length,queued:solanaQueue.length,watchedWallets:WATCHED_WALLET_LOOKUP.size,subscriptionAcks:solanaSubAcks}};
 }
 let stateJsonCache={ts:0,json:''};
 function getStateJsonCached(){
