@@ -87,6 +87,7 @@ const autopsies = [];
 const experiments = [];
 const replayFrames = [];
 let corrCache = {ts:0, rows:[]};
+let monsterLabCache={ts:0,opps:0,events:0,trades:0,data:null};
 let weatherCache={ts:0,value:null};
 const researchContextCache=new Map();
 const walletSignalCache=new Map();
@@ -1474,7 +1475,98 @@ function fomoWatchlistSnapshot(){
   });
 }
 
-function missedMonsters(){return [...opportunities.values()].filter(o=>o.era===STRATEGY_ERA&&o.action==='REJECT'&&o.bestReturn>75).sort((a,b)=>b.bestReturn-a.bestReturn).slice(0,25);}
+function monsterReasonCategory(why=''){
+  const z=String(why||'').toLowerCase();
+  const tests=[
+    ['science / global veto',/science|do nothing|global veto|survival|saturation/],
+    ['risk / manipulation',/risk|toxic|manip|catastrophic|rug|creator/],
+    ['data quality / confirmation',/quality|source|cross|evidence|confirm|unknown|observ/],
+    ['score threshold',/score|threshold|below|min\b|gate/],
+    ['too early / age',/young|early|age|wait|retest|pullback/],
+    ['liquidity / market cap',/liq|market.?cap|\bmc\b|graduat|curve/],
+    ['flow / buyers',/flow|buyer|buy ratio|sell pressure|wallet|consensus/],
+    ['momentum / acceleration',/momentum|acceler|breakout|chart|structure|spike|chase/],
+    ['execution / latency',/execution|latency|slippage|fill|network/],
+    ['regime / allocation',/regime|risk off|capital|allocation|exposure/]
+  ];
+  for(const [name,re] of tests)if(re.test(z))return name;return z?'other':'unspecified';
+}
+function monsterFeatureRow(first,group){
+  const f=first?.features||{},best=Math.max(...group.map(x=>num(x.bestReturn))),worst=Math.min(...group.map(x=>num(x.worstReturn)));
+  return{mint:first?.mint||'',symbol:first?.symbol||'',partition:first?.samplePartition||partitionForMint(first?.mint||''),ts:num(first?.firstTs||first?.ts),monster:best>=75,bestReturn:best,worstReturn:worst,
+    reasons:[...new Set(group.map(x=>monsterReasonCategory(x.why)))],
+    values:{score:num(first?.score),risk:num(first?.risk),mc:num(first?.mc),momentum:num(f.momentum),acceleration:num(f.acceleration),flow:num(f.flow),buyRatio:num(f.buyRatio)*100,volScore:num(f.volScore),liqScore:num(f.liqScore),age:num(f.age),sourceQuality:num(f.sourceQuality),chartQuality:num(f.chartQuality),spikeRisk:num(f.spikeRisk),memeQuality:num(f.memeQuality),manipulation:num(f.manipulationSuspicion),flowPersistence:num(f.flowPersistence)}};
+}
+function monsterCorrelation(rows,key){
+  const a=rows.filter(r=>Number.isFinite(r.values?.[key]));if(a.length<3)return 0;
+  const xs=a.map(r=>r.values[key]),ys=a.map(r=>r.monster?1:0),mx=avg(xs),my=avg(ys);
+  const sx=Math.sqrt(avg(xs.map(x=>(x-mx)*(x-mx)))),sy=Math.sqrt(avg(ys.map(y=>(y-my)*(y-my))));
+  if(!(sx>0&&sy>0))return 0;return avg(xs.map((x,i)=>(x-mx)*(ys[i]-my)))/(sx*sy);
+}
+function monsterReasonLift(rows,reason){
+  if(!rows.length)return{n:0,monsterN:0,rate:0,base:0,lift:0};
+  const withReason=rows.filter(r=>r.reasons.includes(reason)),monsterN=withReason.filter(r=>r.monster).length,base=rows.filter(r=>r.monster).length/rows.length,rate=withReason.length?monsterN/withReason.length:0;
+  return{n:withReason.length,monsterN,rate:rate*100,base:base*100,lift:base?rate/base:0};
+}
+function missedMonsterLab(){
+  const ts=now();
+  if(monsterLabCache.data&&monsterLabCache.opps===opportunities.size&&monsterLabCache.events===marketEvents.length&&monsterLabCache.trades===trades.length&&ts-monsterLabCache.ts<60000)return monsterLabCache.data;
+  const eraOpp=[...opportunities.values()].filter(o=>o.era===STRATEGY_ERA),byMint=new Map();
+  for(const o of eraOpp){if(!byMint.has(o.mint))byMint.set(o.mint,[]);byMint.get(o.mint).push(o);}
+  const rejectedRows=[];
+  for(const [mint,all] of byMint){
+    const rejects=all.filter(o=>o.action==='REJECT');if(!rejects.length)continue;
+    rejects.sort((a,b)=>num(a.firstTs||a.ts)-num(b.firstTs||b.ts));const first=rejects[0];
+    if(ts-num(first.firstTs||first.ts)<5*60000)continue;rejectedRows.push(monsterFeatureRow(first,rejects));
+  }
+  const eventMap=new Map();for(const e of marketEvents){if(e.era!==STRATEGY_ERA)continue;if(!eventMap.has(e.mint))eventMap.set(e.mint,[]);eventMap.get(e.mint).push(e);}
+  for(const rows of eventMap.values())rows.sort((a,b)=>a.ts-b.ts);
+  const tradeByMint=new Map();for(const t of trades.filter(t=>t.policyVersion===STRATEGY_ERA)){if(!tradeByMint.has(t.mint))tradeByMint.set(t.mint,[]);tradeByMint.get(t.mint).push(t);}
+  const monsters=[];
+  for(const base of rejectedRows.filter(r=>r.monster)){
+    const all=byMint.get(base.mint)||[],rejects=all.filter(o=>o.action==='REJECT').sort((a,b)=>num(a.firstTs||a.ts)-num(b.firstTs||b.ts)),first=rejects[0],entered=all.filter(o=>o.entered||o.action==='BUY'),caughtTrades=tradeByMint.get(base.mint)||[];
+    const ev=(eventMap.get(base.mint)||[]).filter(e=>e.ts>=num(first.firstTs||first.ts)),firstPrice=num(first.firstPrice||first.price),valid=ev.filter(e=>num(e.price)>0);
+    let peakEvent=null,peakFromEvents=-Infinity;for(const e of valid){const r=pct(e.price,firstPrice);if(r>peakFromEvents){peakFromEvents=r;peakEvent=e;}}
+    const peakReturn=Math.max(base.bestReturn,Number.isFinite(peakFromEvents)?peakFromEvents:base.bestReturn),peakPrice=num(peakEvent?.price)||firstPrice*(1+peakReturn/100);
+    const production=strategyDefs.filter(d=>d.risk!=='CONTROL'&&!d.specialist);
+    let catchable=null;
+    for(const e of valid){
+      const f=e.features||{},q=num(e.quality),risk=num(f.risk),source=num(f.sourceQuality),manip=num(f.meme?.manipulationSuspicion??f.manipulationSuspicion),buy=num(f.buyRatio);
+      const crosses=production.some(d=>num(e.scores?.[d.id])>=Math.max(0,num(d.min)-2));
+      if(q>=50&&risk<=75&&source>=34&&manip<80&&(buy>=.48||num(f.flow)>=48)&&crosses){catchable=e;break;}
+    }
+    const atDelay=sec=>{const e=valid.find(x=>x.ts>=num(first.firstTs||first.ts)+sec*1000);return e?{seconds:sec,ts:e.ts,mc:num(e.mc),entryMove:pct(e.price,firstPrice),remainingUpside:peakPrice>0?pct(peakPrice,e.price):null,scoreMax:Math.max(0,...Object.values(e.scores||{}).map(num)),quality:num(e.quality),risk:num(e.features?.risk)}:null;};
+    const counts=new Map();for(const o of rejects){const cat=monsterReasonCategory(o.why);counts.set(cat,(counts.get(cat)||0)+1);}
+    const topReasons=[...counts.entries()].sort((a,b)=>b[1]-a[1]).map(([reason,n])=>({reason,n,pct:n/rejects.length*100}));
+    const firstF=first.features||{},catchF=catchable?.features||{},featureChange=catchable?{momentum:num(catchF.momentum)-num(firstF.momentum),acceleration:num(catchF.acceleration)-num(firstF.acceleration),flow:num(catchF.flow)-num(firstF.flow),buyRatio:(num(catchF.buyRatio)-num(firstF.buyRatio))*100,liqScore:num(catchF.liqScore)-num(firstF.liqScore),volScore:num(catchF.volScore)-num(firstF.volScore),risk:num(catchF.risk)-num(firstF.risk),sourceQuality:num(catchF.sourceQuality)-num(firstF.sourceQuality)}:null;
+    const missedBy=[...new Set(rejects.map(o=>o.strategyName||o.strategy))],caughtBy=[...new Set([...entered.map(o=>o.strategyName||o.strategy),...caughtTrades.map(t=>t.strategyName||t.strategy)])];
+    monsters.push({mint:base.mint,symbol:base.symbol,partition:base.partition,firstRejectTs:num(first.firstTs||first.ts),firstRejectMc:num(first.mc),firstRejectScore:num(first.score),firstRejectRisk:num(first.risk),peakReturn,worstReturn:base.worstReturn,labWideMiss:caughtBy.length===0,partialMiss:caughtBy.length>0,missedBy,caughtBy,rejectCount:rejects.length,
+      topReasons,rawReasons:rejects.map(o=>({strategy:o.strategyName||o.strategy,why:o.why,score:num(o.score),risk:num(o.risk),mc:num(o.mc)})),
+      timelineCoverage:valid.length,timeToPeakSec:peakEvent?Math.max(0,(peakEvent.ts-num(first.firstTs||first.ts))/1000):null,
+      catchable:catchable?{ts:catchable.ts,secondsAfterReject:Math.max(0,(catchable.ts-num(first.firstTs||first.ts))/1000),mc:num(catchable.mc),moveAlreadyMade:pct(catchable.price,firstPrice),remainingUpside:peakPrice>0?pct(peakPrice,catchable.price):null,quality:num(catchable.quality),risk:num(catchF.risk),scoreMax:Math.max(0,...Object.values(catchable.scores||{}).map(num))}:null,
+      recovery:{s15:atDelay(15),s30:atDelay(30),s60:atDelay(60),s120:atDelay(120)},featureChange});
+  }
+  monsters.sort((a,b)=>b.peakReturn-a.peakReturn);
+  const featureLabels={score:'entry score',risk:'risk',mc:'market cap',momentum:'momentum',acceleration:'acceleration',flow:'flow',buyRatio:'buy ratio',volScore:'volume score',liqScore:'liquidity score',age:'token age',sourceQuality:'source quality',chartQuality:'chart quality',spikeRisk:'spike risk',memeQuality:'meme quality',manipulation:'manipulation suspicion',flowPersistence:'flow persistence'};
+  const train=rejectedRows.filter(r=>r.partition==='train'),holdout=rejectedRows.filter(r=>r.partition==='holdout');
+  const featurePatterns=Object.keys(featureLabels).map(key=>{
+    const tr=monsterCorrelation(train,key),ho=monsterCorrelation(holdout,key),tm=train.filter(r=>r.monster).length,hm=holdout.filter(r=>r.monster).length;
+    const validated=train.length>=20&&tm>=3&&holdout.length>=8&&hm>=2&&Math.sign(tr)===Math.sign(ho)&&Math.abs(tr)>=.12&&Math.abs(ho)>=.05;
+    return{kind:'feature',key,label:featureLabels[key],trainN:train.length,holdoutN:holdout.length,trainMonsters:tm,holdoutMonsters:hm,trainCorrelation:tr,holdoutCorrelation:ho,direction:tr>=0?'higher':'lower',validated,strength:(Math.abs(tr)+Math.abs(ho))/2};
+  }).sort((a,b)=>b.validated-a.validated||b.strength-a.strength);
+  const reasons=[...new Set(rejectedRows.flatMap(r=>r.reasons))];
+  const reasonPatterns=reasons.map(reason=>{const tr=monsterReasonLift(train,reason),ho=monsterReasonLift(holdout,reason),validated=tr.n>=5&&tr.monsterN>=2&&ho.n>=2&&ho.monsterN>=1&&tr.lift>=1.2&&ho.lift>=1.1;
+    return{kind:'reason',reason,label:reason,train:tr,holdout:ho,validated,strength:(tr.lift+ho.lift)/2};}).sort((a,b)=>b.validated-a.validated||b.strength-a.strength);
+  const validatedPatterns=[...featurePatterns.filter(x=>x.validated),...reasonPatterns.filter(x=>x.validated)].sort((a,b)=>b.strength-a.strength);
+  const rates=rows=>rows.length?rows.filter(r=>r.monster).length/rows.length*100:0,recent=[...rejectedRows].sort((a,b)=>b.ts-a.ts),last50=recent.slice(0,50),prior50=recent.slice(50,100);
+  const labWide=monsters.filter(m=>m.labWideMiss),partial=monsters.filter(m=>m.partialMiss);
+  const recoveries=[15,30,60,120].map(sec=>{const key='s'+sec,rows=labWide.map(m=>m.recovery[key]).filter(Boolean);return{seconds:sec,n:rows.length,avgMoveAtEntry:avg(rows.map(x=>x.entryMove)),avgRemainingUpside:avg(rows.map(x=>x.remainingUpside).filter(Number.isFinite)),still25PctAvailable:rows.length?rows.filter(x=>num(x.remainingUpside)>=25).length/rows.length*100:0};});
+  const data={summary:{rejectedTokens:rejectedRows.length,monsters:monsters.length,labWideMisses:labWide.length,partialMisses:partial.length,monsterRate:rates(rejectedRows),trainMonsterRate:rates(train),holdoutMonsterRate:rates(holdout),recent50Rate:rates(last50),prior50Rate:rates(prior50),validatedPatterns:validatedPatterns.length},
+    monsters,featurePatterns:featurePatterns.slice(0,20),reasonPatterns:reasonPatterns.slice(0,20),validatedPatterns:validatedPatterns.slice(0,20),recoveries,
+    methodology:{monster:'+75% or better after a recorded rejection',grouping:'one row per mint, not one row per strategy',validation:'patterns must agree in deterministic train and holdout before validated',productionChanges:'none; findings create research hypotheses/challengers only'}};
+  monsterLabCache={ts,opps:opportunities.size,events:marketEvents.length,trades:trades.length,data};return data;
+}
+function missedMonsters(){return missedMonsterLab().monsters.map(m=>({mint:m.mint,symbol:m.symbol,strategyName:m.labWideMiss?'LAB-WIDE MISS':m.missedBy.length+' bots missed',bestReturn:m.peakReturn,worstReturn:m.worstReturn,why:(m.topReasons||[]).slice(0,3).map(x=>x.reason+' ×'+x.n).join(' · '),labWideMiss:m.labWideMiss,missedBy:m.missedBy,caughtBy:m.caughtBy,catchable:m.catchable})).slice(0,25);}
 function savedMyAss(){return [...opportunities.values()].filter(o=>o.era===STRATEGY_ERA&&o.action==='REJECT'&&o.worstReturn<-55).sort((a,b)=>a.worstReturn-b.worstReturn).slice(0,25);}
 function hallOfFame(){return trades.filter(t=>!t.strategy.includes('-c')).sort((a,b)=>b.pnlPct-a.pnlPct).slice(0,20);}
 function worstTrades(){return trades.filter(t=>!t.strategy.includes('-c')).sort((a,b)=>a.pnlPct-b.pnlPct).slice(0,20);}
@@ -1956,7 +2048,7 @@ function resetSeasonInMemory(label,archiveId){
   for(const d of challengers)resetTraderRuntime(d);
   positions.splice(0);trades.splice(0);activity.splice(0);decisions.splice(0);timeline.splice(0);autopsies.splice(0);experiments.splice(0);replayFrames.splice(0);
   promotions.splice(0);graveyard.splice(0);walletEvents.splice(0);marketEvents.splice(0);pendingDbEvents.splice(0);solanaQueue.splice(0);solanaPriorityQueue.splice(0);solanaCreateQueue.splice(0);solanaCreateAttempts.clear();launchHydrationInFlight.clear();solanaSubscriptionMeta.clear();launchSignalStats.processedCreateSignals=0;launchSignalStats.createSignals=0;launchSignalStats.resolvedTx=0;launchSignalStats.mintsFound=0;launchSignalStats.eventsDecoded=0;launchSignalStats.provisionalIngested=0;launchSignalStats.provisionalNoSolUsd=0;launchSignalStats.hydrated=0;launchSignalStats.hydrateFailures=0;launchSignalStats.lastCreateAt=0;launchSignalStats.lastHydrateAt=0;launchSignalStats.hydrateMs.splice(0);
-  opportunities.clear();opportunityKeysByMint.clear();tokens.clear();creators.clear();dnaArchive.clear();marketEventClock.clear();solanaSeen.clear();researchContextCache.clear();weatherCache={ts:0,value:null};fastAuditLatency.precompute.splice(0);fastAuditLatency.decision.splice(0);fastAuditLatency.total.splice(0);fastAuditLatency.firstBuy.splice(0);fastAuditLatency.discovery.splice(0);fastAuditLatency.lateDiscoveryBackfill=0;deferredRejectRows.splice(0);pendingRejectKeys.clear();rejectFlushScheduled=false;fastAuditLatency.lastAt=0;fastAuditLatency.slow=0;
+  opportunities.clear();opportunityKeysByMint.clear();tokens.clear();creators.clear();dnaArchive.clear();marketEventClock.clear();solanaSeen.clear();researchContextCache.clear();weatherCache={ts:0,value:null};monsterLabCache={ts:0,opps:0,events:0,trades:0,data:null};fastAuditLatency.precompute.splice(0);fastAuditLatency.decision.splice(0);fastAuditLatency.total.splice(0);fastAuditLatency.firstBuy.splice(0);fastAuditLatency.discovery.splice(0);fastAuditLatency.lateDiscoveryBackfill=0;deferredRejectRows.splice(0);pendingRejectKeys.clear();rejectFlushScheduled=false;fastAuditLatency.lastAt=0;fastAuditLatency.slow=0;
   entryPolicyCache.clear();regimeWeightCache.clear();dnaSimilarityCache.clear();walletSignalCache.clear();strategyPerfCache.clear();allocatorCache={ts:0,tradeCount:-1,value:null};corrCache={ts:0,rows:[]};
   research={last:0,notes:[],hypotheses:[]};lastScientistRun=0;lastDbEventFlush=0;
   const freshAlpha=createPumpLabAlphaOS({start:START,rpcUrl:SOLANA_RPC_HTTP,routeQuoteUrl:SHADOW_ROUTE_QUOTE_URL,shadowWalletPublicKey:SHADOW_WALLET_PUBLIC_KEY});
