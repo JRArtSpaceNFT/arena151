@@ -911,14 +911,14 @@ function entryGuard(d,t,f,score,policy,quality,adv,regime){
 }
 function dormantExplorationGuard(d,t,f,score,policy,quality,adv,regime){
   if(d.copyLab||d.risk==='CONTROL'||!policy.coldStart||policy.rejects<20||adv.hardVeto)return{ok:false};
-  const p=strategyPlaybook(d),stack=evidenceStack(t,f,quality),learned=Number.isFinite(policy.p90)?policy.p90+4:d.min-8,scoreFloor=Math.max(38,Math.min(d.min-8,learned));
-  const maxRisk=Math.min(65,(p.maxRisk??60)+5),minQuality=Math.max(58,(p.minQuality??60)-8);
-  const minBuy=Math.max(.46,(p.minBuy??.52)-.08),maxBuy=Math.min(.80,(p.maxBuy??.76)+.04);
-  const minMom=Math.max(45,(p.minMomentum??55)-12),maxMom=Math.min(96,(p.maxMomentum??92)+4);
-  const minAccel=Math.max(35,(p.minAccel??48)-12),minLiq=Math.max(3500,(p.minLiq??7000)*.50);
+  const p=strategyPlaybook(d),stack=evidenceStack(t,f,quality),learned=Number.isFinite(policy.p90)?policy.p90+2:d.min-10,scoreFloor=Math.max(34,Math.min(d.min-10,learned));
+  const maxRisk=Math.min(76,(p.maxRisk??60)+14),minQuality=Math.max(52,(p.minQuality??60)-12);
+  const minBuy=Math.max(.44,(p.minBuy??.52)-.10),maxBuy=Math.min(.82,(p.maxBuy??.76)+.06);
+  const minMom=Math.max(40,(p.minMomentum??55)-15),maxMom=Math.min(98,(p.maxMomentum??92)+6);
+  const minAccel=Math.max(30,(p.minAccel??48)-16),minLiq=Math.max(2500,(p.minLiq??7000)*.38);
   if(quality.score<minQuality||quality.sourceCount<1||!f.flowFresh||!f.liqFresh)return{ok:false};
-  if(f.totalTx<Math.max(4,(p.minTx??6)-4)||f.buyRatio<minBuy||f.buyRatio>maxBuy)return{ok:false};
-  if(f.risk>maxRisk||adv.score>=75||f.momentum<minMom||f.momentum>maxMom||f.acceleration<minAccel)return{ok:false};
+  if(f.totalTx<Math.max(3,(p.minTx??6)-5)||f.buyRatio<minBuy||f.buyRatio>maxBuy)return{ok:false};
+  if(f.risk>maxRisk||adv.score>=80||f.momentum<minMom||f.momentum>maxMom||f.acceleration<minAccel)return{ok:false};
   if(t.liq<minLiq||score<scoreFloor)return{ok:false};
   if(Number.isFinite(p.mcMin)&&t.mc<p.mcMin*.85)return{ok:false};
   if(Number.isFinite(p.mcMax)&&t.mc>p.mcMax*1.15)return{ok:false};
@@ -1046,7 +1046,7 @@ function maybeTrade(t) {
     const customBlocked=policy.customRiskLimit&&f.risk>policy.customRiskLimit;
     const guard=entryGuard(d,t,f,score,policy,quality,adv,regime);
     const exploration=dormantExplorationGuard(d,t,f,score,policy,quality,adv,regime);
-    const exploratory=(!guard.ok||score<policy.min)&&exploration.ok&&!lowBlocked&&!sniperBlocked&&!customBlocked&&!adv.hardVeto;
+    const exploratory=(!guard.ok||score<policy.min||lowBlocked||sniperBlocked||customBlocked)&&exploration.ok&&!adv.hardVeto;
     const activeGuard=exploratory?exploration:guard;
     if(exploratory&&openCount(d.id)>=1)continue;
     if(!exploratory&&(score<policy.min||lowBlocked||sniperBlocked||customBlocked||adv.hardVeto||!guard.ok)){
@@ -1061,7 +1061,9 @@ function maybeTrade(t) {
     if(alpha.veto){recordDecision(d,t,f,score,'REJECT','Alpha OS · '+alpha.vetoReason);continue;}
     const budget=Math.min(sizing.budget*alpha.sizeMultiplier,d.cash*(exploratory?.08:.25),d.equity*(exploratory?.035:.15),t.liq>0?Math.max(d.equity*(exploratory?.0075:.02),t.liq*.015):sizing.budget);
     if(budget<Math.max(exploratory?3:5,d.equity*(exploratory?.0075:.02))){recordDecision(d,t,f,score,'REJECT','Alpha OS · stake below minimum after EV adjustment');continue;}
-    const scienceGate=science.evaluateEntry({strategy:d,token:t,features:f,quality,market:weather,alpha,baseExecution:{...executionQuote(t,budget,'buy'),notional:budget}});if(SEASON2_SCIENCE_VETO&&scienceGate.veto){recordDecision(d,t,f,score,'REJECT','Season 2 Do Nothing · '+(scienceGate.reasons.join(', ')||('score '+scienceGate.score.toFixed(0))));continue;}const entryExec=scienceGate.execution;if(entryExec.slippage>.065){recordDecision(d,t,f,score,'REJECT','execution veto: modeled slippage');continue;}const entry=entryExec.fillPrice;const cost=budget*(1+entryExec.feeRate)+num(entryExec.fixedCost)+num(entryExec.expectedFailureCost);
+    const scienceGate=science.evaluateEntry({strategy:d,token:t,features:f,quality,market:weather,alpha,baseExecution:{...executionQuote(t,budget,'buy'),notional:budget}});
+    const explorationScienceHardBlock=!!scienceGate.evidence?.block||num(scienceGate.survival?.collapsePct?.[5])>=85||num(scienceGate.execution?.txFailureProbability)>=.40;
+    if(SEASON2_SCIENCE_VETO&&scienceGate.veto&&(!exploratory||explorationScienceHardBlock)){recordDecision(d,t,f,score,'REJECT','Season 2 Do Nothing · '+(scienceGate.reasons.join(', ')||('score '+scienceGate.score.toFixed(0))));continue;}const entryExec=scienceGate.execution;if(entryExec.slippage>.065){recordDecision(d,t,f,score,'REJECT','execution veto: modeled slippage');continue;}const entry=entryExec.fillPrice;const cost=budget*(1+entryExec.feeRate)+num(entryExec.fixedCost)+num(entryExec.expectedFailureCost);
     if(cost>d.cash)continue;
     d.cash-=cost;
     const p={id:'p'+now()+Math.random(),strategy:d.id,mint:t.mint,symbol:t.symbol,entry,units:budget/entry,originalUnits:budget/entry,invested:budget,entryCost:cost,entryExecution:entryExec,realizedProceeds:0,partialExits:[],scaleOutHits:[],sourceEntrySig:d.copyLab?(verifiedWalletSignal(t,d.copyWindowMin||15,d.copySource||null).events[0]?.signature||null):null,opened:now(),closed:false,lastPrice:t.price,lastMarkedAt:now(),markSource:'entry',score,entryFeatures:{...f,mc:t.mc,liq:t.liq},entryMc:t.mc,entryLiq:t.liq,entryQuality:quality.score,dnaHit25:similar.hit25,dnaSample:similar.n,allocationMult:allocatorMult,sizingMode:'alpha-os-ev-v1',samplePartition:partitionForMint(t.mint),sizing,alphaOS:alpha,budgetPct:d.equity>0?budget/d.equity:0,live100Equivalent:sizing.live100Equivalent,exitMode:exitModeFor(d),policyVersion:STRATEGY_ERA,guard:{requiredScore:activeGuard.requiredScore,minQuality:activeGuard.minQuality,minBuyRatio:activeGuard.minBuyRatio,recentAvg:activeGuard.health.avg,recentN:activeGuard.health.n,exploratory},reason:`${exploratory?'cold-start exploration · ':''}score ${score.toFixed(0)} · gate ${policy.min.toFixed(0)} · risk ${f.risk.toFixed(0)} · Q${quality.score.toFixed(0)} · stake ${(budget/Math.max(1,d.equity)*100).toFixed(1)}% · $100≈${sizing.live100Equivalent.toFixed(2)} · size×${sizing.mult.toFixed(2)} · EV ${alpha.expectedValue.toFixed(1)} · tox ${alpha.toxicity.score.toFixed(0)}`,entryRegime:regime,entryPhase:weather.phase,peakDuring:entry,troughDuring:entry};
