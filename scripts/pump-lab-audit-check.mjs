@@ -4,7 +4,7 @@ const src = fs.readFileSync(new URL('../server.mjs', import.meta.url), 'utf8');
 const scienceSrc = fs.readFileSync(new URL('../lib/pump-lab-season2-science.mjs', import.meta.url), 'utf8');
 const proxySrc = fs.readFileSync(new URL('../frontend-proxy.mjs', import.meta.url), 'utf8');
 const checks = [
-  ['durable startup gate', "STARTUP_STATE_GATE waiting for Postgres / Key Value / local recovery"],
+  ['durable startup gate', "STARTUP_STATE_GATE waiting for Postgres / Key Value / local / peer recovery"],
   ['durable trading gate', 'durableTradingReady()'],
   ['deterministic control', "deterministicScore('random-control:'"],
   ['holdout partition', "partitionForMint(mint)"],
