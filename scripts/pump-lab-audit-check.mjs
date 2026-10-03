@@ -4,6 +4,13 @@ const src = fs.readFileSync(new URL('../server.mjs', import.meta.url), 'utf8');
 const scienceSrc = fs.readFileSync(new URL('../lib/pump-lab-season2-science.mjs', import.meta.url), 'utf8');
 const proxySrc = fs.readFileSync(new URL('../frontend-proxy.mjs', import.meta.url), 'utf8');
 const checks = [
+  ['recovery high-water state', "recoveryHighWater"],
+  ['recovery high-water gate', "RECOVERY_HIGH_WATER_REJECTED"],
+  ['recovery high-water KV key', "pump-lab:state:highwater"],
+  ['recovery high-water Postgres row', "main:highwater"],
+  ['recovery high-water advance', "advanceRecoveryHighWater("],
+  ['richer canonical precedence', "richerThanCurrent"],
+  ['forensic observed high-water', "observedHighWater"],
   ['immutable science rebuild', "science.reset();for(const tr of rebuiltTrades"],
   ['aggregate recovered coverage', "ledgerRecoveredAggregateRows"],
   ['detailed ledger coverage', "ledgerDetailedTrades"],
@@ -115,6 +122,8 @@ if(!src.includes("FATAL_STATE_INTEGRITY · refusing to bind public port"))failur
 if(src.includes("forensic-placeholder-trade"))failures.push('forensic recovery must not synthesize placeholder trades');
 if(!src.includes("source:'Render observed pre-incident checkpoint'"))failures.push('forensic checkpoint provenance missing');
 
+if(!src.includes("kv.set('pump-lab:state:highwater'")&&!src.includes("kv.set(\'pump-lab:state:highwater\'"))failures.push('high-water must be persisted independently');
+if(!src.includes("VALUES('main:highwater'"))failures.push('Postgres high-water row missing');
 if (failures.length) {
   console.error('PUMP LAB AUDIT STATIC CHECK FAILED');
   for (const name of failures) console.error(' - ' + name);
