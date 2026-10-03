@@ -3134,7 +3134,9 @@ const DASHBOARD_JS=HTML.slice(dashboardScriptStart+'<script>'.length,dashboardSc
 HTML=HTML.slice(0,dashboardScriptStart)+'<script src="/dashboard.js?v=20261003-hardening"></script>'+HTML.slice(dashboardScriptEnd+'</script>'.length);
 
 const server=http.createServer(async (req,res)=>{
-  {const u=new URL(req.url,'http://pump-lab.local');
+  const requestUrl=new URL(req.url,'http://pump-lab.local'),corsPath=requestUrl.pathname;
+  if(corsPath.startsWith('/api/')||corsPath==='/livez'||corsPath==='/readyz'){res.setHeader('access-control-allow-origin','*');res.setHeader('access-control-allow-methods','GET,OPTIONS');res.setHeader('access-control-allow-headers','content-type,cache-control');if(req.method==='OPTIONS'){res.writeHead(204);return res.end();}}
+  {const u=requestUrl;
   if(u.pathname==='/dashboard.js'){res.writeHead(200,{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','content-length':Buffer.byteLength(DASHBOARD_JS)});return res.end(DASHBOARD_JS);}
   if(u.pathname==='/api/x-feed'){try{const out=await refreshXFeed(u.searchParams.get('force')==='1');const body=JSON.stringify(out);res.writeHead(out.ok?200:503,{'content-type':'application/json','cache-control':'no-store','content-length':Buffer.byteLength(body)});return res.end(body);}catch(e){const body=JSON.stringify({ok:false,configured:true,handles:X_FEED_HANDLES,posts:xFeedCache,fetchedAt:xFeedLastFetch||null,error:String(e?.message||e)});res.writeHead(xFeedCache.length?200:502,{'content-type':'application/json','cache-control':'no-store','content-length':Buffer.byteLength(body)});return res.end(body);}}
   if(u.pathname==='/api/bot'){
