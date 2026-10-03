@@ -768,8 +768,8 @@ function markEquity(d){
   d.auditPeak=Math.max(d.auditPeak,e);d.auditDd=Math.max(num(d.auditDd),d.auditPeak>0?(1-e/d.auditPeak)*100:0);
 }
 
-function recordDecision(d,t,f,score,action,why='') {
-  const weather=marketWeather();const row={ts:now(),era:STRATEGY_ERA,samplePartition:partitionForMint(t.mint),strategy:d.id,strategyName:d.name,mint:t.mint,symbol:t.symbol,action,score,risk:f.risk,price:t.price,mc:t.mc,narrative:t.narrative,regime:weather.regime,phase:weather.phase,why,
+function recordDecision(d,t,f,score,action,why='',weather=null) {
+  weather=weather||marketWeather();const row={ts:now(),era:STRATEGY_ERA,samplePartition:partitionForMint(t.mint),strategy:d.id,strategyName:d.name,mint:t.mint,symbol:t.symbol,action,score,risk:f.risk,price:t.price,mc:t.mc,narrative:t.narrative,regime:weather.regime,phase:weather.phase,why,
     features:{momentum:f.momentum,acceleration:f.acceleration,flow:f.flow,buyRatio:f.buyRatio,volScore:f.volScore,liqScore:f.liqScore,drawdown:f.drawdown,rebound:f.rebound,social:f.social,age:f.age,sourceQuality:f.sourceQuality,chartQuality:f.chart?.chartQuality,pathContinuity:f.chart?.bullContinuity,chartStructure:f.chart?.structure,spikeRisk:f.chart?.spikeRisk,memeSetup:f.meme?.setup,memeQuality:f.meme?.memeQuality,manipulationSuspicion:f.meme?.manipulationSuspicion,flowPersistence:f.meme?.flowPersistence}};
   decisions.unshift(row); decisions.splice(MAX_DECISIONS);
   const key=`${d.id}:${t.mint}`;
@@ -1078,9 +1078,9 @@ function adaptivePositionSizing(d,t,f,score,policy,quality,similar,guard,adv,reg
   };
 }
 
-function maybeTrade(t) {
+function maybeTrade(t,weather=null) {
   if(shuttingDown||lifecyclePhase==='DRAINING'||!durableTradingReady())return;
-  const f=features(t),adv=adversarialRisk(t),quality=tokenDataQuality(t),similar=dnaSimilarity(t);
+  weather=weather||marketWeather();const f=features(t),adv=adversarialRisk(t),quality=tokenDataQuality(t),similar=dnaSimilarity(t);
   for(const d of allTraders()){
     markEquity(d);
     if(d.hypothesis&&d.hypothesisRetiredAt)continue;
@@ -1096,9 +1096,9 @@ function maybeTrade(t) {
     const eligibility=specialistEligibility(d,t,f);
     if(!eligibility.ok)continue;
     const circuit=strategyRiskCircuit(d);
-    if(!circuit.ok){if(!opportunities.has(`${d.id}:${t.mint}`))recordDecision(d,t,f,strategyScore(d,f,t),'REJECT',circuit.reason);continue;}
+    if(!circuit.ok){if(!opportunities.has(`${d.id}:${t.mint}`))recordDecision(d,t,f,strategyScore(d,f,t),'REJECT',circuit.reason,weather);continue;}
     if(openCount(d.id)>=d.maxOpen||d.cash<Math.max(5,d.equity*.02)||!(t.price>0))continue;
-    const score=strategyScore(d,f,t);const policy=entryPolicy(d);const weather=marketWeather(),regime=weather.regime;
+    const score=strategyScore(d,f,t);const policy=entryPolicy(d);const regime=weather.regime;
     const lowBlocked=d.risk==='LOW'&&f.risk>policy.lowRiskLimit;
     const sniperBlocked=(d.parentId==='sniper'||d.id==='sniper')&&f.risk>policy.sniperRiskLimit;
     const customBlocked=policy.customRiskLimit&&f.risk>policy.customRiskLimit;
@@ -1108,24 +1108,24 @@ function maybeTrade(t) {
     const activeGuard=exploratory?exploration:guard;
     if(exploratory&&openCount(d.id)>=1)continue;
     if(!exploratory&&(score<policy.min||lowBlocked||sniperBlocked||customBlocked||adv.hardVeto||!guard.ok)){
-      if(!opportunities.has(`${d.id}:${t.mint}`))recordDecision(d,t,f,score,'REJECT',score<policy.min?'below threshold':adv.hardVeto?'adversarial veto':!guard.ok?guard.reason:'risk veto');
+      if(!opportunities.has(`${d.id}:${t.mint}`))recordDecision(d,t,f,score,'REJECT',score<policy.min?'below threshold':adv.hardVeto?'adversarial veto':!guard.ok?guard.reason:'risk veto',weather);
       continue;
     }
     const allocatorMult=d.type==='challenger'?1:allocationWeight(d.id);
     const sizing=adaptivePositionSizing(d,t,f,score,policy,quality,similar,activeGuard,adv,regime,allocatorMult,exploratory);
-    if(!sizing.ok){recordDecision(d,t,f,score,'REJECT',sizing.reason);continue;}
+    if(!sizing.ok){recordDecision(d,t,f,score,'REJECT',sizing.reason,weather);continue;}
     const alpha=alphaOS.evaluateCandidate({strategy:d,token:t,features:f,score,threshold:activeGuard.requiredScore||policy.min,quality,similar,regime});
     alphaOS.proposeCapital({strategy:d,token:t,features:f,score,threshold:activeGuard.requiredScore||policy.min,quality,similar,regime});
-    if(alpha.veto){recordDecision(d,t,f,score,'REJECT','Alpha OS · '+alpha.vetoReason);continue;}
+    if(alpha.veto){recordDecision(d,t,f,score,'REJECT','Alpha OS · '+alpha.vetoReason,weather);continue;}
     const budget=Math.min(sizing.budget*alpha.sizeMultiplier,d.cash*(exploratory?.08:.25),d.equity*(exploratory?.035:.15),t.liq>0?Math.max(d.equity*(exploratory?.0075:.02),t.liq*.015):sizing.budget);
-    if(budget<Math.max(exploratory?3:5,d.equity*(exploratory?.0075:.02))){recordDecision(d,t,f,score,'REJECT','Alpha OS · stake below minimum after EV adjustment');continue;}
+    if(budget<Math.max(exploratory?3:5,d.equity*(exploratory?.0075:.02))){recordDecision(d,t,f,score,'REJECT','Alpha OS · stake below minimum after EV adjustment',weather);continue;}
     const scienceGate=science.evaluateEntry({strategy:d,token:t,features:f,quality,market:weather,alpha,baseExecution:{...executionQuote(t,budget,'buy'),notional:budget}});
     const explorationScienceHardBlock=!!scienceGate.evidence?.block||num(scienceGate.survival?.collapsePct?.[5])>=85||num(scienceGate.execution?.txFailureProbability)>=.40;
-    if(SEASON2_SCIENCE_VETO&&scienceGate.veto&&(!exploratory||explorationScienceHardBlock)){recordDecision(d,t,f,score,'REJECT','Season 2 Do Nothing · '+(scienceGate.reasons.join(', ')||('score '+scienceGate.score.toFixed(0))));continue;}const entryExec=scienceGate.execution;if(entryExec.slippage>.065){recordDecision(d,t,f,score,'REJECT','execution veto: modeled slippage');continue;}const entry=entryExec.fillPrice;const cost=budget*(1+entryExec.feeRate)+num(entryExec.fixedCost)+num(entryExec.expectedFailureCost);
+    if(SEASON2_SCIENCE_VETO&&scienceGate.veto&&(!exploratory||explorationScienceHardBlock)){recordDecision(d,t,f,score,'REJECT','Season 2 Do Nothing · '+(scienceGate.reasons.join(', ')||('score '+scienceGate.score.toFixed(0))),weather);continue;}const entryExec=scienceGate.execution;if(entryExec.slippage>.065){recordDecision(d,t,f,score,'REJECT','execution veto: modeled slippage',weather);continue;}const entry=entryExec.fillPrice;const cost=budget*(1+entryExec.feeRate)+num(entryExec.fixedCost)+num(entryExec.expectedFailureCost);
     if(cost>d.cash)continue;
     d.cash-=cost;
     const p={id:'p'+now()+Math.random(),strategy:d.id,mint:t.mint,symbol:t.symbol,entry,units:budget/entry,originalUnits:budget/entry,invested:budget,entryCost:cost,entryExecution:entryExec,realizedProceeds:0,partialExits:[],scaleOutHits:[],sourceEntrySig:d.copyLab?(verifiedWalletSignal(t,d.copyWindowMin||15,d.copySource||null).events[0]?.signature||null):null,opened:now(),closed:false,lastPrice:t.price,lastMarkedAt:now(),markSource:'entry',score,entryFeatures:{...f,mc:t.mc,liq:t.liq},entryMc:t.mc,entryLiq:t.liq,entryQuality:quality.score,dnaHit25:similar.hit25,dnaSample:similar.n,allocationMult:allocatorMult,sizingMode:'alpha-os-ev-v1',samplePartition:partitionForMint(t.mint),sizing,alphaOS:alpha,budgetPct:d.equity>0?budget/d.equity:0,live100Equivalent:sizing.live100Equivalent,exitMode:exitModeFor(d),policyVersion:STRATEGY_ERA,guard:{requiredScore:activeGuard.requiredScore,minQuality:activeGuard.minQuality,minBuyRatio:activeGuard.minBuyRatio,recentAvg:activeGuard.health.avg,recentN:activeGuard.health.n,exploratory},reason:`${exploratory?'cold-start exploration · ':''}score ${score.toFixed(0)} · gate ${policy.min.toFixed(0)} · risk ${f.risk.toFixed(0)} · Q${quality.score.toFixed(0)} · stake ${(budget/Math.max(1,d.equity)*100).toFixed(1)}% · $100≈${sizing.live100Equivalent.toFixed(2)} · size×${sizing.mult.toFixed(2)} · EV ${alpha.expectedValue.toFixed(1)} · tox ${alpha.toxicity.score.toFixed(0)}`,entryRegime:regime,entryPhase:weather.phase,peakDuring:entry,troughDuring:entry};
-    p.season2Science=scienceGate;positions.push(p);science.recordEntry(p,t,{features:f,quality,market:weather});alphaOS.recordShadowEntry({position:p,token:t,alpha});recordDecision(d,t,f,score,'BUY',p.reason);queueTradeJournal('BUY',d,p,t,{score,exploratory});scheduleCriticalSave();
+    p.season2Science=scienceGate;positions.push(p);science.recordEntry(p,t,{features:f,quality,market:weather});alphaOS.recordShadowEntry({position:p,token:t,alpha});recordDecision(d,t,f,score,'BUY',p.reason,weather);queueTradeJournal('BUY',d,p,t,{score,exploratory});scheduleCriticalSave();
     if(d.risk!=='R&D')log('buy',`${d.icon} ${d.name} bought ${t.symbol} · ${budget.toFixed(0)} paper · ${p.reason}`,'good',{strategy:d.id,mint:t.mint});
   }
 }
@@ -1202,9 +1202,9 @@ function edgeResearchFocus(){
 }
 function ingest(raw,source){
   const incoming=normalize(raw,source);if(!incoming||!(incoming.price>0))return;lastIngestAt=now();
-  const old=tokens.get(incoming.mint);if(!old)recordDiscoverySignal(incoming,source,now());const t=mergeToken(old,incoming);tokens.set(t.mint,t);updateCreator(t);updateOpportunities(t);updateOpenPositionExtremes(t);updateCounterfactuals(t);updateDnaArchive(t);recordMarketEvent(t,source);(()=>{const sf=features(t),sq=tokenDataQuality(t),ao=alphaOS.observeToken(t,{features:sf,quality:sq}),wl=alphaOS.walletLeadLag(t);science.observeToken(t,{features:sf,quality:sq,market:marketWeather(),alpha:ao,earlyWallets:(wl.leaders||[]).map(x=>x.wallet)});})();
+  const old=tokens.get(incoming.mint);if(!old)recordDiscoverySignal(incoming,source,now());const t=mergeToken(old,incoming);tokens.set(t.mint,t);updateCreator(t);updateOpportunities(t);updateOpenPositionExtremes(t);updateCounterfactuals(t);updateDnaArchive(t);const weather=marketWeather();recordMarketEvent(t,source,weather);(()=>{const sf=features(t),sq=tokenDataQuality(t),ao=alphaOS.observeToken(t,{features:sf,quality:sq}),wl=alphaOS.walletLeadLag(t);science.observeToken(t,{features:sf,quality:sq,market:weather,alpha:ao,earlyWallets:(wl.leaders||[]).map(x=>x.wallet)});})();
   if(!old)log('token',`🪙 LIVE token spotted: ${t.symbol} · ${t.name}`,'info',{mint:t.mint,source});
-  maybeTrade(t);broadcast('tick',{mint:t.mint});
+  maybeTrade(t,weather);broadcast('tick',{mint:t.mint});
 }
 
 function providerNameFor(url){try{const h=new URL(url).hostname;if(h.includes('pump.fun'))return'pump.fun';if(h.includes('dexscreener'))return'dexscreener';if(h.includes('solana'))return'solana-rpc';return h;}catch{return'http';}}
@@ -1280,7 +1280,7 @@ async function openPositionPoll(){
         const incoming=normalize({...pair,mint},'dexscreener-open');
         if(!incoming||!(incoming.price>0))continue;
         const old=tokens.get(mint),t=mergeToken(old,incoming);tokens.set(mint,t);
-        updateOpportunities(t);updateOpenPositionExtremes(t);updateCounterfactuals(t);updateDnaArchive(t);recordMarketEvent(t,'dexscreener-open');(()=>{const sf=features(t),sq=tokenDataQuality(t),ao=alphaOS.observeToken(t,{features:sf,quality:sq}),wl=alphaOS.walletLeadLag(t);science.observeToken(t,{features:sf,quality:sq,market:marketWeather(),alpha:ao,earlyWallets:(wl.leaders||[]).map(x=>x.wallet)});})();
+        updateOpportunities(t);updateOpenPositionExtremes(t);updateCounterfactuals(t);updateDnaArchive(t);const weather=marketWeather();recordMarketEvent(t,'dexscreener-open',weather);(()=>{const sf=features(t),sq=tokenDataQuality(t),ao=alphaOS.observeToken(t,{features:sf,quality:sq}),wl=alphaOS.walletLeadLag(t);science.observeToken(t,{features:sf,quality:sq,market:weather,alpha:ao,earlyWallets:(wl.leaders||[]).map(x=>x.wallet)});})();
         const touched=new Set();
         for(const pos of positions.filter(x=>!x.closed&&x.mint===mint)){
           if(touched.has(pos.strategy))continue;touched.add(pos.strategy);
@@ -1589,9 +1589,9 @@ function adversarialRisk(t){
   if(t.liq>0&&t.mc/t.liq>35){score+=12;flags.push('market cap / liquidity imbalance');}
   score=clamp(score);return{score,flags,hardVeto:score>=82,reason:flags.join(' · ')||'no independent hard veto'};
 }
-function recordMarketEvent(t,source){
+function recordMarketEvent(t,source,weather=null){
   const ts=now(),last=marketEventClock.get(t.mint)||0;if(ts-last<7000)return;marketEventClock.set(t.mint,ts);
-  const f=features(t),dna=tokenDNA(t),quality=tokenDataQuality(t),regime=marketWeather().regime;
+  weather=weather||marketWeather();const f=features(t),dna=tokenDNA(t),quality=tokenDataQuality(t),regime=weather.regime;
   const scores={};for(const d of strategyDefs.filter(x=>x.risk!=='CONTROL'))scores[d.id]=strategyScore(d,f,t);
   const row={ts,era:STRATEGY_ERA,mint:t.mint,symbol:t.symbol,source,price:t.price,mc:t.mc,liq:t.liq,vol:t.vol,buys:t.buys,sells:t.sells,narrative:t.narrative,regime,features:{...f},dna,quality:quality.score,scores};
   marketEvents.push(row);while(marketEvents.length>MAX_MARKET_EVENTS)marketEvents.shift();
@@ -2237,7 +2237,7 @@ async function saveCritical(){
 }
 
 function scheduleCriticalSave(delay=750){
-  stateVersionTs=Math.max(stateVersionTs,now());
+  stateVersionTs=Math.max(stateVersionTs,now());if(typeof stateJsonCache==='object')stateJsonCache.ts=0;
   if(criticalSaveTimer)return;
   criticalSaveTimer=setTimeout(()=>{criticalSaveTimer=null;saveCritical();},delay);
   criticalSaveTimer.unref?.();
