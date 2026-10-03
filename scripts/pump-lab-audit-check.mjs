@@ -20,7 +20,7 @@ const checks = [
   ['recovery high-water advance', "advanceRecoveryHighWater("],
   ['richer canonical precedence', "richerThanCurrent"],
   ['forensic observed high-water', "observedHighWater"],
-  ['immutable science rebuild', "science.reset();for(const tr of rebuiltTrades"],
+  ['immutable science rebuild', "science.rebuildFromTradeLedger(rebuiltTrades)"],
   ['aggregate recovered coverage', "ledgerRecoveredAggregateRows"],
   ['detailed ledger coverage', "ledgerDetailedTrades"],
   ['forensic recovery metadata', "forensicRecovery"],
