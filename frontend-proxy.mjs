@@ -26,7 +26,7 @@ const inlineStart=RAW_HTML.lastIndexOf('<script>'),inlineEnd=RAW_HTML.lastIndexO
 if(inlineStart<0||inlineEnd<=inlineStart)throw new Error('Unable to extract Pump Lab dashboard script');
 const DASHBOARD_JS=RAW_HTML.slice(inlineStart+'<script>'.length,inlineEnd);
 try{new Function(DASHBOARD_JS)}catch(e){throw new Error('Dashboard JS parse failed: '+e.message)}
-const HTML = RAW_HTML.slice(0,inlineStart)+'<script src="/dashboard.js?v=20261002-2345"></script>'+RAW_HTML.slice(inlineEnd+'</script>'.length);
+const HTML = RAW_HTML.slice(0,inlineStart)+'<script src="/dashboard.js?v=20261003-1150"></script>'+RAW_HTML.slice(inlineEnd+'</script>'.length);
 
 const EXPECTATIONS = {
   uniqueTraderArt: RAW_HTML.includes('TRADER_ART_PROFILES'),

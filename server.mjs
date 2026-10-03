@@ -910,20 +910,19 @@ function entryGuard(d,t,f,score,policy,quality,adv,regime){
   return{ok:true,reason:'v3 evidence stack passed',requiredScore,minQuality,minBuyRatio,health:h,playbook:p,stack};
 }
 function dormantExplorationGuard(d,t,f,score,policy,quality,adv,regime){
-  if(d.copyLab||d.specialist||d.risk==='CONTROL'||!policy.coldStart||policy.rejects<60||adv.hardVeto)return{ok:false};
-  const p=strategyPlaybook(d),stack=evidenceStack(t,f,quality),scoreFloor=Math.max(56,d.min-4);
-  const maxRisk=Math.min(60,(p.maxRisk??60)+2),minQuality=Math.max(72,(p.minQuality??60)-2);
-  const minBuy=Math.max(.49,(p.minBuy??.52)-.04),maxBuy=Math.min(.74,p.maxBuy??.74);
-  const minMom=Math.max(54,(p.minMomentum??55)-7),maxMom=Math.min(92,p.maxMomentum??92);
-  const minAccel=Math.max(44,(p.minAccel??48)-7),minLiq=Math.max(6000,(p.minLiq??7000)*.72);
-  const sourceNeed=p.requireCross?2:1;
-  if(quality.score<minQuality||quality.sourceCount<sourceNeed||!f.flowFresh||!f.liqFresh)return{ok:false};
-  if(f.totalTx<Math.max(6,(p.minTx??6)-2)||f.buyRatio<minBuy||f.buyRatio>maxBuy)return{ok:false};
-  if(f.risk>maxRisk||adv.score>=68||f.momentum<minMom||f.momentum>maxMom||f.acceleration<minAccel)return{ok:false};
+  if(d.copyLab||d.risk==='CONTROL'||!policy.coldStart||policy.rejects<20||adv.hardVeto)return{ok:false};
+  const p=strategyPlaybook(d),stack=evidenceStack(t,f,quality),learned=Number.isFinite(policy.p90)?policy.p90+4:d.min-8,scoreFloor=Math.max(38,Math.min(d.min-8,learned));
+  const maxRisk=Math.min(65,(p.maxRisk??60)+5),minQuality=Math.max(58,(p.minQuality??60)-8);
+  const minBuy=Math.max(.46,(p.minBuy??.52)-.08),maxBuy=Math.min(.80,(p.maxBuy??.76)+.04);
+  const minMom=Math.max(45,(p.minMomentum??55)-12),maxMom=Math.min(96,(p.maxMomentum??92)+4);
+  const minAccel=Math.max(35,(p.minAccel??48)-12),minLiq=Math.max(3500,(p.minLiq??7000)*.50);
+  if(quality.score<minQuality||quality.sourceCount<1||!f.flowFresh||!f.liqFresh)return{ok:false};
+  if(f.totalTx<Math.max(4,(p.minTx??6)-4)||f.buyRatio<minBuy||f.buyRatio>maxBuy)return{ok:false};
+  if(f.risk>maxRisk||adv.score>=75||f.momentum<minMom||f.momentum>maxMom||f.acceleration<minAccel)return{ok:false};
   if(t.liq<minLiq||score<scoreFloor)return{ok:false};
   if(Number.isFinite(p.mcMin)&&t.mc<p.mcMin*.85)return{ok:false};
   if(Number.isFinite(p.mcMax)&&t.mc>p.mcMax*1.15)return{ok:false};
-  if(Number.isFinite(p.minEvidence)&&stack.n<Math.max(3,p.minEvidence-1))return{ok:false};
+  if(Number.isFinite(p.minEvidence)&&stack.n<Math.max(2,p.minEvidence-2))return{ok:false};
   return{ok:true,reason:'cold-start micro-probe',requiredScore:scoreFloor,minQuality,minBuyRatio:minBuy,health:strategyHealth(d),playbook:p,stack};
 }
 
@@ -1049,6 +1048,7 @@ function maybeTrade(t) {
     const exploration=dormantExplorationGuard(d,t,f,score,policy,quality,adv,regime);
     const exploratory=(!guard.ok||score<policy.min)&&exploration.ok&&!lowBlocked&&!sniperBlocked&&!customBlocked&&!adv.hardVeto;
     const activeGuard=exploratory?exploration:guard;
+    if(exploratory&&openCount(d.id)>=1)continue;
     if(!exploratory&&(score<policy.min||lowBlocked||sniperBlocked||customBlocked||adv.hardVeto||!guard.ok)){
       if(!opportunities.has(`${d.id}:${t.mint}`))recordDecision(d,t,f,score,'REJECT',score<policy.min?'below threshold':adv.hardVeto?'adversarial veto':!guard.ok?guard.reason:'risk veto');
       continue;
@@ -2784,7 +2784,11 @@ hr{border-color:#e0e3e5!important}
   </div>
 </div></div><div class="drawer" id="drawer"><button class="close" onclick="closeDrawer()">Close</button><div id="drawerBody"></div></div><script>
 const $=x=>document.getElementById(x);const money=n=>'$'+Number(n||0).toLocaleString(undefined,{maximumFractionDigits:0});const one=n=>Number(n||0).toFixed(1);let S=null;
+const BROWSER_STATE_KEY='pump-lab:last-good-state:v2',LIVE_BACKEND_ORIGIN='https://pump-lab-live.onrender.com';let showingCachedState=false;
 function age(ms){const m=Math.max(0,Date.now()-ms)/60000;if(m<60)return m.toFixed(0)+'m';return(m/60).toFixed(1)+'h'}function esc(x){return String(x??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
+function saveBrowserState(state){try{localStorage.setItem(BROWSER_STATE_KEY,JSON.stringify({savedAt:Date.now(),state}))}catch{}}
+function restoreBrowserState(){try{const raw=localStorage.getItem(BROWSER_STATE_KEY);if(!raw)return false;const row=JSON.parse(raw);if(!row?.state?.summary||!Array.isArray(row.state.strategies))return false;render(row.state);showingCachedState=true;$('version').textContent='CACHED SNAPSHOT';const h=$('health');if(h)h.innerHTML='<span class="amber">LAST GOOD SNAPSHOT · waking the live engine now…</span>';return true}catch{return false}}
+function wakeLiveBackend(){if(location.hostname==='pump-lab-live.onrender.com')return;try{fetch(LIVE_BACKEND_ORIGIN+'/api/health?wake='+Date.now(),{mode:'no-cors',cache:'no-store',keepalive:true}).catch(()=>{})}catch{}}
 
 const TRADER_ART_PROFILES={
   banker:'art-banker',quant:'art-quant',smart:'art-smart',social:'art-social',momentum:'art-momentum',
@@ -2896,20 +2900,20 @@ async function go(){
     const r=await fetch('/api/state',{cache:'no-store',signal:controller.signal});
     const payload=await r.json().catch(()=>({}));
     if(!r.ok)throw new Error(payload?.error||('state HTTP '+r.status));
-    render(payload);stateFailures=0;
+    render(payload);showingCachedState=false;saveBrowserState(payload);stateFailures=0;
   }catch(e){
-    stateFailures++;console.error('PUMP LAB render error',e);
-    $('version').textContent=firstLoad?'WAKING ENGINE':'RETRYING';
+    stateFailures++;console.error('PUMP LAB render error',e);wakeLiveBackend();
     const h=document.getElementById('health');
-    if(h)h.innerHTML='<span class="bad">DASHBOARD DATA RETRYING · '+esc(e?.message||e)+' · attempt '+stateFailures+'</span>';
+    if(showingCachedState&&S){$('version').textContent='CACHED SNAPSHOT';if(h)h.innerHTML='<span class="amber">LAST GOOD SNAPSHOT · LIVE ENGINE WAKING · retry '+stateFailures+'</span>';}
+    else{$('version').textContent=firstLoad?'WAKING ENGINE':'RETRYING';if(h)h.innerHTML='<span class="bad">DASHBOARD DATA RETRYING · '+esc(e?.message||e)+' · attempt '+stateFailures+'</span>';}
   }finally{clearTimeout(timer);stateLoading=false;}
 }
-go();setInterval(go,15000);const es=new EventSource('/api/events');es.addEventListener('tick',()=>go());let deepLoading=false,deepLoadedAt=0;
+restoreBrowserState();wakeLiveBackend();go();setInterval(go,15000);const es=new EventSource('/api/events');es.addEventListener('tick',()=>go());let deepLoading=false,deepLoadedAt=0;
 async function loadDeepResearch(){
   if(deepLoading||Date.now()-deepLoadedAt<300000)return;deepLoading=true;
   try{
     const r=await fetch('/api/research',{cache:'no-store'});if(!r.ok)throw new Error('research HTTP '+r.status);
-    const deep=await r.json();if(S){Object.assign(S,deep);render(S);}deepLoadedAt=Date.now();
+    const deep=await r.json();if(S){Object.assign(S,deep);render(S);saveBrowserState(S);}deepLoadedAt=Date.now();
   }catch(e){console.error('PUMP LAB deep research error',e);}
   finally{deepLoading=false;}
 }
