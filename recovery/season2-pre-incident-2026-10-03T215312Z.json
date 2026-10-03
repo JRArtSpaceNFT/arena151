@@ -1,0 +1,694 @@
+{
+  "schemaVersion": 1,
+  "source": "Render observed logs",
+  "capturedAt": "2026-10-03T21:53:12.580375808Z",
+  "capturedAtMs": 1791064392580,
+  "note": "Forensic aggregate checkpoint captured before the 2026-10-03 recovery regression. This file preserves observed strategy counters/bankrolls and dashboard ledger totals; it does not invent missing row-level trades.",
+  "dashboard": {
+    "productionExits": 73,
+    "ledgerRows": 192,
+    "ledgerProductionRows": 73,
+    "cohortRows": 75,
+    "controlRows": 23,
+    "otherRows": 21,
+    "scienceTrades": 8,
+    "tokens": 100
+  },
+  "traders": [
+    {
+      "id": "banker",
+      "n": 4,
+      "wins": 0,
+      "losses": 4,
+      "equity": 923.851850092843,
+      "cash": 923.851850092843,
+      "open": 0
+    },
+    {
+      "id": "quant",
+      "n": 3,
+      "wins": 1,
+      "losses": 2,
+      "equity": 1001.1794390103363,
+      "cash": 1001.1794390103363,
+      "open": 0
+    },
+    {
+      "id": "smart",
+      "n": 9,
+      "wins": 6,
+      "losses": 3,
+      "equity": 1000.2148725399462,
+      "cash": 1000.2148725399462,
+      "open": 0
+    },
+    {
+      "id": "social",
+      "n": 1,
+      "wins": 0,
+      "losses": 1,
+      "equity": 998.358886027398,
+      "cash": 998.358886027398,
+      "open": 0
+    },
+    {
+      "id": "momentum",
+      "n": 7,
+      "wins": 0,
+      "losses": 7,
+      "equity": 944.8918703280702,
+      "cash": 944.8918703280702,
+      "open": 0
+    },
+    {
+      "id": "graduation",
+      "n": 3,
+      "wins": 2,
+      "losses": 1,
+      "equity": 997.2114788434037,
+      "cash": 997.2114788434037,
+      "open": 0
+    },
+    {
+      "id": "dip",
+      "n": 12,
+      "wins": 3,
+      "losses": 9,
+      "equity": 1041.2134784187772,
+      "cash": 1017.5239748007187,
+      "open": 1
+    },
+    {
+      "id": "swing",
+      "n": 9,
+      "wins": 5,
+      "losses": 4,
+      "equity": 1001.2389366740811,
+      "cash": 1001.2389366740811,
+      "open": 0
+    },
+    {
+      "id": "degen",
+      "n": 1,
+      "wins": 0,
+      "losses": 1,
+      "equity": 998.7363769630962,
+      "cash": 998.7363769630962,
+      "open": 0
+    },
+    {
+      "id": "smartmom",
+      "n": 4,
+      "wins": 0,
+      "losses": 4,
+      "equity": 984.91724101785,
+      "cash": 984.91724101785,
+      "open": 0
+    },
+    {
+      "id": "culture",
+      "n": 2,
+      "wins": 1,
+      "losses": 1,
+      "equity": 993.9181631304267,
+      "cash": 969.2869970129334,
+      "open": 1
+    },
+    {
+      "id": "contrarian",
+      "n": 5,
+      "wins": 0,
+      "losses": 5,
+      "equity": 961.6024739798038,
+      "cash": 961.6024739798038,
+      "open": 0
+    },
+    {
+      "id": "sniper",
+      "n": 2,
+      "wins": 0,
+      "losses": 2,
+      "equity": 997.1572683906892,
+      "cash": 997.1572683906892,
+      "open": 0
+    },
+    {
+      "id": "champion",
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "equity": 972.8274841061755,
+      "cash": 972.8274841061755,
+      "open": 0
+    },
+    {
+      "id": "professional",
+      "n": 1,
+      "wins": 0,
+      "losses": 1,
+      "equity": 999.8774937662008,
+      "cash": 999.8774937662008,
+      "open": 0
+    },
+    {
+      "id": "adaptive",
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "equity": 953.2805306006505,
+      "cash": 953.2805306006505,
+      "open": 0
+    },
+    {
+      "id": "copy_unipcs",
+      "n": 0,
+      "wins": 0,
+      "losses": 0,
+      "equity": 1000,
+      "cash": 1000,
+      "open": 0
+    },
+    {
+      "id": "copy_frank",
+      "n": 0,
+      "wins": 0,
+      "losses": 0,
+      "equity": 1000,
+      "cash": 1000,
+      "open": 0
+    },
+    {
+      "id": "copy_orangie",
+      "n": 0,
+      "wins": 0,
+      "losses": 0,
+      "equity": 1000,
+      "cash": 1000,
+      "open": 0
+    },
+    {
+      "id": "copy_rasmr",
+      "n": 0,
+      "wins": 0,
+      "losses": 0,
+      "equity": 1000,
+      "cash": 1000,
+      "open": 0
+    },
+    {
+      "id": "wallet_consensus",
+      "n": 0,
+      "wins": 0,
+      "losses": 0,
+      "equity": 1000,
+      "cash": 1000,
+      "open": 0
+    },
+    {
+      "id": "confirmed_runner",
+      "n": 2,
+      "wins": 0,
+      "losses": 2,
+      "equity": 997.1772658532834,
+      "cash": 997.1772658532834,
+      "open": 0
+    },
+    {
+      "id": "asym_swing",
+      "n": 1,
+      "wins": 0,
+      "losses": 1,
+      "equity": 999.8772934903152,
+      "cash": 999.8772934903152,
+      "open": 0
+    },
+    {
+      "id": "copy_megga",
+      "n": 0,
+      "wins": 0,
+      "losses": 0,
+      "equity": 1000,
+      "cash": 1000,
+      "open": 0
+    },
+    {
+      "id": "megga_scout",
+      "n": 1,
+      "wins": 0,
+      "losses": 1,
+      "equity": 997.4468746319709,
+      "cash": 997.4468746319709,
+      "open": 0
+    },
+    {
+      "id": "hyp_bal_1_3",
+      "n": 0,
+      "wins": 0,
+      "losses": 0,
+      "equity": 1000,
+      "cash": 1000,
+      "open": 0
+    },
+    {
+      "id": "hyp_bal_3_6",
+      "n": 0,
+      "wins": 0,
+      "losses": 0,
+      "equity": 1000,
+      "cash": 1000,
+      "open": 0
+    },
+    {
+      "id": "hyp_transition",
+      "n": 0,
+      "wins": 0,
+      "losses": 0,
+      "equity": 1000,
+      "cash": 1000,
+      "open": 0
+    },
+    {
+      "id": "hyp_accel",
+      "n": 0,
+      "wins": 0,
+      "losses": 0,
+      "equity": 1000,
+      "cash": 1000,
+      "open": 0
+    },
+    {
+      "id": "hyp_liqrunner",
+      "n": 0,
+      "wins": 0,
+      "losses": 0,
+      "equity": 1000,
+      "cash": 1000,
+      "open": 0
+    },
+    {
+      "id": "hyp_lowrisk",
+      "n": 0,
+      "wins": 0,
+      "losses": 0,
+      "equity": 1000,
+      "cash": 1000,
+      "open": 0
+    },
+    {
+      "id": "hyp_rebound",
+      "n": 0,
+      "wins": 0,
+      "losses": 0,
+      "equity": 1000,
+      "cash": 1000,
+      "open": 0
+    },
+    {
+      "id": "hyp_quality",
+      "n": 0,
+      "wins": 0,
+      "losses": 0,
+      "equity": 1000,
+      "cash": 1000,
+      "open": 0
+    },
+    {
+      "id": "hyp_hotbalanced",
+      "n": 0,
+      "wins": 0,
+      "losses": 0,
+      "equity": 1000,
+      "cash": 1000,
+      "open": 0
+    },
+    {
+      "id": "hyp_riskoff",
+      "n": 0,
+      "wins": 0,
+      "losses": 0,
+      "equity": 1000,
+      "cash": 1000,
+      "open": 0
+    },
+    {
+      "id": "meme_smooth_curve",
+      "n": 0,
+      "wins": 0,
+      "losses": 0,
+      "equity": 1000,
+      "cash": 1000,
+      "open": 0
+    },
+    {
+      "id": "meme_retest",
+      "n": 0,
+      "wins": 0,
+      "losses": 0,
+      "equity": 1000,
+      "cash": 1000,
+      "open": 0
+    },
+    {
+      "id": "meme_compression",
+      "n": 0,
+      "wins": 0,
+      "losses": 0,
+      "equity": 1000,
+      "cash": 1000,
+      "open": 0
+    },
+    {
+      "id": "meme_postgrad",
+      "n": 0,
+      "wins": 0,
+      "losses": 0,
+      "equity": 1000,
+      "cash": 1000,
+      "open": 0
+    },
+    {
+      "id": "meme_survival",
+      "n": 0,
+      "wins": 0,
+      "losses": 0,
+      "equity": 1000,
+      "cash": 1000,
+      "open": 0
+    },
+    {
+      "id": "random",
+      "n": 7,
+      "wins": 0,
+      "losses": 7,
+      "equity": 901.6528659264965,
+      "cash": 901.6528659264965,
+      "open": 0
+    },
+    {
+      "id": "volume",
+      "n": 0,
+      "wins": 0,
+      "losses": 0,
+      "equity": 1000,
+      "cash": 1000,
+      "open": 0
+    },
+    {
+      "id": "launchctl",
+      "n": 13,
+      "wins": 4,
+      "losses": 9,
+      "equity": 873.4033360586458,
+      "cash": 873.4033360586458,
+      "open": 0
+    },
+    {
+      "id": "socialctl",
+      "n": 1,
+      "wins": 1,
+      "losses": 0,
+      "equity": 1018.263445147503,
+      "cash": 1018.263445147503,
+      "open": 0
+    },
+    {
+      "id": "mc_u25",
+      "n": 4,
+      "wins": 0,
+      "losses": 4,
+      "equity": 977.0922832387816,
+      "cash": 977.0922832387816,
+      "open": 0
+    },
+    {
+      "id": "mc_25_50",
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "equity": 939.6881861941807,
+      "cash": 939.6881861941807,
+      "open": 0
+    },
+    {
+      "id": "mc_50_100",
+      "n": 4,
+      "wins": 0,
+      "losses": 4,
+      "equity": 965.332019833118,
+      "cash": 965.332019833118,
+      "open": 0
+    },
+    {
+      "id": "mc_100_250",
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "equity": 980.6544531218857,
+      "cash": 980.6544531218857,
+      "open": 0
+    },
+    {
+      "id": "mc_250_500",
+      "n": 2,
+      "wins": 1,
+      "losses": 1,
+      "equity": 990.7249071731198,
+      "cash": 959.4241325675542,
+      "open": 1
+    },
+    {
+      "id": "mc_500_1m",
+      "n": 1,
+      "wins": 0,
+      "losses": 1,
+      "equity": 956.4077208203831,
+      "cash": 956.4077208203831,
+      "open": 0
+    },
+    {
+      "id": "mc_1m_plus",
+      "n": 0,
+      "wins": 0,
+      "losses": 0,
+      "equity": 1000,
+      "cash": 1000,
+      "open": 0
+    },
+    {
+      "id": "mc_sub100",
+      "n": 9,
+      "wins": 0,
+      "losses": 9,
+      "equity": 939.7911077829809,
+      "cash": 939.7911077829809,
+      "open": 0
+    },
+    {
+      "id": "mc_over100",
+      "n": 2,
+      "wins": 0,
+      "losses": 2,
+      "equity": 946.1413740577584,
+      "cash": 946.1413740577584,
+      "open": 0
+    },
+    {
+      "id": "mc_over250",
+      "n": 1,
+      "wins": 0,
+      "losses": 1,
+      "equity": 956.4076115402324,
+      "cash": 956.4076115402324,
+      "open": 0
+    },
+    {
+      "id": "mc_graduation_zone",
+      "n": 4,
+      "wins": 0,
+      "losses": 4,
+      "equity": 965.7257710842227,
+      "cash": 965.7257710842227,
+      "open": 0
+    },
+    {
+      "id": "age_flash",
+      "n": 0,
+      "wins": 0,
+      "losses": 0,
+      "equity": 1000,
+      "cash": 1000,
+      "open": 0
+    },
+    {
+      "id": "age_1_5",
+      "n": 1,
+      "wins": 0,
+      "losses": 1,
+      "equity": 996.7383078693274,
+      "cash": 996.7383078693274,
+      "open": 0
+    },
+    {
+      "id": "age_5_15",
+      "n": 1,
+      "wins": 0,
+      "losses": 1,
+      "equity": 990.5209047148713,
+      "cash": 990.5209047148713,
+      "open": 0
+    },
+    {
+      "id": "age_mature",
+      "n": 2,
+      "wins": 0,
+      "losses": 2,
+      "equity": 946.834836054071,
+      "cash": 946.834836054071,
+      "open": 0
+    },
+    {
+      "id": "liq_5_15",
+      "n": 5,
+      "wins": 0,
+      "losses": 5,
+      "equity": 952.0808035918766,
+      "cash": 952.0808035918766,
+      "open": 0
+    },
+    {
+      "id": "liq_15_50",
+      "n": 1,
+      "wins": 0,
+      "losses": 1,
+      "equity": 990.5203413159763,
+      "cash": 990.5203413159763,
+      "open": 0
+    },
+    {
+      "id": "liq_50_plus",
+      "n": 1,
+      "wins": 0,
+      "losses": 1,
+      "equity": 956.4074930667861,
+      "cash": 956.4074930667861,
+      "open": 0
+    },
+    {
+      "id": "liq_ratio",
+      "n": 2,
+      "wins": 0,
+      "losses": 2,
+      "equity": 944.9579755334142,
+      "cash": 944.9579755334142,
+      "open": 0
+    },
+    {
+      "id": "flow_70",
+      "n": 4,
+      "wins": 1,
+      "losses": 3,
+      "equity": 935.0837133375816,
+      "cash": 935.0837133375816,
+      "open": 0
+    },
+    {
+      "id": "flow_balanced",
+      "n": 2,
+      "wins": 0,
+      "losses": 2,
+      "equity": 945.4864561172193,
+      "cash": 945.4864561172193,
+      "open": 0
+    },
+    {
+      "id": "flow_extreme",
+      "n": 4,
+      "wins": 1,
+      "losses": 3,
+      "equity": 940.7058056485902,
+      "cash": 940.7058056485902,
+      "open": 0
+    },
+    {
+      "id": "meta_verified",
+      "n": 4,
+      "wins": 1,
+      "losses": 3,
+      "equity": 970.723022606453,
+      "cash": 970.723022606453,
+      "open": 0
+    },
+    {
+      "id": "meta_dark",
+      "n": 1,
+      "wins": 0,
+      "losses": 1,
+      "equity": 998.7341608603398,
+      "cash": 998.7341608603398,
+      "open": 0
+    },
+    {
+      "id": "creator_repeat_clean",
+      "n": 0,
+      "wins": 0,
+      "losses": 0,
+      "equity": 1000,
+      "cash": 1000,
+      "open": 0
+    },
+    {
+      "id": "creator_first",
+      "n": 5,
+      "wins": 0,
+      "losses": 5,
+      "equity": 933.272066914997,
+      "cash": 933.272066914997,
+      "open": 0
+    },
+    {
+      "id": "crosscheck",
+      "n": 1,
+      "wins": 1,
+      "losses": 0,
+      "equity": 1005.635995187027,
+      "cash": 1005.635995187027,
+      "open": 0
+    },
+    {
+      "id": "regime_hot",
+      "n": 0,
+      "wins": 0,
+      "losses": 0,
+      "equity": 1000,
+      "cash": 1000,
+      "open": 0
+    },
+    {
+      "id": "regime_riskoff",
+      "n": 1,
+      "wins": 0,
+      "losses": 1,
+      "equity": 990.4019701315906,
+      "cash": 990.4019701315906,
+      "open": 0
+    },
+    {
+      "id": "pre_grad",
+      "n": 5,
+      "wins": 0,
+      "losses": 5,
+      "equity": 936.1801607754621,
+      "cash": 936.1801607754621,
+      "open": 0
+    },
+    {
+      "id": "post_grad",
+      "n": 2,
+      "wins": 1,
+      "losses": 1,
+      "equity": 995.9684916281924,
+      "cash": 995.9684916281924,
+      "open": 0
+    }
+  ]
+}
