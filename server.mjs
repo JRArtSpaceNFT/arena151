@@ -3249,7 +3249,9 @@ const server=http.createServer(async (req,res)=>{
   }
   if(req.url==='/api/recovery-snapshot'){
     try{
-      const snapshot=serializeCritical(),json=JSON.stringify({ok:true,generatedAt:now(),state:snapshot});
+      const recoverable=stateIntegrityOk&&stateVersionTs>0&&(dbStateRestored||kvStateRestored||localStateRestored||peerStateRestored);
+      if(!recoverable){res.writeHead(503,{'content-type':'application/json','cache-control':'no-store'});return res.end(JSON.stringify({ok:false,error:'recovery snapshot not yet trusted',phase:lifecyclePhase}));}
+      const snapshot=serializeCritical(),json=JSON.stringify({ok:true,recoverable:true,generatedAt:now(),sourceVersionTs:stateVersionTs,state:snapshot});
       res.writeHead(200,{'content-type':'application/json','cache-control':'no-store','content-length':Buffer.byteLength(json),'x-robots-tag':'noindex, nofollow'});
       return res.end(json);
     }catch(e){
