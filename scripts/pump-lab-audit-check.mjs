@@ -40,7 +40,8 @@ const checks = [
   ['independent UI peer recovery', 'tryPeerRecovery()'],
   ['critical Key Value checkpoint', "pump-lab:state:critical"],
   ['critical local checkpoint', 'writeLocalCriticalAtomic(s)'],
-  ['recovery snapshot endpoint', "req.url==='/api/recovery-snapshot'"]
+  ['recovery snapshot endpoint', "req.url==='/api/recovery-snapshot'"],
+  ['trusted recovery snapshot gate', 'const recoverable=stateIntegrityOk&&stateVersionTs>0']
 ];
 
 const failures = checks.filter(([, needle]) => !src.includes(needle)).map(([name])=>name);
@@ -55,6 +56,8 @@ if(!scienceSrc.includes("autoPromotion:false"))failures.push('Season 2 manual-pr
 if(!proxySrc.includes("u.pathname === '/api/recovery-snapshot-cache'"))failures.push('UI recovery snapshot cache endpoint missing');
 if(!proxySrc.includes('refreshRecoveryCache(true)'))failures.push('UI recovery cache warmup missing');
 if(!proxySrc.includes('setInterval(()=>refreshRecoveryCache(true)'))failures.push('UI recovery cache refresh loop missing');
+if(!proxySrc.includes('incomingTs<currentTs'))failures.push('UI recovery monotonicity guard missing');
+if(!proxySrc.includes("out?.recoverable!==true"))failures.push('UI recovery trust guard missing');
 
 // Hypothesis Arena regression guards.
 const hypothesisIds=[
