@@ -17,6 +17,9 @@ let stateCache=null;
 let stateCacheAt=0;
 let stateRefreshInFlight=null;
 let backendWakeFailures=0;
+let recoveryCache=null;
+let recoveryCacheAt=0;
+let recoveryRefreshInFlight=null;
 const source = fs.readFileSync(new URL('./server.mjs', import.meta.url), 'utf8');
 const htmlDecl = source.match(/\b(?:const|let|var)\s+HTML\s*=\s*`/);
 const start = htmlDecl?.index ?? -1;
@@ -199,6 +202,25 @@ async function fetchBackendJson(pathname,timeoutMs=45000){
     return await r.json();
   }finally{clearTimeout(timer)}
 }
+async function refreshRecoveryCache(force=false){
+  if(!force&&recoveryCache&&Date.now()-recoveryCacheAt<15000)return recoveryCache;
+  if(recoveryRefreshInFlight)return recoveryRefreshInFlight;
+  recoveryRefreshInFlight=(async()=>{
+    const out=await fetchBackendJson('/api/recovery-snapshot',12000);
+    const state=out?.state||out;
+    if(!state?.stateMeta?.savedAt||!Array.isArray(state?.strategies)||!Array.isArray(state?.trades))throw new Error('invalid recovery snapshot');
+    recoveryCache=state;recoveryCacheAt=Date.now();
+    console.log('RECOVERY_CACHE_REFRESH '+JSON.stringify({ok:true,savedAt:state.stateMeta.savedAt,trades:state.trades.length,open:(state.positions||[]).length,bytes:Buffer.byteLength(JSON.stringify(state))}));
+    return recoveryCache;
+  })();
+  try{return await recoveryRefreshInFlight}finally{recoveryRefreshInFlight=null}
+}
+function serveRecoveryCache(res){
+  if(!recoveryCache)return xJson(res,503,{ok:false,error:'recovery cache not ready'});
+  const body=JSON.stringify({ok:true,savedAt:recoveryCache?.stateMeta?.savedAt||0,cachedAt:recoveryCacheAt,state:recoveryCache});
+  res.writeHead(200,{'content-type':'application/json','cache-control':'no-store','content-length':Buffer.byteLength(body),'x-pump-recovery-cache-age-ms':String(Date.now()-recoveryCacheAt)});
+  res.end(body);
+}
 async function refreshStateCache(force=false){
   if(!force&&stateCache&&Date.now()-stateCacheAt<12000)return stateCache;
   if(stateRefreshInFlight)return stateRefreshInFlight;
@@ -213,6 +235,7 @@ async function refreshStateCache(force=false){
         const sm=state?.summary||{},tradeAccountingOk=sm.ledgerProductionTrades==null||Number(sm.trades||0)===Number(sm.ledgerProductionTrades||0);
         console.log('STATE_CACHE_REFRESH '+JSON.stringify({ok:true,attempt,version:state?.version||null,productionExits:sm.trades||0,ledgerRows:sm.ledgerTrades||0,ledgerProductionRows:sm.ledgerProductionTrades||0,cohortRows:sm.ledgerCohortTrades||0,controlRows:sm.ledgerControlTrades||0,scienceTrades:sm.scienceTrades||0,tradeAccountingOk,tokens:sm.tokens||0,bytes:Buffer.byteLength(JSON.stringify(state))}));
         if(!tradeAccountingOk)console.warn('TRADE_ACCOUNTING_MISMATCH '+JSON.stringify({productionExits:sm.trades||0,ledgerProductionRows:sm.ledgerProductionTrades||0,ledgerRows:sm.ledgerTrades||0}));
+        refreshRecoveryCache(false).catch(e=>console.warn('RECOVERY_CACHE_REFRESH_FAILED '+String(e?.message||e)));
         return state;
       }catch(e){
         lastErr=e;backendWakeFailures++;console.warn('STATE_CACHE_REFRESH_FAILED '+JSON.stringify({attempt,error:String(e?.message||e),coldStartWindow:true}));
@@ -258,6 +281,9 @@ const server = http.createServer(async (req,res) => {
     res.writeHead(200,{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','content-length':Buffer.byteLength(DASHBOARD_JS),'x-pump-lab-ui':'future-lab'});
     return res.end(DASHBOARD_JS);
   }
+  if (u.pathname === '/api/recovery-snapshot-cache') {
+    return serveRecoveryCache(res);
+  }
   if (u.pathname === '/api/state') {
     const age=stateCacheAt?Date.now()-stateCacheAt:Infinity;
     if(stateCache&&age<30000)return serveState(res,stateCache,{stale:false});
@@ -271,7 +297,7 @@ const server = http.createServer(async (req,res) => {
   }
   if (u.pathname === '/ui-health') {
     const sm=stateCache?.summary||{},tradeAccountingOk=sm.ledgerProductionTrades==null||Number(sm.trades||0)===Number(sm.ledgerProductionTrades||0);
-    const body = JSON.stringify({ok:true,frontend:'future-lab',backend:BACKEND_ORIGIN,expectations:EXPECTATIONS,stateCache:{ready:!!stateCache,ageMs:stateCacheAt?Date.now()-stateCacheAt:null,lastRefresh:stateCacheAt||null,wakeFailures:backendWakeFailures},tradeAccounting:{ok:tradeAccountingOk,productionExits:sm.trades||0,ledgerRows:sm.ledgerTrades||0,ledgerProductionRows:sm.ledgerProductionTrades||0,cohortRows:sm.ledgerCohortTrades||0,controlRows:sm.ledgerControlTrades||0,scienceTrades:sm.scienceTrades||0}});
+    const body = JSON.stringify({ok:true,frontend:'future-lab',backend:BACKEND_ORIGIN,expectations:EXPECTATIONS,stateCache:{ready:!!stateCache,ageMs:stateCacheAt?Date.now()-stateCacheAt:null,lastRefresh:stateCacheAt||null,wakeFailures:backendWakeFailures},recoveryCache:{ready:!!recoveryCache,ageMs:recoveryCacheAt?Date.now()-recoveryCacheAt:null,savedAt:recoveryCache?.stateMeta?.savedAt||null,trades:recoveryCache?.trades?.length||0,open:recoveryCache?.positions?.length||0},tradeAccounting:{ok:tradeAccountingOk,productionExits:sm.trades||0,ledgerRows:sm.ledgerTrades||0,ledgerProductionRows:sm.ledgerProductionTrades||0,cohortRows:sm.ledgerCohortTrades||0,controlRows:sm.ledgerControlTrades||0,scienceTrades:sm.scienceTrades||0}});
     res.writeHead(200, {'content-type':'application/json','cache-control':'no-store','content-length':Buffer.byteLength(body)});
     return res.end(body);
   }
@@ -307,5 +333,7 @@ server.listen(PORT,'0.0.0.0',()=>{
   console.log('UI_SELFTEST '+JSON.stringify(EXPECTATIONS));
   refreshXFeed(false).then(x=>console.log('X_FEED_WARMUP '+JSON.stringify({ok:x.ok,configured:x.configured,source:x.source,sources:x.sources||[],handles:x.handles,posts:x.posts?.length||0,authors:[...new Set((x.posts||[]).map(p=>p.author?.username).filter(Boolean))],errors:x.errors||[]}))).catch(e=>console.warn('X_FEED_WARMUP_FAILED '+String(e?.message||e)));
   refreshStateCache(true).then(s=>console.log('BACKEND_WARMUP '+JSON.stringify({ok:true,version:s?.version||null,productionExits:s?.summary?.trades||0,ledgerRows:s?.summary?.ledgerTrades||0,scienceTrades:s?.summary?.scienceTrades||0,tokens:s?.summary?.tokens||0}))).catch(e=>console.warn('BACKEND_WARMUP_FAILED '+String(e?.message||e)));
+  refreshRecoveryCache(true).catch(e=>console.warn('RECOVERY_CACHE_WARMUP_FAILED '+String(e?.message||e)));
   setInterval(()=>refreshStateCache(true).catch(()=>{}),20000).unref?.();
+  setInterval(()=>refreshRecoveryCache(true).catch(()=>{}),15000).unref?.();
 });
