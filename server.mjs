@@ -858,6 +858,8 @@ function storageStatus(){
     keyValue:{configured:!!REDIS_URL,connected:kvReady,restored:kvStateRestored,lastSaveAt:lastKvSaveAt,lastRestoreAt:lastKvRestoreAt,persistent:false,role:'disposable failover cache'},
     peer:{configured:!!PEER_RECOVERY_URL,restored:peerStateRestored,lastRestoreAt:lastPeerRestoreAt,maxRecoveryAgeMs:PEER_RECOVERY_MAX_AGE_MS,role:'independent emergency snapshot peer'},
     local:{restored:localStateRestored,lastRestoreAt:lastLocalRestoreAt,maxRecoveryAgeMs:LOCAL_RECOVERY_MAX_AGE_MS,role:'emergency recovery only'},
+    highWater:{seasonKey:recoveryHighWater.seasonKey,ledgerRows:num(recoveryHighWater.ledgerRows),productionExits:num(recoveryHighWater.productionExits),exitTotal:num(recoveryHighWater.exitTotal),strategies:Object.keys(recoveryHighWater.strategyN||{}).length,updatedAt:num(recoveryHighWater.updatedAt),source:recoveryHighWater.source},
+    forensic:{active:!!forensicRecovery.active,detailedTrades:num(forensicRecovery.detailedTrades),observedLedgerRows:num(forensicRecovery.observedLedgerRows),aggregateRecoveredRows:num(forensicLedgerGaps.total),baselineAt:num(forensicLedgerGaps.baselineAt),source:forensicLedgerGaps.source||''},
     tradingUnlocked:durableTradingReady(),stateVersionTs,graceMs:DURABLE_WRITE_GRACE_MS
   };
 }
@@ -2533,9 +2535,9 @@ function systemAudit(){
   const open=positions.filter(p=>!p.closed),markDetails=open.map(p=>({p,d:positionMarkDetail(p)})),stale=markDetails.filter(x=>x.d.stale),zeroed=markDetails.filter(x=>x.d.multiplier<=0);
   const providers=providerAudit(),stats=strategyStatistics(),qualified=stats.filter(s=>s.holdoutN>=20&&s.holdoutMean>0&&s.holdoutProfitFactor>1.10&&s.dd<PAPER_MAX_DRAWDOWN_PCT);
   const critical=[],warnings=[],passes=[];
-  if((DATABASE_URL||REDIS_URL)&&!(dbStateRestored||kvStateRestored||localStateRestored))critical.push('no recovery source has restored state');
-  if((DATABASE_URL||REDIS_URL)&&!durableTradingReady())critical.push('all persistence layers are outside the safe recovery window');
-  if(DATABASE_URL&&!db&&kvReady)warnings.push('Postgres temporarily offline; free Key Value failover is carrying checkpoints');
+  if((DATABASE_URL||REDIS_URL||PEER_RECOVERY_URL)&&!(dbStateRestored||kvStateRestored||localStateRestored||peerStateRestored))critical.push('no recovery source has restored state');
+  if((DATABASE_URL||REDIS_URL||PEER_RECOVERY_URL)&&!durableTradingReady())critical.push('all persistence layers are outside the safe recovery window');
+  if(DATABASE_URL&&!db&&(kvReady||peerStateRestored||localStateRestored))warnings.push('Postgres temporarily offline; emergency recovery layers are carrying protected state');
   if(REDIS_URL&&!kvReady&&db)warnings.push('Key Value failover offline; Postgres remains canonical');
   if(zeroed.length)critical.push(`${zeroed.length} open positions have no executable fresh mark`);
   if(lastStateBuildMs>5000)warnings.push(`dashboard state build is slow at ${lastStateBuildMs} ms`);
@@ -2551,6 +2553,8 @@ function systemAudit(){
   if(!alphaSnap.shadow.routeQuoteConnected)warnings.push('Alpha OS shadow twin is measuring paper-vs-next-tick execution but exact route quote adapter is not connected');
   passes.push('Alpha OS ten-subsystem decision layer active');passes.push('Season 2 twelve-system science layer active');
   if(dbStateRestored)passes.push('durable state restore verified');
+  if(num(recoveryHighWater.ledgerRows)>0)passes.push('same-season monotonic recovery high-water active');
+  if(forensicRecovery.active)passes.push('forensic history coverage preserved without synthetic ledger rows');
   if(!ALLOW_AUTO_PROMOTION)passes.push('production strategy auto-promotion disabled');
   passes.push('deterministic 80/20 holdout split active');
   passes.push('dynamic fee + slippage + fixed transaction friction modeled');
