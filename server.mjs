@@ -2079,10 +2079,11 @@ async function initKv(restoreState=true){
   }finally{kvConnecting=false;}
 }
 function rebuildScienceFromDetailedLedger(reason='critical-recovery'){
-  if(num(science.counters?.trades)>0||!trades.length)return false;
+  const previous=num(science.counters?.trades);
+  if(!trades.length||previous>=trades.length)return false;
   const out=science.rebuildFromTradeLedger(trades);
-  console.warn('SCIENCE_LEDGER_REBUILD '+JSON.stringify({reason,detailedTrades:trades.length,rebuilt:num(out?.rebuilt),preservedAlpha:num(out?.preservedAlpha)}));
-  return num(out?.rebuilt)>0;
+  console.warn('SCIENCE_LEDGER_REBUILD '+JSON.stringify({reason,previous,detailedTrades:trades.length,rebuilt:num(out?.rebuilt),preservedAlpha:num(out?.preservedAlpha)}));
+  return num(out?.rebuilt)>previous;
 }
 async function reseedCanonicalFullSnapshot(client,reason='recovery'){
   if(!client)return false;
