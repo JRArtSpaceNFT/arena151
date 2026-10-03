@@ -4,6 +4,10 @@ const src = fs.readFileSync(new URL('../server.mjs', import.meta.url), 'utf8');
 const scienceSrc = fs.readFileSync(new URL('../lib/pump-lab-season2-science.mjs', import.meta.url), 'utf8');
 const proxySrc = fs.readFileSync(new URL('../frontend-proxy.mjs', import.meta.url), 'utf8');
 const checks = [
+  ['high-water health diagnostics', "highWater:{seasonKey:recoveryHighWater.seasonKey"],
+  ['forensic health diagnostics', "forensic:{active:!!forensicRecovery.active"],
+  ['peer-aware system audit', "DATABASE_URL||REDIS_URL||PEER_RECOVERY_URL"],
+  ['forensic audit pass', "forensic history coverage preserved without synthetic ledger rows"],
   ['recovery high-water state', "recoveryHighWater"],
   ['recovery high-water gate', "RECOVERY_HIGH_WATER_REJECTED"],
   ['recovery high-water KV key', "pump-lab:state:highwater"],
