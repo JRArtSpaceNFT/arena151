@@ -147,7 +147,14 @@ const marketEvents = [];
 const dnaArchive = new Map();
 const marketEventClock = new Map();
 const pendingDbEvents = [];
+const pendingTradeJournal = [];
 let lastDbEventFlush = 0;
+let lastTradeJournalFlush = 0;
+let journalEventsWritten = 0;
+let journalReplayedAt = 0;
+let stateIntegrityOk = true;
+let lastIntegrityReport = null;
+const backpressureDrops = {solana:0,prioritySolana:0,dbEvents:0,journal:0};
 let lastScientistRun = 0;
 let lastStateBuildMs = 0;
 let lastStateBytes = 0;
@@ -391,7 +398,7 @@ async function runScheduled(name,fn,{budgetMs=1000,critical=false}={}){
 }
 function readinessStatus(){
   const durable=durableTradingReady(),ready=!shuttingDown&&durable&&['READY','DEGRADED'].includes(lifecyclePhase);
-  return{ready,phase:lifecyclePhase,phaseSince:lifecycleSince,detail:lifecycleDetail,pressure:systemPressure,eventLoopLagMs,eventLoopLagP95,durable,dbConnected:!!db,kvConnected:kvReady,stateVersionTs,lastDurableSaveAt,lastCriticalSaveAt,lastIngestAt,queues:{solana:solanaQueue.length,prioritySolana:solanaPriorityQueue.length,pendingDbEvents:pendingDbEvents.length,dbHigh:dbWriteHigh.length,dbNormal:dbWriteNormal.length,dbLow:dbWriteLow.length},subsystems:Object.fromEntries(subsystemRuntime)};
+  return{ready,phase:lifecyclePhase,phaseSince:lifecycleSince,detail:lifecycleDetail,pressure:systemPressure,eventLoopLagMs,eventLoopLagP95,durable,dbConnected:!!db,kvConnected:kvReady,stateVersionTs,lastDurableSaveAt,lastCriticalSaveAt,lastIngestAt,integrity:lastIntegrityReport,journal:{pending:pendingTradeJournal.length,lastFlushAt:lastTradeJournalFlush,written:journalEventsWritten,replayedAt:journalReplayedAt},backpressure:{...backpressureDrops},circuits:Object.fromEntries(providerCircuits),queues:{solana:solanaQueue.length,prioritySolana:solanaPriorityQueue.length,pendingDbEvents:pendingDbEvents.length,dbHigh:dbWriteHigh.length,dbNormal:dbWriteNormal.length,dbLow:dbWriteLow.length},subsystems:Object.fromEntries(subsystemRuntime)};
 }
 function broadcast(type,data) {
   const payload=`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`;
@@ -799,6 +806,7 @@ function pruneOpportunities(){
   }
 }
 function durableTradingReady(){
+  if(!stateIntegrityOk||shuttingDown||lifecyclePhase==='DRAINING')return false;
   if(!DATABASE_URL&&!REDIS_URL)return true;
   if(!(dbStateRestored||kvStateRestored||localStateRestored))return false;
   const anchor=Math.max(lastDurableSaveAt,lastDurableRestoreAt,lastKvSaveAt,lastKvRestoreAt,lastLocalRestoreAt);
@@ -1108,7 +1116,7 @@ function maybeTrade(t) {
     if(cost>d.cash)continue;
     d.cash-=cost;
     const p={id:'p'+now()+Math.random(),strategy:d.id,mint:t.mint,symbol:t.symbol,entry,units:budget/entry,originalUnits:budget/entry,invested:budget,entryCost:cost,entryExecution:entryExec,realizedProceeds:0,partialExits:[],scaleOutHits:[],sourceEntrySig:d.copyLab?(verifiedWalletSignal(t,d.copyWindowMin||15,d.copySource||null).events[0]?.signature||null):null,opened:now(),closed:false,lastPrice:t.price,lastMarkedAt:now(),markSource:'entry',score,entryFeatures:{...f,mc:t.mc,liq:t.liq},entryMc:t.mc,entryLiq:t.liq,entryQuality:quality.score,dnaHit25:similar.hit25,dnaSample:similar.n,allocationMult:allocatorMult,sizingMode:'alpha-os-ev-v1',samplePartition:partitionForMint(t.mint),sizing,alphaOS:alpha,budgetPct:d.equity>0?budget/d.equity:0,live100Equivalent:sizing.live100Equivalent,exitMode:exitModeFor(d),policyVersion:STRATEGY_ERA,guard:{requiredScore:activeGuard.requiredScore,minQuality:activeGuard.minQuality,minBuyRatio:activeGuard.minBuyRatio,recentAvg:activeGuard.health.avg,recentN:activeGuard.health.n,exploratory},reason:`${exploratory?'cold-start exploration · ':''}score ${score.toFixed(0)} · gate ${policy.min.toFixed(0)} · risk ${f.risk.toFixed(0)} · Q${quality.score.toFixed(0)} · stake ${(budget/Math.max(1,d.equity)*100).toFixed(1)}% · $100≈${sizing.live100Equivalent.toFixed(2)} · size×${sizing.mult.toFixed(2)} · EV ${alpha.expectedValue.toFixed(1)} · tox ${alpha.toxicity.score.toFixed(0)}`,entryRegime:regime,entryPhase:weather.phase,peakDuring:entry,troughDuring:entry};
-    p.season2Science=scienceGate;positions.push(p);science.recordEntry(p,t,{features:f,quality,market:weather});alphaOS.recordShadowEntry({position:p,token:t,alpha});recordDecision(d,t,f,score,'BUY',p.reason);scheduleCriticalSave();
+    p.season2Science=scienceGate;positions.push(p);science.recordEntry(p,t,{features:f,quality,market:weather});alphaOS.recordShadowEntry({position:p,token:t,alpha});recordDecision(d,t,f,score,'BUY',p.reason);queueTradeJournal('BUY',d,p,t,{score,exploratory});scheduleCriticalSave();
     if(d.risk!=='R&D')log('buy',`${d.icon} ${d.name} bought ${t.symbol} · ${budget.toFixed(0)} paper · ${p.reason}`,'good',{strategy:d.id,mint:t.mint});
   }
 }
@@ -1132,7 +1140,7 @@ function closePos(d,p,t,why){
   const modeledRoundTrip=(num(p.entryExecution?.slippage)+num(p.exitExecution?.slippage)+num(p.entryExecution?.feeRate)+num(p.exitExecution?.feeRate))*100;const stressPenalty=Math.max(2.5,modeledRoundTrip+Math.min(8,(p.invested/Math.max(1000,t.liq))*100));
   p.executionStress={easy:p.pnlPct+1.5,realistic:p.pnlPct,nightmare:p.pnlPct-stressPenalty,penalty:stressPenalty};
   d.n++;if(p.pnl>0)d.wins++;else d.losses++;p.season2ScienceResult=science.recordTrade(p,t,{market:marketWeather()});trades.unshift({...p,name:t.name,narrative:t.narrative});trades.splice(MAX_TRADES);const pi=positions.indexOf(p);if(pi>=0)positions.splice(pi,1);markEquity(d);
-  alphaOS.recordShadowClose(p);const aut=buildAutopsy(d,p,t);autopsies.unshift(aut);autopsies.splice(250);scheduleCriticalSave();
+  alphaOS.recordShadowClose(p);const aut=buildAutopsy(d,p,t);autopsies.unshift(aut);autopsies.splice(250);queueTradeJournal('SELL',d,p,t,{why,pnlPct:p.pnlPct});scheduleCriticalSave();
   if(d.risk!=='R&D')log('sell',`${d.icon} ${d.name} sold $${t.symbol} ${p.pnlPct>=0?'+':''}${p.pnlPct.toFixed(1)}% · ${why}`,p.pnl>=0?'good':'bad',{strategy:d.id,mint:t.mint});
 }
 
@@ -1190,7 +1198,23 @@ function ingest(raw,source){
   maybeTrade(t);broadcast('tick',{mint:t.mint});
 }
 
-async function fetchJson(url){const r=await fetch(url,{headers:{accept:'application/json','user-agent':'PUMP-LAB-LIVE/0.9'}});if(!r.ok)throw Error(`HTTP ${r.status}`);return r.json();}
+function providerNameFor(url){try{const h=new URL(url).hostname;if(h.includes('pump.fun'))return'pump.fun';if(h.includes('dexscreener'))return'dexscreener';if(h.includes('solana'))return'solana-rpc';return h;}catch{return'http';}}
+function circuitState(name){let s=providerCircuits.get(name);if(!s){s={failures:0,successes:0,openUntil:0,opens:0,lastError:null,lastLatencyMs:0,lastOkAt:0};providerCircuits.set(name,s);}return s;}
+async function fetchWithCircuit(url,options={},name=providerNameFor(url),timeoutMs=8000){
+  const state=circuitState(name),ts=now();if(state.openUntil>ts)throw Error(name+' circuit open for '+Math.ceil((state.openUntil-ts)/1000)+'s');
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs),started=Date.now();
+  try{
+    const r=await fetch(url,{...options,signal:controller.signal});
+    if(!r.ok)throw Error('HTTP '+r.status);
+    state.failures=0;state.successes++;state.lastLatencyMs=Date.now()-started;state.lastOkAt=now();state.lastError=null;
+    return r;
+  }catch(e){
+    state.failures++;state.lastError=String(e?.message||e);state.lastLatencyMs=Date.now()-started;
+    if(state.failures>=3){state.opens++;state.openUntil=now()+Math.min(120000,15000*Math.pow(2,Math.min(3,state.opens-1)));setHealth('circuit-'+name,'warn',name+' circuit opened · '+state.lastError,{truth:'observed'});}
+    throw e;
+  }finally{clearTimeout(timer)}
+}
+async function fetchJson(url,timeoutMs=8000){const r=await fetchWithCircuit(url,{headers:{accept:'application/json','user-agent':'PUMP-LAB-LIVE/1.0'}},providerNameFor(url),timeoutMs);return r.json();}
 async function pumpPoll(){
   lastPumpPollAt=now();try{const u='https://frontend-api-v3.pump.fun/coins?offset=0&limit=60&sort=created_timestamp&order=DESC&includeNsfw=false';const j=await fetchJson(u);const rows=Array.isArray(j)?j:(j.data||j.coins||[]);if(!rows.length)throw Error('no rows');rows.forEach(x=>ingest(x,'pump.fun'));setHealth('pump.fun','ok',`Live launch/state snapshots · ${rows.length} coins`,{truth:'observed'});}catch(e){setHealth('pump.fun','warn',`Snapshot feed unavailable: ${e.message}`);}
 }
@@ -1249,7 +1273,7 @@ function connectPumpPortal(){
 function queueSolanaSignature(sig,kind='unknown'){
   if(!sig||solanaSeen.has(sig))return;
   solanaSeen.add(sig); if(solanaSeen.size>5000){const first=solanaSeen.values().next().value;solanaSeen.delete(first);}
-  if(kind==='create'){solanaPriorityQueue.push(sig);if(solanaPriorityQueue.length>120)solanaPriorityQueue.shift();solanaCreateSignals++;}else{solanaQueue.push(sig);if(solanaQueue.length>300)solanaQueue.shift();}solanaObserved++;
+  if(kind==='create'){solanaPriorityQueue.push(sig);if(solanaPriorityQueue.length>120){solanaPriorityQueue.shift();backpressureDrops.prioritySolana++;}solanaCreateSignals++;}else{solanaQueue.push(sig);if(solanaQueue.length>300){solanaQueue.shift();backpressureDrops.solana++;}}solanaObserved++;
 }
 function connectSolanaStream(){
   try{
@@ -1279,8 +1303,8 @@ function connectSolanaStream(){
   }catch(e){setHealth('solana-stream','warn','Solana stream setup failed: '+e.message,{truth:'observed'});}
 }
 async function rpcTransaction(sig){
-  const r=await fetch(SOLANA_RPC_HTTP,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'getTransaction',params:[sig,{commitment:'confirmed',encoding:'jsonParsed',maxSupportedTransactionVersion:0}]})});
-  if(!r.ok)throw Error('RPC '+r.status); const j=await r.json(); return j.result||null;
+  const r=await fetchWithCircuit(SOLANA_RPC_HTTP,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'getTransaction',params:[sig,{commitment:'confirmed',encoding:'jsonParsed',maxSupportedTransactionVersion:0}]})},'solana-rpc',7000);
+  const j=await r.json(); return j.result||null;
 }
 function uiAmt(x){return num(x?.uiTokenAmount?.uiAmountString??x?.uiTokenAmount?.uiAmount??0);}
 function keyText(k){return typeof k==='string'?k:(k?.pubkey||'');}
@@ -1523,7 +1547,7 @@ function recordMarketEvent(t,source){
   const scores={};for(const d of strategyDefs.filter(x=>x.risk!=='CONTROL'))scores[d.id]=strategyScore(d,f,t);
   const row={ts,era:STRATEGY_ERA,mint:t.mint,symbol:t.symbol,source,price:t.price,mc:t.mc,liq:t.liq,vol:t.vol,buys:t.buys,sells:t.sells,narrative:t.narrative,regime,features:{...f},dna,quality:quality.score,scores};
   marketEvents.push(row);while(marketEvents.length>MAX_MARKET_EVENTS)marketEvents.shift();
-  pendingDbEvents.push(row);if(pendingDbEvents.length>1500)pendingDbEvents.shift();
+  pendingDbEvents.push(row);if(pendingDbEvents.length>1500){pendingDbEvents.shift();backpressureDrops.dbEvents++;}
 }
 function replayLab(){
   const rows=[...dnaArchive.values()].filter(x=>x.observations>=2&&now()-x.firstTs>=5*60000);const out=[];
@@ -1580,7 +1604,7 @@ function partialClose(d,p,t,fraction,why){
   const exec=executionQuote(t,notional,'sell'),partialAlpha=alphaOS.executionBrain(t,{features:features(t),score:p.score||50}),exit=exec.fillPrice,gross=units*exit;exec.networkCostUsd=Number(partialAlpha.networkCostUsd||0);exec.priorityLamports=Number(partialAlpha.priorityLamports||0);exec.jitoTipLamports=Number(partialAlpha.jitoTipLamports||0);exec.executionMode=partialAlpha.mode||'STANDARD_RPC';const proceeds=Math.max(0,gross*(1-exec.feeRate)-exec.fixedCost-exec.networkCostUsd);
   p.units=Math.max(0,p.units-units);p.realizedProceeds=num(p.realizedProceeds)+proceeds;
   p.partialExits=p.partialExits||[];p.partialExits.push({ts:now(),why,fraction:frac,units,exit,proceeds,execution:exec});
-  d.cash+=proceeds;markEquity(d);
+  d.cash+=proceeds;markEquity(d);queueTradeJournal('PARTIAL',d,p,t,{why,fraction:frac});scheduleCriticalSave();
   if(d.risk!=='R&D')log('trim',`${d.icon} ${d.name} trimmed ${Math.round(frac*100)}% of ${t.symbol} · ${why}`,'good',{strategy:d.id,mint:t.mint});
   return true;
 }
@@ -1978,12 +2002,16 @@ async function initDb(restoreState=true){
     await db.query('CREATE TABLE IF NOT EXISTS pump_lab_market_events (id bigserial primary key, ts bigint not null, mint text not null, payload jsonb not null)');
     await db.query('CREATE INDEX IF NOT EXISTS pump_lab_market_events_ts_idx ON pump_lab_market_events(ts)');
     await db.query('CREATE INDEX IF NOT EXISTS pump_lab_market_events_mint_idx ON pump_lab_market_events(mint)');
+    await db.query('CREATE TABLE IF NOT EXISTS pump_lab_trade_journal (event_id text primary key, ts bigint not null, kind text not null, strategy text not null, mint text not null, payload jsonb not null)');
+    await db.query('CREATE INDEX IF NOT EXISTS pump_lab_trade_journal_ts_idx ON pump_lab_trade_journal(ts)');
+    await db.query('CREATE INDEX IF NOT EXISTS pump_lab_trade_journal_strategy_idx ON pump_lab_trade_journal(strategy,ts)');
     if(restoreState||!dbStateRestored){
       const r=await db.query("SELECT id,payload,updated_at FROM pump_lab_state WHERE id IN ('main','main:critical')");
       const fullRow=r.rows.find(x=>x.id==='main'),criticalRow=r.rows.find(x=>x.id==='main:critical');let restoredAny=false;
       if(fullRow?.payload)restoredAny=restoreIfNewer(fullRow.payload,'postgres',new Date(fullRow.updated_at).getTime())||restoredAny;
       if(criticalRow?.payload)restoredAny=restoreCriticalIfNewer(criticalRow.payload,new Date(criticalRow.updated_at).getTime())||restoredAny;
       if(!restoredAny){dbStateRestored=true;lastDurableRestoreAt=now();}
+      await replayTradeJournal(db,stateVersionTs);
       try{
         const ar=await db.query("SELECT payload,updated_at FROM pump_lab_state WHERE id='archive:season2-2026-10-01'");
         if(ar.rows[0]?.payload){archiveMonsterExportCache=buildArchiveMonsterExport(ar.rows[0].payload,ar.rows[0].updated_at);console.log('ARCHIVE_MONSTER_CACHE '+JSON.stringify(archiveMonsterExportCache.counts));}
@@ -1996,6 +2024,8 @@ async function initDb(restoreState=true){
     setHealth('research-memory','ok','Postgres durable memory online · Key Value failover armed',{truth:'observed'});
     if(lifecyclePhase==='DEGRADED'&&!shuttingDown)setLifecycle('READY','Postgres reconnected');
     console.log('Postgres durable memory online');
+    if(pendingTradeJournal.length)await flushTradeJournal(db);
+    validateStateIntegrity({repair:true});
     if(stateVersionTs)await saveCritical();
   }catch(e){
     if(db===client)db=null;
@@ -2057,6 +2087,41 @@ function queueDbWrite(fn,priority='normal'){
     (priority==='high'?dbWriteHigh:priority==='low'?dbWriteLow:dbWriteNormal).push(item);
     drainDbWrites();
   });
+}
+function traderJournalSnapshot(d){return{id:d.id,cash:d.cash,peak:d.peak,dd:d.dd,auditPeak:d.auditPeak,auditDd:d.auditDd,wins:d.wins,losses:d.losses,n:d.n};}
+function applyTraderJournalSnapshot(x){if(!x?.id)return;const d=allTraders().find(q=>q.id===x.id);if(!d)return;for(const k of ['cash','peak','dd','auditPeak','auditDd','wins','losses','n'])if(Number.isFinite(Number(x[k])))d[k]=Number(x[k]);}
+function queueTradeJournal(kind,d,p,t,extra={}){
+  if(!p?.id||!d?.id)return;
+  const ts=now(),eventId=kind+':'+p.id+':'+(kind==='PARTIAL'?String(p.partialExits?.at(-1)?.ts||ts):kind==='SELL'?String(p.closedAt||ts):String(p.opened||ts));
+  const row={eventId,ts,kind,strategy:d.id,mint:p.mint,trader:traderJournalSnapshot(d),position:kind==='SELL'?null:{...p},trade:kind==='SELL'?{...p,name:t?.name||p.name||'',narrative:t?.narrative||p.narrative||''}:null,extra};
+  pendingTradeJournal.push(row);if(pendingTradeJournal.length>1000){pendingTradeJournal.shift();backpressureDrops.journal++;}
+  if(db)queueDbWrite(()=>flushTradeJournal(db),'high').catch(()=>{});
+}
+async function flushTradeJournal(client=db){
+  if(!client||!pendingTradeJournal.length)return 0;const batch=pendingTradeJournal.splice(0,Math.min(200,pendingTradeJournal.length));
+  try{
+    await client.query("INSERT INTO pump_lab_trade_journal(event_id,ts,kind,strategy,mint,payload) SELECT x->>'eventId',(x->>'ts')::bigint,x->>'kind',x->>'strategy',x->>'mint',x FROM jsonb_array_elements($1::jsonb) x ON CONFLICT(event_id) DO NOTHING",[JSON.stringify(batch)]);
+    lastTradeJournalFlush=now();journalEventsWritten+=batch.length;return batch.length;
+  }catch(e){pendingTradeJournal.unshift(...batch);pendingTradeJournal.splice(1000);throw e;}
+}
+function validateStateIntegrity({repair=true}={}){
+  const issues=[],seenPos=new Set(),seenTrades=new Set(),cleanPos=[],cleanTrades=[];
+  for(const p of positions){if(!p||!p.id||p.closed){issues.push('invalid/closed open position');continue;}if(seenPos.has(p.id)){issues.push('duplicate position '+p.id);continue;}if(!allTraders().some(d=>d.id===p.strategy)){issues.push('orphan position '+p.id);continue;}seenPos.add(p.id);cleanPos.push(p);}
+  for(const t of trades){if(!t||!t.id){issues.push('trade missing id');continue;}if(seenTrades.has(t.id)){issues.push('duplicate trade '+t.id);continue;}seenTrades.add(t.id);cleanTrades.push(t);}
+  let serious=false;for(const d of allTraders()){if(!Number.isFinite(Number(d.cash))||Number(d.cash)<0){issues.push('invalid cash '+d.id);serious=true;}markEquity(d);if(!Number.isFinite(Number(d.equity))){issues.push('invalid equity '+d.id);serious=true;}}
+  if(repair){positions.splice(0,positions.length,...cleanPos);trades.splice(0,trades.length,...cleanTrades.slice(0,MAX_TRADES));}
+  stateIntegrityOk=!serious;lastIntegrityReport={ts:now(),ok:!serious,repaired:repair,issues:issues.slice(0,50),positions:positions.length,trades:trades.length};
+  if(issues.length)console.warn('STATE_INTEGRITY '+JSON.stringify(lastIntegrityReport));else console.log('STATE_INTEGRITY '+JSON.stringify(lastIntegrityReport));
+  return stateIntegrityOk;
+}
+async function replayTradeJournal(client=db,afterTs=0){
+  if(!client)return 0;const r=await client.query("SELECT event_id,ts,kind,payload FROM pump_lab_trade_journal WHERE ts>$1 ORDER BY ts ASC LIMIT 5000",[Math.max(0,num(afterTs))]);let applied=0,maxTs=afterTs;
+  for(const row of r.rows){const e=row.payload||{};maxTs=Math.max(maxTs,num(row.ts));applyTraderJournalSnapshot(e.trader);
+    if(row.kind==='BUY'||row.kind==='PARTIAL'){const p=e.position;if(p?.id&&!trades.some(t=>t.id===p.id)){const i=positions.findIndex(x=>x.id===p.id);if(i>=0)positions[i]=p;else positions.push(p);applied++;}}
+    if(row.kind==='SELL'){const tr=e.trade;if(tr?.id){const i=positions.findIndex(x=>x.id===tr.id);if(i>=0)positions.splice(i,1);if(!trades.some(t=>t.id===tr.id)){trades.unshift(tr);applied++;}}}
+  }
+  if(r.rows.length){stateVersionTs=Math.max(stateVersionTs,maxTs);journalReplayedAt=now();console.log('TRADE_JOURNAL_REPLAY '+JSON.stringify({rows:r.rows.length,applied,afterTs,maxTs}));}
+  validateStateIntegrity({repair:true});return applied;
 }
 async function flushMarketEvents(client=db){
   if(!client||!pendingDbEvents.length)return;const batch=pendingDbEvents.splice(0,Math.min(750,pendingDbEvents.length));
@@ -3116,6 +3181,8 @@ setInterval(()=>runScheduled('timeline',()=>takeTimeline(),{budgetMs:150}),30000
 setInterval(()=>runScheduled('replay',()=>takeReplay(),{budgetMs:250}),30000).unref?.();
 setInterval(()=>runScheduled('research',()=>researchCycle(),{budgetMs:15000}),3600000).unref?.();
 setInterval(()=>runScheduled('critical-save',()=>saveCritical(),{budgetMs:3000,critical:true}),15000).unref?.();
+setInterval(()=>runScheduled('journal-flush',()=>db?queueDbWrite(()=>flushTradeJournal(db),'high'):false,{budgetMs:2000,critical:true}),2000).unref?.();
+setInterval(()=>runScheduled('event-flush',()=>db?queueDbWrite(()=>flushMarketEvents(db),'normal'):false,{budgetMs:5000}),60000).unref?.();
 setInterval(()=>runScheduled('full-save',()=>save(),{budgetMs:15000}),300000).unref?.();
 const diagTimer=setTimeout(()=>runScheduled('diagnostics',async()=>{logStrategyDiagnostics();logPerformanceSnapshot();logFullPostmortem();},{budgetMs:1500}),20000);diagTimer.unref?.();
 const diagLoop=setInterval(()=>runScheduled('diagnostics',async()=>{logStrategyDiagnostics();logPerformanceSnapshot();logFullPostmortem();},{budgetMs:1500}),300000);diagLoop.unref?.();
@@ -3125,7 +3192,7 @@ setLifecycle('READY','market loops initialized');
 async function gracefulShutdown(signal){
   if(shuttingDown)return;shuttingDown=true;setLifecycle('DRAINING',signal+' received; blocking new entries and flushing state');
   const hard=setTimeout(()=>{console.error('FORCED_SHUTDOWN after drain timeout');process.exit(1);},12000);hard.unref?.();
-  try{await saveCritical();if(db)try{await queueDbWrite(async()=>{await flushMarketEvents(db);return true;},'high');}catch{};try{await kv?.quit();}catch{};try{await db?.end();}catch{};server.close(()=>{clearTimeout(hard);process.exit(0);});}
+  try{await saveCritical();if(db)try{await queueDbWrite(async()=>{await flushTradeJournal(db);await flushMarketEvents(db);return true;},'high');}catch{};try{await kv?.quit();}catch{};try{await db?.end();}catch{};server.close(()=>{clearTimeout(hard);process.exit(0);});}
   catch(e){console.error('GRACEFUL_SHUTDOWN_ERROR '+String(e?.stack||e));clearTimeout(hard);process.exit(1);}
 }
 process.on('SIGTERM',()=>gracefulShutdown('SIGTERM'));process.on('SIGINT',()=>gracefulShutdown('SIGINT'));
