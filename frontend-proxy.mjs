@@ -19,18 +19,24 @@ let stateRefreshInFlight=null;
 let backendWakeFailures=0;
 const source = fs.readFileSync(new URL('./server.mjs', import.meta.url), 'utf8');
 const start = source.indexOf('const HTML=`');
-const end = source.indexOf('</html>`', start);
+const end = source.indexOf('</html>', start);
 if (start < 0 || end < 0) throw new Error('Unable to extract Pump Lab HTML from server.mjs');
-const HTML = source.slice(start + 'const HTML=`'.length, end + '</html>'.length);
+const RAW_HTML = source.slice(start + 'const HTML=`'.length, end + '</html>'.length);
+const inlineStart=RAW_HTML.lastIndexOf('<script>'),inlineEnd=RAW_HTML.lastIndexOf('</script>');
+if(inlineStart<0||inlineEnd<=inlineStart)throw new Error('Unable to extract Pump Lab dashboard script');
+const DASHBOARD_JS=RAW_HTML.slice(inlineStart+'<script>'.length,inlineEnd);
+try{new Function(DASHBOARD_JS)}catch(e){throw new Error('Dashboard JS parse failed: '+e.message)}
+const HTML = RAW_HTML.slice(0,inlineStart)+'<script src="/dashboard.js?v=20261002-2345"></script>'+RAW_HTML.slice(inlineEnd+'</script>'.length);
 
 const EXPECTATIONS = {
-  uniqueTraderArt: HTML.includes('TRADER_ART_PROFILES'),
-  oldFiveArtRendererGone: !HTML.includes("agentVisual v'+(i%5)"),
-  oracleMorph: HTML.includes('@keyframes orbMorph'),
-  oracleMotion: HTML.includes('@keyframes orbMotion'),
-  oracleHintGone: !HTML.includes('Click the object · ask anything'),
-  botClickPromptGone: !HTML.includes('Click for full bot profile'),
-  xSignalFeed: HTML.includes('id="xfeed"') && HTML.includes('loadXFeed')
+  uniqueTraderArt: RAW_HTML.includes('TRADER_ART_PROFILES'),
+  oldFiveArtRendererGone: !RAW_HTML.includes("agentVisual v'+(i%5)"),
+  oracleMorph: RAW_HTML.includes('@keyframes orbMorph'),
+  oracleMotion: RAW_HTML.includes('@keyframes orbMotion'),
+  oracleHintGone: !RAW_HTML.includes('Click the object · ask anything'),
+  botClickPromptGone: !RAW_HTML.includes('Click for full bot profile'),
+  xSignalFeed: RAW_HTML.includes('id="xfeed"') && RAW_HTML.includes('loadXFeed'),
+  externalDashboardJs:HTML.includes('/dashboard.js')&&DASHBOARD_JS.includes('async function go()')
 };
 if (!Object.values(EXPECTATIONS).every(Boolean)) {
   throw new Error('Frontend safety check failed: ' + JSON.stringify(EXPECTATIONS));
@@ -243,6 +249,11 @@ function proxy(req, res) {
 
 const server = http.createServer(async (req,res) => {
   const u = new URL(req.url, 'http://pump-lab-ui.local');
+  if (u.pathname === '/dashboard.js') {
+    console.log('DASHBOARD_JS_REQUEST '+new Date().toISOString());
+    res.writeHead(200,{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','content-length':Buffer.byteLength(DASHBOARD_JS),'x-pump-lab-ui':'future-lab'});
+    return res.end(DASHBOARD_JS);
+  }
   if (u.pathname === '/api/state') {
     const age=stateCacheAt?Date.now()-stateCacheAt:Infinity;
     if(stateCache&&age<30000)return serveState(res,stateCache,{stale:false});
@@ -260,14 +271,30 @@ const server = http.createServer(async (req,res) => {
     return res.end(body);
   }
   if (u.pathname.startsWith('/api/')) return proxy(req,res);
+  let page=HTML;
+  if(stateCache){
+    const sm=stateCache.summary||{},champ=(stateCache.strategies||[]).find(x=>x.id==='champion')||{},w=stateCache.weather||{};
+    const money=n=>'$'+Number(n||0).toLocaleString('en-US',{maximumFractionDigits:0}),one=n=>Number(n||0).toFixed(1);
+    page=page
+      .replace('<span class="badge" id="version">LOADING</span>','<span class="badge" id="version">'+String(stateCache.version||'LIVE')+'</span>')
+      .replace('<div class="big" id="champ">Loading…</div>','<div class="big" id="champ">'+money(champ.equity||1000)+' → $100,000</div>')
+      .replace('<div class="big" id="weather">Loading…</div>','<div class="big" id="weather">'+String(w.regime||'LIVE')+' · '+one(w.temperature)+'/100</div>')
+      .replace('<div class="big" id="capital">Loading…</div>','<div class="big" id="capital">'+money(sm.capital)+'</div>')
+      .replace('<div class="big" id="tradeCount">—</div>','<div class="big" id="tradeCount">'+String(sm.trades??0)+'</div>')
+      .replace('<div class="big" id="open">—</div>','<div class="big" id="open">'+String(sm.open??0)+'</div>')
+      .replace('<div class="big" id="tokenCount">—</div>','<div class="big" id="tokenCount">'+String(sm.tokens??0)+'</div>')
+      .replace('Dashboard: <b class="amber">loading state…</b>','Dashboard: <b class="green">server snapshot loaded</b>');
+  }
+  console.log('UI_PAGE_REQUEST '+JSON.stringify({cached:!!stateCache,cacheAgeMs:stateCacheAt?Date.now()-stateCacheAt:null}));
   res.writeHead(200, {
     'content-type':'text/html; charset=utf-8',
     'cache-control':'no-store, no-cache, must-revalidate',
     'pragma':'no-cache',
     'expires':'0',
-    'x-pump-lab-ui':'future-lab'
+    'x-pump-lab-ui':'future-lab',
+    'content-length':Buffer.byteLength(page)
   });
-  res.end(HTML);
+  res.end(page);
 });
 
 server.listen(PORT,'0.0.0.0',()=>{
