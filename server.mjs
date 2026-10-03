@@ -2306,8 +2306,14 @@ function traderPostmortem(d){
     open:open.map(x=>({symbol:x.symbol,entry:x.entry,mark:positionMarkPrice(x),pnl:pct(positionMarkPrice(x),x.entry),ageMin:(now()-x.opened)/60000,score:x.score,regime:x.entryRegime}))
   };
 }
-function logFullPostmortem(){
-  for(const d of allTraders())console.log('TRADER_POSTMORTEM_ITEM '+JSON.stringify(traderPostmortem(d)));
+async function logFullPostmortem(){
+  const rows=allTraders(),chunkSize=8;
+  for(let i=0;i<rows.length;i+=chunkSize){
+    if(shouldDeferNonCritical())return false;
+    for(const d of rows.slice(i,i+chunkSize))console.log('TRADER_POSTMORTEM_ITEM '+JSON.stringify(traderPostmortem(d)));
+    if(i+chunkSize<rows.length)await new Promise(r=>setImmediate(r));
+  }
+  return true;
 }
 function systemAudit(){
   allTraders().forEach(markEquity);
@@ -3252,8 +3258,15 @@ setInterval(()=>runScheduled('critical-save',()=>saveCritical(),{budgetMs:3000,c
 setInterval(()=>runScheduled('journal-flush',()=>db?queueDbWrite(()=>flushTradeJournal(db),'high'):false,{budgetMs:2000,critical:true}),2000).unref?.();
 setInterval(()=>runScheduled('event-flush',()=>db?queueDbWrite(()=>flushMarketEvents(db),'normal'):false,{budgetMs:5000}),60000).unref?.();
 setInterval(()=>runScheduled('full-save',()=>save(),{budgetMs:15000}),300000).unref?.();
-const diagTimer=setTimeout(()=>runScheduled('diagnostics',async()=>{logStrategyDiagnostics();logPerformanceSnapshot();logFullPostmortem();},{budgetMs:1500}),20000);diagTimer.unref?.();
-const diagLoop=setInterval(()=>runScheduled('diagnostics',async()=>{logStrategyDiagnostics();logPerformanceSnapshot();logFullPostmortem();},{budgetMs:1500}),300000);diagLoop.unref?.();
+const runDiagnostics=()=>runScheduled('diagnostics',async()=>{
+  logStrategyDiagnostics();
+  await new Promise(r=>setImmediate(r));
+  logPerformanceSnapshot();
+  await new Promise(r=>setImmediate(r));
+  await logFullPostmortem();
+},{budgetMs:5000});
+const diagTimer=setTimeout(runDiagnostics,45000);diagTimer.unref?.();
+const diagLoop=setInterval(runDiagnostics,300000);diagLoop.unref?.();
 let loopExpected=Date.now()+1000;setInterval(()=>{const ts=Date.now(),lag=Math.max(0,ts-loopExpected);loopExpected=ts+1000;eventLoopLagMs=lag;eventLoopSamples.push(lag);if(eventLoopSamples.length>120)eventLoopSamples.shift();eventLoopLagP95=percentile(eventLoopSamples,.95)||0;systemPressure=runtimePressure();if(lag>500)setHealth('event-loop','warn','Event loop lag '+lag+'ms · pressure '+systemPressure,{truth:'observed'});else if(health.get('event-loop')?.status!=='ok')setHealth('event-loop','ok','Event loop responsive · p95 '+Math.round(eventLoopLagP95)+'ms',{truth:'observed'});},1000).unref?.();
 setInterval(watchdogTick,10000).unref?.();
 takeTimeline();takeReplay();alphaOS.observeWorld({weather:marketWeather(),tokens:[...tokens.values()],strategyEquity:Object.fromEntries(allTraders().map(d=>[d.id,d.equity]))});alphaOS.pollExternal();openPositionPoll();
