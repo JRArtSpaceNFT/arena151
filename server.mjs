@@ -3289,9 +3289,6 @@ const server=http.createServer(async (req,res)=>{
   res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store'});res.end(HTML);
 });
 
-server.listen(PORT,'0.0.0.0',()=>{
-  console.log('PUMP LAB HTTP port bound on '+PORT+' · durable state recovery in progress');
-});
 setLifecycle('RESTORING','restoring durable state');
 loadLocal();
 await initKv(true);
@@ -3302,6 +3299,7 @@ if((DATABASE_URL||REDIS_URL||PEER_RECOVERY_URL)&&!(dbStateRestored||kvStateResto
   const restored=await waitForInitialDurableRestore();
   if(!restored)process.exit(1);
 }
+if(!validateStateIntegrity({repair:true})){console.error('FATAL_STATE_INTEGRITY · refusing to bind public port');process.exit(1);}
 if(dbStateRestored||kvStateRestored||localStateRestored||peerStateRestored)logStrategyDiagnostics();
 setLifecycle('WARMING','state restored; initializing market loops');
 logV3SelfTest();
@@ -3342,6 +3340,7 @@ let loopExpected=Date.now()+1000;setInterval(()=>{const ts=Date.now(),lag=Math.m
 setInterval(watchdogTick,10000).unref?.();
 takeTimeline();takeReplay();alphaOS.observeWorld({weather:marketWeather(),tokens:[...tokens.values()],strategyEquity:Object.fromEntries(allTraders().map(d=>[d.id,d.equity]))});alphaOS.pollExternal();openPositionPoll();
 setLifecycle('READY','market loops initialized');
+server.listen(PORT,'0.0.0.0',()=>{console.log('PUMP LAB HTTP port bound on '+PORT+' · READY after trusted state recovery');});
 runScheduled('x-feed-warmup',()=>refreshXFeed(false).then(x=>console.log('X_FEED_WARMUP '+JSON.stringify({ok:x.ok,source:x.source,posts:x.posts?.length||0,handles:x.handles,errors:x.errors||[]}))),{budgetMs:30000}).catch(()=>{});
 setInterval(()=>runScheduled('x-feed-refresh',()=>refreshXFeed(false),{budgetMs:30000}),120000).unref?.();
 async function gracefulShutdown(signal){
