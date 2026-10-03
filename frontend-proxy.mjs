@@ -235,7 +235,7 @@ async function refreshStateCache(force=false){
         const state=await fetchBackendJson('/api/state',20000);
         stateCache=state;stateCacheAt=Date.now();backendWakeFailures=0;
         const sm=state?.summary||{},tradeAccountingOk=sm.ledgerProductionTrades==null||Number(sm.trades||0)===Number(sm.ledgerProductionTrades||0);
-        console.log('STATE_CACHE_REFRESH '+JSON.stringify({ok:true,attempt,version:state?.version||null,productionExits:sm.trades||0,ledgerRows:sm.ledgerTrades||0,ledgerProductionRows:sm.ledgerProductionTrades||0,cohortRows:sm.ledgerCohortTrades||0,controlRows:sm.ledgerControlTrades||0,scienceTrades:sm.scienceTrades||0,tradeAccountingOk,tokens:sm.tokens||0,bytes:Buffer.byteLength(JSON.stringify(state))}));
+        console.log('STATE_CACHE_REFRESH '+JSON.stringify({ok:true,attempt,version:state?.version||null,productionExits:sm.trades||0,ledgerRows:sm.ledgerTrades||0,ledgerDetailedRows:sm.ledgerDetailedTrades??sm.ledgerTrades??0,ledgerRecoveredAggregateRows:sm.ledgerRecoveredAggregateRows||0,ledgerProductionRows:sm.ledgerProductionTrades||0,cohortRows:sm.ledgerCohortTrades||0,controlRows:sm.ledgerControlTrades||0,scienceTrades:sm.scienceTrades||0,tradeAccountingOk,tokens:sm.tokens||0,bytes:Buffer.byteLength(JSON.stringify(state))}));
         if(!tradeAccountingOk)console.warn('TRADE_ACCOUNTING_MISMATCH '+JSON.stringify({productionExits:sm.trades||0,ledgerProductionRows:sm.ledgerProductionTrades||0,ledgerRows:sm.ledgerTrades||0}));
         refreshRecoveryCache(false).catch(e=>console.warn('RECOVERY_CACHE_REFRESH_FAILED '+String(e?.message||e)));
         return state;
@@ -334,7 +334,7 @@ server.listen(PORT,'0.0.0.0',()=>{
   console.log('PUMP LAB UI proxy live on '+PORT+' -> '+BACKEND_ORIGIN);
   console.log('UI_SELFTEST '+JSON.stringify(EXPECTATIONS));
   refreshXFeed(false).then(x=>console.log('X_FEED_WARMUP '+JSON.stringify({ok:x.ok,configured:x.configured,source:x.source,sources:x.sources||[],handles:x.handles,posts:x.posts?.length||0,authors:[...new Set((x.posts||[]).map(p=>p.author?.username).filter(Boolean))],errors:x.errors||[]}))).catch(e=>console.warn('X_FEED_WARMUP_FAILED '+String(e?.message||e)));
-  refreshStateCache(true).then(s=>console.log('BACKEND_WARMUP '+JSON.stringify({ok:true,version:s?.version||null,productionExits:s?.summary?.trades||0,ledgerRows:s?.summary?.ledgerTrades||0,scienceTrades:s?.summary?.scienceTrades||0,tokens:s?.summary?.tokens||0}))).catch(e=>console.warn('BACKEND_WARMUP_FAILED '+String(e?.message||e)));
+  refreshStateCache(true).then(s=>console.log('BACKEND_WARMUP '+JSON.stringify({ok:true,version:s?.version||null,productionExits:s?.summary?.trades||0,ledgerRows:s?.summary?.ledgerTrades||0,ledgerDetailedRows:s?.summary?.ledgerDetailedTrades??s?.summary?.ledgerTrades??0,ledgerRecoveredAggregateRows:s?.summary?.ledgerRecoveredAggregateRows||0,scienceTrades:s?.summary?.scienceTrades||0,tokens:s?.summary?.tokens||0}))).catch(e=>console.warn('BACKEND_WARMUP_FAILED '+String(e?.message||e)));
   refreshRecoveryCache(true).catch(e=>console.warn('RECOVERY_CACHE_WARMUP_FAILED '+String(e?.message||e)));
   setInterval(()=>refreshStateCache(true).catch(()=>{}),20000).unref?.();
   setInterval(()=>refreshRecoveryCache(true).catch(()=>{}),RECOVERY_CACHE_REFRESH_MS).unref?.();
