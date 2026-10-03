@@ -98,6 +98,9 @@ if(!src.includes("if(RESET_SEASON)await archiveAndResetSeason(RESET_SEASON)"))fa
 if(!src.includes("req.url==='/api/archives'"))failures.push('season archive metadata endpoint missing');
 if(!src.includes("freshAlpha=createPumpLabAlphaOS"))failures.push('Alpha OS fresh-season reset missing');
 
+if(src.indexOf("setLifecycle('READY','market loops initialized')")<0||src.indexOf("server.listen(PORT,'0.0.0.0'")<src.indexOf("setLifecycle('READY','market loops initialized')"))failures.push('public port must bind only after READY');
+if(!src.includes("FATAL_STATE_INTEGRITY · refusing to bind public port"))failures.push('startup integrity fence missing');
+
 if (failures.length) {
   console.error('PUMP LAB AUDIT STATIC CHECK FAILED');
   for (const name of failures) console.error(' - ' + name);
