@@ -4,6 +4,11 @@ const src = fs.readFileSync(new URL('../server.mjs', import.meta.url), 'utf8');
 const scienceSrc = fs.readFileSync(new URL('../lib/pump-lab-season2-science.mjs', import.meta.url), 'utf8');
 const proxySrc = fs.readFileSync(new URL('../frontend-proxy.mjs', import.meta.url), 'utf8');
 const checks = [
+  ['science ledger continuity', "rebuildScienceFromDetailedLedger("],
+  ['science detailed-ledger method', "science.rebuildFromTradeLedger("],
+  ['canonical recovery reseed', "async function reseedCanonicalFullSnapshot"],
+  ['canonical reseed audit log', "CANONICAL_FULL_RESEED"],
+  ['critical recovery full reseed hook', "await reseedCanonicalFullSnapshot(db"],
   ['high-water health diagnostics', "highWater:{seasonKey:recoveryHighWater.seasonKey"],
   ['forensic health diagnostics', "forensic:{active:!!forensicRecovery.active"],
   ['peer-aware system audit', "DATABASE_URL||REDIS_URL||PEER_RECOVERY_URL"],
