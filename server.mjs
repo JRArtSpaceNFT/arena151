@@ -15,6 +15,8 @@ const PAPER_FIXED_TX_COST_USD = Number(process.env.PAPER_FIXED_TX_COST_USD || 0.
 const STATE_FILE = process.env.STATE_FILE || '/tmp/pump-lab-state-v06.json';
 const DATABASE_URL = process.env.DATABASE_URL || '';
 const REDIS_URL = process.env.REDIS_URL || '';
+const PEER_RECOVERY_URL = process.env.PEER_RECOVERY_URL || 'https://pump-lab-ui.onrender.com/api/recovery-snapshot-cache';
+const PEER_RECOVERY_MAX_AGE_MS = Number(process.env.PEER_RECOVERY_MAX_AGE_MS || 900000);
 const LOCAL_RECOVERY_MAX_AGE_MS = Number(process.env.LOCAL_RECOVERY_MAX_AGE_MS || 1800000);
 const AUDIT_VERSION = '2026-10-01-process-audit';
 const ALLOW_AUTO_PROMOTION = (process.env.ALLOW_AUTO_PROMOTION || 'false') === 'true';
@@ -132,6 +134,9 @@ let lastKvSaveAt = 0;
 let lastKvRestoreAt = 0;
 let localStateRestored = false;
 let lastLocalRestoreAt = 0;
+let peerStateRestored = false;
+let lastPeerRestoreAt = 0;
+let lastPeerAttemptAt = 0;
 let stateVersionTs = 0;
 let dbReconnectTimer = null;
 const opportunityKeysByMint = new Map();
@@ -423,7 +428,7 @@ function watchdogTick(){
 function readinessStatus(){
   const durable=durableTradingReady(),journalHealthy=pendingTradeJournal.length<250,integrityHealthy=lastIntegrityReport?.ok!==false,queuesHealthy=dbWriteHigh.length<100&&solanaPriorityQueue.length<100,eventLoopHealthy=eventLoopLagP95<1000;
   const ready=!shuttingDown&&durable&&journalHealthy&&integrityHealthy&&queuesHealthy&&eventLoopHealthy&&['READY','DEGRADED'].includes(lifecyclePhase);
-  return{ready,phase:lifecyclePhase,phaseSince:lifecycleSince,detail:lifecycleDetail,pressure:systemPressure,eventLoopLagMs,eventLoopLagP95,durable,dbConnected:!!db,kvConnected:kvReady,stateVersionTs,lastDurableSaveAt,lastCriticalSaveAt,lastIngestAt,integrity:lastIntegrityReport,checks:{durable,journalHealthy,integrityHealthy,queuesHealthy,eventLoopHealthy},journal:{pending:pendingTradeJournal.length,lastFlushAt:lastTradeJournalFlush,written:journalEventsWritten,replayedAt:journalReplayedAt},backpressure:{...backpressureDrops},circuits:Object.fromEntries(providerCircuits),queues:{solana:solanaQueue.length,prioritySolana:solanaPriorityQueue.length,pendingDbEvents:pendingDbEvents.length,dbHigh:dbWriteHigh.length,dbNormal:dbWriteNormal.length,dbLow:dbWriteLow.length},subsystems:Object.fromEntries(subsystemRuntime)};
+  return{ready,phase:lifecyclePhase,phaseSince:lifecycleSince,detail:lifecycleDetail,pressure:systemPressure,eventLoopLagMs,eventLoopLagP95,durable,dbConnected:!!db,kvConnected:kvReady,peerRestored:peerStateRestored,stateVersionTs,lastDurableSaveAt,lastCriticalSaveAt,lastPeerRestoreAt,lastIngestAt,integrity:lastIntegrityReport,checks:{durable,journalHealthy,integrityHealthy,queuesHealthy,eventLoopHealthy},journal:{pending:pendingTradeJournal.length,lastFlushAt:lastTradeJournalFlush,written:journalEventsWritten,replayedAt:journalReplayedAt},backpressure:{...backpressureDrops},circuits:Object.fromEntries(providerCircuits),queues:{solana:solanaQueue.length,prioritySolana:solanaPriorityQueue.length,pendingDbEvents:pendingDbEvents.length,dbHigh:dbWriteHigh.length,dbNormal:dbWriteNormal.length,dbLow:dbWriteLow.length},subsystems:Object.fromEntries(subsystemRuntime)};
 }
 function broadcast(type,data) {
   const payload=`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`;
@@ -826,9 +831,9 @@ function pruneOpportunities(){
 }
 function durableTradingReady(){
   if(!stateIntegrityOk||shuttingDown||lifecyclePhase==='DRAINING')return false;
-  if(!DATABASE_URL&&!REDIS_URL)return true;
-  if(!(dbStateRestored||kvStateRestored||localStateRestored))return false;
-  const anchor=Math.max(lastDurableSaveAt,lastDurableRestoreAt,lastKvSaveAt,lastKvRestoreAt,lastLocalRestoreAt);
+  if(!DATABASE_URL&&!REDIS_URL&&!PEER_RECOVERY_URL)return true;
+  if(!(dbStateRestored||kvStateRestored||localStateRestored||peerStateRestored))return false;
+  const anchor=Math.max(lastDurableSaveAt,lastDurableRestoreAt,lastKvSaveAt,lastKvRestoreAt,lastLocalRestoreAt,lastPeerRestoreAt);
   return !!db||kvReady||(anchor>0&&now()-anchor<=DURABLE_WRITE_GRACE_MS);
 }
 function storageStatus(){
@@ -836,6 +841,7 @@ function storageStatus(){
     canonical:DATABASE_URL?'postgres':REDIS_URL?'key-value':'local-memory',
     postgres:{configured:!!DATABASE_URL,connected:!!db,restored:dbStateRestored,lastSaveAt:lastDurableSaveAt,lastRestoreAt:lastDurableRestoreAt},
     keyValue:{configured:!!REDIS_URL,connected:kvReady,restored:kvStateRestored,lastSaveAt:lastKvSaveAt,lastRestoreAt:lastKvRestoreAt,persistent:false,role:'disposable failover cache'},
+    peer:{configured:!!PEER_RECOVERY_URL,restored:peerStateRestored,lastRestoreAt:lastPeerRestoreAt,maxRecoveryAgeMs:PEER_RECOVERY_MAX_AGE_MS,role:'independent emergency snapshot peer'},
     local:{restored:localStateRestored,lastRestoreAt:lastLocalRestoreAt,maxRecoveryAgeMs:LOCAL_RECOVERY_MAX_AGE_MS,role:'emergency recovery only'},
     tradingUnlocked:durableTradingReady(),stateVersionTs,graceMs:DURABLE_WRITE_GRACE_MS
   };
@@ -2012,14 +2018,17 @@ function scheduleDbReconnect(delay=5000){
   dbReconnectTimer=setTimeout(()=>{dbReconnectTimer=null;initDb(!dbStateRestored);},delay);
   dbReconnectTimer.unref?.();
 }
+function markRestoreSource(source){
+  if(source==='postgres'){dbStateRestored=true;lastDurableRestoreAt=now();}
+  if(source==='key-value'){kvStateRestored=true;lastKvRestoreAt=now();}
+  if(source==='local'){localStateRestored=true;lastLocalRestoreAt=now();}
+  if(source==='peer'){peerStateRestored=true;lastPeerRestoreAt=now();}
+}
 function restoreIfNewer(s,source,sourceTs=0){
   if(!s||typeof s!=='object')return false;
   const ts=num(s?.stateMeta?.savedAt)||num(sourceTs)||0;
   if(stateVersionTs&&ts&&ts<stateVersionTs)return false;
-  restore(s);stateVersionTs=Math.max(stateVersionTs,ts);
-  if(source==='postgres'){dbStateRestored=true;lastDurableRestoreAt=now();}
-  if(source==='key-value'){kvStateRestored=true;lastKvRestoreAt=now();}
-  if(source==='local'){localStateRestored=true;lastLocalRestoreAt=now();}
+  restore(s);stateVersionTs=Math.max(stateVersionTs,ts);markRestoreSource(source);
   console.log('STATE_RESTORE '+JSON.stringify({source,savedAt:ts,current:stateVersionTs}));
   return true;
 }
@@ -2034,9 +2043,10 @@ async function initKv(restoreState=true){
     client.on('ready',()=>{kvReady=true;setHealth('research-failover','ok','Free Key Value failover online',{truth:'observed'});});
     await client.connect();kv=client;kvReady=true;
     if(restoreState){
-      const raw=await kv.get('pump-lab:state:main');
+      const [raw,criticalRaw]=await Promise.all([kv.get('pump-lab:state:main'),kv.get('pump-lab:state:critical')]);
       if(raw){try{restoreIfNewer(JSON.parse(raw),'key-value');}catch(e){console.warn('Key Value restore warning:',e.message);}}
-      else if(!DATABASE_URL){
+      if(criticalRaw){try{restoreCriticalFromSource(JSON.parse(criticalRaw),'key-value');}catch(e){console.warn('Key Value critical restore warning:',e.message);}}
+      if(!raw&&!criticalRaw&&!DATABASE_URL){
         kvStateRestored=true;lastKvRestoreAt=now();
         console.log('STATE_RESTORE '+JSON.stringify({source:'key-value-empty-fresh',savedAt:0,current:stateVersionTs}));
       }
@@ -2097,11 +2107,30 @@ async function initDb(restoreState=true){
     console.warn('Postgres connection failed:',e.message);scheduleDbReconnect(10000);
   }finally{dbConnecting=false;}
 }
+async function tryPeerRecovery(){
+  if(!PEER_RECOVERY_URL)return false;
+  lastPeerAttemptAt=now();const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),6000);
+  try{
+    const r=await fetch(PEER_RECOVERY_URL,{headers:{accept:'application/json','cache-control':'no-cache','user-agent':'pump-lab-peer-recovery/1.0'},cache:'no-store',signal:controller.signal});
+    if(!r.ok)throw new Error('peer HTTP '+r.status);
+    const j=await r.json(),s=j?.state||j,ts=num(s?.stateMeta?.savedAt)||num(j?.savedAt)||0;
+    if(!ts||now()-ts>PEER_RECOVERY_MAX_AGE_MS)throw new Error('peer snapshot stale');
+    const restored=restoreCriticalFromSource(s,'peer',ts);
+    if(restored)setHealth('recovery-peer','ok','Independent UI recovery snapshot accepted',{truth:'observed'});
+    return restored;
+  }catch(e){setHealth('recovery-peer','warn','Recovery peer unavailable: '+String(e?.message||e),{truth:'observed'});return false;}
+  finally{clearTimeout(timer);}
+}
 async function waitForInitialDurableRestore(maxMs=90000){
-  if(!DATABASE_URL&&!REDIS_URL)return true;
+  if(!DATABASE_URL&&!REDIS_URL&&!PEER_RECOVERY_URL)return true;
   const deadline=now()+maxMs;
-  while(!(dbStateRestored||kvStateRestored||localStateRestored)&&now()<deadline){await new Promise(r=>setTimeout(r,1000));}
-  if(dbStateRestored||kvStateRestored||localStateRestored)return true;
+  while(!(dbStateRestored||kvStateRestored||localStateRestored||peerStateRestored)&&now()<deadline){
+    if(REDIS_URL&&!kvReady&&!kvConnecting)await initKv(true);
+    if(PEER_RECOVERY_URL&&now()-lastPeerAttemptAt>=5000)await tryPeerRecovery();
+    if(dbStateRestored||kvStateRestored||localStateRestored||peerStateRestored)break;
+    await new Promise(r=>setTimeout(r,1000));
+  }
+  if(dbStateRestored||kvStateRestored||localStateRestored||peerStateRestored)return true;
   console.error('FATAL_STATE_RESTORE_TIMEOUT · refusing to serve fresh defaults');
   return false;
 }
@@ -2119,7 +2148,8 @@ function restoreCritical(s){try{
   if(Array.isArray(s.autopsies)&&s.autopsies.length)autopsies.splice(0,autopsies.length,...s.autopsies,...autopsies.filter(x=>!s.autopsies.some(y=>y.id&&y.id===x.id)).slice(0,250-s.autopsies.length));
   return true;
 }catch(e){console.warn('Critical state restore warning:',e.message);return false;}}
-function restoreCriticalIfNewer(s,sourceTs=0){const ts=num(s?.stateMeta?.savedAt)||num(sourceTs)||0;if(stateVersionTs&&ts&&ts<stateVersionTs)return false;if(!restoreCritical(s))return false;stateVersionTs=Math.max(stateVersionTs,ts);dbStateRestored=true;lastDurableRestoreAt=now();console.log('CRITICAL_STATE_RESTORE '+JSON.stringify({savedAt:ts,current:stateVersionTs,trades:trades.length,open:positions.length}));return true;}
+function restoreCriticalFromSource(s,source,sourceTs=0){const ts=num(s?.stateMeta?.savedAt)||num(sourceTs)||0;if(stateVersionTs&&ts&&ts<stateVersionTs)return false;if(!restoreCritical(s))return false;stateVersionTs=Math.max(stateVersionTs,ts);markRestoreSource(source);console.log('CRITICAL_STATE_RESTORE '+JSON.stringify({source,savedAt:ts,current:stateVersionTs,trades:trades.length,open:positions.length}));return true;}
+function restoreCriticalIfNewer(s,sourceTs=0){return restoreCriticalFromSource(s,'postgres',sourceTs);}
 function restore(s){try{if(s.season)seasonInfo={...seasonInfo,...s.season};alphaOS.restore(s.alphaOS);science.restore(s.science);
   for(const x of s.strategies||[]){
     const d=strategyDefs.find(q=>q.id===x.id);if(!d)continue;
@@ -2198,15 +2228,31 @@ async function writeLocalAtomic(s){
     await fs.promises.writeFile(tmp,json);await fs.promises.rename(tmp,STATE_FILE);return true;
   }catch(e){console.warn('Local checkpoint write warning:',e.message);return false;}
 }
+async function writeLocalCriticalAtomic(s){
+  const file=STATE_FILE+'.critical';
+  try{
+    const tmp=file+'.tmp',bak=file+'.bak',json=JSON.stringify(s);
+    try{await fs.promises.copyFile(file,bak);}catch(e){if(e?.code!=='ENOENT')console.warn('Local critical backup warning:',e.message);}
+    await fs.promises.writeFile(tmp,json);await fs.promises.rename(tmp,file);return true;
+  }catch(e){console.warn('Local critical checkpoint write warning:',e.message);return false;}
+}
 function loadLocal(){
+  let restored=false;
   for(const file of [STATE_FILE,STATE_FILE+'.bak']){
     try{
       if(!fs.existsSync(file))continue;
-      const age=now()-fs.statSync(file).mtimeMs;if(age>LOCAL_RECOVERY_MAX_AGE_MS)continue;
-      const s=JSON.parse(fs.readFileSync(file,'utf8'));if(restoreIfNewer(s,'local',fs.statSync(file).mtimeMs))return true;
+      const stat=fs.statSync(file),age=now()-stat.mtimeMs;if(age>LOCAL_RECOVERY_MAX_AGE_MS)continue;
+      const s=JSON.parse(fs.readFileSync(file,'utf8'));restored=restoreIfNewer(s,'local',stat.mtimeMs)||restored;
     }catch(e){console.warn('Local checkpoint restore warning:',e.message);}
   }
-  return false;
+  for(const file of [STATE_FILE+'.critical',STATE_FILE+'.critical.bak']){
+    try{
+      if(!fs.existsSync(file))continue;
+      const stat=fs.statSync(file),age=now()-stat.mtimeMs;if(age>LOCAL_RECOVERY_MAX_AGE_MS)continue;
+      const s=JSON.parse(fs.readFileSync(file,'utf8'));restored=restoreCriticalFromSource(s,'local',stat.mtimeMs)||restored;
+    }catch(e){console.warn('Local critical restore warning:',e.message);}
+  }
+  return restored;
 }
 async function save(){
   if(saveInProgress){saveQueued=true;return;}
@@ -2237,11 +2283,18 @@ async function saveCritical(){
   if(criticalSaveInProgress){criticalSaveQueued=true;return;}
   criticalSaveInProgress=true;
   try{
-    if(!db)return;
-    const s=serializeCritical(),savedAt=num(s.stateMeta?.savedAt)||now();
+    const s=serializeCritical(),savedAt=num(s.stateMeta?.savedAt)||now();stateVersionTs=Math.max(stateVersionTs,savedAt);
+    const localOk=await writeLocalCriticalAtomic(s);
+    let kvOk=false;
+    if(kvReady&&kv){
+      try{await kv.set('pump-lab:state:critical',JSON.stringify(s));kvOk=true;lastKvSaveAt=now();}
+      catch(e){kvReady=false;setHealth('research-failover','warn','Critical Key Value checkpoint failed: '+e.message,{truth:'observed'});initKv(false);}
+    }
+    if(localOk||kvOk)lastCriticalSaveAt=now();
+    if(!db){setHealth('research-memory','warn','Postgres critical checkpoint unavailable · local/Key Value emergency checkpoint retained',{truth:'observed'});return;}
     const wrote=await queueDbWrite(async()=>{const client=db;if(!client)return false;await client.query("INSERT INTO pump_lab_state(id,payload,updated_at) VALUES('main:critical',$1,now()) ON CONFLICT(id) DO UPDATE SET payload=$1,updated_at=now()",[s]);return true;},'high');
-    if(!wrote)return;stateVersionTs=Math.max(stateVersionTs,savedAt);lastCriticalSaveAt=now();lastDurableSaveAt=lastCriticalSaveAt;
-    setHealth('research-memory','ok','Postgres critical trader state synchronized',{truth:'observed'});
+    if(!wrote)return;lastCriticalSaveAt=now();lastDurableSaveAt=lastCriticalSaveAt;
+    setHealth('research-memory','ok','Postgres critical trader state synchronized · emergency checkpoints retained',{truth:'observed'});
   }catch(e){
     setHealth('research-memory','warn','Critical trader checkpoint failed: '+e.message,{truth:'observed'});
     const bad=db;db=null;try{await bad?.end();}catch{}scheduleDbReconnect(5000);
@@ -3194,6 +3247,16 @@ const server=http.createServer(async (req,res)=>{
       console.error('ARCHIVE_MONSTER_EXPORT_ERROR '+(e?.stack||e));res.writeHead(500,{'content-type':'application/json','cache-control':'no-store'});return res.end(JSON.stringify({ok:false,error:'archive monster export unavailable'}));
     }
   }
+  if(req.url==='/api/recovery-snapshot'){
+    try{
+      const snapshot=serializeCritical(),json=JSON.stringify({ok:true,generatedAt:now(),state:snapshot});
+      res.writeHead(200,{'content-type':'application/json','cache-control':'no-store','content-length':Buffer.byteLength(json),'x-robots-tag':'noindex, nofollow'});
+      return res.end(json);
+    }catch(e){
+      res.writeHead(500,{'content-type':'application/json','cache-control':'no-store'});
+      return res.end(JSON.stringify({ok:false,error:'recovery snapshot unavailable'}));
+    }
+  }
   if(req.url==='/api/state'){
     try{
       const json=getStateJsonCached();
@@ -3231,12 +3294,13 @@ setLifecycle('RESTORING','restoring durable state');
 loadLocal();
 await initKv(true);
 await initDb(true);
-if((DATABASE_URL||REDIS_URL)&&!(dbStateRestored||kvStateRestored||localStateRestored)){
-  console.log('STARTUP_STATE_GATE waiting for Postgres / Key Value / local recovery before accepting traffic');
+if(!(dbStateRestored||kvStateRestored||localStateRestored)&&PEER_RECOVERY_URL)await tryPeerRecovery();
+if((DATABASE_URL||REDIS_URL||PEER_RECOVERY_URL)&&!(dbStateRestored||kvStateRestored||localStateRestored||peerStateRestored)){
+  console.log('STARTUP_STATE_GATE waiting for Postgres / Key Value / local / peer recovery before accepting traffic');
   const restored=await waitForInitialDurableRestore();
   if(!restored)process.exit(1);
 }
-if(dbStateRestored)logStrategyDiagnostics();
+if(dbStateRestored||kvStateRestored||localStateRestored||peerStateRestored)logStrategyDiagnostics();
 setLifecycle('WARMING','state restored; initializing market loops');
 logV3SelfTest();
 setHealth('engine','ok','v3.1 evidence playbooks + Megga copy/scout lab + 31 specialist cohorts + controls online',{truth:'observed'});
