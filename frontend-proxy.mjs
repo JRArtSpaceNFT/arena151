@@ -210,7 +210,9 @@ async function refreshStateCache(force=false){
       try{
         const state=await fetchBackendJson('/api/state',20000);
         stateCache=state;stateCacheAt=Date.now();backendWakeFailures=0;
-        console.log('STATE_CACHE_REFRESH '+JSON.stringify({ok:true,attempt,version:state?.version||null,trades:state?.summary?.trades||0,tokens:state?.summary?.tokens||0,bytes:Buffer.byteLength(JSON.stringify(state))}));
+        const sm=state?.summary||{},tradeAccountingOk=sm.ledgerProductionTrades==null||Number(sm.trades||0)===Number(sm.ledgerProductionTrades||0);
+        console.log('STATE_CACHE_REFRESH '+JSON.stringify({ok:true,attempt,version:state?.version||null,productionExits:sm.trades||0,ledgerRows:sm.ledgerTrades||0,ledgerProductionRows:sm.ledgerProductionTrades||0,cohortRows:sm.ledgerCohortTrades||0,controlRows:sm.ledgerControlTrades||0,scienceTrades:sm.scienceTrades||0,tradeAccountingOk,tokens:sm.tokens||0,bytes:Buffer.byteLength(JSON.stringify(state))}));
+        if(!tradeAccountingOk)console.warn('TRADE_ACCOUNTING_MISMATCH '+JSON.stringify({productionExits:sm.trades||0,ledgerProductionRows:sm.ledgerProductionTrades||0,ledgerRows:sm.ledgerTrades||0}));
         return state;
       }catch(e){
         lastErr=e;backendWakeFailures++;console.warn('STATE_CACHE_REFRESH_FAILED '+JSON.stringify({attempt,error:String(e?.message||e),coldStartWindow:true}));
@@ -268,7 +270,8 @@ const server = http.createServer(async (req,res) => {
     catch(err){return xJson(res,502,{ok:xFeedCache.length>0,configured:X_FEED_HANDLES.length>0,source:X_BEARER_TOKEN?'x-api':'public-fallback',handles:X_FEED_HANDLES,posts:xFeedCache,fetchedAt:xFeedLastFetch||null,error:String(err?.message||err)})}
   }
   if (u.pathname === '/ui-health') {
-    const body = JSON.stringify({ok:true,frontend:'future-lab',backend:BACKEND_ORIGIN,expectations:EXPECTATIONS,stateCache:{ready:!!stateCache,ageMs:stateCacheAt?Date.now()-stateCacheAt:null,lastRefresh:stateCacheAt||null,wakeFailures:backendWakeFailures}});
+    const sm=stateCache?.summary||{},tradeAccountingOk=sm.ledgerProductionTrades==null||Number(sm.trades||0)===Number(sm.ledgerProductionTrades||0);
+    const body = JSON.stringify({ok:true,frontend:'future-lab',backend:BACKEND_ORIGIN,expectations:EXPECTATIONS,stateCache:{ready:!!stateCache,ageMs:stateCacheAt?Date.now()-stateCacheAt:null,lastRefresh:stateCacheAt||null,wakeFailures:backendWakeFailures},tradeAccounting:{ok:tradeAccountingOk,productionExits:sm.trades||0,ledgerRows:sm.ledgerTrades||0,ledgerProductionRows:sm.ledgerProductionTrades||0,cohortRows:sm.ledgerCohortTrades||0,controlRows:sm.ledgerControlTrades||0,scienceTrades:sm.scienceTrades||0}});
     res.writeHead(200, {'content-type':'application/json','cache-control':'no-store','content-length':Buffer.byteLength(body)});
     return res.end(body);
   }
@@ -303,6 +306,6 @@ server.listen(PORT,'0.0.0.0',()=>{
   console.log('PUMP LAB UI proxy live on '+PORT+' -> '+BACKEND_ORIGIN);
   console.log('UI_SELFTEST '+JSON.stringify(EXPECTATIONS));
   refreshXFeed(false).then(x=>console.log('X_FEED_WARMUP '+JSON.stringify({ok:x.ok,configured:x.configured,source:x.source,sources:x.sources||[],handles:x.handles,posts:x.posts?.length||0,authors:[...new Set((x.posts||[]).map(p=>p.author?.username).filter(Boolean))],errors:x.errors||[]}))).catch(e=>console.warn('X_FEED_WARMUP_FAILED '+String(e?.message||e)));
-  refreshStateCache(true).then(s=>console.log('BACKEND_WARMUP '+JSON.stringify({ok:true,version:s?.version||null,trades:s?.summary?.trades||0,tokens:s?.summary?.tokens||0}))).catch(e=>console.warn('BACKEND_WARMUP_FAILED '+String(e?.message||e)));
-  setInterval(()=>refreshStateCache(true).catch(()=>{}),60000).unref?.();
+  refreshStateCache(true).then(s=>console.log('BACKEND_WARMUP '+JSON.stringify({ok:true,version:s?.version||null,productionExits:s?.summary?.trades||0,ledgerRows:s?.summary?.ledgerTrades||0,scienceTrades:s?.summary?.scienceTrades||0,tokens:s?.summary?.tokens||0}))).catch(e=>console.warn('BACKEND_WARMUP_FAILED '+String(e?.message||e)));
+  setInterval(()=>refreshStateCache(true).catch(()=>{}),20000).unref?.();
 });
