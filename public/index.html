@@ -1,0 +1,512 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>PUMP LAB / LIVE</title><style>
+:root{--bg:#07090d;--card:#0f141d;--card2:#121925;--line:#253045;--muted:#8ea0bc;--text:#f4f7fb;--green:#4ff5a2;--red:#ff6d86;--blue:#7588ff;--amber:#ffcc66}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 50% -20%,#182136 0,#080b11 35%,#06080c 72%);color:var(--text);font:14px Inter,ui-sans-serif,system-ui,-apple-system,sans-serif}.wrap{max-width:1560px;margin:auto;padding:22px 28px 60px}.top{display:flex;justify-content:space-between;gap:18px;align-items:center}.brand{font-size:27px;font-weight:950;letter-spacing:-1.1px}.sub{color:#8bb0e8;font-size:13px;margin-top:2px}.badges{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.badge,.pill{font-size:11px;border:1px solid #2c394f;padding:5px 8px;border-radius:99px;background:#111827}.live{border-color:#00dc70;color:#64f9aa;background:#071a13}.hero{margin-top:18px;padding:20px;border:1px solid #2a3850;border-radius:18px;background:linear-gradient(135deg,#121a27,#0d1119);display:grid;grid-template-columns:1.4fr 1fr;gap:18px}.big{font-size:28px;font-weight:900;letter-spacing:-.6px}.muted{color:var(--muted)}.green{color:var(--green)}.red{color:var(--red)}.amber{color:var(--amber)}.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:14px 0}.card{background:linear-gradient(180deg,#10151e,#0c1119);border:1px solid var(--line);border-radius:14px;padding:14px;box-shadow:0 12px 30px #0002}.card h3{margin:0 0 9px;font-size:13px;color:#cbd6e8}.health{display:flex;gap:7px;flex-wrap:wrap}.health span{border:1px solid #29354a;padding:6px 9px;border-radius:8px;background:#0c121b}.tabs{display:flex;gap:8px;margin:16px 0;flex-wrap:wrap}.tab{padding:9px 13px;border-radius:9px;background:#111824;border:1px solid #293349;cursor:pointer}.tab.on{background:#f7f9fd;color:#080b10;border-color:#fff}.pane{display:none}.pane.on{display:block}.strategies{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.strategy{cursor:pointer;transition:.15s}.strategy:hover{transform:translateY(-2px);border-color:#405373}.strategy .topline{display:flex;align-items:center;justify-content:space-between}.strategy .money{font-size:24px;font-weight:900;margin:7px 0}.mini{font-size:12px;color:#91a7c9}.two{display:grid;grid-template-columns:1.5fr 1fr;gap:12px}.three{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.feed{max-height:510px;overflow:auto}.feedrow{display:grid;grid-template-columns:95px 1fr;gap:10px;padding:9px 2px;border-bottom:1px solid #1c2534}.table{width:100%;border-collapse:collapse}.table th,.table td{padding:9px 7px;text-align:left;border-bottom:1px solid #1d2737;font-size:12px}.table th{color:#8fa4c3;font-weight:650;position:sticky;top:0;background:#0f141d}.scroll{max-height:560px;overflow:auto}.heatwrap{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;min-height:190px}.bubble{display:flex;align-items:center;justify-content:center;border-radius:50%;border:1px solid #3a4967;background:radial-gradient(circle at 35% 30%,#26365b,#121827);text-align:center;font-size:11px;padding:9px}.meter{height:7px;background:#182131;border-radius:99px;overflow:hidden}.meter>i{display:block;height:100%;background:linear-gradient(90deg,#667cff,#4ff5a2)}.token{cursor:pointer}.token:hover{background:#141c29}.drawer{position:fixed;right:0;top:0;height:100vh;width:min(560px,96vw);background:#0a0f17;border-left:1px solid #2b3850;z-index:20;padding:20px;transform:translateX(102%);transition:.2s;overflow:auto;box-shadow:-25px 0 60px #0007}.drawer.on{transform:none}.close{float:right;border:1px solid #37445b;border-radius:9px;background:#111824;color:white;padding:6px 10px;cursor:pointer}.vote{display:inline-flex;gap:4px;align-items:center;padding:4px 7px;border-radius:7px;margin:3px;background:#121a27;border:1px solid #26354c}.vote.y{border-color:#16683f;color:#77f8ae}.vote.n{color:#a1aec2}.spark{width:100%;height:90px}.world{min-height:270px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:center}.worldGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(235px,1fr));gap:12px}.ecosystem{background:#0b111a;border:1px solid #253249;border-radius:14px;padding:12px;min-height:150px}.nodes{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}.worldNode{cursor:pointer;border:1px solid #2c3a51;background:#121b29;color:#dce8fa;border-radius:999px;padding:6px 9px;font-size:11px}.worldNode.hot{border-color:#1b7f50;color:#78f8b0}.worldNode.risky{border-color:#7b3043;color:#ff91a7}.worldNode:hover{transform:translateY(-1px);background:#182338}.smallcard{padding:10px;border:1px solid #253249;background:#0c121b;border-radius:10px}.sectionTitle{display:flex;justify-content:space-between;align-items:end;margin:18px 0 9px}.sectionTitle h2{margin:0;font-size:17px}.sectionTitle p{margin:0;color:#8497b4;font-size:12px}.truth{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#8094b2}.controls{display:flex;gap:8px;align-items:center}select{background:#0f1621;color:white;border:1px solid #2a3850;border-radius:8px;padding:7px} @media(max-width:1050px){.strategies{grid-template-columns:1fr 1fr}.grid4,.three{grid-template-columns:1fr 1fr}.two,.hero{grid-template-columns:1fr}}@media(max-width:680px){.wrap{padding:16px}.strategies,.grid4,.three{grid-template-columns:1fr}.big{font-size:22px}.top{align-items:flex-start}.hideMobile{display:none}}
+
+/* ─────────────────────────────────────────────────────────────
+   PUMP LAB / LIVE — LIGHT BRUTALIST FUTURE LAB / UI v1
+   Visual-only layer. Trading / research hooks stay untouched.
+───────────────────────────────────────────────────────────── */
+:root{
+  --bg:#f1f2f2;--paper:#fafafa;--paper2:#f6f7f7;--ink:#0a0c0f;--text:#111318;
+  --muted:#747b83;--line:#d7dadd;--line2:#c7cbd0;--green:#19c965;--red:#e14759;
+  --blue:#6577ff;--amber:#c48916;--card:#f9fafa;--card2:#f3f5f5;
+  --shadow:0 18px 55px rgba(22,29,36,.08);--softshadow:0 8px 28px rgba(22,29,36,.06);
+}
+*{scrollbar-color:#bcc1c6 transparent}
+html{scroll-behavior:smooth;background:var(--bg)}
+body{
+  background:
+    radial-gradient(circle at 72% 7%,rgba(255,255,255,.96) 0 13%,transparent 34%),
+    radial-gradient(circle at 12% 22%,rgba(255,255,255,.72),transparent 32%),
+    linear-gradient(180deg,#f8f9f9 0,#eef0f0 46%,#f7f8f8 100%);
+  color:var(--text);font-family:Arial,"Helvetica Neue",ui-sans-serif,system-ui,-apple-system,sans-serif;
+  letter-spacing:-.01em;min-height:100vh
+}
+body:before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;opacity:.23;
+  background-image:radial-gradient(rgba(10,12,15,.13) .55px,transparent .7px);
+  background-size:5px 5px;mix-blend-mode:multiply
+}
+.wrap{max-width:1640px;margin:auto;padding:0 34px 80px}
+.top{
+  position:sticky;top:0;z-index:15;margin:0 -34px;padding:17px 34px;
+  background:rgba(248,249,249,.84);backdrop-filter:blur(22px) saturate(140%);
+  border-bottom:1px solid rgba(24,30,36,.09);box-shadow:0 7px 24px rgba(15,20,28,.025)
+}
+.brand{font-size:18px;letter-spacing:-.5px;font-weight:900;color:#080a0d;text-transform:uppercase}
+.brand span{color:#a4abb2!important;font-weight:700}
+.sub{font-size:10px;text-transform:uppercase;letter-spacing:.16em;color:#8a9199;margin-top:4px}
+.badges{align-items:center}
+.badge,.pill{
+  color:#30363c;border:1px solid #d4d7da;background:rgba(255,255,255,.78);
+  padding:6px 10px;border-radius:999px;font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  box-shadow:0 4px 16px rgba(10,15,20,.035)
+}
+.live{border-color:#aeecc7;color:#118944;background:#f0fff6}
+.masthead{
+  min-height:430px;margin:0 -34px;padding:58px 34px 36px;display:grid;grid-template-columns:1.18fr .82fr;gap:38px;
+  position:relative;overflow:hidden;border-bottom:1px solid #dfe1e3
+}
+.masthead:after{
+  content:"";position:absolute;left:58%;top:0;bottom:0;width:1px;background:#d7dade
+}
+.mastcopy{position:relative;z-index:2;display:flex;flex-direction:column;justify-content:center;max-width:880px}
+.kicker{font-size:10px;letter-spacing:.32em;text-transform:uppercase;color:#9299a1;margin-bottom:18px}
+.masttitle{
+  margin:0;font-weight:950;letter-spacing:-.075em;line-height:.84;text-transform:uppercase;
+  font-size:clamp(64px,7.6vw,126px);color:#060709
+}
+.masttitle span{font-weight:580;color:#aab0b6}
+.mastlede{max-width:650px;margin:22px 0 0;font-size:15px;line-height:1.55;color:#687078}
+.statusrail{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:26px}
+.statusswitch{
+  display:flex;align-items:center;gap:10px;padding:9px 13px;border-radius:999px;background:white;border:1px solid #dadde0;
+  box-shadow:inset 0 1px white,var(--softshadow);font-size:9px;font-weight:900;letter-spacing:.08em;text-transform:uppercase
+}
+.statusswitch i{width:10px;height:10px;border-radius:50%;background:#1fd66d;box-shadow:0 0 0 5px rgba(31,214,109,.12)}
+.statusnote{font-size:10px;color:#7f878f;text-transform:uppercase;letter-spacing:.12em}
+.mastart{position:relative;min-height:340px;isolation:isolate}
+.mastart:before{
+  content:"";position:absolute;width:min(29vw,420px);aspect-ratio:1;left:46%;top:49%;transform:translate(-50%,-50%);
+  border-radius:44% 56% 63% 37% / 42% 36% 64% 58%;
+  background:
+    radial-gradient(circle at 36% 31%,rgba(255,255,255,.98),rgba(240,242,243,.95) 26%,rgba(177,184,190,.72) 48%,rgba(32,36,42,.92) 72%,#050608 100%);
+  filter:blur(.2px);box-shadow:-28px 42px 80px rgba(20,25,30,.18),inset 30px -35px 80px rgba(255,255,255,.58);
+  transform-origin:center;animation:floatOrb 9s ease-in-out infinite
+}
+.mastart:after{
+  content:"";position:absolute;width:330px;height:115px;left:43%;top:49%;transform:translate(-50%,-50%) rotate(-8deg);
+  background:linear-gradient(90deg,rgba(248,249,249,.98),rgba(24,28,34,.62),rgba(248,249,249,.96));
+  filter:blur(12px);opacity:.88;mix-blend-mode:normal
+}
+@keyframes floatOrb{0%,100%{transform:translate(-50%,-50%) rotate(-2deg)}50%{transform:translate(-50%,-54%) rotate(3deg)}}
+@keyframes orbMotion{
+  0%{transform:translate(-50%,-50%) rotate(0deg) translateX(0) translateY(0) scale(1)}
+  20%{transform:translate(-49.3%,-50.7%) rotate(2.5deg) translateX(2px) translateY(-2px) scale(1.006)}
+  40%{transform:translate(-50.7%,-49.5%) rotate(5.5deg) translateX(-2px) translateY(1px) scale(.997)}
+  60%{transform:translate(-49.7%,-50.4%) rotate(8.5deg) translateX(2px) translateY(-1px) scale(1.007)}
+  80%{transform:translate(-50.6%,-49.7%) rotate(11.5deg) translateX(-2px) translateY(2px) scale(.999)}
+  100%{transform:translate(-50%,-50%) rotate(14deg) translateX(0) translateY(0) scale(1)}
+}
+@keyframes orbMorph{
+  0%{border-radius:44% 56% 63% 37% / 42% 36% 64% 58%}
+  25%{border-radius:47% 53% 59% 41% / 39% 43% 57% 61%}
+  50%{border-radius:42% 58% 55% 45% / 46% 35% 65% 54%}
+  75%{border-radius:46% 54% 60% 40% / 38% 45% 55% 62%}
+  100%{border-radius:43% 57% 61% 39% / 44% 36% 64% 56%}
+}
+@keyframes orbBreath{
+  0%,100%{filter:blur(.18px) saturate(1)}
+  50%{filter:blur(.38px) saturate(1.015)}
+}
+@keyframes orbVeil{
+  0%{transform:translate(-50%,-50%) rotate(-8deg) scale(1);opacity:.86;filter:blur(12px)}
+  50%{transform:translate(-49%,-51%) rotate(-5.5deg) scale(1.02);opacity:.77;filter:blur(13.5px)}
+  100%{transform:translate(-51%,-49%) rotate(-9.5deg) scale(.99);opacity:.88;filter:blur(11.5px)}
+}
+.mastindex{position:absolute;left:0;top:20px;font:10px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;color:#858c94;letter-spacing:.12em}
+.mastwords{position:absolute;right:12px;top:56px;font:10px/1.25 ui-monospace,SFMono-Regular,Menlo,monospace;color:#80878f;text-align:right;text-transform:uppercase}
+.maststatement{position:absolute;right:0;bottom:40px;width:170px;font-size:16px;font-weight:900;line-height:1.02;text-transform:uppercase}
+.mastline{position:absolute;right:0;bottom:18px;width:118px;height:1px;background:#0d0f12}
+.magicOrb{cursor:pointer;outline:none;user-select:none}
+.oracleHint{display:none!important}
+.magicOrb:focus-visible{outline:1px solid #8d949b;outline-offset:-8px}
+.magicOrb:active:before{transform:translate(-50%,-48%) scale(.985)!important}
+.magicOrb:before{z-index:1;transition:transform .38s cubic-bezier(.2,.8,.2,1),filter .38s,box-shadow .38s}
+.magicOrb:after{z-index:2}
+.magicOrb:hover:before{filter:blur(.2px) brightness(1.035);box-shadow:-34px 48px 88px rgba(20,25,30,.22),inset 30px -35px 80px rgba(255,255,255,.62)}
+.oracleAnswer{
+  position:absolute;left:46%;top:49%;transform:translate(-50%,-50%) scale(.82);z-index:4;
+  min-width:210px;max-width:290px;text-align:center;color:rgba(255,255,255,.98);
+  font-size:clamp(24px,2.35vw,42px);font-weight:950;line-height:.92;letter-spacing:-.055em;text-transform:uppercase;
+  opacity:0;filter:blur(18px);text-shadow:0 2px 18px rgba(0,0,0,.58);pointer-events:none;
+  transition:opacity 1.05s ease,filter 1.15s ease,transform 1.15s cubic-bezier(.18,.75,.22,1)
+}
+.oracleAnswer.show{opacity:1;filter:blur(0);transform:translate(-50%,-50%) scale(1)}
+.oracleHint{
+  position:absolute;left:46%;bottom:15px;transform:translateX(-50%);z-index:5;white-space:nowrap;
+  font:8px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.18em;text-transform:uppercase;color:#969da4;
+  opacity:.72;transition:opacity .2s
+}
+.magicOrb:hover .oracleHint{opacity:1;color:#545b62}
+.magicOrb.answered .oracleHint{opacity:.42}
+
+.hero{
+  margin:22px 0 16px;padding:0;border:0;border-radius:0;background:none;display:grid;grid-template-columns:1.35fr 1fr;gap:12px
+}
+.hero>div{
+  background:rgba(255,255,255,.72);border:1px solid var(--line);border-radius:20px;padding:17px 18px;
+  box-shadow:var(--softshadow);backdrop-filter:blur(16px);position:relative;overflow:hidden
+}
+.hero>div:before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at var(--mx,85%) var(--my,20%),rgba(101,119,255,.09),transparent 38%)}
+.big{font-size:27px;font-weight:900;letter-spacing:-.055em;color:#090b0d}
+.muted{color:#7d858d}.green{color:#15b65a}.red{color:#d94152}.amber{color:#b57a13}
+.grid4{gap:11px;margin:14px 0}
+.card,.smallcard,.ecosystem{
+  --mx:50%;--my:50%;background:rgba(250,251,251,.86)!important;border:1px solid var(--line)!important;
+  color:#14171a;border-radius:18px;box-shadow:var(--softshadow);position:relative;overflow:hidden
+}
+.card{padding:16px}
+.card:before,.smallcard:before{
+  content:"";position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .2s;
+  background:radial-gradient(260px circle at var(--mx) var(--my),rgba(101,119,255,.075),transparent 58%)
+}
+.card:hover:before,.smallcard:hover:before{opacity:1}
+.card h3{color:#171a1e;font-size:10px;font-weight:900;letter-spacing:.12em;text-transform:uppercase}
+.grid4>.card{min-height:112px;display:flex;flex-direction:column;justify-content:space-between}
+.grid4>.card .muted{font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+.grid4>.card .big{margin-top:9px}
+.health{
+  border-radius:999px!important;padding:7px!important;background:rgba(255,255,255,.72)!important;box-shadow:none!important;
+  display:flex;gap:5px;align-items:center;overflow-x:auto
+}
+.health span{color:#60676f;border:1px solid #dadde0;padding:6px 10px;border-radius:999px;background:#fbfcfc;white-space:nowrap;font-size:9px}
+.tabs{
+  position:sticky;top:68px;z-index:12;margin:17px 0;padding:5px;display:inline-flex;max-width:100%;overflow:auto;
+  background:rgba(244,245,245,.88);border:1px solid #d8dbde;border-radius:999px;backdrop-filter:blur(22px);box-shadow:var(--softshadow)
+}
+.tab{
+  padding:9px 15px;border:0;background:transparent;color:#656d75;border-radius:999px;font-size:10px;font-weight:800;
+  letter-spacing:.03em;white-space:nowrap;transition:.2s
+}
+.tab:hover{color:#0e1114;background:#fff}
+.tab.on{background:#090b0e;color:white;border:0;box-shadow:0 6px 15px rgba(8,10,13,.13)}
+.sectionTitle{margin:27px 0 12px;align-items:flex-end}
+.sectionTitle:before{content:"";width:26px;height:1px;background:#101316;position:absolute;margin-top:-12px}
+.sectionTitle h2{font-size:22px;letter-spacing:-.045em;text-transform:uppercase}
+.sectionTitle p{color:#8b9299;font-size:11px}
+.strategies{grid-template-columns:repeat(auto-fit,minmax(238px,1fr));gap:10px}
+.strategy{
+  min-height:375px;padding:10px!important;border-radius:22px!important;transition:transform .24s cubic-bezier(.2,.8,.2,1),box-shadow .24s,border-color .24s!important;
+  background:#fafbfb!important
+}
+.strategy:hover{transform:translateY(-7px) scale(1.008);border-color:#8e98ff!important;box-shadow:0 25px 60px rgba(22,30,42,.12)}
+.strategy:active{transform:translateY(-3px) scale(.995)}
+.agentVisual{
+  height:164px;border-radius:15px;border:1px solid #d9dcdf;margin-bottom:12px;position:relative;overflow:hidden;
+  background:#eceeee;isolation:isolate
+}
+.agentVisual:before,.agentVisual:after{content:"";position:absolute}
+.agentVisual:before{
+  width:118px;height:118px;border-radius:42% 58% 45% 55%;left:50%;top:49%;transform:translate(-50%,-50%);
+  background:radial-gradient(circle at 32% 28%,#fff 0,#e9ebec 28%,#9ba1a6 53%,#14171a 77%,#030405 100%);
+  box-shadow:20px 22px 55px rgba(0,0,0,.24),inset -16px 16px 33px rgba(255,255,255,.45)
+}
+.agentVisual:after{
+  height:30px;width:200px;top:62%;left:50%;transform:translate(-50%,-50%) rotate(-8deg);
+  filter:blur(9px);background:linear-gradient(90deg,#f4f5f5,#272b30,#f3f4f4);opacity:.88
+}
+.agentVisual.v1:before{border-radius:8px;clip-path:polygon(50% 0,86% 18%,100% 58%,70% 100%,24% 91%,0 44%,17% 13%);background:linear-gradient(145deg,#f8f8f8,#aeb3b6 42%,#303338 72%,#eceeef);box-shadow:none}
+.agentVisual.v1:after{width:1px;height:170px;left:31%;top:0;transform:none;filter:none;background:#171a1d;opacity:.7}
+.agentVisual.v2:before{width:150px;height:190px;top:57%;filter:blur(10px);border-radius:46%;background:linear-gradient(180deg,#191b1f,#5a5f65 45%,#050607);opacity:.93}
+.agentVisual.v2:after{width:208px;height:48px;top:47%;filter:blur(11px);transform:translate(-50%,-50%);background:linear-gradient(90deg,#f4f5f5,#111316,#f4f5f5)}
+.agentVisual.v3:before{width:34px;height:120px;border-radius:50%;left:38%;top:48%;background:linear-gradient(#050607,#52575c);filter:blur(2px);box-shadow:96px 20px 0 -7px #141719,48px -40px 0 -11px #090b0c}
+.agentVisual.v3:after{display:none}
+.agentVisual.v4:before{
+  width:190px;height:106px;left:50%;top:65%;border-radius:0;clip-path:polygon(0 100%,0 76%,20% 59%,30% 73%,49% 26%,61% 54%,72% 41%,100% 88%,100% 100%);
+  background:linear-gradient(180deg,#bfc3c5,#191c20);box-shadow:none
+}
+.agentVisual.v4:after{width:270px;height:90px;top:78%;background:rgba(255,255,255,.76);filter:blur(16px)}
+.agentIndex{
+  position:absolute!important;left:10px;top:10px;z-index:4;font:9px ui-monospace,SFMono-Regular,monospace;color:#787f86;letter-spacing:.15em
+}
+.agentLive{position:absolute!important;right:10px;top:10px;z-index:4;width:7px;height:7px;border-radius:50%;background:#18d66b;box-shadow:0 0 0 5px rgba(24,214,107,.12)}
+/* TRADER ART SYSTEM · 25 UNIQUE IDENTITIES */
+.agentVisual{--a:#121417;--b:#a7adb2;--c:#f8f9f9}
+.agentVisual .shapeA,.agentVisual .shapeB,.agentVisual .shapeC{position:absolute;display:block;pointer-events:none;transform-origin:center}
+.agentVisual .shapeA{z-index:1}.agentVisual .shapeB{z-index:2}.agentVisual .shapeC{z-index:3}
+.agentVisual.art-banker:before,.agentVisual.art-banker:after,
+.agentVisual.art-quant:before,.agentVisual.art-quant:after,
+.agentVisual.art-smart:before,.agentVisual.art-smart:after,
+.agentVisual.art-social:before,.agentVisual.art-social:after,
+.agentVisual.art-momentum:before,.agentVisual.art-momentum:after,
+.agentVisual.art-graduation:before,.agentVisual.art-graduation:after,
+.agentVisual.art-dip:before,.agentVisual.art-dip:after,
+.agentVisual.art-swing:before,.agentVisual.art-swing:after,
+.agentVisual.art-degen:before,.agentVisual.art-degen:after,
+.agentVisual.art-smartmom:before,.agentVisual.art-smartmom:after,
+.agentVisual.art-culture:before,.agentVisual.art-culture:after,
+.agentVisual.art-contrarian:before,.agentVisual.art-contrarian:after,
+.agentVisual.art-sniper:before,.agentVisual.art-sniper:after,
+.agentVisual.art-champion:before,.agentVisual.art-champion:after,
+.agentVisual.art-professional:before,.agentVisual.art-professional:after,
+.agentVisual.art-adaptive:before,.agentVisual.art-adaptive:after,
+.agentVisual.art-unipcs:before,.agentVisual.art-unipcs:after,
+.agentVisual.art-frank:before,.agentVisual.art-frank:after,
+.agentVisual.art-orangie:before,.agentVisual.art-orangie:after,
+.agentVisual.art-rasmr:before,.agentVisual.art-rasmr:after,
+.agentVisual.art-consensus:before,.agentVisual.art-consensus:after,
+.agentVisual.art-runner:before,.agentVisual.art-runner:after,
+.agentVisual.art-asym:before,.agentVisual.art-asym:after,
+.agentVisual.art-megga:before,.agentVisual.art-megga:after,
+.agentVisual.art-scout:before,.agentVisual.art-scout:after{display:none}
+
+/* 01 Banker · liquid oracle */
+.art-banker .shapeA{width:118px;height:118px;left:50%;top:51%;transform:translate(-50%,-50%);border-radius:47% 53% 58% 42%/42% 38% 62% 58%;background:radial-gradient(circle at 31% 25%,#fff,#e7e9ea 29%,#8f969c 57%,#15181c 81%,#030405);box-shadow:18px 20px 43px rgba(0,0,0,.23);animation:artMorph 13s ease-in-out infinite alternate,artFloat 18s ease-in-out infinite}
+.art-banker .shapeB{width:145px;height:28px;left:50%;top:59%;transform:translate(-50%,-50%) rotate(-7deg);background:linear-gradient(90deg,transparent,#f4f5f5 18%,#2c3034 49%,#f5f6f6 82%,transparent);filter:blur(8px);opacity:.78}
+
+/* 02 Quant · concentric calculation rings */
+.art-quant .shapeA{width:118px;height:118px;left:50%;top:51%;transform:translate(-50%,-50%);border:1px solid #25292d;border-radius:50%;box-shadow:0 0 0 17px #f3f4f4,0 0 0 18px #9ba1a6,0 0 0 33px #eceeee,0 0 0 34px #c8ccd0}
+.art-quant .shapeB{width:1px;height:142px;background:#16191c;left:50%;top:16px;animation:artRotate 19s linear infinite}
+.art-quant .shapeC{width:8px;height:8px;border-radius:50%;background:#0b0d0f;left:50%;top:50%;transform:translate(-50%,-50%);box-shadow:45px 0 0 #8e9499,-45px 0 0 #c4c8cb}
+
+/* 03 Smart Money · connected intelligence */
+.art-smart .shapeA{width:112px;height:112px;left:50%;top:50%;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,#fbfbfb 0 12%,#a9afb4 13% 16%,transparent 17%),radial-gradient(circle at 18% 24%,#191c1f 0 5px,transparent 6px),radial-gradient(circle at 78% 22%,#555b60 0 7px,transparent 8px),radial-gradient(circle at 25% 79%,#8c9297 0 8px,transparent 9px),radial-gradient(circle at 82% 72%,#15181b 0 5px,transparent 6px)}
+.art-smart .shapeB{width:130px;height:1px;background:#8e959a;left:50%;top:50%;transform:translate(-50%,-50%) rotate(32deg);box-shadow:0 22px 0 #b6bbc0,0 -19px 0 #ced1d3}
+.art-smart .shapeC{width:92px;height:1px;background:#a1a7ac;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-48deg);animation:artPulse 5s ease-in-out infinite}
+
+/* 04 Social Alpha · broadcast sculpture */
+.art-social .shapeA{width:14px;height:112px;left:50%;top:48%;transform:translate(-50%,-50%);background:linear-gradient(#0b0d0f,#8d9398);border-radius:20px}
+.art-social .shapeB{width:82px;height:82px;border:1px solid #61676d;border-left-color:transparent;border-bottom-color:transparent;border-radius:50%;left:50%;top:48%;transform:translate(-50%,-50%) rotate(45deg);box-shadow:0 0 0 17px #eef0f0,0 0 0 18px #b9bec2,0 0 0 34px #eef0f0,0 0 0 35px #d2d5d7}
+.art-social .shapeC{width:7px;height:7px;border-radius:50%;background:#0b0d0f;left:50%;top:24%;transform:translateX(-50%);animation:artPulse 3.6s ease-in-out infinite}
+
+/* 05 Momentum · speed ribbon */
+.art-momentum .shapeA{width:160px;height:72px;left:51%;top:53%;transform:translate(-50%,-50%) skewX(-18deg) rotate(-9deg);background:linear-gradient(135deg,#f7f8f8 0,#c2c6c9 27%,#1f2327 48%,#858c92 62%,#f4f5f5 86%);clip-path:polygon(0 63%,18% 30%,42% 50%,67% 0,100% 23%,78% 66%,53% 45%,25% 100%);filter:drop-shadow(13px 18px 13px rgba(0,0,0,.16));animation:artDriftX 7s ease-in-out infinite}
+.art-momentum .shapeB{width:180px;height:1px;left:48%;top:74%;background:linear-gradient(90deg,transparent,#858b90,transparent);transform:translateX(-50%)}
+
+/* 06 Graduation · threshold portal */
+.art-graduation .shapeA{width:110px;height:118px;left:50%;top:52%;transform:translate(-50%,-50%);border:17px solid #c9cdd0;border-bottom:0;border-radius:62px 62px 0 0;box-shadow:inset 12px 0 22px rgba(255,255,255,.95),12px 16px 25px rgba(0,0,0,.08)}
+.art-graduation .shapeB{width:52px;height:88px;left:50%;top:61%;transform:translate(-50%,-50%);background:linear-gradient(180deg,#fafafa,#6d7378 69%,#181b1e);border-radius:30px 30px 0 0}
+.art-graduation .shapeC{width:148px;height:1px;background:#202326;left:50%;top:82%;transform:translateX(-50%)}
+
+/* 07 Dip Buyer · valley basin */
+.art-dip .shapeA{width:170px;height:94px;left:50%;top:62%;transform:translate(-50%,-50%);background:linear-gradient(145deg,#c7cbce,#272b2f);clip-path:polygon(0 20%,16% 40%,30% 68%,44% 79%,56% 48%,67% 61%,83% 34%,100% 8%,100% 100%,0 100%)}
+.art-dip .shapeB{width:74px;height:74px;border:1px solid rgba(255,255,255,.75);border-radius:50%;left:44%;top:57%;filter:blur(2px);opacity:.75;animation:artRise 10s ease-in-out infinite}
+.art-dip .shapeC{width:190px;height:35px;left:50%;bottom:5px;transform:translateX(-50%);background:rgba(255,255,255,.7);filter:blur(13px)}
+
+/* 08 Swing · pendulum wave */
+.art-swing .shapeA{width:2px;height:112px;left:50%;top:8px;background:#202326;transform-origin:50% 0;animation:artSwing 8s ease-in-out infinite}
+.art-swing .shapeB{width:60px;height:60px;border-radius:50%;left:50%;top:101px;transform:translate(-50%,-50%);background:radial-gradient(circle at 35% 28%,#fff,#b8bdc1 42%,#1b1e21 88%);box-shadow:12px 15px 25px rgba(0,0,0,.16)}
+.art-swing .shapeC{width:160px;height:38px;left:50%;bottom:13px;transform:translateX(-50%);border-bottom:1px solid #90969b;border-radius:50%}
+
+/* 09 Early Degen · unstable ember */
+.art-degen .shapeA{width:94px;height:126px;left:50%;top:52%;transform:translate(-50%,-50%) rotate(9deg);background:linear-gradient(155deg,#fafafa 0,#c6cace 28%,#24282c 59%,#070809 85%);clip-path:polygon(51% 0,68% 21%,93% 36%,76% 55%,89% 81%,56% 100%,34% 78%,7% 66%,22% 40%,13% 20%);filter:drop-shadow(18px 22px 16px rgba(0,0,0,.18));animation:artJitter 5.5s ease-in-out infinite}
+.art-degen .shapeB{width:120px;height:30px;left:50%;top:57%;transform:translate(-50%,-50%) rotate(-16deg);background:#f3f4f4;filter:blur(10px);opacity:.6}
+
+/* 10 Smart Momentum · double helix */
+.art-smartmom .shapeA,.art-smartmom .shapeB{width:112px;height:46px;left:50%;border:10px solid #2b2f33;border-left-color:transparent;border-right-color:transparent;border-radius:50%;animation:artHelix 8s ease-in-out infinite}
+.art-smartmom .shapeA{top:35%;transform:translate(-50%,-50%) rotate(14deg)}.art-smartmom .shapeB{top:65%;transform:translate(-50%,-50%) rotate(-14deg);animation-delay:-4s}
+.art-smartmom .shapeC{width:1px;height:126px;background:linear-gradient(transparent,#aeb3b7,transparent);left:50%;top:16px}
+
+/* 11 Culture Hybrid · stacked totem */
+.art-culture .shapeA{width:82px;height:82px;left:50%;top:34%;transform:translate(-50%,-50%) rotate(45deg);background:linear-gradient(135deg,#f7f8f8,#7d848a);border-radius:15px}
+.art-culture .shapeB{width:108px;height:46px;left:50%;top:67%;transform:translate(-50%,-50%) rotate(-8deg);background:#1c2024;border-radius:52% 48% 39% 61%}
+.art-culture .shapeC{width:42px;height:42px;left:38%;top:53%;border:1px solid #f8f8f8;border-radius:50%;box-shadow:46px 10px 0 -7px #bdc1c4}
+
+/* 12 Contrarian · mirror split */
+.art-contrarian .shapeA,.art-contrarian .shapeB{width:60px;height:112px;top:50%;background:linear-gradient(90deg,#f8f8f8,#4a5055);clip-path:polygon(0 0,100% 13%,78% 100%,5% 83%)}
+.art-contrarian .shapeA{left:38%;transform:translate(-50%,-50%) rotate(-8deg)}
+.art-contrarian .shapeB{right:38%;transform:translate(50%,-50%) scaleX(-1) rotate(-8deg);filter:brightness(.73)}
+.art-contrarian .shapeC{width:1px;height:142px;background:#17191c;left:50%;top:10px}
+
+/* 13 Patient Sniper · aperture / target */
+.art-sniper .shapeA{width:120px;height:120px;border:1px solid #5f666c;border-radius:50%;left:50%;top:51%;transform:translate(-50%,-50%);box-shadow:inset 0 0 0 23px #eef0f0,inset 0 0 0 24px #858b90}
+.art-sniper .shapeB{width:48px;height:48px;border-radius:50%;background:#121518;left:50%;top:51%;transform:translate(-50%,-50%);box-shadow:0 0 0 9px #b8bdc1}
+.art-sniper .shapeC{width:154px;height:1px;background:#151719;left:50%;top:51%;transform:translate(-50%,-50%);box-shadow:0 -58px 0 #b6bbc0,0 58px 0 #b6bbc0}
+
+/* 14 Champion · crown monolith */
+.art-champion .shapeA{width:118px;height:125px;left:50%;top:55%;transform:translate(-50%,-50%);background:linear-gradient(160deg,#fbfbfb,#8c9297 48%,#15181b);clip-path:polygon(0 26%,19% 44%,34% 9%,51% 43%,69% 0,82% 42%,100% 20%,90% 100%,10% 100%);filter:drop-shadow(14px 18px 13px rgba(0,0,0,.16))}
+.art-champion .shapeB{width:84px;height:1px;background:#fff;left:50%;top:68%;transform:translateX(-50%)}
+
+/* 15 Professional · shield slab */
+.art-professional .shapeA{width:108px;height:128px;left:50%;top:53%;transform:translate(-50%,-50%);background:linear-gradient(135deg,#fafafa,#b2b7bb 47%,#34383c);clip-path:polygon(50% 0,94% 18%,86% 70%,50% 100%,14% 70%,6% 18%);box-shadow:inset 8px 8px 18px rgba(255,255,255,.8)}
+.art-professional .shapeB{width:1px;height:105px;background:#f9f9f9;left:50%;top:31px;opacity:.8}
+
+/* 16 Adaptive Master · morphing frame */
+.art-adaptive .shapeA{width:126px;height:104px;left:50%;top:52%;transform:translate(-50%,-50%);border:11px solid #8e9499;border-radius:22% 78% 31% 69%/68% 28% 72% 32%;animation:artMorph 9s ease-in-out infinite alternate,artRotateSoft 22s ease-in-out infinite}
+.art-adaptive .shapeB{width:52px;height:52px;left:50%;top:52%;transform:translate(-50%,-50%);background:#1b1e22;border-radius:50%;filter:blur(1px)}
+
+/* 17 Unipcs · faceted conviction crystal */
+.art-unipcs .shapeA{width:118px;height:124px;left:50%;top:52%;transform:translate(-50%,-50%) rotate(-7deg);clip-path:polygon(50% 0,88% 20%,100% 60%,70% 100%,25% 91%,0 43%,18% 12%);background:linear-gradient(145deg,#f9f9f9 0,#d0d3d5 30%,#8a9095 52%,#25292d 74%,#eceeef 100%);filter:drop-shadow(14px 17px 14px rgba(0,0,0,.15));animation:artRotateSoft 17s ease-in-out infinite}
+.art-unipcs .shapeB{width:1px;height:160px;background:#1b1e21;left:31%;top:0}
+
+/* 18 Frank · consistency apparition */
+.art-frank .shapeA{width:136px;height:168px;left:50%;top:58%;transform:translate(-50%,-50%);border-radius:46% 54% 44% 56%;background:linear-gradient(180deg,#111418,#5d6368 42%,#171a1e 88%);filter:blur(10px);opacity:.93;animation:artBreath 8.5s ease-in-out infinite}
+.art-frank .shapeB{width:194px;height:45px;left:50%;top:50%;transform:translate(-50%,-50%);background:linear-gradient(90deg,#f4f5f5,#16191d,#f4f5f5);filter:blur(11px);opacity:.82}
+
+/* 19 Orangie · diversified droplets */
+.art-orangie .shapeA{width:18px;height:92px;background:#171a1d;border-radius:55%;left:37%;top:54%;transform:translate(-50%,-50%) rotate(4deg);filter:blur(1px);animation:artDropA 11s ease-in-out infinite}
+.art-orangie .shapeB{width:13px;height:116px;background:#050607;border-radius:50%;left:56%;top:34%;transform:translate(-50%,-50%) rotate(2deg);filter:blur(1px);animation:artDropB 13s ease-in-out infinite}
+.art-orangie .shapeC{width:20px;height:83px;background:#272b2f;border-radius:50%;left:70%;top:59%;transform:translate(-50%,-50%) rotate(-3deg);filter:blur(1px);animation:artDropA 9s ease-in-out infinite reverse}
+
+/* 20 Rasmr · velocity ridge */
+.art-rasmr .shapeA{width:178px;height:93px;left:50%;bottom:4px;transform:translateX(-50%);clip-path:polygon(0 100%,0 72%,20% 53%,31% 68%,51% 15%,63% 48%,76% 34%,100% 80%,100% 100%);background:linear-gradient(180deg,#c8cccf,#202428);animation:artDriftX 5.5s ease-in-out infinite}
+.art-rasmr .shapeB{width:150px;height:2px;background:linear-gradient(90deg,transparent,#fff,transparent);left:49%;top:44%;transform:translateX(-50%) rotate(-14deg);opacity:.65;animation:artPulse 3s ease-in-out infinite}
+
+/* 21 Smart Wallet Consensus · node convergence */
+.art-consensus .shapeA{width:44px;height:44px;border-radius:50%;background:radial-gradient(circle at 30% 25%,#fff,#858b90 56%,#15181b);left:50%;top:50%;transform:translate(-50%,-50%);box-shadow:-55px -30px 0 -9px #4d5358,54px -28px 0 -7px #a8adb1,-45px 39px 0 -12px #16191c,48px 42px 0 -10px #73797e}
+.art-consensus .shapeB{width:135px;height:1px;background:#a1a7ac;left:50%;top:50%;transform:translate(-50%,-50%) rotate(28deg);box-shadow:0 34px 0 #c1c5c8,0 -31px 0 #858b90}
+.art-consensus .shapeC{width:94px;height:1px;background:#7d8489;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-39deg);animation:artPulse 5s ease-in-out infinite}
+
+/* 22 Confirmed Runner · ascending track */
+.art-runner .shapeA{width:18px;height:136px;left:46%;top:54%;transform:translate(-50%,-50%) rotate(29deg);background:linear-gradient(#202327,#dfe1e2);border-radius:20px}
+.art-runner .shapeB{width:18px;height:136px;left:60%;top:50%;transform:translate(-50%,-50%) rotate(29deg);background:linear-gradient(#b3b8bc,#15181b);border-radius:20px}
+.art-runner .shapeC{width:19px;height:19px;border-radius:50%;background:#0b0d0f;left:71%;top:16%;box-shadow:-23px 37px 0 -5px #9fa5aa;animation:artRun 4s ease-in-out infinite}
+
+/* 23 Asymmetric Swing · unequal balance */
+.art-asym .shapeA{width:140px;height:2px;background:#171a1d;left:50%;top:48%;transform:translate(-50%,-50%) rotate(-8deg)}
+.art-asym .shapeB{width:74px;height:74px;border-radius:50%;background:radial-gradient(circle at 32% 27%,#fff,#969ca1 52%,#171a1d);left:30%;top:62%;box-shadow:98px -35px 0 -23px #5d6368}
+.art-asym .shapeC{width:2px;height:105px;background:#8b9196;left:50%;top:35px}
+
+/* 24 Megga Direct Copy · game token / stacked disk */
+.art-megga .shapeA{width:124px;height:124px;border-radius:50%;left:50%;top:51%;transform:translate(-50%,-50%);background:conic-gradient(from 35deg,#f9f9f9,#6e7479,#171a1d,#c6cace,#f9f9f9);box-shadow:inset 0 0 0 15px #eceeee,inset 0 0 0 17px #5e6469}
+.art-megga .shapeB{width:68px;height:68px;border-radius:50%;left:50%;top:51%;transform:translate(-50%,-50%);background:#f5f6f6;box-shadow:inset 9px 9px 17px #fff,inset -8px -8px 16px #aeb3b7}
+.art-megga .shapeC{width:12px;height:12px;border-radius:50%;background:#111418;left:50%;top:51%;transform:translate(-50%,-50%);animation:artPulse 2.8s ease-in-out infinite}
+
+/* 25 Megga Scout · satellite probe */
+.art-scout .shapeA{width:69px;height:69px;border-radius:50%;left:52%;top:47%;transform:translate(-50%,-50%);background:radial-gradient(circle at 31% 25%,#fff,#a9aeb2 55%,#23272b);box-shadow:0 0 0 1px #797f84}
+.art-scout .shapeB{width:150px;height:50px;border:1px solid #858b90;border-left-color:transparent;border-right-color:transparent;border-radius:50%;left:52%;top:47%;transform:translate(-50%,-50%) rotate(-17deg);animation:artRotate 16s linear infinite}
+.art-scout .shapeC{width:10px;height:10px;border-radius:50%;background:#15181b;left:78%;top:23%;box-shadow:-117px 73px 0 -2px #9da3a8;animation:artScout 7s ease-in-out infinite}
+
+/* deterministic future-agent fallback remains unique through CSS variables */
+.agentVisual.art-future .shapeA{width:var(--aw,105px);height:var(--ah,105px);left:var(--ax,50%);top:var(--ay,52%);transform:translate(-50%,-50%) rotate(var(--rot,0deg));border-radius:var(--r1,45%) var(--r2,55%) var(--r3,60%) var(--r4,40%);background:linear-gradient(var(--grad,145deg),#fafafa,#a8adb1 48%,#1a1d20);clip-path:polygon(var(--poly,50% 0,93% 28%,82% 84%,50% 100%,10% 75%,4% 28%));animation:artMorph var(--dur,13s) ease-in-out infinite alternate}
+.agentVisual.art-future .shapeB{width:var(--bw,130px);height:1px;background:#747b81;left:50%;top:50%;transform:translate(-50%,-50%) rotate(var(--brot,22deg));opacity:.7}
+.agentVisual.art-future .shapeC{width:var(--dot,11px);height:var(--dot,11px);border-radius:50%;background:#14171a;left:var(--cx,70%);top:var(--cy,28%);animation:artPulse 4s ease-in-out infinite}
+
+@keyframes artMorph{0%{border-radius:44% 56% 61% 39%/42% 36% 64% 58%}100%{border-radius:53% 47% 42% 58%/35% 58% 42% 65%}}
+@keyframes artFloat{0%,100%{transform:translate(-50%,-50%) translate(0,0) rotate(0)}50%{transform:translate(-50%,-50%) translate(3px,-5px) rotate(4deg)}}
+@keyframes artRotate{to{transform:translate(-50%,-50%) rotate(360deg)}}
+@keyframes artRotateSoft{0%,100%{transform:translate(-50%,-50%) rotate(-7deg)}50%{transform:translate(-50%,-53%) rotate(5deg)}}
+@keyframes artPulse{0%,100%{opacity:.42}50%{opacity:1}}
+@keyframes artDriftX{0%,100%{translate:-3px 0}50%{translate:4px -2px}}
+@keyframes artRise{0%,100%{transform:translate(-50%,-45%) scale(.92)}50%{transform:translate(-50%,-62%) scale(1.05)}}
+@keyframes artSwing{0%,100%{transform:rotate(-11deg)}50%{transform:rotate(11deg)}}
+@keyframes artJitter{0%,100%{transform:translate(-50%,-50%) rotate(7deg)}40%{transform:translate(-52%,-51%) rotate(12deg)}70%{transform:translate(-48%,-48%) rotate(4deg)}}
+@keyframes artHelix{0%,100%{scale:1 1;filter:blur(0)}50%{scale:.86 1.08;filter:blur(.4px)}}
+@keyframes artBreath{0%,100%{filter:blur(10px);opacity:.88;scale:.96}50%{filter:blur(13px);opacity:1;scale:1.04}}
+@keyframes artDropA{0%,100%{translate:0 -3px;scale:1 .97}50%{translate:3px 5px;scale:.93 1.06}}
+@keyframes artDropB{0%,100%{translate:0 4px;scale:.96 1.04}50%{translate:-2px -5px;scale:1.05 .94}}
+@keyframes artRun{0%,100%{translate:0 8px;opacity:.55}50%{translate:8px -7px;opacity:1}}
+@keyframes artScout{0%,100%{translate:-2px 3px}50%{translate:8px -7px}}
+
+.strategy .topline{padding:0 4px}
+.strategy .topline b{font-size:15px;letter-spacing:-.03em}
+.strategy .money{font-size:30px;color:#0d1013!important;padding:0 4px;margin:12px 0 6px}
+.strategy .mini,.strategy .truth{padding:0 4px}
+.strategy .truth{color:#6f777e;font-size:10px;line-height:1.45;min-height:43px;text-transform:none;letter-spacing:.02em}
+.strategy .pill{background:#f0f1f2;border-color:#d7dade;color:#5c636b}
+.feed{max-height:525px}
+.feedrow{grid-template-columns:90px 1fr;border-bottom:1px solid #e1e3e5;padding:11px 4px}
+.table th,.table td{border-bottom:1px solid #e1e3e5;color:#22262b;padding:10px 8px}
+.table th{background:rgba(249,250,250,.95);color:#858d95;text-transform:uppercase;letter-spacing:.08em;font-size:9px}
+.token:hover{background:#eef0f1}
+.meter{background:#e4e6e8;height:5px}.meter>i{background:linear-gradient(90deg,#6d7cff,#20d470)}
+.bubble{border:1px solid #d0d4d7;background:radial-gradient(circle at 35% 30%,#fff,#e5e7e8 46%,#8c9298);color:#111;box-shadow:0 12px 26px rgba(20,26,32,.08)}
+.worldNode{
+  color:#454c53;background:#f5f6f6;border-color:#d8dbde;transition:.18s;box-shadow:0 3px 10px rgba(10,15,20,.035)
+}
+.worldNode:hover{background:#111;color:white;transform:translateY(-2px)}
+.worldNode.hot{border-color:#7fe5a9;color:#148c47}.worldNode.risky{border-color:#f0aab3;color:#cb3e4f}
+.ecosystem{padding:15px!important}
+.smallcard{padding:12px;border-radius:14px!important;transition:transform .18s,box-shadow .18s}
+.smallcard:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(20,26,32,.08)}
+.drawer{
+  width:min(650px,96vw);background:rgba(248,249,249,.98);color:#111;border-left:1px solid #d1d5d8;
+  padding:24px;box-shadow:-25px 0 70px rgba(25,32,40,.16);backdrop-filter:blur(24px)
+}
+.close{background:#fff;color:#1d2228;border-color:#d1d5d8;border-radius:999px;padding:8px 13px}
+.controls select,select{background:white;color:#222;border-color:#d4d7da}
+.vote{background:#f5f6f6;border-color:#d8dbde;color:#697078}.vote.y{border-color:#80dba5;color:#168c49}
+.spark{filter:grayscale(.25)}
+hr{border-color:#e0e3e5!important}
+
+/* PUMP LAB X SIGNAL FEED */
+.xFeedHero{display:grid;grid-template-columns:1.15fr .85fr;gap:12px;margin-bottom:12px}
+.xFeedIntro{min-height:220px;display:flex;flex-direction:column;justify-content:space-between;padding:22px!important}
+.xFeedTitle{font-size:clamp(46px,5.4vw,88px);font-weight:950;line-height:.84;letter-spacing:-.075em;text-transform:uppercase;margin:0}
+.xFeedTitle span{color:#a7adb2;font-weight:600}
+.xFeedIntro p{max-width:620px;color:#737b83;font-size:13px;line-height:1.55;margin:18px 0 0}
+.xFeedStatus{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:20px}
+.xFeedStatus .dot{width:8px;height:8px;border-radius:50%;background:#20d470;box-shadow:0 0 0 5px rgba(32,212,112,.12)}
+.xFeedAccounts{padding:18px!important;display:flex;flex-direction:column;justify-content:space-between}
+.xHandleCloud{display:flex;gap:7px;flex-wrap:wrap;margin-top:14px}
+.xHandle{border:1px solid #d6dade;background:#fbfcfc;color:#343a40;border-radius:999px;padding:7px 10px;font-size:9px;font-weight:850}
+.xFeedGrid{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:12px;align-items:start}
+.xTimeline{display:grid;gap:9px}.xPost{padding:16px!important;border-radius:18px!important;transition:transform .18s,box-shadow .18s,border-color .18s}
+.xPost:hover{transform:translateY(-3px);border-color:#a8b0ff!important;box-shadow:0 18px 38px rgba(22,30,42,.09)}
+.xPostHead{display:flex;align-items:center;gap:10px;margin-bottom:11px}.xAvatar{width:38px;height:38px;border-radius:50%;object-fit:cover;background:#e7e9ea;border:1px solid #d4d8db}
+.xWho{min-width:0;flex:1}.xName{font-weight:900;font-size:12px}.xUser{font-size:10px;color:#8a9198;margin-top:2px}.xWhen{font:9px ui-monospace,SFMono-Regular,Menlo,monospace;color:#9aa0a6;white-space:nowrap}
+.xText{font-size:14px;line-height:1.48;color:#15181b;white-space:pre-wrap;overflow-wrap:anywhere}
+.xMedia{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:12px}.xMedia img{width:100%;max-height:330px;object-fit:cover;border-radius:12px;border:1px solid #d9dcdf;background:#eef0f0}
+.xMetrics{display:flex;gap:14px;align-items:center;margin-top:12px;padding-top:10px;border-top:1px solid #e2e4e6;color:#7f878f;font-size:9px;font-weight:750}
+.xOpen{margin-left:auto;color:#343a40;font-weight:900;text-decoration:none}.xOpen:hover{text-decoration:underline}
+.xSidebar{position:sticky;top:126px;display:grid;gap:10px}.xPulse{height:170px;position:relative;overflow:hidden}
+.xPulse:before{content:"";position:absolute;width:150px;height:150px;border-radius:44% 56% 61% 39%/45% 38% 62% 55%;left:50%;top:53%;transform:translate(-50%,-50%);background:radial-gradient(circle at 33% 27%,#fff,#d8dbde 37%,#8d949a 61%,#171a1e 85%);animation:artMorph 12s ease-in-out infinite alternate,artRotateSoft 25s ease-in-out infinite;box-shadow:18px 24px 45px rgba(0,0,0,.11)}
+.xPulse:after{content:"SIGNAL";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font:900 11px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.22em;color:white;text-shadow:0 2px 12px rgba(0,0,0,.65)}
+.xEmpty{padding:34px;text-align:center;border:1px dashed #cfd3d6;border-radius:18px;color:#777f87;background:rgba(255,255,255,.55)}.xEmpty b{display:block;color:#14171a;font-size:17px;margin-bottom:7px}
+.xRefresh{appearance:none;border:1px solid #d5d9dc;background:white;border-radius:999px;padding:8px 12px;font-size:9px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;cursor:pointer}.xRefresh:hover{background:#111;color:white}
+.xKeyword{display:inline-block;padding:2px 5px;border-radius:6px;background:#eceeff;color:#5262d8;font-size:9px;font-weight:800}
+.xProfileGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.xProfileCard{background:rgba(250,251,251,.9);border:1px solid #d7dade;border-radius:18px;overflow:hidden;box-shadow:0 8px 28px rgba(22,29,36,.05);min-height:430px}
+.xProfileHead{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid #e0e3e5;background:rgba(255,255,255,.88)}
+.xProfileName{font-weight:950;font-size:12px;letter-spacing:-.02em}.xProfileMode{font:8px ui-monospace,SFMono-Regular,Menlo,monospace;color:#939aa1;letter-spacing:.12em;text-transform:uppercase}
+.xProfileOpen{font-size:9px;font-weight:900;color:#171a1d;text-decoration:none}.xProfileOpen:hover{text-decoration:underline}
+.xProfilePosts{display:grid;gap:0;background:#fff}
+.xProfilePost{padding:15px 16px;border-bottom:1px solid #eceeef}.xProfilePost:last-child{border-bottom:0}
+.xProfilePost:hover{background:#fafbfb}
+.xProfilePost .xPostHead{margin-bottom:9px}.xProfilePost .xAvatar{width:32px;height:32px}.xProfilePost .xText{font-size:13px;line-height:1.5}
+.xProfilePost .xMetrics{margin-top:10px;padding-top:8px;gap:12px}
+.xFeedSource{padding:10px 12px;border:1px solid #d7dade;border-radius:12px;background:#fafafa;color:#727a82;font-size:10px;line-height:1.45;margin-bottom:10px}
+@media(max-width:980px){.xProfileGrid{grid-template-columns:1fr}}
+
+@media(max-width:900px){.xFeedHero,.xFeedGrid{grid-template-columns:1fr}.xSidebar{position:static}.xFeedIntro{min-height:180px}}
+.pane{animation:paneIn .28s ease}
+@keyframes paneIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+@media(max-width:1050px){
+  .masthead{grid-template-columns:1fr;min-height:auto}.masthead:after{display:none}.mastart{min-height:300px}.masttitle{font-size:clamp(60px,13vw,105px)}
+}
+@media(max-width:680px){
+  .wrap{padding:0 15px 60px}.top{margin:0 -15px;padding:13px 15px}.sub{display:none}.masthead{margin:0 -15px;padding:38px 18px 26px}
+  .mastart{min-height:240px}.maststatement{font-size:12px;width:130px}.hero{grid-template-columns:1fr}.tabs{top:57px;width:100%}
+  .strategy{min-height:345px}.agentVisual{height:150px}.drawer{padding:16px}.grid4{grid-template-columns:1fr 1fr}
+}
+</style></head><body><div class="wrap"><div class="top"><div><div class="brand">PUMP LAB <span style="color:var(--blue)">/ LIVE</span></div><div class="sub">Autonomous Pump.fun & Solana paper-trading research laboratory</div></div><div class="badges"><span class="badge live">● REAL MARKET DATA</span><span class="badge">PAPER ONLY</span><span class="badge" id="version">LOADING</span></div></div>
+<section class="masthead">
+  <div class="mastcopy">
+    <div class="kicker">Autonomous Trading Research Laboratory · 001</div>
+    <h1 class="masttitle">PUMP LAB<span>/LIVE</span></h1>
+    <p class="mastlede">A living market laboratory where autonomous agents study Pump.fun and Solana, compete for edge, learn from mistakes, and evolve in public.</p>
+    <div class="statusrail"><div class="statusswitch"><i></i> Live market data</div><div class="statusswitch">Paper only</div><span class="statusnote">AI agents · market memory · shadow execution · evolution</span></div>
+  </div>
+  <div class="mastart magicOrb" id="magicOrb" role="button" tabindex="0" aria-label="Ask the Pump Lab oracle" title="Ask the Pump Lab oracle">
+    <div class="mastindex">01 / SYSTEM<br>02 / AGENTS<br>03 / MARKETS<br>04 / MEMORY</div>
+    <div class="mastwords">DATA<br>AGENTS<br>MARKETS<br>IDEAS<br>SIMULATION<br>EVOLUTION</div>
+    <div class="oracleAnswer" id="oracleAnswer" aria-live="polite"></div>
+<div class="maststatement">Trading the next generation of tokens.</div><div class="mastline"></div>
+  </div>
+</section>
+<div class="hero"><div><div class="muted">CHAMPION CHALLENGE</div><div class="big" id="champ">Loading…</div><div class="muted" id="champMeta"></div><div class="meter" style="margin-top:12px"><i id="champBar"></i></div></div><div><div class="muted">MARKET WEATHER</div><div class="big" id="weather">Loading…</div><div class="mini" id="weatherMeta"></div></div></div>
+<div class="grid4"><div class="card"><div class="muted">LAB CAPITAL</div><div class="big" id="capital">Loading…</div><div class="mini" id="capitalDelta"></div></div><div class="card"><div class="muted">PAPER EXITS</div><div class="big" id="tradeCount">—</div><div class="mini" id="decisionCount"></div></div><div class="card"><div class="muted">OPEN POSITIONS</div><div class="big" id="open">—</div><div class="mini">across production agents</div></div><div class="card"><div class="muted">TOKENS OBSERVED</div><div class="big" id="tokenCount">—</div><div class="mini" id="uptime"></div></div></div>
+<div class="card health" id="health"><span>Dashboard: <b class="amber">loading state…</b></span></div><div class="tabs" id="tabs"><div class="tab on" data-p="war">War Room</div><div class="tab" data-p="radar">Token Lab</div><div class="tab" data-p="intel">Intelligence</div><div class="tab" data-p="planet">The World</div><div class="tab" data-p="research">Research Lab</div><div class="tab" data-p="time">Time Machine</div><div class="tab" data-p="xfeed">X Feed</div></div>
+<div class="pane on" id="war"><div class="sectionTitle"><h2>Autonomous Traders</h2><p>Same market. Same $1,000 start. Different personalities.</p></div><div class="strategies" id="strats"></div><div class="two" style="margin-top:12px"><div class="card"><h3>LIVE ACTIVITY</h3><div class="feed" id="feed"></div></div><div class="card"><h3>NARRATIVE RADAR</h3><div id="narrMini"></div></div></div></div>
+<div class="pane" id="radar"><div class="two"><div class="card scroll"><table class="table"><thead><tr><th>Token</th><th>MC</th><th>Liq</th><th>Score</th><th>Risk</th><th>Quality</th><th>Consensus</th><th>Source</th></tr></thead><tbody id="tokenRows"></tbody></table></div><div class="card"><h3>DETECTIVE WATCH</h3><div id="detectiveList"></div></div></div></div>
+<div class="pane" id="intel"><div class="card"><div class="sectionTitle"><h2>🌎 Narrative World</h2><p>Heat = momentum + buyer pressure + volume + fresh launches − saturation</p></div><div class="world" id="world"></div></div><div class="two" style="margin-top:12px"><div class="card scroll"><h3>CREATOR DNA · OBSERVED BY PUMP LAB</h3><table class="table"><thead><tr><th>Creator</th><th>Launches</th><th>Best X</th><th>Collapses</th><th>Graduations</th></tr></thead><tbody id="creators"></tbody></table></div><div class="card"><h3>DATA TRUTH</h3><div id="truth"></div></div></div><div class="card" style="margin-top:12px"><h3>👀 FOMO SMART-WALLET WATCHLIST</h3><div class="mini">Requested Fomo identities. Only corroborated public Solana mappings are subscribed; unresolved identities stay labeled resolving instead of being guessed.</div><div class="scroll"><table class="table"><thead><tr><th>Trader</th><th>Status</th><th>Wallets</th><th>Events</th><th>Buys</th><th>Sells</th><th>Tokens</th><th>Marked</th><th>Last</th></tr></thead><tbody id="fomoWatchlist"></tbody></table></div></div>
+<div class="two" style="margin-top:12px"><div class="card"><h3>⚡ FOMO WATCHLIST · RECENT ON-CHAIN ACTIVITY</h3><div class="mini">BUY/SELL requires Pump.fun evidence or token + native SOL direction. Otherwise PUMP LAB reports TOKEN IN/OUT rather than inventing a trade.</div><div class="scroll"><table class="table"><thead><tr><th>Trader</th><th>Action</th><th>Token</th><th>Token Δ</th><th>SOL Δ</th><th>When</th></tr></thead><tbody id="fomoEvents"></tbody></table></div></div><div class="card"><h3>🔭 GLOBAL WALLET ACTIVITY · ON-CHAIN OBSERVED</h3><div class="mini">Direct Solana observations. Marked return is inferred from token price when first observed, not a claim of realized wallet P&L.</div><div class="scroll"><table class="table"><thead><tr><th>Wallet</th><th>Events</th><th>Buys</th><th>Sells</th><th>Tokens</th><th>Marked</th><th>Score</th></tr></thead><tbody id="walletBoard"></tbody></table></div></div></div></div>
+<div class="pane" id="planet"><div class="card"><div class="sectionTitle"><h2>🌎 THE WORLD</h2><p>A live map of the token economy PUMP LAB can actually observe.</p></div><div id="worldStats" class="grid4"></div><div id="tokenWorld" class="worldGrid" style="margin-top:12px"></div></div><div class="two" style="margin-top:12px"><div class="card"><h3>🔥 WORLD LEADERS</h3><div id="worldLeaders"></div></div><div class="card"><h3>⚠️ WORLD RISKS</h3><div id="worldRisks"></div></div></div></div>
+<div class="pane" id="research"><div class="three"><div class="card"><h3>🧪 CHALLENGERS</h3><div id="experiments"></div></div><div class="card"><h3>🚀 MISSED MONSTERS</h3><div id="missed"></div></div><div class="card"><h3>🛟 SAVED MY ASS</h3><div id="saved"></div></div></div><div class="two" style="margin-top:12px"><div class="card"><h3>🏆 HALL OF FAME</h3><div id="hall"></div></div><div class="card"><h3>🧬 TRADE AUTOPSIES</h3><div id="autopsies"></div></div></div><div class="card" style="margin-top:12px"><h3>RESEARCH DIRECTOR</h3><div id="researchText"></div></div><div class="card" style="margin-top:12px"><h3>🧯 PROCESS AUDIT & LIVE LAUNCH GATE</h3><div id="auditBoard"></div></div>
+<div class="card" style="margin-top:12px"><div class="sectionTitle"><h2>🧠 ALPHA OS · 10 SYSTEM STACK</h2><p>Shadow execution, wallet graph, toxic flow, lead-lag, microstructure, execution routing, CIO auction, probability, adaptive exits and world model.</p></div><div id="alphaOSBoard"></div></div>
+<div class="card" style="margin-top:12px"><div class="sectionTitle"><h2>MEME / CHART THEORY LAB</h2><p>Path quality, lifecycle and meme-market structure research. Paper only.</p></div><div id="memeChartLab"></div></div>
+<div class="card" style="margin-top:12px"><div class="sectionTitle"><h2>⚗️ HYPOTHESIS ARENA</h2><p>10 falsifiable momentum experiments. Separate paper bankrolls. 80/20 holdout. Bad ideas retire; promising ideas remain paper-only candidates.</p></div><div id="hypothesisArena"></div></div>
+<div class="card" style="margin-top:12px"><div class="sectionTitle"><h2>🧪 SPECIALIST COHORT LAB</h2><p>Isolated cohort traders testing market cap, age, liquidity, flow, metadata, creator DNA, regime and lifecycle populations.</p></div><div id="specialistCohorts"></div></div>
+<div class="three" style="margin-top:12px"><div class="card"><h3>🎯 CONFIDENCE CALIBRATION</h3><div id="calibration"></div></div><div class="card"><h3>🆚 BENCHMARKS</h3><div id="benchmarks"></div></div><div class="card"><h3>🧬 EVOLUTION</h3><div id="evolution"></div></div></div>
+<div class="grid4" style="margin-top:12px"><div class="card"><h3>ENTRY LAB</h3><div id="entryLab"></div></div><div class="card"><h3>EXIT LAB</h3><div id="exitLab"></div></div><div class="card"><h3>SIZING LAB</h3><div id="sizingLab"></div></div><div class="card"><h3>EXECUTION STRESS</h3><div id="executionLab"></div></div></div>
+<div class="two" style="margin-top:12px"><div class="card"><h3>👁 GOD BOT · UPPER BOUND</h3><div id="godBot"></div></div><div class="card"><h3>🧠 MARKET ARCHETYPE MEMORY</h3><div id="archetypes"></div></div></div>
+<div class="card" style="margin-top:12px"><h3>☠️ STRATEGY GRAVEYARD / PROMOTIONS</h3><div id="graveyard"></div></div>
+<div class="three" style="margin-top:12px"><div class="card"><h3>🧭 ADAPTIVE MASTER ALLOCATION</h3><div id="masterAllocation"></div></div><div class="card"><h3>🤝 SIGNAL COALITIONS</h3><div id="coalitions"></div></div><div class="card"><h3>⏱ HOLD-TIME LAB</h3><div id="holdTime"></div></div></div>
+<div class="two" style="margin-top:12px"><div class="card"><h3>🌦 REGIME LEADERBOARD</h3><div id="regimeMatrix"></div></div><div class="card"><h3>🏁 24H GRAND PRIX / RISK BOARD</h3><div id="tournament"></div><hr style="border-color:#223047"><div id="riskBoard"></div></div></div>
+<div class="three" style="margin-top:12px"><div class="card"><h3>🧬 SIGNAL INDEPENDENCE</h3><div id="correlation"></div></div><div class="card"><h3>🛡 NO-TRADE ALPHA</h3><div id="noTrade"></div></div><div class="card"><h3>🌪 CHAOS LAB</h3><div id="chaos"></div></div></div>
+<div class="card" style="margin-top:12px"><h3>📡 DATA INTEGRITY</h3><div id="providerAudit"></div></div></div>
+<div class="pane" id="time"><div class="card"><div class="sectionTitle"><h2>⏪ Time Machine</h2><p>Immutable periodic snapshots of what the lab knew then.</p></div><div class="controls"><select id="timeSelect"></select><span class="muted" id="timeView"></span></div><div id="timeCards" class="grid4"></div></div><div class="card" style="margin-top:12px"><h3>🎞 ROLLING MARKET REPLAY</h3><div id="marketReplay"></div></div><div class="card" style="margin-top:12px"><h3>TRUTH LEDGER · RECENT DECISIONS</h3><div class="scroll"><table class="table"><thead><tr><th>Time</th><th>Agent</th><th>Token</th><th>Decision</th><th>Score</th><th>Risk</th><th>Why</th></tr></thead><tbody id="ledger"></tbody></table></div></div></div>
+
+<div class="pane" id="xfeed">
+  <div class="xFeedHero">
+    <div class="card xFeedIntro">
+      <div><div class="kicker">CURATED INTELLIGENCE · X / TWITTER</div><h2 class="xFeedTitle">SIGNAL<span>/FEED</span></h2><p>A private market-intelligence wall made only from the X accounts you choose. Public live timelines work without an API key; richer merged intelligence can layer on later.</p></div>
+      <div class="xFeedStatus"><span class="dot"></span><b id="xFeedState">WAITING FOR CONFIG</b><span class="muted" id="xFeedUpdated"></span><button class="xRefresh" onclick="loadXFeed(true)">Refresh</button></div>
+    </div>
+    <div class="card xFeedAccounts"><div><div class="muted" style="font-size:9px;font-weight:900;letter-spacing:.13em">WATCHING</div><div class="xHandleCloud" id="xFeedHandles"><span class="xHandle">Add your accounts</span></div></div><div class="mini">Public embed mode requires no API key. If API access is connected later, Pump Lab automatically upgrades to a merged newest-first intelligence feed.</div></div>
+  </div>
+  <div class="xFeedGrid">
+    <div class="xTimeline" id="xTimeline"><div class="xEmpty"><b>X Signal Feed is ready.</b>Add your chosen accounts and X API credentials to switch the stream on.</div></div>
+    <div class="xSidebar"><div class="card xPulse"></div><div class="card"><h3>FEED RULES</h3><div class="mini">Selected accounts only · official X embeds · no API required · direct links back to X · merged feed upgrade ready.</div></div><div class="card"><h3>LIVE SIGNALS</h3><div id="xSignalSummary" class="mini">No feed data yet.</div></div></div>
+  </div>
+</div></div><div class="drawer" id="drawer"><button class="close" onclick="closeDrawer()">Close</button><div id="drawerBody"></div></div><script src="/api-shim.js?v=671cf12a"></script><script src="/dashboard.js?v=671cf12a"></script></body></html>
