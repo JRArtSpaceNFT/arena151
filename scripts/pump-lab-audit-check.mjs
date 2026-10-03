@@ -2,6 +2,7 @@ import fs from 'node:fs';
 
 const src = fs.readFileSync(new URL('../server.mjs', import.meta.url), 'utf8');
 const scienceSrc = fs.readFileSync(new URL('../lib/pump-lab-season2-science.mjs', import.meta.url), 'utf8');
+const proxySrc = fs.readFileSync(new URL('../frontend-proxy.mjs', import.meta.url), 'utf8');
 const checks = [
   ['durable startup gate', "STARTUP_STATE_GATE waiting for Postgres / Key Value / local recovery"],
   ['durable trading gate', 'durableTradingReady()'],
@@ -35,7 +36,11 @@ const checks = [
   ['atomic local checkpoint', 'writeLocalAtomic(s)'],
   ['newest-state restore guard', 'restoreIfNewer'],
   ['Postgres reconnect scheduler', 'scheduleDbReconnect'],
-  ['multi-layer storage status', 'storageStatus()']
+  ['multi-layer storage status', 'storageStatus()'],
+  ['independent UI peer recovery', 'tryPeerRecovery()'],
+  ['critical Key Value checkpoint', "pump-lab:state:critical"],
+  ['critical local checkpoint', 'writeLocalCriticalAtomic(s)'],
+  ['recovery snapshot endpoint', "req.url==='/api/recovery-snapshot'"]
 ];
 
 const failures = checks.filter(([, needle]) => !src.includes(needle)).map(([name])=>name);
@@ -47,6 +52,9 @@ const scienceSystems=[
 for(const name of scienceSystems)if(!scienceSrc.includes("'"+name+"'"))failures.push('Season 2 science subsystem missing '+name);
 if(!scienceSrc.includes("paperOnly:true"))failures.push('Season 2 science paper-only marker missing');
 if(!scienceSrc.includes("autoPromotion:false"))failures.push('Season 2 manual-promotion safeguard missing');
+if(!proxySrc.includes("u.pathname === '/api/recovery-snapshot-cache'"))failures.push('UI recovery snapshot cache endpoint missing');
+if(!proxySrc.includes('refreshRecoveryCache(true)'))failures.push('UI recovery cache warmup missing');
+if(!proxySrc.includes('setInterval(()=>refreshRecoveryCache(true)'))failures.push('UI recovery cache refresh loop missing');
 
 // Hypothesis Arena regression guards.
 const hypothesisIds=[
@@ -113,4 +121,4 @@ if (src.includes("agentVisual v'+(i%5)")) {
   process.exit(1);
 }
 
-console.log('PUMP LAB audit static checks passed: ' + checks.length + ' core checks + 12 Season 2 systems + 25 unique trader visuals');
+console.log('PUMP LAB audit static checks passed: ' + checks.length + ' core checks + 12 Season 2 systems + recovery peer + 25 unique trader visuals');
