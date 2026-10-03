@@ -4,6 +4,12 @@ const src = fs.readFileSync(new URL('../server.mjs', import.meta.url), 'utf8');
 const scienceSrc = fs.readFileSync(new URL('../lib/pump-lab-season2-science.mjs', import.meta.url), 'utf8');
 const proxySrc = fs.readFileSync(new URL('../frontend-proxy.mjs', import.meta.url), 'utf8');
 const checks = [
+  ['immutable science rebuild', "science.reset();for(const tr of rebuiltTrades"],
+  ['aggregate recovered coverage', "ledgerRecoveredAggregateRows"],
+  ['detailed ledger coverage', "ledgerDetailedTrades"],
+  ['forensic recovery metadata', "forensicRecovery"],
+  ['forensic ledger coverage', "forensicLedgerGaps"],
+  ['forensic baseline source', "FORENSIC_BASELINE"],
   ['durable startup gate', "STARTUP_STATE_GATE waiting for Postgres / Key Value / local / peer recovery"],
   ['durable trading gate', 'durableTradingReady()'],
   ['deterministic control', "deterministicScore('random-control:'"],
@@ -105,6 +111,9 @@ if(!src.includes("freshAlpha=createPumpLabAlphaOS"))failures.push('Alpha OS fres
 
 if(src.indexOf("setLifecycle('READY','market loops initialized')")<0||src.indexOf("server.listen(PORT,'0.0.0.0'")<src.indexOf("setLifecycle('READY','market loops initialized')"))failures.push('public port must bind only after READY');
 if(!src.includes("FATAL_STATE_INTEGRITY · refusing to bind public port"))failures.push('startup integrity fence missing');
+
+if(src.includes("forensic-placeholder-trade"))failures.push('forensic recovery must not synthesize placeholder trades');
+if(!src.includes("source:'Render observed pre-incident checkpoint'"))failures.push('forensic checkpoint provenance missing');
 
 if (failures.length) {
   console.error('PUMP LAB AUDIT STATIC CHECK FAILED');
