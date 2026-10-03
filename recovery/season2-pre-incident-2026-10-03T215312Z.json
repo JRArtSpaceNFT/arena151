@@ -3,7 +3,7 @@
   "source": "Render observed logs",
   "capturedAt": "2026-10-03T21:53:12.580375808Z",
   "capturedAtMs": 1791064392580,
-  "note": "Forensic aggregate checkpoint captured before the 2026-10-03 recovery regression. This file preserves observed strategy counters/bankrolls and dashboard ledger totals; it does not invent missing row-level trades.",
+  "note": "Forensic aggregate checkpoint captured before the 2026-10-03 recovery regression. This file preserves observed strategy counters/bankrolls and dashboard ledger totals; it does not invent missing row-level trades. A later clean UI state at 21:56:12Z is preserved as an observed accounting high-water mark (195 total ledger rows; 75 production rows/exits).",
   "dashboard": {
     "productionExits": 73,
     "ledgerRows": 192,
@@ -690,5 +690,18 @@
       "cash": 995.9684916281924,
       "open": 0
     }
-  ]
+  ],
+  "observedHighWater": {
+    "capturedAt": "2026-10-03T21:56:12.811903896Z",
+    "capturedAtMs": 1791064572811,
+    "source": "Render UI STATE_CACHE_REFRESH",
+    "productionExits": 75,
+    "ledgerRows": 195,
+    "ledgerProductionRows": 75,
+    "cohortRows": 76,
+    "controlRows": 23,
+    "otherRows": 21,
+    "scienceTrades": 11,
+    "tradeAccountingOk": true
+  }
 }
