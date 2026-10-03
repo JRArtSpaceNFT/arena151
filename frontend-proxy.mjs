@@ -208,8 +208,9 @@ async function refreshRecoveryCache(force=false){
   if(recoveryRefreshInFlight)return recoveryRefreshInFlight;
   recoveryRefreshInFlight=(async()=>{
     const out=await fetchBackendJson('/api/recovery-snapshot',12000);
-    const state=out?.state||out;
-    if(!state?.stateMeta?.savedAt||!Array.isArray(state?.strategies)||!Array.isArray(state?.trades))throw new Error('invalid recovery snapshot');
+    const state=out?.state||out,incomingTs=Number(state?.stateMeta?.savedAt||0),currentTs=Number(recoveryCache?.stateMeta?.savedAt||0);
+    if(out?.recoverable!==true||!incomingTs||!Array.isArray(state?.strategies)||!Array.isArray(state?.trades))throw new Error('invalid or untrusted recovery snapshot');
+    if(recoveryCache&&incomingTs<currentTs)return recoveryCache;
     recoveryCache=state;recoveryCacheAt=Date.now();
     console.log('RECOVERY_CACHE_REFRESH '+JSON.stringify({ok:true,savedAt:state.stateMeta.savedAt,trades:state.trades.length,open:(state.positions||[]).length,bytes:Buffer.byteLength(JSON.stringify(state))}));
     return recoveryCache;
