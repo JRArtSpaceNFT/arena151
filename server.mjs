@@ -403,10 +403,22 @@ function runtimePressure(){
 }
 function shouldDeferNonCritical(){return shuttingDown||systemPressure==='HIGH'||systemPressure==='CRITICAL';}
 async function runScheduled(name,fn,{budgetMs=1000,critical=false}={}){
+  const prev=subsystemRuntime.get(name);if(prev?.status==='running')return false;
   if(!critical&&shouldDeferNonCritical()){subsystemRuntime.set(name,{ts:now(),status:'deferred',pressure:systemPressure});return false;}
-  const started=Date.now();
+  const started=Date.now();subsystemRuntime.set(name,{ts:started,status:'running',budgetMs,pressure:systemPressure});
   try{await fn();const ms=Date.now()-started;subsystemRuntime.set(name,{ts:now(),status:'ok',ms,budgetMs});if(ms>budgetMs)setHealth('runtime-'+name,'warn',name+' exceeded '+budgetMs+'ms budget · '+ms+'ms',{truth:'observed'});return true;}
   catch(e){const ms=Date.now()-started;subsystemRuntime.set(name,{ts:now(),status:'error',ms,error:String(e?.message||e)});setHealth('runtime-'+name,'warn',name+' failed: '+String(e?.message||e),{truth:'observed'});return false;}
+}
+function watchdogTick(){
+  if(shuttingDown||lifecyclePhase==='DRAINING')return;const ts=now(),actions=[];
+  if(ts-lastPumpPollAt>30000){actions.push('pump-poll');runScheduled('pump-poll',()=>pumpPoll(),{budgetMs:6000,critical:true});}
+  if(ts-lastDexPollAt>60000){actions.push('dex-poll');runScheduled('dex-poll',()=>dexPoll(),{budgetMs:9000,critical:true});}
+  if(positions.some(p=>!p.closed)&&ts-lastOpenPositionPollAt>45000){actions.push('open-marks');runScheduled('open-marks',()=>openPositionPoll(),{budgetMs:9000,critical:true});}
+  if((solanaQueue.length||solanaPriorityQueue.length)&&ts-lastSolanaDrainAt>5000){actions.push('solana-drain');runScheduled('solana-drain',()=>drainSolanaQueue(),{budgetMs:1500,critical:true});}
+  if(DATABASE_URL&&!db&&!dbConnecting){actions.push('postgres-reconnect');scheduleDbReconnect(100);}
+  if(systemPressure==='CRITICAL'&&lifecyclePhase==='READY')setLifecycle('DEGRADED','runtime pressure critical');
+  else if(lifecyclePhase==='DEGRADED'&&lifecycleDetail==='runtime pressure critical'&&['NORMAL','ELEVATED'].includes(systemPressure)&&(!DATABASE_URL||!!db))setLifecycle('READY','runtime pressure recovered');
+  if(actions.length)console.warn('WATCHDOG_SELF_HEAL '+JSON.stringify({ts,actions,pressure:systemPressure}));
 }
 function readinessStatus(){
   const durable=durableTradingReady(),ready=!shuttingDown&&durable&&['READY','DEGRADED'].includes(lifecyclePhase);
@@ -820,9 +832,10 @@ function durableTradingReady(){
 }
 function storageStatus(){
   return{
+    canonical:DATABASE_URL?'postgres':REDIS_URL?'key-value':'local-memory',
     postgres:{configured:!!DATABASE_URL,connected:!!db,restored:dbStateRestored,lastSaveAt:lastDurableSaveAt,lastRestoreAt:lastDurableRestoreAt},
-    keyValue:{configured:!!REDIS_URL,connected:kvReady,restored:kvStateRestored,lastSaveAt:lastKvSaveAt,lastRestoreAt:lastKvRestoreAt,persistent:false},
-    local:{restored:localStateRestored,lastRestoreAt:lastLocalRestoreAt,maxRecoveryAgeMs:LOCAL_RECOVERY_MAX_AGE_MS},
+    keyValue:{configured:!!REDIS_URL,connected:kvReady,restored:kvStateRestored,lastSaveAt:lastKvSaveAt,lastRestoreAt:lastKvRestoreAt,persistent:false,role:'disposable failover cache'},
+    local:{restored:localStateRestored,lastRestoreAt:lastLocalRestoreAt,maxRecoveryAgeMs:LOCAL_RECOVERY_MAX_AGE_MS,role:'emergency recovery only'},
     tradingUnlocked:durableTradingReady(),stateVersionTs,graceMs:DURABLE_WRITE_GRACE_MS
   };
 }
@@ -3241,6 +3254,7 @@ setInterval(()=>runScheduled('full-save',()=>save(),{budgetMs:15000}),300000).un
 const diagTimer=setTimeout(()=>runScheduled('diagnostics',async()=>{logStrategyDiagnostics();logPerformanceSnapshot();logFullPostmortem();},{budgetMs:1500}),20000);diagTimer.unref?.();
 const diagLoop=setInterval(()=>runScheduled('diagnostics',async()=>{logStrategyDiagnostics();logPerformanceSnapshot();logFullPostmortem();},{budgetMs:1500}),300000);diagLoop.unref?.();
 let loopExpected=Date.now()+1000;setInterval(()=>{const ts=Date.now(),lag=Math.max(0,ts-loopExpected);loopExpected=ts+1000;eventLoopLagMs=lag;eventLoopSamples.push(lag);if(eventLoopSamples.length>120)eventLoopSamples.shift();eventLoopLagP95=percentile(eventLoopSamples,.95)||0;systemPressure=runtimePressure();if(lag>500)setHealth('event-loop','warn','Event loop lag '+lag+'ms · pressure '+systemPressure,{truth:'observed'});else if(health.get('event-loop')?.status!=='ok')setHealth('event-loop','ok','Event loop responsive · p95 '+Math.round(eventLoopLagP95)+'ms',{truth:'observed'});},1000).unref?.();
+setInterval(watchdogTick,10000).unref?.();
 takeTimeline();takeReplay();alphaOS.observeWorld({weather:marketWeather(),tokens:[...tokens.values()],strategyEquity:Object.fromEntries(allTraders().map(d=>[d.id,d.equity]))});alphaOS.pollExternal();openPositionPoll();
 setLifecycle('READY','market loops initialized');
 runScheduled('x-feed-warmup',()=>refreshXFeed(false).then(x=>console.log('X_FEED_WARMUP '+JSON.stringify({ok:x.ok,source:x.source,posts:x.posts?.length||0,handles:x.handles,errors:x.errors||[]}))),{budgetMs:30000}).catch(()=>{});
