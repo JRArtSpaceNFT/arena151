@@ -2078,6 +2078,30 @@ async function initKv(restoreState=true){
     console.warn('Key Value connection failed:',e.message);return false;
   }finally{kvConnecting=false;}
 }
+function rebuildScienceFromDetailedLedger(reason='critical-recovery'){
+  if(num(science.counters?.trades)>0||!trades.length)return false;
+  const out=science.rebuildFromTradeLedger(trades);
+  console.warn('SCIENCE_LEDGER_REBUILD '+JSON.stringify({reason,detailedTrades:trades.length,rebuilt:num(out?.rebuilt),preservedAlpha:num(out?.preservedAlpha)}));
+  return num(out?.rebuilt)>0;
+}
+async function reseedCanonicalFullSnapshot(client,reason='recovery'){
+  if(!client)return false;
+  try{
+    validateStateIntegrity({repair:true});advanceRecoveryHighWater('canonical-reseed');
+    const s=serialize(),savedAt=num(s?.stateMeta?.savedAt)||now();stateVersionTs=Math.max(stateVersionTs,savedAt);
+    await client.query('BEGIN');
+    try{
+      await client.query("INSERT INTO pump_lab_state(id,payload,updated_at) VALUES('main',$1,now()) ON CONFLICT(id) DO UPDATE SET payload=$1,updated_at=now()",[s]);
+      await client.query("INSERT INTO pump_lab_state(id,payload,updated_at) VALUES('main:highwater',$1,now()) ON CONFLICT(id) DO UPDATE SET payload=$1,updated_at=now()",[recoveryHighWater]);
+      await client.query('COMMIT');
+    }catch(e){try{await client.query('ROLLBACK')}catch{}throw e;}
+    await writeLocalAtomic(s);
+    if(kvReady&&kv){try{await Promise.all([kv.set('pump-lab:state:main',JSON.stringify(s)),kv.set('pump-lab:state:highwater',JSON.stringify(recoveryHighWater))]);lastKvSaveAt=now();}catch(e){console.warn('Canonical KV reseed warning:',e.message);}}
+    lastDurableSaveAt=now();
+    console.warn('CANONICAL_FULL_RESEED '+JSON.stringify({reason,savedAt,ledgerRows:currentRecoveryMetrics().ledgerRows,productionExits:currentRecoveryMetrics().productionExits,scienceTrades:num(science.counters?.trades)}));
+    return true;
+  }catch(e){console.warn('Canonical full reseed warning:',e.message);return false;}
+}
 async function initDb(restoreState=true){
   if(!DATABASE_URL){setHealth('research-memory','standby','Render Postgres not attached · using failover storage when available',{truth:'not connected'});return;}
   if(db||dbConnecting)return;dbConnecting=true;let client=null;
@@ -2100,13 +2124,15 @@ async function initDb(restoreState=true){
     await db.query('CREATE INDEX IF NOT EXISTS pump_lab_trade_journal_strategy_idx ON pump_lab_trade_journal(strategy,ts)');
     if(restoreState||!dbStateRestored){
       const r=await db.query("SELECT id,payload,updated_at FROM pump_lab_state WHERE id IN ('main','main:critical','main:highwater')");
-      const fullRow=r.rows.find(x=>x.id==='main'),criticalRow=r.rows.find(x=>x.id==='main:critical'),highRow=r.rows.find(x=>x.id==='main:highwater');let restoredAny=false;
+      const fullRow=r.rows.find(x=>x.id==='main'),criticalRow=r.rows.find(x=>x.id==='main:critical'),highRow=r.rows.find(x=>x.id==='main:highwater');let restoredAny=false,fullRestored=false,criticalRestored=false;
       if(highRow?.payload)applyRecoveryHighWater(highRow.payload,'postgres-high-water');
-      if(fullRow?.payload)restoredAny=restoreIfNewer(fullRow.payload,'postgres',new Date(fullRow.updated_at).getTime())||restoredAny;
-      if(criticalRow?.payload)restoredAny=restoreCriticalIfNewer(criticalRow.payload,new Date(criticalRow.updated_at).getTime())||restoredAny;
+      if(fullRow?.payload){fullRestored=restoreIfNewer(fullRow.payload,'postgres',new Date(fullRow.updated_at).getTime());restoredAny=fullRestored||restoredAny;}
+      if(criticalRow?.payload){criticalRestored=restoreCriticalIfNewer(criticalRow.payload,new Date(criticalRow.updated_at).getTime());restoredAny=criticalRestored||restoredAny;}
       if(!restoredAny){dbStateRestored=true;lastDurableRestoreAt=now();}
       const journalRepaired=await repairCurrentSeasonFromJournal(db);
       if(!journalRepaired)await replayTradeJournal(db,stateVersionTs);
+      const scienceRebuilt=rebuildScienceFromDetailedLedger(fullRestored?'full-restore':'critical-or-journal-restore');
+      if(!fullRestored||journalRepaired||scienceRebuilt)await reseedCanonicalFullSnapshot(db,journalRepaired?'journal-repair':scienceRebuilt?'science-ledger-rebuild':'critical-recovery');
       try{
         const ar=await db.query("SELECT payload,updated_at FROM pump_lab_state WHERE id='archive:season2-2026-10-01'");
         if(ar.rows[0]?.payload){archiveMonsterExportCache=buildArchiveMonsterExport(ar.rows[0].payload,ar.rows[0].updated_at);console.log('ARCHIVE_MONSTER_CACHE '+JSON.stringify(archiveMonsterExportCache.counts));}
@@ -2359,7 +2385,7 @@ async function repairCurrentSeasonFromJournal(client=db){
     }
     forensicRecovery={active:true,lastRepairAt:now(),regressionCutoff:cutoff||0,journalRows:rows.length,detailedTrades:rebuiltTrades.length,observedLedgerRows:rebuiltTrades.length+num(forensicLedgerGaps.total)};
     if(archive){seasonInfo={label:archive.label||'season2-2026-10-01',startedAt:seasonStart,archiveId:'archive:season2-2026-10-01',resetApplied:true};}
-    science.reset();for(const tr of rebuiltTrades.slice().reverse()){try{science.recordTrade(tr,{mint:tr.mint,price:num(tr.exit)||num(tr.entry)||1,mc:num(tr.exitMc)||num(tr.entryMc)||0});}catch{}}
+    science.rebuildFromTradeLedger(rebuiltTrades);
     stateVersionTs=now();journalReplayedAt=stateVersionTs;validateStateIntegrity({repair:true});
     console.warn('TRADE_JOURNAL_REPAIR '+JSON.stringify({restoredDetailedTrades:trades.length,observedLedgerRows:forensicRecovery.observedLedgerRows,aggregateRecoveredRows:forensicLedgerGaps.total,restoredOpen:positions.length,restoredExits:currentExitTotal(),regressionCutoff:cutoff||null,baselineAt:useBaseline?baselineTs:null,rows:rows.length}));
     return true;
