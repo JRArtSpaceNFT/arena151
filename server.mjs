@@ -153,6 +153,16 @@ const science = createPumpLabSeason2Science({start:START});
 let research = { last: 0, notes: [], hypotheses: [] };
 let forensicLedgerGaps={total:0,production:0,cohort:0,control:0,other:0,baselineAt:0,source:''};
 let forensicRecovery={active:false,lastRepairAt:0,regressionCutoff:0,journalRows:0,detailedTrades:0,observedLedgerRows:0};
+const forensicObservedHighWater=FORENSIC_BASELINE?.observedHighWater||{};
+let recoveryHighWater={
+  seasonKey:'archive:season2-2026-10-01',
+  ledgerRows:Math.max(0,Number(forensicObservedHighWater.ledgerRows||0)),
+  productionExits:Math.max(0,Number(forensicObservedHighWater.productionExits||0)),
+  exitTotal:(FORENSIC_BASELINE?.traders||[]).reduce((z,x)=>z+Math.max(0,Number(x?.n)||0),0),
+  strategyN:Object.fromEntries((FORENSIC_BASELINE?.traders||[]).map(x=>[x.id,Math.max(0,Number(x?.n)||0)])),
+  updatedAt:Number(forensicObservedHighWater.capturedAtMs||FORENSIC_BASELINE?.capturedAtMs||0),
+  source:'forensic-observed-high-water'
+};
 let startedAt = Date.now();
 let seasonInfo = {label:'legacy',startedAt,archiveId:null,resetApplied:false};
 
@@ -2032,9 +2042,11 @@ function markRestoreSource(source){
 function restoreIfNewer(s,source,sourceTs=0){
   if(!s||typeof s!=='object')return false;
   const ts=num(s?.stateMeta?.savedAt)||num(sourceTs)||0;
-  if(stateVersionTs&&ts&&ts<stateVersionTs)return false;
+  if(!recoveryHighWaterAllows(s,source))return false;
+  const incoming=recoveryMetricsFromState(s),current=currentRecoveryMetrics(),richer=incoming.ledgerRows>current.ledgerRows||incoming.productionExits>current.productionExits||incoming.exitTotal>current.exitTotal;
+  if(stateVersionTs&&ts&&ts<stateVersionTs&&!richer)return false;
   restore(s);stateVersionTs=Math.max(stateVersionTs,ts);markRestoreSource(source);
-  console.log('STATE_RESTORE '+JSON.stringify({source,savedAt:ts,current:stateVersionTs}));
+  console.log('STATE_RESTORE '+JSON.stringify({source,savedAt:ts,current:stateVersionTs,ledgerRows:incoming.ledgerRows,productionExits:incoming.productionExits}));
   return true;
 }
 async function initKv(restoreState=true){
@@ -2048,7 +2060,8 @@ async function initKv(restoreState=true){
     client.on('ready',()=>{kvReady=true;setHealth('research-failover','ok','Free Key Value failover online',{truth:'observed'});});
     await client.connect();kv=client;kvReady=true;
     if(restoreState){
-      const [raw,criticalRaw]=await Promise.all([kv.get('pump-lab:state:main'),kv.get('pump-lab:state:critical')]);
+      const [raw,criticalRaw,highRaw]=await Promise.all([kv.get('pump-lab:state:main'),kv.get('pump-lab:state:critical'),kv.get('pump-lab:state:highwater')]);
+      if(highRaw){try{applyRecoveryHighWater(JSON.parse(highRaw),'key-value-high-water');}catch(e){console.warn('Key Value high-water warning:',e.message);}}
       if(raw){try{restoreIfNewer(JSON.parse(raw),'key-value');}catch(e){console.warn('Key Value restore warning:',e.message);}}
       if(criticalRaw){try{restoreCriticalFromSource(JSON.parse(criticalRaw),'key-value');}catch(e){console.warn('Key Value critical restore warning:',e.message);}}
       if(!raw&&!criticalRaw&&!DATABASE_URL){
@@ -2084,8 +2097,9 @@ async function initDb(restoreState=true){
     await db.query('CREATE INDEX IF NOT EXISTS pump_lab_trade_journal_ts_idx ON pump_lab_trade_journal(ts)');
     await db.query('CREATE INDEX IF NOT EXISTS pump_lab_trade_journal_strategy_idx ON pump_lab_trade_journal(strategy,ts)');
     if(restoreState||!dbStateRestored){
-      const r=await db.query("SELECT id,payload,updated_at FROM pump_lab_state WHERE id IN ('main','main:critical')");
-      const fullRow=r.rows.find(x=>x.id==='main'),criticalRow=r.rows.find(x=>x.id==='main:critical');let restoredAny=false;
+      const r=await db.query("SELECT id,payload,updated_at FROM pump_lab_state WHERE id IN ('main','main:critical','main:highwater')");
+      const fullRow=r.rows.find(x=>x.id==='main'),criticalRow=r.rows.find(x=>x.id==='main:critical'),highRow=r.rows.find(x=>x.id==='main:highwater');let restoredAny=false;
+      if(highRow?.payload)applyRecoveryHighWater(highRow.payload,'postgres-high-water');
       if(fullRow?.payload)restoredAny=restoreIfNewer(fullRow.payload,'postgres',new Date(fullRow.updated_at).getTime())||restoredAny;
       if(criticalRow?.payload)restoredAny=restoreCriticalIfNewer(criticalRow.payload,new Date(criticalRow.updated_at).getTime())||restoredAny;
       if(!restoredAny){dbStateRestored=true;lastDurableRestoreAt=now();}
@@ -2158,10 +2172,52 @@ function restoreCritical(s){try{
 }catch(e){console.warn('Critical state restore warning:',e.message);return false;}}
 function recoveryExitTotal(s){return[...(s?.strategies||[]),...(s?.challengers||[])].reduce((z,x)=>z+Math.max(0,num(x?.n)),0);}
 function currentExitTotal(){return allTraders().reduce((z,d)=>z+Math.max(0,num(d?.n)),0);}
-function sameSeasonRecovery(s){const a=String(s?.season?.archiveId||s?.season?.label||''),b=String(seasonInfo?.archiveId||seasonInfo?.label||'');return !a||!b||a===b;}
+function recoverySeasonKey(s){return String(s?.season?.archiveId||s?.season?.label||'');}
+function sameSeasonRecovery(s){const a=recoverySeasonKey(s),b=String(seasonInfo?.archiveId||seasonInfo?.label||'');return !a||!b||a===b;}
+function recoveryMetricsFromState(s){
+  const prodIds=new Set(strategyDefs.filter(d=>d.risk!=='CONTROL'&&!d.specialist).map(d=>d.id)),strategyN={};
+  for(const x of [...(s?.strategies||[]),...(s?.challengers||[])])if(x?.id)strategyN[x.id]=Math.max(0,num(x.n));
+  const productionExits=(s?.strategies||[]).filter(x=>prodIds.has(x.id)).reduce((z,x)=>z+Math.max(0,num(x.n)),0);
+  const detailed=Array.isArray(s?.trades)?s.trades.length:Math.max(0,num(s?.stateMeta?.tradeCount));
+  const recovered=Math.max(0,num(s?.forensicLedgerGaps?.total));
+  return{seasonKey:recoverySeasonKey(s),ledgerRows:detailed+recovered,productionExits,exitTotal:recoveryExitTotal(s),strategyN};
+}
+function currentRecoveryMetrics(){
+  const prodIds=new Set(strategyDefs.filter(d=>d.risk!=='CONTROL'&&!d.specialist).map(d=>d.id)),strategyN=Object.fromEntries(allTraders().map(d=>[d.id,Math.max(0,num(d.n))]));
+  return{seasonKey:String(seasonInfo?.archiveId||seasonInfo?.label||''),ledgerRows:trades.length+Math.max(0,num(forensicLedgerGaps.total)),productionExits:strategyDefs.filter(d=>prodIds.has(d.id)).reduce((z,d)=>z+Math.max(0,num(d.n)),0),exitTotal:currentExitTotal(),strategyN};
+}
+function applyRecoveryHighWater(h,source='unknown'){
+  if(!h||typeof h!=='object')return false;const incomingKey=String(h.seasonKey||''),currentKey=String(recoveryHighWater.seasonKey||'');
+  if(currentKey&&incomingKey&&incomingKey!==currentKey)return false;
+  if(!recoveryHighWater.seasonKey&&incomingKey)recoveryHighWater.seasonKey=incomingKey;
+  recoveryHighWater.ledgerRows=Math.max(num(recoveryHighWater.ledgerRows),num(h.ledgerRows));
+  recoveryHighWater.productionExits=Math.max(num(recoveryHighWater.productionExits),num(h.productionExits));
+  recoveryHighWater.exitTotal=Math.max(num(recoveryHighWater.exitTotal),num(h.exitTotal));
+  recoveryHighWater.strategyN=recoveryHighWater.strategyN||{};
+  for(const [id,n] of Object.entries(h.strategyN||{}))recoveryHighWater.strategyN[id]=Math.max(num(recoveryHighWater.strategyN[id]),num(n));
+  recoveryHighWater.updatedAt=Math.max(num(recoveryHighWater.updatedAt),num(h.updatedAt));recoveryHighWater.source=source||h.source||recoveryHighWater.source;
+  return true;
+}
+function recoveryHighWaterAllows(s,source='unknown'){
+  if(!s||typeof s!=='object')return false;const m=recoveryMetricsFromState(s),same=!m.seasonKey||!recoveryHighWater.seasonKey||m.seasonKey===recoveryHighWater.seasonKey;
+  if(!same)return true;
+  const reasons=[];
+  if(num(recoveryHighWater.ledgerRows)>0&&m.ledgerRows<num(recoveryHighWater.ledgerRows))reasons.push('ledger '+m.ledgerRows+' < '+recoveryHighWater.ledgerRows);
+  if(num(recoveryHighWater.productionExits)>0&&m.productionExits<num(recoveryHighWater.productionExits))reasons.push('production '+m.productionExits+' < '+recoveryHighWater.productionExits);
+  for(const [id,n] of Object.entries(recoveryHighWater.strategyN||{})){if(num(n)>0&&num(m.strategyN?.[id])<num(n)){reasons.push(id+' '+num(m.strategyN?.[id])+' < '+num(n));if(reasons.length>=5)break;}}
+  if(reasons.length){console.warn('RECOVERY_HIGH_WATER_REJECTED '+JSON.stringify({source,seasonKey:m.seasonKey,ledgerRows:m.ledgerRows,productionExits:m.productionExits,reasons}));return false;}
+  return true;
+}
+function advanceRecoveryHighWater(source='runtime'){
+  const m=currentRecoveryMetrics(),same=!recoveryHighWater.seasonKey||!m.seasonKey||m.seasonKey===recoveryHighWater.seasonKey;
+  if(!same)return false;
+  applyRecoveryHighWater({...m,updatedAt:now()},source);return true;
+}
 function restoreCriticalFromSource(s,source,sourceTs=0){
   const ts=num(s?.stateMeta?.savedAt)||num(sourceTs)||0,incomingExits=recoveryExitTotal(s),currentExits=currentExitTotal();
-  if(stateVersionTs&&ts&&ts<stateVersionTs)return false;
+  if(!recoveryHighWaterAllows(s,source))return false;
+  const richerThanCurrent=recoveryMetricsFromState(s).ledgerRows>currentRecoveryMetrics().ledgerRows||incomingExits>currentExits;
+  if(stateVersionTs&&ts&&ts<stateVersionTs&&!richerThanCurrent)return false;
   if(sameSeasonRecovery(s)&&currentExits>=RECOVERY_MIN_EXITS&&incomingExits<currentExits){
     console.warn('CRITICAL_STATE_REGRESSION_REJECTED '+JSON.stringify({source,savedAt:ts,incomingExits,currentExits}));
     return false;
@@ -2360,14 +2416,14 @@ async function save(){
   saveInProgress=true;
   try{
     pruneRuntimeMemory();
-    const s=serialize();stateVersionTs=num(s.stateMeta?.savedAt)||stateVersionTs;await writeLocalAtomic(s);
+    advanceRecoveryHighWater('full-save');const s=serialize();stateVersionTs=num(s.stateMeta?.savedAt)||stateVersionTs;await writeLocalAtomic(s);
     if(kvReady&&kv){
-      try{await kv.set('pump-lab:state:main',JSON.stringify(s));lastKvSaveAt=now();setHealth('research-failover','ok','Free Key Value failover synchronized',{truth:'observed'});}
+      try{await Promise.all([kv.set('pump-lab:state:main',JSON.stringify(s)),kv.set('pump-lab:state:highwater',JSON.stringify(recoveryHighWater))]);lastKvSaveAt=now();setHealth('research-failover','ok','Free Key Value failover synchronized',{truth:'observed'});}
       catch(e){kvReady=false;setHealth('research-failover','warn','Key Value checkpoint failed: '+e.message,{truth:'observed'});initKv(false);}
     }
     if(db){
       try{
-        const wrote=await queueDbWrite(async()=>{const client=db;if(!client)return false;await flushMarketEvents(client);await client.query("INSERT INTO pump_lab_state(id,payload,updated_at) VALUES('main',$1,now()) ON CONFLICT(id) DO UPDATE SET payload=$1,updated_at=now()",[s]);return true;},'low');
+        const wrote=await queueDbWrite(async()=>{const client=db;if(!client)return false;await flushMarketEvents(client);await client.query('BEGIN');try{await client.query("INSERT INTO pump_lab_state(id,payload,updated_at) VALUES('main',$1,now()) ON CONFLICT(id) DO UPDATE SET payload=$1,updated_at=now()",[s]);await client.query("INSERT INTO pump_lab_state(id,payload,updated_at) VALUES('main:highwater',$1,now()) ON CONFLICT(id) DO UPDATE SET payload=$1,updated_at=now()",[recoveryHighWater]);await client.query('COMMIT');}catch(e){try{await client.query('ROLLBACK')}catch{}throw e;}return true;},'low');
         if(wrote){lastDurableSaveAt=now();setHealth('research-memory','ok','Postgres durable memory online · failover synchronized',{truth:'observed'});}
       }catch(e){
         setHealth('research-memory','warn','Postgres save failed · failover checkpoint retained: '+e.message,{truth:'observed'});
@@ -2384,16 +2440,16 @@ async function saveCritical(){
   if(criticalSaveInProgress){criticalSaveQueued=true;return;}
   criticalSaveInProgress=true;
   try{
-    const s=serializeCritical(),savedAt=num(s.stateMeta?.savedAt)||now();stateVersionTs=Math.max(stateVersionTs,savedAt);
+    advanceRecoveryHighWater('critical-save');const s=serializeCritical(),savedAt=num(s.stateMeta?.savedAt)||now();stateVersionTs=Math.max(stateVersionTs,savedAt);
     const localOk=await writeLocalCriticalAtomic(s);
     let kvOk=false;
     if(kvReady&&kv){
-      try{await kv.set('pump-lab:state:critical',JSON.stringify(s));kvOk=true;lastKvSaveAt=now();}
+      try{await Promise.all([kv.set('pump-lab:state:critical',JSON.stringify(s)),kv.set('pump-lab:state:highwater',JSON.stringify(recoveryHighWater))]);kvOk=true;lastKvSaveAt=now();}
       catch(e){kvReady=false;setHealth('research-failover','warn','Critical Key Value checkpoint failed: '+e.message,{truth:'observed'});initKv(false);}
     }
     if(localOk||kvOk)lastCriticalSaveAt=now();
     if(!db){setHealth('research-memory','warn','Postgres critical checkpoint unavailable · local/Key Value emergency checkpoint retained',{truth:'observed'});return;}
-    const wrote=await queueDbWrite(async()=>{const client=db;if(!client)return false;await client.query("INSERT INTO pump_lab_state(id,payload,updated_at) VALUES('main:critical',$1,now()) ON CONFLICT(id) DO UPDATE SET payload=$1,updated_at=now()",[s]);return true;},'high');
+    const wrote=await queueDbWrite(async()=>{const client=db;if(!client)return false;await client.query('BEGIN');try{await client.query("INSERT INTO pump_lab_state(id,payload,updated_at) VALUES('main:critical',$1,now()) ON CONFLICT(id) DO UPDATE SET payload=$1,updated_at=now()",[s]);await client.query("INSERT INTO pump_lab_state(id,payload,updated_at) VALUES('main:highwater',$1,now()) ON CONFLICT(id) DO UPDATE SET payload=$1,updated_at=now()",[recoveryHighWater]);await client.query('COMMIT');}catch(e){try{await client.query('ROLLBACK')}catch{}throw e;}return true;},'high');
     if(!wrote)return;lastCriticalSaveAt=now();lastDurableSaveAt=lastCriticalSaveAt;
     setHealth('research-memory','ok','Postgres critical trader state synchronized · emergency checkpoints retained',{truth:'observed'});
   }catch(e){
