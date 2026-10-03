@@ -8,6 +8,7 @@ const X_BEARER_TOKEN = process.env.X_BEARER_TOKEN || '';
 const X_FEED_HANDLES = (process.env.X_FEED_HANDLES || '').split(',').map(x=>x.trim().replace(/^@/,'')).filter(Boolean);
 const X_REFRESH_MS = Math.max(30000, Number(process.env.X_REFRESH_MS || 45000));
 const X_MAX_CACHE = Math.max(20, Math.min(200, Number(process.env.X_MAX_CACHE || 100)));
+const RECOVERY_CACHE_REFRESH_MS = Math.max(5000, Number(process.env.RECOVERY_CACHE_REFRESH_MS || 15000));
 let xFeedCache = [];
 let xFeedLastFetch = 0;
 let xFeedSinceId = null;
@@ -203,7 +204,7 @@ async function fetchBackendJson(pathname,timeoutMs=45000){
   }finally{clearTimeout(timer)}
 }
 async function refreshRecoveryCache(force=false){
-  if(!force&&recoveryCache&&Date.now()-recoveryCacheAt<15000)return recoveryCache;
+  if(!force&&recoveryCache&&Date.now()-recoveryCacheAt<RECOVERY_CACHE_REFRESH_MS)return recoveryCache;
   if(recoveryRefreshInFlight)return recoveryRefreshInFlight;
   recoveryRefreshInFlight=(async()=>{
     const out=await fetchBackendJson('/api/recovery-snapshot',12000);
@@ -335,5 +336,5 @@ server.listen(PORT,'0.0.0.0',()=>{
   refreshStateCache(true).then(s=>console.log('BACKEND_WARMUP '+JSON.stringify({ok:true,version:s?.version||null,productionExits:s?.summary?.trades||0,ledgerRows:s?.summary?.ledgerTrades||0,scienceTrades:s?.summary?.scienceTrades||0,tokens:s?.summary?.tokens||0}))).catch(e=>console.warn('BACKEND_WARMUP_FAILED '+String(e?.message||e)));
   refreshRecoveryCache(true).catch(e=>console.warn('RECOVERY_CACHE_WARMUP_FAILED '+String(e?.message||e)));
   setInterval(()=>refreshStateCache(true).catch(()=>{}),20000).unref?.();
-  setInterval(()=>refreshRecoveryCache(true).catch(()=>{}),15000).unref?.();
+  setInterval(()=>refreshRecoveryCache(true).catch(()=>{}),RECOVERY_CACHE_REFRESH_MS).unref?.();
 });
