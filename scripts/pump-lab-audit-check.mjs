@@ -41,7 +41,12 @@ const checks = [
   ['critical Key Value checkpoint', "pump-lab:state:critical"],
   ['critical local checkpoint', 'writeLocalCriticalAtomic(s)'],
   ['recovery snapshot endpoint', "req.url==='/api/recovery-snapshot'"],
-  ['trusted recovery snapshot gate', 'const recoverable=stateIntegrityOk&&stateVersionTs>0']
+  ['trusted recovery snapshot gate', 'const recoverable=stateIntegrityOk&&stateVersionTs>0'],
+  ['critical recovery monotonicity', 'CRITICAL_STATE_REGRESSION_REJECTED'],
+  ['recovery quality floor', 'CRITICAL_STATE_QUALITY_REJECTED'],
+  ['journal regression detector', 'function journalRegressionCutoff(rows)'],
+  ['journal season rebuild', 'async function repairCurrentSeasonFromJournal'],
+  ['journal repair startup hook', 'const journalRepaired=await repairCurrentSeasonFromJournal(db)']
 ];
 
 const failures = checks.filter(([, needle]) => !src.includes(needle)).map(([name])=>name);
