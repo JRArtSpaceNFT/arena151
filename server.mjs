@@ -34,6 +34,10 @@ const SOLANA_RPC_HTTP = process.env.SOLANA_RPC_HTTP || 'https://api.mainnet-beta
 const SOLANA_RPC_WSS = process.env.SOLANA_RPC_WSS || 'wss://api.mainnet-beta.solana.com';
 const SHADOW_ROUTE_QUOTE_URL = process.env.SHADOW_ROUTE_QUOTE_URL || '';
 const SHADOW_WALLET_PUBLIC_KEY = process.env.SHADOW_WALLET_PUBLIC_KEY || '';
+const X_BEARER_TOKEN = process.env.X_BEARER_TOKEN || '';
+const X_FEED_HANDLES = (process.env.X_FEED_HANDLES || 'garyvee,frankdegods,blknoiz06,orangie,_TJRTrades,Megga,rasmr_eth,theunipcs').split(',').map(x=>x.trim().replace(/^@/,'')).filter(Boolean);
+const X_REFRESH_MS = Math.max(30000, Number(process.env.X_REFRESH_MS || 120000));
+const X_MAX_CACHE = Math.max(20, Math.min(200, Number(process.env.X_MAX_CACHE || 100)));
 
 // Public Fomo trader identities requested for research. Wallets are attached only when
 // a public mapping is corroborated strongly enough to avoid polluting the dataset.
@@ -174,6 +178,11 @@ let lastOpenPositionPollAt = 0;
 let lastSolanaDrainAt = 0;
 const subsystemRuntime = new Map();
 const providerCircuits = new Map();
+let xFeedCache = [];
+let xFeedLastFetch = 0;
+let xFeedSinceId = null;
+let xFeedInFlight = null;
+const xPublicFailures = new Map();
 
 const strategyDefs = [
   ['banker','🏦','The Banker','LOW',.025,62,14,90,1,'only confirmed momentum with capital preservation; tolerate small misses for rare asymmetric winners'],
@@ -1215,6 +1224,45 @@ async function fetchWithCircuit(url,options={},name=providerNameFor(url),timeout
   }finally{clearTimeout(timer)}
 }
 async function fetchJson(url,timeoutMs=8000){const r=await fetchWithCircuit(url,{headers:{accept:'application/json','user-agent':'PUMP-LAB-LIVE/1.0'}},providerNameFor(url),timeoutMs);return r.json();}
+function xNormalizeResponse(j){
+  const users=new Map((j.includes?.users||[]).map(u=>[u.id,u])),media=new Map((j.includes?.media||[]).map(m=>[m.media_key,m]));
+  return(j.data||[]).map(t=>{const u=users.get(t.author_id)||{},ms=(t.attachments?.media_keys||[]).map(k=>media.get(k)).filter(Boolean).map(m=>({type:m.type,url:m.url||m.preview_image_url||null,width:m.width||null,height:m.height||null}));
+    return{id:t.id,text:t.text||'',createdAt:t.created_at||null,conversationId:t.conversation_id||null,metrics:t.public_metrics||{},author:{id:u.id||t.author_id,name:u.name||'',username:u.username||'',verified:!!u.verified,profileImage:u.profile_image_url||''},media:ms,url:u.username?'https://x.com/'+u.username+'/status/'+t.id:'https://x.com/i/web/status/'+t.id};});
+}
+function xPublicNormalizeTweet(t,fallbackHandle=''){
+  if(!t)return null;const u=t.user||{},id=String(t.id_str||t.id||'').trim(),username=u.screen_name||fallbackHandle;if(!id)return null;
+  const media=(t.mediaDetails||t.photos||[]).map(m=>({type:m.type||'photo',url:m.media_url_https||m.url||m.preview_image_url||null,width:m.original_info?.width||m.width||null,height:m.original_info?.height||m.height||null})).filter(m=>m.url);
+  return{id,text:t.full_text||t.text||'',createdAt:t.created_at||null,conversationId:t.conversation_id_str||null,metrics:{like_count:Number(t.favorite_count||0),retweet_count:Number(t.retweet_count||0),reply_count:Number(t.reply_count||0),quote_count:Number(t.quote_count||0)},author:{id:String(u.id_str||u.id||''),name:u.name||username,username,verified:!!(u.verified||u.is_blue_verified),profileImage:u.profile_image_url_https||u.profile_image_url||''},media,url:t.permalink?('https://x.com'+t.permalink.replace(/^https?:\/\/[^/]+/,'')):'https://x.com/'+username+'/status/'+id};
+}
+async function fetchPublicTimeline(handle){
+  const r=await fetchWithCircuit('https://syndication.twitter.com/srv/timeline-profile/screen-name/'+encodeURIComponent(handle),{headers:{'user-agent':'Mozilla/5.0 (compatible; PumpLab/1.0)','accept':'text/html,application/xhtml+xml'}},'x-syndication',9000);
+  const html=await r.text(),marker='<script id="__NEXT_DATA__" type="application/json">',start=html.indexOf(marker);if(start<0)throw Error('X public timeline payload missing');const end=html.indexOf('</script>',start);if(end<0)throw Error('X public timeline payload incomplete');
+  const data=JSON.parse(html.slice(start+marker.length,end)),entries=data?.props?.pageProps?.timeline?.entries||[];return entries.map(e=>xPublicNormalizeTweet(e?.content?.tweet,handle)).filter(Boolean).slice(0,8);
+}
+function xFxNormalizeStatus(t,fallbackHandle=''){
+  if(!t||t.type!=='status')return null;const a=t.author||{},username=a.screen_name||fallbackHandle,id=String(t.id||'').trim();if(!id)return null;
+  const photos=(t.media?.photos||[]).map(m=>({type:m.type||'photo',url:m.url||null,width:m.width||null,height:m.height||null})),videos=(t.media?.videos||[]).map(m=>({type:m.type||'video',url:m.thumbnail_url||null,width:m.width||null,height:m.height||null}));
+  return{id,text:t.text||'',createdAt:t.created_at||null,conversationId:null,metrics:{like_count:Number(t.likes||0),retweet_count:Number(t.reposts||0),reply_count:Number(t.replies||0),quote_count:Number(t.quotes||0)},author:{id:String(a.id||''),name:a.name||username,username,verified:!!a.verification?.verified,profileImage:a.avatar_url||''},media:[...photos,...videos].filter(m=>m.url),url:t.url||('https://x.com/'+username+'/status/'+id)};
+}
+async function fetchFxTimeline(handle){
+  const r=await fetchWithCircuit('https://api.fxtwitter.com/2/profile/'+encodeURIComponent(handle)+'/statuses?count=8',{headers:{accept:'application/json','user-agent':'PumpLab/1.0'}},'fxtwitter',9000),j=await r.json().catch(()=>({}));
+  if(Number(j.code||200)>=400)throw Error('FxTwitter timeline '+(j.code||'error')+' '+(j.message||''));return(j.results||[]).map(t=>xFxNormalizeStatus(t,handle)).filter(Boolean).slice(0,8);
+}
+function xHandleChunks(handles){const chunks=[];let cur=[],len=0;for(const h of handles){const piece='from:'+h;if(cur.length&&len+piece.length+4>430){chunks.push(cur);cur=[];len=0;}cur.push(h);len+=piece.length+4;}if(cur.length)chunks.push(cur);return chunks;}
+async function fetchXChunk(handles,sinceId){
+  const q='('+handles.map(h=>'from:'+h).join(' OR ')+') -is:retweet',u=new URL('https://api.x.com/2/tweets/search/recent');u.searchParams.set('query',q);u.searchParams.set('max_results','50');u.searchParams.set('tweet.fields','created_at,public_metrics,attachments,entities,conversation_id,referenced_tweets');u.searchParams.set('expansions','author_id,attachments.media_keys');u.searchParams.set('user.fields','name,username,profile_image_url,verified');u.searchParams.set('media.fields','type,url,preview_image_url,width,height');if(sinceId)u.searchParams.set('since_id',sinceId);
+  const r=await fetchWithCircuit(u,{headers:{authorization:'Bearer '+X_BEARER_TOKEN,accept:'application/json'}},'x-api',9000),j=await r.json().catch(()=>({}));return{posts:xNormalizeResponse(j),newestId:j.meta?.newest_id||null};
+}
+async function refreshXFeed(force=false){
+  if(!X_FEED_HANDLES.length)return{ok:true,configured:false,source:'none',handles:[],posts:[],fetchedAt:xFeedLastFetch||null};
+  const ts=now();if(!force&&xFeedCache.length&&ts-xFeedLastFetch<X_REFRESH_MS)return{ok:true,configured:true,source:'cache',handles:X_FEED_HANDLES,posts:xFeedCache,fetchedAt:xFeedLastFetch,cached:true};if(xFeedInFlight)return xFeedInFlight;
+  xFeedInFlight=(async()=>{const fresh=[],errors=[],sources=new Set();
+    if(X_BEARER_TOKEN){try{let newest=xFeedSinceId;for(const chunk of xHandleChunks(X_FEED_HANDLES)){const out=await fetchXChunk(chunk,xFeedSinceId);fresh.push(...out.posts);if(out.newestId&&(!newest||BigInt(out.newestId)>BigInt(newest)))newest=out.newestId;}if(newest)xFeedSinceId=newest;sources.add('x-api');}catch(e){errors.push('x-api: '+String(e?.message||e));}}
+    if(!fresh.length)for(const h of X_FEED_HANDLES){const blocked=xPublicFailures.get(h)||0;if(blocked>now())continue;try{let rows=[];try{rows=await fetchPublicTimeline(h);if(rows.length)sources.add('x-public-syndication');}catch{}if(!rows.length){rows=await fetchFxTimeline(h);if(rows.length)sources.add('fxtwitter-public-api');}fresh.push(...rows);xPublicFailures.delete(h);}catch(e){errors.push('@'+h+': '+String(e?.message||e));xPublicFailures.set(h,now()+180000);}}
+    const merged=new Map(xFeedCache.map(p=>[p.id,p]));for(const p of fresh)merged.set(p.id,p);xFeedCache=[...merged.values()].sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0)).slice(0,X_MAX_CACHE);if(fresh.length)xFeedLastFetch=now();
+    return{ok:xFeedCache.length>0,configured:true,source:sources.has('x-api')?'x-api':sources.has('fxtwitter-public-api')?'fxtwitter-public-api':'x-public-syndication',sources:[...sources],handles:X_FEED_HANDLES,posts:xFeedCache,fetchedAt:xFeedLastFetch||null,newCount:fresh.length,errors};
+  })();try{return await xFeedInFlight}finally{xFeedInFlight=null}
+}
 async function pumpPoll(){
   lastPumpPollAt=now();try{const u='https://frontend-api-v3.pump.fun/coins?offset=0&limit=60&sort=created_timestamp&order=DESC&includeNsfw=false';const j=await fetchJson(u);const rows=Array.isArray(j)?j:(j.data||j.coins||[]);if(!rows.length)throw Error('no rows');rows.forEach(x=>ingest(x,'pump.fun'));setHealth('pump.fun','ok',`Live launch/state snapshots · ${rows.length} coins`,{truth:'observed'});}catch(e){setHealth('pump.fun','warn',`Snapshot feed unavailable: ${e.message}`);}
 }
@@ -2390,7 +2438,7 @@ function stateSelfTest(){
   }
 }
 
-const HTML=`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>PUMP LAB / LIVE</title><style>
+let HTML=`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>PUMP LAB / LIVE</title><style>
 :root{--bg:#07090d;--card:#0f141d;--card2:#121925;--line:#253045;--muted:#8ea0bc;--text:#f4f7fb;--green:#4ff5a2;--red:#ff6d86;--blue:#7588ff;--amber:#ffcc66}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 50% -20%,#182136 0,#080b11 35%,#06080c 72%);color:var(--text);font:14px Inter,ui-sans-serif,system-ui,-apple-system,sans-serif}.wrap{max-width:1560px;margin:auto;padding:22px 28px 60px}.top{display:flex;justify-content:space-between;gap:18px;align-items:center}.brand{font-size:27px;font-weight:950;letter-spacing:-1.1px}.sub{color:#8bb0e8;font-size:13px;margin-top:2px}.badges{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.badge,.pill{font-size:11px;border:1px solid #2c394f;padding:5px 8px;border-radius:99px;background:#111827}.live{border-color:#00dc70;color:#64f9aa;background:#071a13}.hero{margin-top:18px;padding:20px;border:1px solid #2a3850;border-radius:18px;background:linear-gradient(135deg,#121a27,#0d1119);display:grid;grid-template-columns:1.4fr 1fr;gap:18px}.big{font-size:28px;font-weight:900;letter-spacing:-.6px}.muted{color:var(--muted)}.green{color:var(--green)}.red{color:var(--red)}.amber{color:var(--amber)}.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:14px 0}.card{background:linear-gradient(180deg,#10151e,#0c1119);border:1px solid var(--line);border-radius:14px;padding:14px;box-shadow:0 12px 30px #0002}.card h3{margin:0 0 9px;font-size:13px;color:#cbd6e8}.health{display:flex;gap:7px;flex-wrap:wrap}.health span{border:1px solid #29354a;padding:6px 9px;border-radius:8px;background:#0c121b}.tabs{display:flex;gap:8px;margin:16px 0;flex-wrap:wrap}.tab{padding:9px 13px;border-radius:9px;background:#111824;border:1px solid #293349;cursor:pointer}.tab.on{background:#f7f9fd;color:#080b10;border-color:#fff}.pane{display:none}.pane.on{display:block}.strategies{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.strategy{cursor:pointer;transition:.15s}.strategy:hover{transform:translateY(-2px);border-color:#405373}.strategy .topline{display:flex;align-items:center;justify-content:space-between}.strategy .money{font-size:24px;font-weight:900;margin:7px 0}.mini{font-size:12px;color:#91a7c9}.two{display:grid;grid-template-columns:1.5fr 1fr;gap:12px}.three{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.feed{max-height:510px;overflow:auto}.feedrow{display:grid;grid-template-columns:95px 1fr;gap:10px;padding:9px 2px;border-bottom:1px solid #1c2534}.table{width:100%;border-collapse:collapse}.table th,.table td{padding:9px 7px;text-align:left;border-bottom:1px solid #1d2737;font-size:12px}.table th{color:#8fa4c3;font-weight:650;position:sticky;top:0;background:#0f141d}.scroll{max-height:560px;overflow:auto}.heatwrap{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;min-height:190px}.bubble{display:flex;align-items:center;justify-content:center;border-radius:50%;border:1px solid #3a4967;background:radial-gradient(circle at 35% 30%,#26365b,#121827);text-align:center;font-size:11px;padding:9px}.meter{height:7px;background:#182131;border-radius:99px;overflow:hidden}.meter>i{display:block;height:100%;background:linear-gradient(90deg,#667cff,#4ff5a2)}.token{cursor:pointer}.token:hover{background:#141c29}.drawer{position:fixed;right:0;top:0;height:100vh;width:min(560px,96vw);background:#0a0f17;border-left:1px solid #2b3850;z-index:20;padding:20px;transform:translateX(102%);transition:.2s;overflow:auto;box-shadow:-25px 0 60px #0007}.drawer.on{transform:none}.close{float:right;border:1px solid #37445b;border-radius:9px;background:#111824;color:white;padding:6px 10px;cursor:pointer}.vote{display:inline-flex;gap:4px;align-items:center;padding:4px 7px;border-radius:7px;margin:3px;background:#121a27;border:1px solid #26354c}.vote.y{border-color:#16683f;color:#77f8ae}.vote.n{color:#a1aec2}.spark{width:100%;height:90px}.world{min-height:270px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:center}.worldGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(235px,1fr));gap:12px}.ecosystem{background:#0b111a;border:1px solid #253249;border-radius:14px;padding:12px;min-height:150px}.nodes{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}.worldNode{cursor:pointer;border:1px solid #2c3a51;background:#121b29;color:#dce8fa;border-radius:999px;padding:6px 9px;font-size:11px}.worldNode.hot{border-color:#1b7f50;color:#78f8b0}.worldNode.risky{border-color:#7b3043;color:#ff91a7}.worldNode:hover{transform:translateY(-1px);background:#182338}.smallcard{padding:10px;border:1px solid #253249;background:#0c121b;border-radius:10px}.sectionTitle{display:flex;justify-content:space-between;align-items:end;margin:18px 0 9px}.sectionTitle h2{margin:0;font-size:17px}.sectionTitle p{margin:0;color:#8497b4;font-size:12px}.truth{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#8094b2}.controls{display:flex;gap:8px;align-items:center}select{background:#0f1621;color:white;border:1px solid #2a3850;border-radius:8px;padding:7px} @media(max-width:1050px){.strategies{grid-template-columns:1fr 1fr}.grid4,.three{grid-template-columns:1fr 1fr}.two,.hero{grid-template-columns:1fr}}@media(max-width:680px){.wrap{padding:16px}.strategies,.grid4,.three{grid-template-columns:1fr}.big{font-size:22px}.top{align-items:flex-start}.hideMobile{display:none}}
 
 /* ─────────────────────────────────────────────────────────────
@@ -3081,9 +3129,15 @@ if(magicOrb){
   magicOrb.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();askMagicOrb();}});
 }
 </script></body></html>`;
+const dashboardScriptStart=HTML.lastIndexOf('<script>'),dashboardScriptEnd=HTML.lastIndexOf('</script>');if(dashboardScriptStart<0||dashboardScriptEnd<=dashboardScriptStart)throw Error('dashboard script extraction failed');
+const DASHBOARD_JS=HTML.slice(dashboardScriptStart+'<script>'.length,dashboardScriptEnd);new Function(DASHBOARD_JS);
+HTML=HTML.slice(0,dashboardScriptStart)+'<script src="/dashboard.js?v=20261003-hardening"></script>'+HTML.slice(dashboardScriptEnd+'</script>'.length);
 
 const server=http.createServer(async (req,res)=>{
-  {const u=new URL(req.url,'http://pump-lab.local');if(u.pathname==='/api/bot'){
+  {const u=new URL(req.url,'http://pump-lab.local');
+  if(u.pathname==='/dashboard.js'){res.writeHead(200,{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','content-length':Buffer.byteLength(DASHBOARD_JS)});return res.end(DASHBOARD_JS);}
+  if(u.pathname==='/api/x-feed'){try{const out=await refreshXFeed(u.searchParams.get('force')==='1');const body=JSON.stringify(out);res.writeHead(out.ok?200:503,{'content-type':'application/json','cache-control':'no-store','content-length':Buffer.byteLength(body)});return res.end(body);}catch(e){const body=JSON.stringify({ok:false,configured:true,handles:X_FEED_HANDLES,posts:xFeedCache,fetchedAt:xFeedLastFetch||null,error:String(e?.message||e)});res.writeHead(xFeedCache.length?200:502,{'content-type':'application/json','cache-control':'no-store','content-length':Buffer.byteLength(body)});return res.end(body);}}
+  if(u.pathname==='/api/bot'){
     const id=u.searchParams.get('id')||'',d=allTraders().find(x=>x.id===id);
     if(!d){res.writeHead(404,{'content-type':'application/json','cache-control':'no-store'});return res.end(JSON.stringify({ok:false,error:'bot not found'}));}
     markEquity(d);
@@ -3189,6 +3243,8 @@ const diagLoop=setInterval(()=>runScheduled('diagnostics',async()=>{logStrategyD
 let loopExpected=Date.now()+1000;setInterval(()=>{const ts=Date.now(),lag=Math.max(0,ts-loopExpected);loopExpected=ts+1000;eventLoopLagMs=lag;eventLoopSamples.push(lag);if(eventLoopSamples.length>120)eventLoopSamples.shift();eventLoopLagP95=percentile(eventLoopSamples,.95)||0;systemPressure=runtimePressure();if(lag>500)setHealth('event-loop','warn','Event loop lag '+lag+'ms · pressure '+systemPressure,{truth:'observed'});else if(health.get('event-loop')?.status!=='ok')setHealth('event-loop','ok','Event loop responsive · p95 '+Math.round(eventLoopLagP95)+'ms',{truth:'observed'});},1000).unref?.();
 takeTimeline();takeReplay();alphaOS.observeWorld({weather:marketWeather(),tokens:[...tokens.values()],strategyEquity:Object.fromEntries(allTraders().map(d=>[d.id,d.equity]))});alphaOS.pollExternal();openPositionPoll();
 setLifecycle('READY','market loops initialized');
+runScheduled('x-feed-warmup',()=>refreshXFeed(false).then(x=>console.log('X_FEED_WARMUP '+JSON.stringify({ok:x.ok,source:x.source,posts:x.posts?.length||0,handles:x.handles,errors:x.errors||[]}))),{budgetMs:30000}).catch(()=>{});
+setInterval(()=>runScheduled('x-feed-refresh',()=>refreshXFeed(false),{budgetMs:30000}),120000).unref?.();
 async function gracefulShutdown(signal){
   if(shuttingDown)return;shuttingDown=true;setLifecycle('DRAINING',signal+' received; blocking new entries and flushing state');
   const hard=setTimeout(()=>{console.error('FORCED_SHUTDOWN after drain timeout');process.exit(1);},12000);hard.unref?.();
