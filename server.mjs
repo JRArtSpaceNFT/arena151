@@ -421,8 +421,9 @@ function watchdogTick(){
   if(actions.length)console.warn('WATCHDOG_SELF_HEAL '+JSON.stringify({ts,actions,pressure:systemPressure}));
 }
 function readinessStatus(){
-  const durable=durableTradingReady(),ready=!shuttingDown&&durable&&['READY','DEGRADED'].includes(lifecyclePhase);
-  return{ready,phase:lifecyclePhase,phaseSince:lifecycleSince,detail:lifecycleDetail,pressure:systemPressure,eventLoopLagMs,eventLoopLagP95,durable,dbConnected:!!db,kvConnected:kvReady,stateVersionTs,lastDurableSaveAt,lastCriticalSaveAt,lastIngestAt,integrity:lastIntegrityReport,journal:{pending:pendingTradeJournal.length,lastFlushAt:lastTradeJournalFlush,written:journalEventsWritten,replayedAt:journalReplayedAt},backpressure:{...backpressureDrops},circuits:Object.fromEntries(providerCircuits),queues:{solana:solanaQueue.length,prioritySolana:solanaPriorityQueue.length,pendingDbEvents:pendingDbEvents.length,dbHigh:dbWriteHigh.length,dbNormal:dbWriteNormal.length,dbLow:dbWriteLow.length},subsystems:Object.fromEntries(subsystemRuntime)};
+  const durable=durableTradingReady(),journalHealthy=pendingTradeJournal.length<250,integrityHealthy=lastIntegrityReport?.ok!==false,queuesHealthy=dbWriteHigh.length<100&&solanaPriorityQueue.length<100,eventLoopHealthy=eventLoopLagP95<1000;
+  const ready=!shuttingDown&&durable&&journalHealthy&&integrityHealthy&&queuesHealthy&&eventLoopHealthy&&['READY','DEGRADED'].includes(lifecyclePhase);
+  return{ready,phase:lifecyclePhase,phaseSince:lifecycleSince,detail:lifecycleDetail,pressure:systemPressure,eventLoopLagMs,eventLoopLagP95,durable,dbConnected:!!db,kvConnected:kvReady,stateVersionTs,lastDurableSaveAt,lastCriticalSaveAt,lastIngestAt,integrity:lastIntegrityReport,checks:{durable,journalHealthy,integrityHealthy,queuesHealthy,eventLoopHealthy},journal:{pending:pendingTradeJournal.length,lastFlushAt:lastTradeJournalFlush,written:journalEventsWritten,replayedAt:journalReplayedAt},backpressure:{...backpressureDrops},circuits:Object.fromEntries(providerCircuits),queues:{solana:solanaQueue.length,prioritySolana:solanaPriorityQueue.length,pendingDbEvents:pendingDbEvents.length,dbHigh:dbWriteHigh.length,dbNormal:dbWriteNormal.length,dbLow:dbWriteLow.length},subsystems:Object.fromEntries(subsystemRuntime)};
 }
 function broadcast(type,data) {
   const payload=`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`;
@@ -3260,9 +3261,25 @@ setLifecycle('READY','market loops initialized');
 runScheduled('x-feed-warmup',()=>refreshXFeed(false).then(x=>console.log('X_FEED_WARMUP '+JSON.stringify({ok:x.ok,source:x.source,posts:x.posts?.length||0,handles:x.handles,errors:x.errors||[]}))),{budgetMs:30000}).catch(()=>{});
 setInterval(()=>runScheduled('x-feed-refresh',()=>refreshXFeed(false),{budgetMs:30000}),120000).unref?.();
 async function gracefulShutdown(signal){
-  if(shuttingDown)return;shuttingDown=true;setLifecycle('DRAINING',signal+' received; blocking new entries and flushing state');
-  const hard=setTimeout(()=>{console.error('FORCED_SHUTDOWN after drain timeout');process.exit(1);},12000);hard.unref?.();
-  try{await saveCritical();if(db)try{await queueDbWrite(async()=>{await flushTradeJournal(db);await flushMarketEvents(db);return true;},'high');}catch{};try{await kv?.quit();}catch{};try{await db?.end();}catch{};server.close(()=>{clearTimeout(hard);process.exit(0);});}
-  catch(e){console.error('GRACEFUL_SHUTDOWN_ERROR '+String(e?.stack||e));clearTimeout(hard);process.exit(1);}
+  if(shuttingDown)return;shuttingDown=true;setLifecycle('DRAINING',signal+' received; blocking new entries and draining journal/state');
+  const hard=setTimeout(()=>{console.error('FORCED_SHUTDOWN after drain timeout '+JSON.stringify({journal:pendingTradeJournal.length,events:pendingDbEvents.length,dbHigh:dbWriteHigh.length}));process.exit(1);},18000);hard.unref?.();
+  try{
+    validateStateIntegrity({repair:true});
+    if(db){
+      await queueDbWrite(async()=>{await flushTradeJournal(db);return true;},'high');
+      if(pendingTradeJournal.length)throw new Error('trade journal did not fully drain: '+pendingTradeJournal.length);
+    }
+    await saveCritical();
+    if(db)await queueDbWrite(async()=>{await flushMarketEvents(db);return true;},'normal');
+    await writeLocalAtomic(serialize());
+    console.log('DRAIN_COMPLETE '+JSON.stringify({journal:pendingTradeJournal.length,events:pendingDbEvents.length,lastCriticalSaveAt,stateVersionTs,integrity:lastIntegrityReport?.ok!==false}));
+    try{await kv?.quit();}catch{}
+    try{await db?.end();}catch{}
+    server.close(()=>{clearTimeout(hard);process.exit(0);});
+  }catch(e){
+    console.error('GRACEFUL_SHUTDOWN_ERROR '+String(e?.stack||e));
+    try{await writeLocalAtomic(serialize());}catch{}
+    clearTimeout(hard);process.exit(1);
+  }
 }
 process.on('SIGTERM',()=>gracefulShutdown('SIGTERM'));process.on('SIGINT',()=>gracefulShutdown('SIGINT'));
