@@ -2063,15 +2063,16 @@ function restoreIfNewer(s,source,sourceTs=0){
 async function initKv(restoreState=true){
   if(!REDIS_URL)return false;
   if(kvReady||kvConnecting)return kvReady;
-  kvConnecting=true;
+  kvConnecting=true;let client=null;
+  const bounded=async(p,ms,label)=>{let timer;try{return await Promise.race([p,new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error(label+' timeout')),ms);timer.unref?.();})]);}finally{clearTimeout(timer);}};
   try{
     const {createClient}=await import('redis');
-    const client=createClient({url:REDIS_URL,socket:{connectTimeout:7000,reconnectStrategy:r=>Math.min(5000,250*Math.max(1,r))}});
+    client=createClient({url:REDIS_URL,socket:{connectTimeout:7000,reconnectStrategy:r=>Math.min(5000,250*Math.max(1,r))}});
     client.on('error',e=>{kvReady=false;setHealth('research-failover','warn','Key Value failover reconnecting: '+e.message,{truth:'observed'});});
     client.on('ready',()=>{kvReady=true;setHealth('research-failover','ok','Free Key Value failover online',{truth:'observed'});});
-    await client.connect();kv=client;kvReady=true;
+    await bounded(client.connect(),restoreState?9000:15000,'Key Value connect');kv=client;kvReady=true;
     if(restoreState){
-      const [raw,criticalRaw,highRaw]=await Promise.all([kv.get('pump-lab:state:main'),kv.get('pump-lab:state:critical'),kv.get('pump-lab:state:highwater')]);
+      const [raw,criticalRaw,highRaw]=await bounded(Promise.all([kv.get('pump-lab:state:main'),kv.get('pump-lab:state:critical'),kv.get('pump-lab:state:highwater')]),7000,'Key Value restore');
       if(highRaw){try{applyRecoveryHighWater(JSON.parse(highRaw),'key-value-high-water');}catch(e){console.warn('Key Value high-water warning:',e.message);}}
       if(raw){try{restoreIfNewer(JSON.parse(raw),'key-value');}catch(e){console.warn('Key Value restore warning:',e.message);}}
       if(criticalRaw){try{restoreCriticalFromSource(JSON.parse(criticalRaw),'key-value');}catch(e){console.warn('Key Value critical restore warning:',e.message);}}
@@ -2083,7 +2084,8 @@ async function initKv(restoreState=true){
     setHealth('research-failover','ok','Free Key Value failover online · Postgres remains canonical',{truth:'observed'});
     return true;
   }catch(e){
-    kvReady=false;setHealth('research-failover','warn','Key Value failover unavailable: '+e.message,{truth:'observed'});
+    kvReady=false;if(kv===client)kv=null;try{client?.destroy?.();}catch{}
+    setHealth('research-failover','warn','Key Value failover unavailable: '+e.message,{truth:'observed'});
     console.warn('Key Value connection failed:',e.message);return false;
   }finally{kvConnecting=false;}
 }
