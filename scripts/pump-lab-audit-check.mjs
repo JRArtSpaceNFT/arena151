@@ -130,6 +130,14 @@ if(!src.includes("hypothesisArena:hypothesisArenaSnapshot()"))failures.push('Hyp
 // Season-isolated cadence regression guard.
 if(!src.includes("trades.filter(x=>x.policyVersion===STRATEGY_ERA)")||!src.includes("same=trades.find(x=>x.policyVersion===STRATEGY_ERA"))failures.push('Season 3 cadence still reads legacy trades');
 
+// Dedicated market-cap discovery regression guards.
+for(const [name,needle] of [
+  ['minute sampler universe discovery', "async function refreshMinuteSamplerUniverse"],
+  ['market-cap sorted Pump discovery', "sort=market_cap&order=DESC"],
+  ['minute sampler DEX enrichment', "dexscreener-minute-universe"],
+  ['sampler tick awaits universe refresh', "await refreshMinuteSamplerUniverse(false)"]
+])if(!src.includes(needle))failures.push(name+' missing');
+
 // Forced minute market-cap sampler regression guards.
 for(const [name,needle] of [
   ['Sub $100K minute sampler', "'minute_sub100','⏱️','Sub $100K Minute Trader'"],
