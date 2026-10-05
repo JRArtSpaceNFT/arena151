@@ -3814,6 +3814,7 @@ const server=http.createServer(async (req,res)=>{
 });
 
 setLifecycle('RESTORING','restoring durable state');
+console.log('RUNTIME_CONFIG_PRESENCE '+JSON.stringify({databaseUrl:!!DATABASE_URL,redisUrl:!!REDIS_URL,peerRecovery:!!PEER_RECOVERY_URL,stateFile:!!STATE_FILE}));
 loadLocal();
 await initKv(true);
 await initDb(true);
