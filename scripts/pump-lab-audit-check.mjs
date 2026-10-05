@@ -138,7 +138,13 @@ for(const [name,needle] of [
   ['Velocity Scalper quick take', "velocity scalp quick take"],
   ['Velocity Scalper hard stop', "velocity scalp hard stop"],
   ['Velocity Scalper timeout', "velocity scalp timeout"],
-  ['Velocity Scalper soft science bypass', "fastScalpSoftBypass"]
+  ['Velocity Scalper soft science bypass', "fastScalpSoftBypass"],
+  ['Velocity Scalper timed return history', "timedCoverageSec"],
+  ['Velocity Scalper 5s return', "ret5s"],
+  ['Velocity Scalper 20s return', "ret20s"],
+  ['Velocity Scalper fixed final stake', "d.fastScalp?Math.min(sizing.budget"],
+  ['Fast Pump open marks', "async function pumpOpenPositionPoll()"],
+  ['Fast Pump mark cadence', "'pump-open-marks',()=>pumpOpenPositionPoll()"]
 ])if(!src.includes(needle))failures.push(name+' missing');
 
 
