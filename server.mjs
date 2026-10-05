@@ -10,7 +10,8 @@ const PUMP_KEY = process.env.PUMPPORTAL_API_KEY || '';
 const ALLOW_METERED = (process.env.ALLOW_METERED_PUMPPORTAL || 'false') === 'true';
 const START = 1000;
 const TARGET = 100000;
-const STRATEGY_ERA = 'v4.0-season2-science';
+const STRATEGY_ERA = 'v5.0-season3-clean-execution';
+const CLEAN_SEASON_LABEL = 'season3-clean-execution-2026-10-04';
 const FEE_RATE = 0.0125; // conservative fallback for unknown venue/lifecycle
 const PAPER_FIXED_TX_COST_USD = Number(process.env.PAPER_FIXED_TX_COST_USD || 0.02);
 const STATE_FILE = process.env.STATE_FILE || '/tmp/pump-lab-state-v06.json';
@@ -2098,6 +2099,46 @@ function resetTraderRuntime(d){
   d.equity=START;d.cash=START;d.peak=START;d.dd=0;d.auditPeak=START;d.auditDd=0;d.wins=0;d.losses=0;d.n=0;
   for(const k of ['promotionCandidateAt','promotedAt','graveyardAt','hypothesisCandidateAt','hypothesisRetiredAt','hypothesisReason'])delete d[k];
 }
+async function beginCleanExecutionEraIfNeeded(){
+  if(seasonInfo?.label===CLEAN_SEASON_LABEL)return false;
+  const previous={
+    label:seasonInfo?.label||'legacy',
+    startedAt:num(seasonInfo?.startedAt)||startedAt,
+    endedAt:now(),
+    detailedTrades:trades.length,
+    aggregateRecoveredRows:num(forensicLedgerGaps.total),
+    productionExits:strategyDefs.filter(d=>d.risk!=='CONTROL'&&!d.specialist).reduce((z,d)=>z+num(d.n),0),
+    totalExits:currentExitTotal(),
+    note:'Season 2 results retained for forensics but excluded from Season 3 strategy-era scoring.'
+  };
+  for(const d of allTraders())resetTraderRuntime(d);
+  positions.splice(0);
+  activity.splice(0);decisions.splice(0);timeline.splice(0);autopsies.splice(0);experiments.splice(0);replayFrames.splice(0);
+  promotions.splice(0);graveyard.splice(0);opportunities.clear();opportunityKeysByMint.clear();
+  entryPolicyCache.clear();regimeWeightCache.clear();dnaSimilarityCache.clear();featureCache.clear();
+  marketWeatherCache={ts:0,value:null};narrativeStatsCache={ts:0,value:null};corrCache={ts:0,rows:[]};edgeFocusCache={ts:0,data:null};allocatorCache={ts:0,regime:'',data:null};
+  research={last:0,notes:['Season 3 clean execution era started. Season 2 detailed trades remain available only as historical forensic evidence.'],hypotheses:[]};lastScientistRun=0;
+  const freshAlpha=createPumpLabAlphaOS({start:START,rpcUrl:SOLANA_RPC_HTTP,routeQuoteUrl:SHADOW_ROUTE_QUOTE_URL,shadowWalletPublicKey:SHADOW_WALLET_PUBLIC_KEY});
+  alphaOS.restore(freshAlpha.serialize());science.reset();
+  startedAt=now();
+  seasonInfo={label:CLEAN_SEASON_LABEL,startedAt,archiveId:'historical:season2-contaminated',resetApplied:true,previous};
+  recoveryHighWater={
+    seasonKey:CLEAN_SEASON_LABEL,
+    ledgerRows:trades.length+Math.max(0,num(forensicLedgerGaps.total)),
+    productionExits:0,
+    exitTotal:0,
+    strategyN:Object.fromEntries(allTraders().map(d=>[d.id,0])),
+    updatedAt:now(),
+    source:'season3-clean-execution-migration'
+  };
+  stateVersionTs=now();
+  validateStateIntegrity({repair:true});
+  await writeLocalAtomic(serialize());
+  await writeLocalCriticalAtomic(serializeCritical());
+  console.warn('SEASON3_CLEAN_EXECUTION_START '+JSON.stringify({label:CLEAN_SEASON_LABEL,previous,retainedHistoricalTrades:trades.length,newProductionExits:0,newOpen:positions.length}));
+  return true;
+}
+
 function resetSeasonInMemory(label,archiveId){
   for(const d of strategyDefs)resetTraderRuntime(d);
   for(const d of challengers)resetTraderRuntime(d);
@@ -2812,7 +2853,7 @@ function snapshot(){
       history:(t.history||[]).slice(-24).map(x=>({ts:x.ts,price:x.price})),features:f,detective:detective(t,f),
       consensus:{yes:con.yes,total:con.total,pct:con.pct,weightedPct:con.weightedPct,hardVeto:con.hardVeto,votes:(con.votes||[]).sort((a,b)=>(b.yes-a.yes)||(b.score-a.score)).slice(0,12)},dna:creatorDNA(t),quality:q};
   });
-  return{now:now(),startedAt,paperOnly:true,alphaOS:compactAlphaSnapshot(),profitAccelerator:profitAccelerator.snapshot({strategies:strategyDefs,trades,regime:weather.regime,era:STRATEGY_ERA,correlations:strategyCorrelation(),noTrade:noTradeAlpha()}),executionAssumptions:{fallbackFeeRate:FEE_RATE,fixedTxCostUsd:PAPER_FIXED_TX_COST_USD,feeSource:'pump.fun docs 2026-05-20',maxModeledSlippagePct:8},researchGovernance:{partition:'deterministic 80/20 by mint',learningSet:'train only',autoPromotion:ALLOW_AUTO_PROMOTION,minPromotionTrades:60,minHoldoutTrades:20},stateLock:storageStatus(),mode:'LIVE PAPER + V4.0 SEASON 2 SCIENCE + ALPHA OS + AUDITED HOLDOUT RESEARCH',version:'4.0 Season 2 Science',target:TARGET,weather,providers:[...health.values()],
+  return{now:now(),startedAt,paperOnly:true,alphaOS:compactAlphaSnapshot(),profitAccelerator:profitAccelerator.snapshot({strategies:strategyDefs,trades,regime:weather.regime,era:STRATEGY_ERA,correlations:strategyCorrelation(),noTrade:noTradeAlpha()}),executionAssumptions:{fallbackFeeRate:FEE_RATE,fixedTxCostUsd:PAPER_FIXED_TX_COST_USD,feeSource:'pump.fun docs 2026-05-20',maxModeledSlippagePct:8},researchGovernance:{partition:'deterministic 80/20 by mint',learningSet:'train only',autoPromotion:ALLOW_AUTO_PROMOTION,minPromotionTrades:60,minHoldoutTrades:20},stateLock:storageStatus(),mode:'LIVE PAPER + V5.0 SEASON 3 CLEAN EXECUTION + ALPHA OS + AUDITED HOLDOUT RESEARCH',version:'5.0 Season 3 Clean Execution',target:TARGET,weather,providers:[...health.values()],
     summary:{capital:prod.reduce((a,d)=>a+d.equity,0),start:prod.length*START,trades:prod.reduce((a,d)=>a+d.n,0),open:positions.filter(p=>!p.closed&&prod.some(d=>d.id===p.strategy)).length,cohortCapital:cohort.reduce((a,d)=>a+d.equity,0),cohortStart:cohort.length*START,cohortTrades:cohort.reduce((a,d)=>a+d.n,0),cohortOpen:positions.filter(p=>!p.closed&&cohort.some(d=>d.id===p.strategy)).length,tokens:tokens.size,decisions:decisions.length,ledgerTrades,ledgerDetailedTrades:trades.length,ledgerRecoveredAggregateRows:num(forensicLedgerGaps.total),ledgerProductionTrades,ledgerCohortTrades,ledgerControlTrades,ledgerOtherTrades,scienceTrades:num(science.counters?.trades)},
     strategies:strategyDefs.map(d=>{const ep=entryPolicy(d),pb=strategyPlaybook(d),eraTrades=trades.filter(t=>t.strategy===d.id&&t.policyVersion===STRATEGY_ERA);return{...d,winRate:d.n?d.wins/d.n*100:0,open:openCount(d.id),effectiveMin:ep.min,coldStart:ep.coldStart,entryRejects:ep.rejects,thresholdRelief:ep.relief,playbook:pb.instruction,era:STRATEGY_ERA,eraN:eraTrades.length,eraWinRate:eraTrades.length?eraTrades.filter(t=>t.pnl>0).length/eraTrades.length*100:0,eraPnl:eraTrades.reduce((a,t)=>a+num(t.pnl),0),eraAvgPnl:eraTrades.length?avg(eraTrades.map(t=>t.pnlPct)):0}}),experiments:experimentSnapshot(),tokens:active,
     narratives:(latestReplay?.narratives||[]).slice(0,12),creators:creatorLeaderboard().slice(0,20),activity:activity.slice(0,100),research,...uiResearchSnapshot(),timeline:timeline.slice(-80),decisions:decisions.slice(0,120),replay:replayFrames.slice(-3),
@@ -3610,7 +3651,7 @@ const server=http.createServer(async (req,res)=>{
   {const routePath=new URL(req.url,'http://pump-lab.local').pathname;
   if(routePath==='/livez'){const body=JSON.stringify({ok:true,phase:lifecyclePhase,uptimeSec:Math.round(process.uptime()),pressure:systemPressure,eventLoopLagMs});res.writeHead(200,{'content-type':'application/json','cache-control':'no-store','content-length':Buffer.byteLength(body)});return res.end(body);}
   if(routePath==='/readyz'){const r=readinessStatus(),body=JSON.stringify(r);res.writeHead(r.ready?200:503,{'content-type':'application/json','cache-control':'no-store','content-length':Buffer.byteLength(body)});return res.end(body);}
-  if(routePath==='/api/health'){const body=JSON.stringify({ok:true,paperOnly:true,version:'4.0 Season 2 Science',runtime:readinessStatus(),storage:storageStatus(),weather:marketWeather(),providers:[...health.values()]});res.writeHead(200,{'content-type':'application/json','cache-control':'no-store','content-length':Buffer.byteLength(body)});return res.end(body);}}
+  if(routePath==='/api/health'){const body=JSON.stringify({ok:true,paperOnly:true,version:'5.0 Season 3 Clean Execution',runtime:readinessStatus(),storage:storageStatus(),weather:marketWeather(),providers:[...health.values()]});res.writeHead(200,{'content-type':'application/json','cache-control':'no-store','content-length':Buffer.byteLength(body)});return res.end(body);}}
   if(req.url==='/api/events'){res.writeHead(200,{'content-type':'text/event-stream','cache-control':'no-cache','connection':'keep-alive'});res.write('data: {}\n\n');clients.add(res);req.on('close',()=>clients.delete(res));return;}
   res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store'});res.end(HTML);
 });
@@ -3625,6 +3666,7 @@ if((DATABASE_URL||REDIS_URL||PEER_RECOVERY_URL)&&!(dbStateRestored||kvStateResto
   const restored=await waitForInitialDurableRestore();
   if(!restored)process.exit(1);
 }
+await beginCleanExecutionEraIfNeeded();
 if(!validateStateIntegrity({repair:true})){console.error('FATAL_STATE_INTEGRITY · refusing to bind public port');process.exit(1);}
 if(dbStateRestored||kvStateRestored||localStateRestored||peerStateRestored)logStrategyDiagnostics();
 setLifecycle('WARMING','state restored; initializing market loops');
@@ -3632,12 +3674,12 @@ logV3SelfTest();
 setHealth('engine','ok','v3.1 evidence playbooks + Megga copy/scout lab + 31 specialist cohorts + controls online',{truth:'observed'});
 setHealth('learning-core','ok','era-separated allocator + DNA memory + replay + exit optimizer + counterfactual lab online',{truth:'inferred'});
 setHealth('alpha-os','ok','Alpha OS v2 online · wallet profitability/copyability + independent consensus + safety/cadence/expectancy controls · PAPER/SHADOW ONLY',{truth:'inferred'});
-setHealth('season2-science','ok','Edge science online · walk-forward + Bayesian + calibrated probability + feature importance + survival + DNA + saturation + entry/exit counterfactuals + drift + evidence gates + abstention',{truth:'inferred'});
+setHealth('season3-science','ok','Season 3 clean execution science online · corrected marks + timed momentum + fresh evidence only',{truth:'inferred'});
 setHealth('profit-accelerator','ok','Profit Accelerator v1 · pruning + champion weighting + regime veto + MAE/MFE exits + execution quality + social proof + no-trade + expectancy + correlation + postmortems',{truth:'inferred'});
 setHealth('x-social','standby','Full X stream not connected · social agent uses token social metadata only',{truth:'not connected'});
 setHealth('wallet-intel','standby','Connecting Solana stream + verified Fomo wallet watchlist…',{truth:'not connected'});setHealth('fomo-watchlist','standby','Preparing verified public wallet subscriptions',{truth:'not connected'});
 if((DATABASE_URL||REDIS_URL)&&!durableTradingReady())console.log('STATE_LOCK engaged · trading paused until a recovery source is healthy');
-log('system','🚀 PUMP LAB v4.0 Season 2 Science started · PAPER ONLY','system');connectPumpPortal();connectSolanaStream();pumpPoll();dexPoll();console.log('PUMP LAB v4.0 Season 2 Science runtime online · PAPER ONLY');
+log('system','🚀 PUMP LAB v5.0 Season 3 Clean Execution started · PAPER ONLY','system');connectPumpPortal();connectSolanaStream();pumpPoll();dexPoll();console.log('PUMP LAB v5.0 Season 3 Clean Execution runtime online · PAPER ONLY');
 setTimeout(stateSelfTest,5000).unref?.();setInterval(()=>alphaOS.runCapitalAuction(m=>tokens.get(m),executionQuote),2000).unref?.();
 setInterval(()=>{alphaOS.observeWorld({weather:marketWeather(),tokens:[...tokens.values()].filter(t=>now()-t.updatedAt<900000),strategyEquity:Object.fromEntries(allTraders().map(d=>[d.id,d.equity]))});alphaOS.prune();},60000).unref?.();
 setInterval(()=>runScheduled('alpha-external',()=>alphaOS.pollExternal(),{budgetMs:5000}),30000).unref?.();
