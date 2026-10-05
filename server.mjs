@@ -35,9 +35,9 @@ const MAX_OPPORTUNITIES = Number(process.env.MAX_OPPORTUNITIES || 12000);
 const OPPORTUNITY_RETENTION_MS = Number(process.env.OPPORTUNITY_RETENTION_MS || 129600000);
 const PAPER_DAILY_LOSS_LIMIT_PCT = Number(process.env.PAPER_DAILY_LOSS_LIMIT_PCT || 10);
 const PAPER_MAX_DRAWDOWN_PCT = Number(process.env.PAPER_MAX_DRAWDOWN_PCT || 25);
-const PAPER_SAME_MINT_COOLDOWN_MS = Number(process.env.PAPER_SAME_MINT_COOLDOWN_MS || 21600000);
-const PAPER_CORE_ENTRY_GAP_MS = Number(process.env.PAPER_CORE_ENTRY_GAP_MS || 180000);
-const PAPER_MAX_CORE_ENTRIES_PER_HOUR = Number(process.env.PAPER_MAX_CORE_ENTRIES_PER_HOUR || 4);
+const PAPER_SAME_MINT_COOLDOWN_MS = Number(process.env.PAPER_SAME_MINT_COOLDOWN_MS || 14400000);
+const PAPER_CORE_ENTRY_GAP_MS = Number(process.env.PAPER_CORE_ENTRY_GAP_MS || 120000);
+const PAPER_MAX_CORE_ENTRIES_PER_HOUR = Number(process.env.PAPER_MAX_CORE_ENTRIES_PER_HOUR || 6);
 const SHADOW_EXECUTION_VALIDATED = (process.env.SHADOW_EXECUTION_VALIDATED || 'false') === 'true';
 const PUMP_PROGRAM = '6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P';
 const SOLANA_RPC_HTTP = process.env.SOLANA_RPC_HTTP || 'https://api.mainnet-beta.solana.com';
@@ -1065,8 +1065,8 @@ function entryGuard(d,t,f,score,policy,quality,adv,regime){
   return{ok:true,reason:'v3 evidence stack passed',requiredScore,minQuality,minBuyRatio,health:h,playbook:p,stack};
 }
 function dormantExplorationGuard(d,t,f,score,policy,quality,adv,regime){
-  if(d.copyLab||d.risk==='CONTROL'||!policy.coldStart||policy.rejects<12||adv.hardVeto)return{ok:false};
-  const p=strategyPlaybook(d),stack=evidenceStack(t,f,quality),learned=Number.isFinite(policy.p90)?policy.p90+1:policy.min,scoreFloor=Math.max(40,Math.min(policy.min,learned));
+  if(d.copyLab||d.risk==='CONTROL'||!policy.coldStart||policy.rejects<6||adv.hardVeto)return{ok:false};
+  const p=strategyPlaybook(d),stack=evidenceStack(t,f,quality),learned=Number.isFinite(policy.p90)?policy.p90-2:policy.min-8,scoreFloor=Math.max(40,Math.min(policy.min-5,learned));
   const maxRisk=Math.min(76,(p.maxRisk??60)+14),minQuality=Math.max(52,(p.minQuality??60)-12);
   const minBuy=Math.max(.44,(p.minBuy??.52)-.10),maxBuy=Math.min(.82,(p.maxBuy??.76)+.06);
   const minMom=Math.max(40,(p.minMomentum??55)-15),maxMom=Math.min(98,(p.maxMomentum??92)+6);
@@ -1178,8 +1178,8 @@ function executionQuote(t,notional,side='buy'){
 }
 
 function adaptivePositionSizing(d,t,f,score,policy,quality,similar,guard,adv,regime,allocatorMult=1,exploratory=false){
-  const isHypothesis=!!d.hypothesis,isProbe=!!d.copyLab||d.id==='megga_scout'||exploratory||isHypothesis,h=guard.health||strategyHealth(d);
-  const basePct=exploratory?.018:isHypothesis?.025:isProbe?.05:d.risk==='R&D'?.07:.10;
+  const isHypothesis=!!d.hypothesis,isResearch=d.risk==='R&D'||d.specialist,isProbe=!!d.copyLab||d.id==='megga_scout'||exploratory||isHypothesis,h=guard.health||strategyHealth(d);
+  const basePct=exploratory?.05:isHypothesis?.10:isProbe?.12:isResearch?.10:.18;
   const confidence=clamp(.82+(score-(guard.requiredScore||policy.min))/40,.72,1.18);
   const qualityMult=clamp(.76+quality.score/300,.78,1.10);
   const adverseMult=clamp(1.14-num(adv.score)/180,.62,1.05);
@@ -1193,13 +1193,13 @@ function adaptivePositionSizing(d,t,f,score,policy,quality,similar,guard,adv,reg
   const sizingPeak=num(d.auditPeak)||d.equity,currentDd=sizingPeak>0?Math.max(0,(1-d.equity/sizingPeak)*100):0;
   const ddMult=currentDd>=12?.45:currentDd>=8?.60:currentDd>=5?.78:1;
   const recent6h=recentRealizedPct(d,6),recentMult=recent6h<=-7?.50:recent6h<=-4?.70:recent6h>=5?1.04:1;
-  const learnedAlloc=clamp(allocatorMult,.35,1.25),expectancy=strategyExpectancyProfile(d),expectancyMult=expectancy.mult;
-  const mult=clamp(confidence*qualityMult*adverseMult*regimeMult*mcMult*ageMult*volMult*dnaMult*healthMult*streakMult*ddMult*recentMult*learnedAlloc*expectancyMult,.28,1.20);
+  const learnedAlloc=clamp(allocatorMult,.35,1.45),expectancy=strategyExpectancyProfile(d),expectancyMult=expectancy.mult;
+  const mult=clamp(confidence*qualityMult*adverseMult*regimeMult*mcMult*ageMult*volMult*dnaMult*healthMult*streakMult*ddMult*recentMult*learnedAlloc*expectancyMult,.28,1.45);
 
   const stopFrac=clamp((num(d.stop)||14)/100,.07,.30);
-  const maxStopLossPct=d.risk==='LOW'?.012:d.risk==='HIGH'?.018:d.risk==='EXTREME'?.016:d.risk==='R&D'?.010:.015;
+  const maxStopLossPct=d.risk==='LOW'?.020:d.risk==='HIGH'?.028:d.risk==='EXTREME'?.025:d.risk==='R&D'?.018:.024;
   const stopRiskCap=d.equity*maxStopLossPct/stopFrac;
-  const positionCapPct=exploratory?.035:isHypothesis?.05:isProbe?.07:.15,portfolioCapPct=exploratory?.12:isHypothesis?.12:isProbe?.30:.35,narrativeCapPct=.20,creatorCapPct=.16;
+  const positionCapPct=exploratory?.08:isHypothesis?.15:isProbe?.18:isResearch?.15:.25,portfolioCapPct=exploratory?.20:isHypothesis?.30:isProbe?.35:isResearch?.35:.55,narrativeCapPct=.30,creatorCapPct=.25;
   const mine=positions.filter(p=>p.strategy===d.id&&!p.closed);
   const markValue=p=>p.units*positionMarkPrice(p);
   const openExposure=mine.reduce((s,p)=>s+markValue(p),0);
@@ -1208,10 +1208,10 @@ function adaptivePositionSizing(d,t,f,score,policy,quality,similar,guard,adv,reg
   const exposureRoom=Math.max(0,d.equity*portfolioCapPct-openExposure);
   const narrativeRoom=Math.max(0,d.equity*narrativeCapPct-narrativeExposure);
   const creatorRoom=Math.max(0,d.equity*creatorCapPct-creatorExposure);
-  const minStake=d.equity*(exploratory?.0075:isHypothesis?.008:isProbe?.01:.02);
-  const liquidityCap=t.liq>0?Math.max(minStake,t.liq*.015):0;
+  const minStake=d.equity*(exploratory?.02:isHypothesis?.03:isProbe?.03:isResearch?.03:.05);
+  const liquidityCap=t.liq>0?Math.max(minStake,t.liq*.020):0;
   const desired=Number.isFinite(num(d.fixedStakeUsd))&&num(d.fixedStakeUsd)>0?Math.min(num(d.fixedStakeUsd),d.equity*positionCapPct):d.equity*basePct*mult;
-  const budget=Math.min(d.cash*.25,d.equity*positionCapPct,stopRiskCap,exposureRoom,narrativeRoom,creatorRoom,liquidityCap,Math.max(minStake,desired));
+  const budget=Math.min(d.cash*.35,d.equity*positionCapPct,stopRiskCap,exposureRoom,narrativeRoom,creatorRoom,liquidityCap,Math.max(minStake,desired));
   const live100Equivalent=budget*(100/START);
   return{
     ok:budget>=minStake&&budget>0,budget,basePct,mult,confidence,qualityMult,adverseMult,regimeMult,mcMult,ageMult,vol,volMult,dnaMult,
@@ -1270,18 +1270,20 @@ function maybeTrade(t,weather=null) {
     if(exploratory&&!probeSafety.ok){recordDecision(d,t,f,score,'REJECT','cold-start probe veto: '+probeSafety.reason,weather);continue;}
     if(!productionSafety.ok&&!exploratory){recordDecision(d,t,f,score,'REJECT',productionSafety.reason,weather);continue;}
     const alphaBudgetMult=exploratory?Math.max(.72,num(alpha.sizeMultiplier)||0):alpha.sizeMultiplier;
-    let budget=d.fastScalp?Math.min(sizing.budget,num(d.fixedStakeUsd)||100,d.cash*.20,d.equity*.12,t.liq>0?Math.max(5,t.liq*.012):sizing.budget):Math.min(sizing.budget*alphaBudgetMult,d.cash*(exploratory?.08:.25),d.equity*(exploratory?.035:.15),t.liq>0?Math.max(d.equity*(exploratory?.0075:.02),t.liq*.015):sizing.budget);
-    if(budget<Math.max(exploratory?3:5,d.equity*(exploratory?.0075:.02))){recordDecision(d,t,f,score,'REJECT','Alpha OS · stake below minimum after EV adjustment',weather);continue;}
+    let budget=d.fastScalp?Math.min(sizing.budget,num(d.fixedStakeUsd)||100,d.cash*.20,d.equity*.12,t.liq>0?Math.max(5,t.liq*.012):sizing.budget):Math.min(sizing.budget*alphaBudgetMult,d.cash*(exploratory?.15:.35),d.equity*(exploratory?.08:.25),t.liq>0?Math.max(d.equity*(exploratory?.02:.05),t.liq*.020):sizing.budget);
+    if(budget<Math.max(exploratory?10:25,d.equity*(exploratory?.02:(d.risk==='R&D'||d.specialist)?.03:.05))){recordDecision(d,t,f,score,'REJECT','Alpha OS · stake below meaningful paper minimum',weather);continue;}
     const scienceGate=science.evaluateEntry({strategy:d,token:t,features:f,quality,market:weather,alpha,baseExecution:{...executionQuote(t,budget,'buy'),notional:budget}});
     const explorationScienceHardBlock=!!scienceGate.evidence?.block||num(scienceGate.survival?.collapsePct?.[5])>=85||num(scienceGate.execution?.txFailureProbability)>=.40;
     const fastScalpSoftBypass=!!d.fastScalp&&d.risk==='R&D'&&!explorationScienceHardBlock;
     if(SEASON2_SCIENCE_VETO&&scienceGate.veto&&!fastScalpSoftBypass&&(!exploratory||explorationScienceHardBlock)){recordDecision(d,t,f,score,'REJECT','Season 2 Do Nothing · '+(scienceGate.reasons.join(', ')||('score '+scienceGate.score.toFixed(0))),weather);continue;}
-    const scienceSize=d.fastScalp?1:clamp(num(scienceGate.evidence?.sizeMultiplier)||1,.15,1.05);let entryExec=scienceGate.execution;
+    const scienceSize=d.fastScalp?1:clamp(num(scienceGate.evidence?.sizeMultiplier)||1,exploratory?.40:(d.risk==='R&D'||d.specialist)?.35:.50,1.05);let entryExec=scienceGate.execution;
     if(d.fastScalp)entryExec=science.executionSimulation(t,budget,'buy',{...executionQuote(t,budget,'buy'),notional:budget},alpha?.execution||{});
     else if(scienceSize<.999){budget=Math.max(3,budget*scienceSize);entryExec=science.executionSimulation(t,budget,'buy',{...executionQuote(t,budget,'buy'),notional:budget},alpha?.execution||{});}
     let executionQuality=profitAccelerator.executionQuality(entryExec,alpha?.execution||{});
     if(executionQuality.veto){recordDecision(d,t,f,score,'REJECT','execution veto: '+executionQuality.reason,weather);continue;}
     if(!d.fastScalp&&executionQuality.sizeMultiplier<.999){budget=Math.max(3,budget*executionQuality.sizeMultiplier);entryExec=science.executionSimulation(t,budget,'buy',{...executionQuote(t,budget,'buy'),notional:budget},alpha?.execution||{});executionQuality=profitAccelerator.executionQuality(entryExec,alpha?.execution||{});}
+    const meaningfulFloor=d.equity*(exploratory?.015:(d.risk==='R&D'||d.specialist)?.025:.05);
+    if(!d.fastScalp&&budget<meaningfulFloor){recordDecision(d,t,f,score,'REJECT','paper sizing veto: final stake too small to be meaningful',weather);continue;}
     if(entryExec.slippage>.065){recordDecision(d,t,f,score,'REJECT','execution veto: modeled slippage',weather);continue;}const entry=entryExec.fillPrice;const cost=budget*(1+entryExec.feeRate)+num(entryExec.fixedCost)+num(entryExec.expectedFailureCost);
     if(cost>d.cash)continue;
     d.cash-=cost;
