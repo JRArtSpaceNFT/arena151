@@ -838,6 +838,7 @@ function recordDecision(d,t,f,score,action,why='',weather=null) {
   weather=weather||marketWeather();const row={ts:now(),era:STRATEGY_ERA,samplePartition:partitionForMint(t.mint),strategy:d.id,strategyName:d.name,mint:t.mint,symbol:t.symbol,action,score,risk:f.risk,price:t.price,mc:t.mc,narrative:t.narrative,regime:weather.regime,phase:weather.phase,why,
     features:{momentum:f.momentum,acceleration:f.acceleration,flow:f.flow,buyRatio:f.buyRatio,volScore:f.volScore,liqScore:f.liqScore,drawdown:f.drawdown,rebound:f.rebound,social:f.social,age:f.age,sourceQuality:f.sourceQuality,chartQuality:f.chart?.chartQuality,pathContinuity:f.chart?.bullContinuity,chartStructure:f.chart?.structure,spikeRisk:f.chart?.spikeRisk,memeSetup:f.meme?.setup,memeQuality:f.meme?.memeQuality,manipulationSuspicion:f.meme?.manipulationSuspicion,flowPersistence:f.meme?.flowPersistence}};
   decisions.unshift(row); decisions.splice(MAX_DECISIONS);
+  if(action==='BUY'&&d.risk!=='CONTROL'&&!d.specialist&&!d.minuteSampler)console.log('CORE_ENTRY '+JSON.stringify({ts:row.ts,strategy:d.id,name:d.name,symbol:t.symbol,mint:t.mint,score,threshold:entryPolicy(d).min,reason:why,mc:t.mc,regime:weather.regime}));
   const key=`${d.id}:${t.mint}`;
   if(!opportunities.has(key)){
     opportunities.set(key,{...row,firstTs:row.ts,firstPrice:t.price,bestReturn:0,worstReturn:0,latestReturn:0,entered:action==='BUY'});
@@ -985,10 +986,17 @@ function entryPolicy(d){
   if(cache&&cache.decisionCount===decisions.length&&now()-cache.ts<15000)return cache.value;
   const rows=decisions.filter(x=>x.strategy===d.id&&x.era===STRATEGY_ERA&&(x.samplePartition||partitionForMint(x.mint))==='train').slice(0,250);
   const rejects=rows.filter(x=>x.action==='REJECT').length,scores=rows.map(x=>num(x.score)).filter(Number.isFinite);
-  const p90=percentile(scores,.90);
-  const effectiveMin=rows.length>=50&&Number.isFinite(p90)?Math.max(d.min,p90):d.min;
+  const p90=percentile(scores,.90),coldStart=!rows.some(x=>x.action==='BUY');
+  let effectiveMin=d.min,relief=0;
+  if(rows.length>=50&&Number.isFinite(p90)){
+    if(coldStart){
+      const adaptiveFloor=Math.max(46,d.min-14);
+      effectiveMin=clamp(p90+3,adaptiveFloor,d.min);
+      relief=Math.max(0,d.min-effectiveMin);
+    }else effectiveMin=Math.max(d.min,p90);
+  }
   const playbook=strategyPlaybook(d);
-  const value={coldStart:!rows.some(x=>x.action==='BUY'),rejects,relief:0,min:effectiveMin,baseMin:d.min,p90,p25Risk:null,
+  const value={coldStart,rejects,relief,min:effectiveMin,baseMin:d.min,p90,p25Risk:null,
     lowRiskLimit:playbook.maxRisk??58,sniperRiskLimit:playbook.maxRisk??52,customRiskLimit:d.riskCap||playbook.maxRisk||null};
   entryPolicyCache.set(d.id,{ts:now(),decisionCount:decisions.length,value});return value;
 }
@@ -1004,7 +1012,7 @@ function entryGuard(d,t,f,score,policy,quality,adv,regime){
   if(regime==='RISK OFF'){scoreBuffer+=4;minQuality+=4;minBuyRatio+=.03;maxRisk-=3;}
   if(h.n>=4&&h.avg<0){scoreBuffer+=3;minQuality+=3;minBuyRatio+=.02;}
   if(h.n>=5&&h.avg<=-8){scoreBuffer+=4;maxRisk-=3;}
-  const learned=Number.isFinite(policy.p90)?policy.p90:policy.min,requiredScore=Math.max(policy.min,learned+scoreBuffer);
+  const learned=policy.coldStart?policy.min:(Number.isFinite(policy.p90)?policy.p90:policy.min),requiredScore=Math.max(policy.min,learned+scoreBuffer);
   const fail=reason=>({ok:false,reason,requiredScore,minQuality,minBuyRatio,health:h,playbook:p,stack});
   if(quality.score<minQuality)return fail('abstain: data quality');
   if(p.requireCross&&quality.sourceCount<2)return fail('abstain: cross-source confirmation');
@@ -1057,8 +1065,8 @@ function entryGuard(d,t,f,score,policy,quality,adv,regime){
   return{ok:true,reason:'v3 evidence stack passed',requiredScore,minQuality,minBuyRatio,health:h,playbook:p,stack};
 }
 function dormantExplorationGuard(d,t,f,score,policy,quality,adv,regime){
-  if(d.copyLab||d.risk==='CONTROL'||!policy.coldStart||policy.rejects<20||adv.hardVeto)return{ok:false};
-  const p=strategyPlaybook(d),stack=evidenceStack(t,f,quality),learned=Number.isFinite(policy.p90)?policy.p90+2:d.min-10,scoreFloor=Math.max(34,Math.min(d.min-10,learned));
+  if(d.copyLab||d.risk==='CONTROL'||!policy.coldStart||policy.rejects<12||adv.hardVeto)return{ok:false};
+  const p=strategyPlaybook(d),stack=evidenceStack(t,f,quality),learned=Number.isFinite(policy.p90)?policy.p90+1:policy.min,scoreFloor=Math.max(40,Math.min(policy.min,learned));
   const maxRisk=Math.min(76,(p.maxRisk??60)+14),minQuality=Math.max(52,(p.minQuality??60)-12);
   const minBuy=Math.max(.44,(p.minBuy??.52)-.10),maxBuy=Math.min(.82,(p.maxBuy??.76)+.06);
   const minMom=Math.max(40,(p.minMomentum??55)-15),maxMom=Math.min(98,(p.maxMomentum??92)+6);
