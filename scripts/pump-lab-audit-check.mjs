@@ -127,6 +127,21 @@ if(!src.includes("d.hypothesis&&d.hypothesisRetiredAt"))failures.push('Retired h
 if(!src.includes("hypothesisArena:hypothesisArenaSnapshot()"))failures.push('Hypothesis Arena missing from live state');
 
 
+// Fast scalp experiment regression guards.
+for(const [name,needle] of [
+  ['Velocity Scalper strategy', "'velocity_scalper','⚡','Velocity Scalper'"],
+  ['Velocity Scalper fixed stake', "fixedStakeUsd:100"],
+  ['Velocity Scalper fast profile', "fastScalp:true"],
+  ['Velocity Scalper velocity score', "mode==='velocity'"],
+  ['Velocity Scalper sustained burst gate', "minMediumRet"],
+  ['Velocity Scalper faster cadence', "d.fastScalp?30000"],
+  ['Velocity Scalper quick take', "velocity scalp quick take"],
+  ['Velocity Scalper hard stop', "velocity scalp hard stop"],
+  ['Velocity Scalper timeout', "velocity scalp timeout"],
+  ['Velocity Scalper soft science bypass', "fastScalpSoftBypass"]
+])if(!src.includes(needle))failures.push(name+' missing');
+
+
 // Meme/chart theory regression guards.
 for(const id of ['meme_smooth_curve','meme_retest','meme_compression','meme_postgrad','meme_survival']){
   if(!src.includes("'"+id+"'"))failures.push('Meme/chart theory bot missing '+id);
