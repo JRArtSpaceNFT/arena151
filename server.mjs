@@ -383,6 +383,11 @@ const copyProfiles={
   megga_scout:{researchProfile:'megga-scout',exitMode:'conviction',maxHold:1440,scaleOut:true}
 };
 for(const d of strategyDefs)if(copyProfiles[d.id])Object.assign(d,copyProfiles[d.id]);
+// The 6-3 Smart Money sample was essentially flat because losses overwhelmed winners.
+// Keep the signal thesis, but compress downside and preserve the right tail.
+Object.assign(strategyDefs.find(d=>d.id==='smart'),{exitMode:'runner',maxHold:240,scaleOut:true});
+Object.assign(strategyDefs.find(d=>d.id==='quant'),{exitMode:'balanced',maxHold:150});
+Object.assign(strategyDefs.find(d=>d.id==='swing'),{scaleOut:true,maxHold:300});
 
 const challengers = [
   makeChallenger('momentum','momentum-c1','Momentum Challenger','stricter confirmation + fast invalidation',{minDelta:5,takeDelta:10,exitMode:'scalp',sizeBias:.75}),
