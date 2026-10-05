@@ -255,6 +255,7 @@ const strategyDefs = [
   ['hyp_grad_fortress','G1','The Fortress','R&D',.015,65,8,70,1,'G1: established cross-checked quality with balanced pressure and clean creator history reduces catastrophic downside'],
   ['hyp_grad_rebound','G2','Second Chance','R&D',.015,63,9,130,1,'G2: controlled pullback plus confirmed rebound outperforms chasing the first impulse'],
   ['hyp_grad_outlier','G3','The Outlier','R&D',.0125,66,9,250,1,'G3: rare high-quality non-euphoric structures with asymmetric exits can offset a low hit rate'],
+  ['velocity_scalper','⚡','Velocity Scalper','R&D',.10,64,6,11,1,'fast paper scalper: target roughly $100 when fresh momentum accelerates, then exit within minutes instead of waiting for a moonshot'],
 
   ['meme_smooth_curve','◒','Smooth Curve Climber','R&D',.02,61,9,110,1,'smooth pre-graduation climb with persistent participation; reject vertical mechanical curve spikes'],
   ['meme_retest','↗','Breakout Retest','R&D',.02,61,9,120,1,'enter only when a prior resistance area is reclaimed and retested with healthy flow'],
@@ -325,6 +326,7 @@ const specialistProfiles = {
   hyp_grad_fortress:{hypothesis:true,cohort:'RESEARCH GRADUATES',tokenAgeMin:3,tokenAgeMax:40,mcMin:100000,buyRatioMin:.52,buyRatioMax:.72,sourceMin:1,repeatCleanCreator:true,scoreMode:'quality',exitMode:'defensive',maxHold:60,playbookOverride:{minQuality:84,minBuy:.52,maxBuy:.72,minTx:10,maxRisk:50,minMomentum:46,maxMomentum:76,minAccel:42,minLiq:15000,minAge:3,maxAge:40,mcMin:100000,requireCross:true,minEvidence:5,instruction:'Fortress: stay conservative but evaluate a wider mature-token population; retain cross-checking, clean creator history and loss compression'}},
   hyp_grad_rebound:{hypothesis:true,cohort:'RESEARCH GRADUATES',tokenAgeMin:2,tokenAgeMax:25,mcMin:75000,mcMax:650000,buyRatioMin:.50,buyRatioMax:.72,sourceMin:1,scoreMode:'hypothesis',exitMode:'structure',maxHold:180,scaleOut:true,playbookOverride:{minQuality:82,minBuy:.50,maxBuy:.72,minTx:8,maxRisk:54,minMomentum:42,maxMomentum:80,minAccel:48,minLiq:10000,minAge:2,maxAge:25,mcMin:75000,mcMax:650000,drawMin:-35,drawMax:-4,minRebound:3,requireCross:false,minEvidence:4,instruction:'Second Chance: widen the recovery window but still require a real pullback, rebound, fresh flow, sufficient quality and renewed acceleration'}},
   hyp_grad_outlier:{hypothesis:true,memeTheory:true,cohort:'RESEARCH GRADUATES',tokenAgeMin:1.5,tokenAgeMax:24,mcMin:90000,buyRatioMin:.52,buyRatioMax:.74,sourceMin:1,scoreMode:'meme',exitMode:'conviction',maxHold:480,scaleOut:true,sizeBias:.35,minChartQuality:58,maxSpikeRisk:55,maxManipulationRisk:58,minFlowPersistence:52,allowedStructures:['SMOOTH_TREND','BREAKOUT','BREAKOUT_RETEST','RECOVERY','COMPRESSION','BASE'],playbookOverride:{minQuality:84,minBuy:.52,maxBuy:.74,minTx:10,maxRisk:52,minMomentum:50,maxMomentum:86,minAccel:46,minLiq:12000,minAge:1.5,maxAge:24,mcMin:90000,requireCross:false,minEvidence:4,instruction:'Outlier: broaden candidate discovery while preserving chart structure, anti-spike controls, low structural risk and asymmetric exits'}},
+  velocity_scalper:{cohort:'FAST SCALP LAB',fastScalp:true,fixedStakeUsd:100,tokenAgeMin:.25,tokenAgeMax:10,mcMin:20000,mcMax:350000,buyRatioMin:.56,buyRatioMax:.84,sourceMin:1,scoreMode:'velocity',exitMode:'scalp',maxHold:3.5,playbookOverride:{minQuality:58,minBuy:.56,maxBuy:.84,minTx:6,maxRisk:70,minMomentum:66,maxMomentum:96,minAccel:58,minLiq:7000,minAge:.25,maxAge:10,mcMin:20000,mcMax:350000,minMediumRet:3,maxMediumRet:38,instruction:'Velocity Scalper: buy only a fresh accelerating burst with real buyers/liquidity; aim for a quick double-digit gross move, cut fast when velocity fades, and never average down'}},
 
   meme_smooth_curve:{memeTheory:true,cohort:'MEME / CHART THEORY',requireGraduated:false,tokenAgeMin:.8,tokenAgeMax:8,mcMin:25000,mcMax:180000,buyRatioMin:.50,buyRatioMax:.70,sourceMin:2,scoreMode:'meme',exitMode:'runner',maxHold:150,scaleOut:true,sizeBias:.35,minChartQuality:64,minPathQuality:58,maxSpikeRisk:58,maxManipulationRisk:62,minFlowPersistence:52,allowedStructures:['SMOOTH_TREND','BREAKOUT','BREAKOUT_RETEST']},
   meme_retest:{memeTheory:true,cohort:'MEME / CHART THEORY',tokenAgeMin:2,tokenAgeMax:15,mcMin:40000,mcMax:300000,buyRatioMin:.50,buyRatioMax:.70,sourceMin:2,scoreMode:'meme',exitMode:'runner',maxHold:180,scaleOut:true,sizeBias:.35,minChartQuality:62,maxSpikeRisk:60,maxManipulationRisk:60,minFlowPersistence:50,allowedStructures:['BREAKOUT_RETEST']},
@@ -710,6 +712,7 @@ function specialistScore(d,f,t){
     const exhaustion=f.momentum>92?18:100;
     return clamp(q.score*.24+f.momentum*.18+f.acceleration*.18+f.flow*.12+f.liqScore*.10+(100-f.risk)*.10+balancedFlow*.05+exhaustion*.03);
   }
+  if(mode==='velocity')return clamp(f.acceleration*.30+f.momentum*.24+f.flow*.16+f.volScore*.10+(f.chart?.chartQuality||50)*.08+(100-f.risk)*.12);
   if(mode==='early')return clamp(f.early*.28+f.momentum*.24+f.flow*.22+f.volScore*.18+(100-f.risk)*.08);
   if(mode==='momentum')return clamp(f.momentum*.36+f.flow*.26+f.volScore*.22+f.liqScore*.10+(100-f.risk)*.06);
   if(mode==='flow')return clamp(f.flow*.42+f.momentum*.24+f.volScore*.20+f.liqScore*.08+(100-f.risk)*.06);
@@ -997,6 +1000,10 @@ function entryGuard(d,t,f,score,policy,quality,adv,regime){
   if(f.risk>maxRisk||adv.score>=72)return fail('abstain: structural risk');
   if(f.momentum<(p.minMomentum??0)||f.momentum>(p.maxMomentum??100))return fail('abstain: momentum shape');
   if(f.acceleration<(p.minAccel??0))return fail('abstain: no acceleration');
+  if(Number.isFinite(p.minShortRet)&&f.shortRet<p.minShortRet)return fail('abstain: burst too slow');
+  if(Number.isFinite(p.maxShortRet)&&f.shortRet>p.maxShortRet)return fail('abstain: burst already overextended');
+  if(Number.isFinite(p.minMediumRet)&&f.mediumRet<p.minMediumRet)return fail('abstain: no sustained burst');
+  if(Number.isFinite(p.maxMediumRet)&&f.mediumRet>p.maxMediumRet)return fail('abstain: burst already overextended');
   if(t.liq<(p.minLiq??0))return fail('abstain: thin liquidity');
   if(f.age<(p.minAge??0)||f.age>(p.maxAge??Infinity))return fail('abstain: wrong age window');
   if(Number.isFinite(p.mcMin)&&t.mc<p.mcMin)return fail('abstain: market cap below playbook');
@@ -1073,7 +1080,7 @@ function strategyExpectancyProfile(d){
 }
 function tradeCadenceGuard(d,t){
   if(d.risk==='CONTROL')return{ok:true,reason:'control cadence unrestricted'};
-  const ts=now(),isResearch=d.risk==='R&D'||d.specialist,isCopy=!!d.copyLab,minGap=isResearch?45000:isCopy?90000:PAPER_CORE_ENTRY_GAP_MS,sameMintGap=isResearch?Math.min(PAPER_SAME_MINT_COOLDOWN_MS,7200000):PAPER_SAME_MINT_COOLDOWN_MS,maxHour=isResearch||isCopy?7:PAPER_MAX_CORE_ENTRIES_PER_HOUR;
+  const ts=now(),isResearch=d.risk==='R&D'||d.specialist,isCopy=!!d.copyLab,minGap=d.fastScalp?30000:isResearch?45000:isCopy?90000:PAPER_CORE_ENTRY_GAP_MS,sameMintGap=d.fastScalp?1800000:isResearch?Math.min(PAPER_SAME_MINT_COOLDOWN_MS,7200000):PAPER_SAME_MINT_COOLDOWN_MS,maxHour=d.fastScalp?12:isResearch||isCopy?7:PAPER_MAX_CORE_ENTRIES_PER_HOUR;
   const history=[...trades,...positions].filter(x=>x.strategy===d.id),lastOpened=Math.max(0,...history.map(x=>num(x.opened))),recent=history.filter(x=>num(x.opened)>=ts-3600000).length,same=trades.find(x=>x.strategy===d.id&&x.mint===t.mint&&num(x.closedAt)>=ts-sameMintGap);
   if(lastOpened&&ts-lastOpened<minGap)return{ok:false,reason:'cadence guard: strategy cooling down'};
   if(recent>=maxHour)return{ok:false,reason:'cadence guard: hourly trade cap'};
@@ -1159,7 +1166,7 @@ function adaptivePositionSizing(d,t,f,score,policy,quality,similar,guard,adv,reg
   const creatorRoom=Math.max(0,d.equity*creatorCapPct-creatorExposure);
   const minStake=d.equity*(exploratory?.0075:isHypothesis?.008:isProbe?.01:.02);
   const liquidityCap=t.liq>0?Math.max(minStake,t.liq*.015):0;
-  const desired=d.equity*basePct*mult;
+  const desired=Number.isFinite(num(d.fixedStakeUsd))&&num(d.fixedStakeUsd)>0?Math.min(num(d.fixedStakeUsd),d.equity*positionCapPct):d.equity*basePct*mult;
   const budget=Math.min(d.cash*.25,d.equity*positionCapPct,stopRiskCap,exposureRoom,narrativeRoom,creatorRoom,liquidityCap,Math.max(minStake,desired));
   const live100Equivalent=budget*(100/START);
   return{
@@ -1220,7 +1227,8 @@ function maybeTrade(t,weather=null) {
     if(budget<Math.max(exploratory?3:5,d.equity*(exploratory?.0075:.02))){recordDecision(d,t,f,score,'REJECT','Alpha OS · stake below minimum after EV adjustment',weather);continue;}
     const scienceGate=science.evaluateEntry({strategy:d,token:t,features:f,quality,market:weather,alpha,baseExecution:{...executionQuote(t,budget,'buy'),notional:budget}});
     const explorationScienceHardBlock=!!scienceGate.evidence?.block||num(scienceGate.survival?.collapsePct?.[5])>=85||num(scienceGate.execution?.txFailureProbability)>=.40;
-    if(SEASON2_SCIENCE_VETO&&scienceGate.veto&&(!exploratory||explorationScienceHardBlock)){recordDecision(d,t,f,score,'REJECT','Season 2 Do Nothing · '+(scienceGate.reasons.join(', ')||('score '+scienceGate.score.toFixed(0))),weather);continue;}
+    const fastScalpSoftBypass=!!d.fastScalp&&d.risk==='R&D'&&!explorationScienceHardBlock;
+    if(SEASON2_SCIENCE_VETO&&scienceGate.veto&&!fastScalpSoftBypass&&(!exploratory||explorationScienceHardBlock)){recordDecision(d,t,f,score,'REJECT','Season 2 Do Nothing · '+(scienceGate.reasons.join(', ')||('score '+scienceGate.score.toFixed(0))),weather);continue;}
     const scienceSize=clamp(num(scienceGate.evidence?.sizeMultiplier)||1,.15,1.05);let entryExec=scienceGate.execution;
     if(scienceSize<.999){budget=Math.max(3,budget*scienceSize);entryExec=science.executionSimulation(t,budget,'buy',{...executionQuote(t,budget,'buy'),notional:budget},alpha?.execution||{});}
     let executionQuality=profitAccelerator.executionQuality(entryExec,alpha?.execution||{});
@@ -1778,6 +1786,16 @@ function manageCopyPosition(d,p,t){
 
 function exitDecision(d,p,t,f){
   const mode=exitModeFor(d),pnl=pct(t.price,p.entry),hold=(now()-p.opened)/60000,peakPnl=pct(p.peakDuring||t.price,p.entry),drawFromPeak=peakPnl-pnl;
+  if(d.fastScalp){
+    const velocityFade=hold>=.55&&(f.acceleration<48||f.buyRatio<.50||f.shortRet<-1.5);
+    const microTrail=peakPnl>=7&&drawFromPeak>=3.5;
+    if(pnl<=-6)return{exit:true,why:'velocity scalp hard stop',mode:'scalp'};
+    if(pnl>=11)return{exit:true,why:'velocity scalp quick take',mode:'scalp'};
+    if(microTrail)return{exit:true,why:'velocity scalp micro-trail',mode:'scalp'};
+    if(velocityFade)return{exit:true,why:'velocity faded',mode:'scalp'};
+    if(hold>=3.5)return{exit:true,why:'velocity scalp timeout',mode:'scalp'};
+    return{exit:false,mode:'scalp'};
+  }
   const learnedExit=profitAccelerator.exitLearning({strategyId:d.id,trades,era:STRATEGY_ERA});
   let stop=Math.min(d.stop,18),take=d.take,maxHold=d.maxHold||60;
   if(learnedExit.confidence>=.30){if(Number.isFinite(learnedExit.stopCap))stop=Math.min(stop,learnedExit.stopCap);if(Number.isFinite(learnedExit.takeFloor))take=Math.max(take,learnedExit.takeFloor);}
