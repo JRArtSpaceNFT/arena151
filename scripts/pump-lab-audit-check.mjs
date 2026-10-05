@@ -127,6 +127,9 @@ if(!src.includes("d.hypothesis&&d.hypothesisRetiredAt"))failures.push('Retired h
 if(!src.includes("hypothesisArena:hypothesisArenaSnapshot()"))failures.push('Hypothesis Arena missing from live state');
 
 
+// Season-isolated cadence regression guard.
+if(!src.includes("trades.filter(x=>x.policyVersion===STRATEGY_ERA)")||!src.includes("same=trades.find(x=>x.policyVersion===STRATEGY_ERA"))failures.push('Season 3 cadence still reads legacy trades');
+
 // Forced minute market-cap sampler regression guards.
 for(const [name,needle] of [
   ['Sub $100K minute sampler', "'minute_sub100','⏱️','Sub $100K Minute Trader'"],
