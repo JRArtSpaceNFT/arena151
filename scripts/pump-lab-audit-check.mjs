@@ -45,7 +45,7 @@ const checks = [
   ['live launch audit gate', 'function systemAudit()'],
   ['lazy deep research endpoint', "req.url==='/api/research'"],
   ['serialized state writes', 'if(saveInProgress){saveQueued=true;return;}'],
-  ['Season 2 analytical era', "v4.0-season2-science"],
+  ['Season 3 clean execution era', "v5.0-season3-clean-execution"],
   ['Alpha OS integration', 'alphaOS.evaluateCandidate'],
   ['CIO capital auction', 'alphaOS.runCapitalAuction'],
   ['adaptive exit intelligence', 'alphaOS.exitPlan'],
