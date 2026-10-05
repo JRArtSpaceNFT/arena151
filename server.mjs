@@ -1231,9 +1231,9 @@ function maybeTrade(t,weather=null) {
     const existing=positions.find(p=>p.strategy===d.id&&p.mint===t.mint&&!p.closed);
     if(existing){
       if(manageCopyPosition(d,existing,t))continue;
-      const alphaExit=alphaOS.exitPlan(existing,t,f);
-      if(alphaExit.action==='EXIT'){existing.alphaExit=alphaExit;closePos(d,existing,t,'Alpha OS · '+alphaExit.reason);continue;}
-      if(alphaExit.action==='TRIM'&&now()-num(existing.alphaExitAt)>60000){existing.alphaExitAt=now();existing.alphaExit=alphaExit;partialClose(d,existing,t,alphaExit.fraction,'Alpha OS · '+alphaExit.reason);continue;}
+      const alphaExit=alphaOS.exitPlan(existing,t,f),openProfitUsd=estimatedOpenProfitUsd(existing,t),alphaRiskExit=/risk|rug|liquidity|catastrophic|stop|fraud|honeypot|thesis|invalid/i.test(String(alphaExit.reason||'')),alphaProfitAllowed=openProfitUsd<=0||openProfitUsd>=PAPER_MIN_PROFIT_TAKE_USD||alphaRiskExit;
+      if(alphaExit.action==='EXIT'&&alphaProfitAllowed){existing.alphaExit=alphaExit;closePos(d,existing,t,'Alpha OS · '+alphaExit.reason);continue;}
+      if(alphaExit.action==='TRIM'&&alphaProfitAllowed&&now()-num(existing.alphaExitAt)>60000){existing.alphaExitAt=now();existing.alphaExit=alphaExit;partialClose(d,existing,t,alphaExit.fraction,'Alpha OS · '+alphaExit.reason);continue;}
       if(manageScaleOut(d,existing,t))continue;
       const ex=exitDecision(d,existing,t,f);if(ex.exit)closePos(d,existing,t,ex.why);continue;
     }
@@ -1975,8 +1975,12 @@ function manageCopyPosition(d,p,t){
   return partialClose(d,p,t,Number.isFinite(ev.sellFraction)?clamp(ev.sellFraction,.15,.60):.25,'source wallet partial sell');
 }
 
+function estimatedOpenProfitUsd(p,t){
+  const remainingEntryCost=Math.max(0,(num(p.entryCost)||p.invested*(1+FEE_RATE))-num(p.realizedProceeds));
+  return (p.units*num(t.price))-remainingEntryCost;
+}
 function exitDecision(d,p,t,f){
-  const mode=exitModeFor(d),pnl=pct(t.price,p.entry),hold=(now()-p.opened)/60000,peakPnl=pct(p.peakDuring||t.price,p.entry),drawFromPeak=peakPnl-pnl;
+  const mode=exitModeFor(d),pnl=pct(t.price,p.entry),hold=(now()-p.opened)/60000,peakPnl=pct(p.peakDuring||t.price,p.entry),drawFromPeak=peakPnl-pnl,estimatedProfitUsd=estimatedOpenProfitUsd(p,t),meaningfulProfit=estimatedProfitUsd>=PAPER_MIN_PROFIT_TAKE_USD;
   if(d.minuteSampler){
     if(pnl<=-d.stop)return{exit:true,why:'minute sampler stop',mode:'minute'};
     if(pnl>=d.take)return{exit:true,why:'minute sampler take',mode:'minute'};
@@ -2014,12 +2018,10 @@ function exitDecision(d,p,t,f){
   if(deadOnArrival)return{exit:true,why:'dead-on-arrival invalidation',mode};
   if(failedBreakout)return{exit:true,why:'failed breakout invalidation',mode};
   if(pnl<=-stop)return{exit:true,why:'stop',mode};
-  const estimatedProfitUsd=(p.units*t.price)-((num(p.entryCost)||p.invested*(1+FEE_RATE))-num(p.realizedProceeds));
-  const meaningfulProfit=estimatedProfitUsd>=PAPER_MIN_PROFIT_TAKE_USD;
   if(pnl>=take&&!d.scaleOut&&meaningfulProfit)return{exit:true,why:`take profit · ${estimatedProfitUsd.toFixed(0)}`,mode};
   if(trailing&&meaningfulProfit)return{exit:true,why:`trailing peak protection · ${estimatedProfitUsd.toFixed(0)}`,mode};
-  if(hold>maxHold)return{exit:true,why:'time exit',mode};
-  if(fade&&hold>(mode==='scalp'?1.5:3))return{exit:true,why:'thesis broke',mode};
+  if(hold>maxHold&&(pnl<=0||meaningfulProfit))return{exit:true,why:pnl>0?`time exit · ${estimatedProfitUsd.toFixed(0)}`:'time exit',mode};
+  if(fade&&hold>(mode==='scalp'?1.5:3)&&(pnl<=0||meaningfulProfit))return{exit:true,why:pnl>0?`thesis broke · ${estimatedProfitUsd.toFixed(0)}`:'thesis broke',mode};
   return{exit:false,mode};
 }
 function exitOptimizer(){
