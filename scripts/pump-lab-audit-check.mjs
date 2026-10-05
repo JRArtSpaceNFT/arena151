@@ -2,6 +2,7 @@ import fs from 'node:fs';
 
 const src = fs.readFileSync(new URL('../server.mjs', import.meta.url), 'utf8');
 const scienceSrc = fs.readFileSync(new URL('../lib/pump-lab-season2-science.mjs', import.meta.url), 'utf8');
+const alphaSrc = fs.readFileSync(new URL('../lib/pump-lab-alpha-os.mjs', import.meta.url), 'utf8');
 const proxySrc = fs.readFileSync(new URL('../frontend-proxy.mjs', import.meta.url), 'utf8');
 const checks = [
   ['critical science evidence', "science.serializeCriticalEvidence()"],
@@ -76,6 +77,27 @@ const checks = [
 ];
 
 const failures = checks.filter(([, needle]) => !src.includes(needle)).map(([name])=>name);
+
+// External-profitability research regression guards.
+for(const [name,needle] of [
+  ['strategy expectancy sizing','function strategyExpectancyProfile(d)'],
+  ['anti-overtrade cadence','function tradeCadenceGuard(d,t)'],
+  ['same-token rebuy cooldown','PAPER_SAME_MINT_COOLDOWN_MS'],
+  ['production safety gate','function productionSafetyGate(d,t,f,quality,alpha)'],
+  ['wallet-consensus production override','sub-$100K requires strong independent wallet consensus']
+])if(!src.includes(needle))failures.push(name+' missing');
+for(const [name,needle] of [
+  ['wallet realized proxy ledger','this.walletClosed=[]'],
+  ['wallet quality score','walletQuality(wallet,mc=0)'],
+  ['wallet copyability metric','copyability=clamp('],
+  ['independent wallet consensus','walletConsensus(t,windowMin=15)'],
+  ['MEV-like exclusion','mevLike=realizedN>=3'],
+  ['insider-like exclusion','insiderLike=evidenceN>=6'],
+  ['200-close proof tier',"evidenceN>=200?'PROVEN'"],
+  ['90-day wallet evidence','d90:windowMetrics(90)'],
+  ['pre-trade safety model','preTradeSafety(token,c={}'],
+  ['wallet quality leaderboard','qualityLeaderboard:this.walletLeaderboard(25)']
+])if(!alphaSrc.includes(needle))failures.push(name+' missing');
 const scienceSystems=[
   'Walk Forward Testing','Bayesian Strategy Confidence','Meme Coin Survival Model','Creator + Wallet Cluster DNA',
   'Copycat / Narrative Saturation','Execution Reality Simulator','Entry Timing Counterfactuals','Exit Counterfactuals',
