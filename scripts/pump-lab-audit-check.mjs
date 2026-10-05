@@ -130,6 +130,17 @@ if(!src.includes("hypothesisArena:hypothesisArenaSnapshot()"))failures.push('Hyp
 // Season-isolated cadence regression guard.
 if(!src.includes("trades.filter(x=>x.policyVersion===STRATEGY_ERA)")||!src.includes("same=trades.find(x=>x.policyVersion===STRATEGY_ERA"))failures.push('Season 3 cadence still reads legacy trades');
 
+// Bounded core probe-lane regression guards.
+for(const [name,needle] of [
+  ['cold-start probe safety lane', "function coldStartProbeSafety"],
+  ['probe market-cap hard floor', "market cap below $50K probe floor"],
+  ['probe liquidity hard floor', "liquidity below $7.5K probe floor"],
+  ['probe toxicity hard veto', "toxic flow veto"],
+  ['probe production-safety bypass only when exploratory', "if(!productionSafety.ok&&!exploratory)"],
+  ['probe metadata persistence', "coldStartProbe:exploratory"],
+  ['probe buys preserve cold-start calibration', "x.action==='BUY'&&!x.exploratory"]
+])if(!src.includes(needle))failures.push(name+' missing');
+
 // Cold-start persistence and rejection observability guards.
 for(const [name,needle] of [
   ['critical decision persistence', "decisions:decisions.filter(x=>x.era===STRATEGY_ERA).slice(0,1500)"],
