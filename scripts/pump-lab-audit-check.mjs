@@ -130,6 +130,14 @@ if(!src.includes("hypothesisArena:hypothesisArenaSnapshot()"))failures.push('Hyp
 // Season-isolated cadence regression guard.
 if(!src.includes("trades.filter(x=>x.policyVersion===STRATEGY_ERA)")||!src.includes("same=trades.find(x=>x.policyVersion===STRATEGY_ERA"))failures.push('Season 3 cadence still reads legacy trades');
 
+// Cold-start calibration regression guards.
+for(const [name,needle] of [
+  ['cold-start adaptive floor', "const adaptiveFloor=Math.max(46,d.min-14)"],
+  ['cold-start threshold calibration', "effectiveMin=clamp(p90+3,adaptiveFloor,d.min)"],
+  ['cold-start learned score isolation', "policy.coldStart?policy.min"],
+  ['core entry observability', "CORE_ENTRY "]
+])if(!src.includes(needle))failures.push(name+' missing');
+
 // Dedicated market-cap discovery regression guards.
 for(const [name,needle] of [
   ['minute sampler universe discovery', "async function refreshMinuteSamplerUniverse"],
