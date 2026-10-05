@@ -259,6 +259,9 @@ const strategyDefs = [
   ['hyp_grad_rebound','G2','Second Chance','R&D',.015,63,9,130,1,'G2: controlled pullback plus confirmed rebound outperforms chasing the first impulse'],
   ['hyp_grad_outlier','G3','The Outlier','R&D',.0125,66,9,250,1,'G3: rare high-quality non-euphoric structures with asymmetric exits can offset a low hit rate'],
   ['velocity_scalper','⚡','Velocity Scalper','R&D',.10,64,6,11,1,'fast paper scalper: target roughly $100 when fresh momentum accelerates, then exit within minutes instead of waiting for a moonshot'],
+  ['minute_sub100','⏱️','Sub $100K Minute Trader','R&D',.10,0,8,8,1,'forced paper sampler: take the best currently observed memecoin below $100K market cap roughly once per minute'],
+  ['minute_100_250','⏱️','$100K–$250K Minute Trader','R&D',.10,0,7,8,1,'forced paper sampler: take the best currently observed $100K–$250K memecoin roughly once per minute'],
+  ['minute_500_1m','⏱️','$500K–$1M Minute Trader','R&D',.10,0,6,7,1,'forced paper sampler: take the best currently observed $500K–$1M memecoin roughly once per minute'],
 
   ['meme_smooth_curve','◒','Smooth Curve Climber','R&D',.02,61,9,110,1,'smooth pre-graduation climb with persistent participation; reject vertical mechanical curve spikes'],
   ['meme_retest','↗','Breakout Retest','R&D',.02,61,9,120,1,'enter only when a prior resistance area is reclaimed and retested with healthy flow'],
@@ -330,6 +333,9 @@ const specialistProfiles = {
   hyp_grad_rebound:{hypothesis:true,cohort:'RESEARCH GRADUATES',tokenAgeMin:2,tokenAgeMax:25,mcMin:75000,mcMax:650000,buyRatioMin:.50,buyRatioMax:.72,sourceMin:1,scoreMode:'hypothesis',exitMode:'structure',maxHold:180,scaleOut:true,playbookOverride:{minQuality:82,minBuy:.50,maxBuy:.72,minTx:8,maxRisk:54,minMomentum:42,maxMomentum:80,minAccel:48,minLiq:10000,minAge:2,maxAge:25,mcMin:75000,mcMax:650000,drawMin:-35,drawMax:-4,minRebound:3,requireCross:false,minEvidence:4,instruction:'Second Chance: widen the recovery window but still require a real pullback, rebound, fresh flow, sufficient quality and renewed acceleration'}},
   hyp_grad_outlier:{hypothesis:true,memeTheory:true,cohort:'RESEARCH GRADUATES',tokenAgeMin:1.5,tokenAgeMax:24,mcMin:90000,buyRatioMin:.52,buyRatioMax:.74,sourceMin:1,scoreMode:'meme',exitMode:'conviction',maxHold:480,scaleOut:true,sizeBias:.35,minChartQuality:58,maxSpikeRisk:55,maxManipulationRisk:58,minFlowPersistence:52,allowedStructures:['SMOOTH_TREND','BREAKOUT','BREAKOUT_RETEST','RECOVERY','COMPRESSION','BASE'],playbookOverride:{minQuality:84,minBuy:.52,maxBuy:.74,minTx:10,maxRisk:52,minMomentum:50,maxMomentum:86,minAccel:46,minLiq:12000,minAge:1.5,maxAge:24,mcMin:90000,requireCross:false,minEvidence:4,instruction:'Outlier: broaden candidate discovery while preserving chart structure, anti-spike controls, low structural risk and asymmetric exits'}},
   velocity_scalper:{cohort:'FAST SCALP LAB',fastScalp:true,fixedStakeUsd:100,tokenAgeMin:.25,tokenAgeMax:10,mcMin:20000,mcMax:350000,buyRatioMin:.56,buyRatioMax:.84,sourceMin:1,scoreMode:'velocity',exitMode:'scalp',maxHold:3.5,playbookOverride:{minQuality:58,minBuy:.56,maxBuy:.84,minTx:6,maxRisk:70,minMomentum:60,maxMomentum:98,minAccel:52,minLiq:7000,minAge:.25,maxAge:10,mcMin:20000,mcMax:350000,minTimedCoverageSec:15,minRet5s:.4,minRet20s:2,maxRet20s:32,instruction:'Velocity Scalper: buy only a fresh time-normalized accelerating burst with real buyers/liquidity; aim for a quick double-digit gross move, cut fast when velocity fades, and never average down'}},
+  minute_sub100:{cohort:'MINUTE MARKET CAP',minuteSampler:true,fixedStakeUsd:100,mcMin:0,mcMax:100000,minuteMinLiq:1500,scoreMode:'momentum',exitMode:'minute',maxHold:.80,playbookOverride:{minQuality:0,minBuy:0,maxBuy:1,minTx:0,maxRisk:100,minMomentum:0,minAccel:0,minLiq:1500,mcMin:0,mcMax:100000,instruction:'Minute sampler: one forced paper entry about every minute, strictly below $100K market cap; rank available candidates but do not wait for a normal alpha threshold'}},
+  minute_100_250:{cohort:'MINUTE MARKET CAP',minuteSampler:true,fixedStakeUsd:100,mcMin:100000,mcMax:250000,minuteMinLiq:3000,scoreMode:'momentum',exitMode:'minute',maxHold:.80,playbookOverride:{minQuality:0,minBuy:0,maxBuy:1,minTx:0,maxRisk:100,minMomentum:0,minAccel:0,minLiq:3000,mcMin:100000,mcMax:250000,instruction:'Minute sampler: one forced paper entry about every minute, strictly $100K–$250K market cap; rank available candidates but do not wait for a normal alpha threshold'}},
+  minute_500_1m:{cohort:'MINUTE MARKET CAP',minuteSampler:true,fixedStakeUsd:100,mcMin:500000,mcMax:1000000,minuteMinLiq:5000,scoreMode:'quality',exitMode:'minute',maxHold:.80,playbookOverride:{minQuality:0,minBuy:0,maxBuy:1,minTx:0,maxRisk:100,minMomentum:0,minAccel:0,minLiq:5000,mcMin:500000,mcMax:1000000,instruction:'Minute sampler: one forced paper entry about every minute, strictly $500K–$1M market cap; rank available candidates but do not wait for a normal alpha threshold'}},
 
   meme_smooth_curve:{memeTheory:true,cohort:'MEME / CHART THEORY',requireGraduated:false,tokenAgeMin:.8,tokenAgeMax:8,mcMin:25000,mcMax:180000,buyRatioMin:.50,buyRatioMax:.70,sourceMin:2,scoreMode:'meme',exitMode:'runner',maxHold:150,scaleOut:true,sizeBias:.35,minChartQuality:64,minPathQuality:58,maxSpikeRisk:58,maxManipulationRisk:62,minFlowPersistence:52,allowedStructures:['SMOOTH_TREND','BREAKOUT','BREAKOUT_RETEST']},
   meme_retest:{memeTheory:true,cohort:'MEME / CHART THEORY',tokenAgeMin:2,tokenAgeMax:15,mcMin:40000,mcMax:300000,buyRatioMin:.50,buyRatioMax:.70,sourceMin:2,scoreMode:'meme',exitMode:'runner',maxHold:180,scaleOut:true,sizeBias:.35,minChartQuality:62,maxSpikeRisk:60,maxManipulationRisk:60,minFlowPersistence:50,allowedStructures:['BREAKOUT_RETEST']},
@@ -1202,6 +1208,7 @@ function maybeTrade(t,weather=null) {
       if(manageScaleOut(d,existing,t))continue;
       const ex=exitDecision(d,existing,t,f);if(ex.exit)closePos(d,existing,t,ex.why);continue;
     }
+    if(d.minuteSampler)continue;
     const eligibility=specialistEligibility(d,t,f,weather.regime);
     if(!eligibility.ok)continue;
     const accelGate=profitAccelerator.strategyGate({strategy:d,trades,regime:weather.regime,era:STRATEGY_ERA});
@@ -1251,6 +1258,60 @@ function maybeTrade(t,weather=null) {
     const p={id:'p'+now()+Math.random(),strategy:d.id,mint:t.mint,symbol:t.symbol,entry,units:budget/entry,originalUnits:budget/entry,invested:budget,entryCost:cost,entryExecution:entryExec,executionQuality,realizedProceeds:0,partialExits:[],scaleOutHits:[],sourceEntrySig:d.copyLab?(verifiedWalletSignal(t,d.copyWindowMin||15,d.copySource||null).events[0]?.signature||null):null,opened:now(),closed:false,lastPrice:t.price,lastMarkedAt:now(),markSource:'entry',score,entryFeatures:{...f,mc:t.mc,liq:t.liq},entryMc:t.mc,entryLiq:t.liq,entryQuality:quality.score,dnaHit25:similar.hit25,dnaSample:similar.n,allocationMult:allocatorMult,sizingMode:'alpha-os-ev-v1',samplePartition:partitionForMint(t.mint),sizing,alphaOS:alpha,budgetPct:d.equity>0?budget/d.equity:0,live100Equivalent:sizing.live100Equivalent,exitMode:exitModeFor(d),policyVersion:STRATEGY_ERA,guard:{requiredScore:activeGuard.requiredScore,minQuality:activeGuard.minQuality,minBuyRatio:activeGuard.minBuyRatio,recentAvg:activeGuard.health.avg,recentN:activeGuard.health.n,exploratory},reason:`${exploratory?'cold-start exploration · ':''}score ${score.toFixed(0)} · gate ${policy.min.toFixed(0)} · risk ${f.risk.toFixed(0)} · Q${quality.score.toFixed(0)} · stake ${(budget/Math.max(1,d.equity)*100).toFixed(1)}% · $100≈${sizing.live100Equivalent.toFixed(2)} · size×${sizing.mult.toFixed(2)} · expectancy×${sizing.expectancyMult.toFixed(2)} · science×${scienceSize.toFixed(2)} · EV ${alpha.expectedValue.toFixed(1)} · safety ${alpha.preTradeSafety.score.toFixed(0)} · walletQ ${alpha.walletConsensus.score.toFixed(0)} · tox ${alpha.toxicity.score.toFixed(0)}`,entryRegime:regime,entryPhase:weather.phase,peakDuring:entry,troughDuring:entry};
     p.season2Science=scienceGate;positions.push(p);science.recordEntry(p,t,{features:f,quality,market:weather});alphaOS.recordShadowEntry({position:p,token:t,alpha});recordDecision(d,t,f,score,'BUY',p.reason,weather);queueTradeJournal('BUY',d,p,t,{score,exploratory});scheduleCriticalSave();
     if(d.risk!=='R&D')log('buy',`${d.icon} ${d.name} bought ${t.symbol} · ${budget.toFixed(0)} paper · ${p.reason}`,'good',{strategy:d.id,mint:t.mint});
+  }
+}
+
+function minuteSamplerRank(d,t){
+  const f=features(t),q=tokenDataQuality(t),freshness=clamp(100-(now()-num(t.updatedAt))/1800);
+  const novelty=trades.some(x=>x.strategy===d.id&&x.mint===t.mint&&now()-num(x.closedAt)<10*60000)?0:12;
+  return specialistScore(d,f,t)*.45+q.score*.18+f.liqScore*.12+f.volScore*.08+f.flow*.07+freshness*.10+novelty;
+}
+function minuteSamplerCandidates(d){
+  const cutoff=now()-8*60000;
+  return [...tokens.values()].filter(t=>{
+    if(!(t?.price>0)||!(t?.mc>0)||num(t.updatedAt)<cutoff)return false;
+    if(Number.isFinite(d.mcMin)&&t.mc<d.mcMin)return false;
+    if(Number.isFinite(d.mcMax)&&t.mc>=d.mcMax)return false;
+    if(!(t.liq>=num(d.minuteMinLiq)))return false;
+    const f=features(t),adv=adversarialRisk(t,f,tokenDataQuality(t));
+    if(adv.hardVeto)return false;
+    const ex=executionQuote(t,num(d.fixedStakeUsd)||100,'buy');
+    return Number.isFinite(ex.fillPrice)&&ex.fillPrice>0&&ex.slippage<=.07;
+  }).sort((a,b)=>minuteSamplerRank(d,b)-minuteSamplerRank(d,a));
+}
+function openMinuteSamplerTrade(d,t,weather){
+  markEquity(d);const f=features(t),quality=tokenDataQuality(t),score=specialistScore(d,f,t),budget=Math.min(num(d.fixedStakeUsd)||100,d.cash*.20);
+  if(budget<10)return false;
+  const baseExec={...executionQuote(t,budget,'buy'),notional:budget};
+  if(!(baseExec.fillPrice>0)||baseExec.slippage>.07)return false;
+  const alpha=alphaOS.evaluateCandidate({strategy:d,token:t,features:f,score,threshold:0,quality,similar:dnaSimilarity(t),regime:weather.regime});
+  const entryExec=science.executionSimulation(t,budget,'buy',baseExec,alpha?.execution||{});
+  if(!(entryExec.fillPrice>0)||entryExec.slippage>.07)return false;
+  const entry=entryExec.fillPrice,cost=budget*(1+entryExec.feeRate)+num(entryExec.fixedCost)+num(entryExec.expectedFailureCost);
+  if(cost>d.cash)return false;
+  d.cash-=cost;
+  const p={id:'p'+now()+Math.random(),strategy:d.id,mint:t.mint,symbol:t.symbol,entry,units:budget/entry,originalUnits:budget/entry,invested:budget,entryCost:cost,entryExecution:entryExec,executionQuality:profitAccelerator.executionQuality(entryExec,alpha?.execution||{}),realizedProceeds:0,partialExits:[],scaleOutHits:[],opened:now(),closed:false,lastPrice:t.price,lastMarkedAt:now(),markSource:'minute-sampler',score,entryFeatures:{...f,mc:t.mc,liq:t.liq},entryMc:t.mc,entryLiq:t.liq,entryQuality:quality.score,dnaHit25:0,dnaSample:0,allocationMult:1,sizingMode:'forced-minute-sampler',samplePartition:partitionForMint(t.mint),alphaOS:alpha,budgetPct:d.equity>0?budget/d.equity:0,live100Equivalent:budget*(100/START),exitMode:'minute',policyVersion:STRATEGY_ERA,guard:{requiredScore:0,minQuality:0,minBuyRatio:0,recentAvg:0,recentN:0,exploratory:true},reason:`forced minute sampler · MC $${Math.round(t.mc).toLocaleString()} · paper $${budget.toFixed(0)} · band ${Number.isFinite(d.mcMin)?'$'+Math.round(d.mcMin/1000)+'K+':'open'} to ${Number.isFinite(d.mcMax)?'<$'+Math.round(d.mcMax/1000)+'K':'open'}`,entryRegime:weather.regime,entryPhase:weather.phase,peakDuring:entry,troughDuring:entry,minuteSampler:true};
+  positions.push(p);science.recordEntry(p,t,{features:f,quality,market:weather});alphaOS.recordShadowEntry({position:p,token:t,alpha});recordDecision(d,t,f,score,'BUY',p.reason,weather);queueTradeJournal('BUY',d,p,t,{score,minuteSampler:true});scheduleCriticalSave();
+  log('buy',`${d.icon} ${d.name} sampled $${t.symbol} · $${budget.toFixed(0)} paper · MC $${Math.round(t.mc).toLocaleString()}`,'good',{strategy:d.id,mint:t.mint,minuteSampler:true});
+  return true;
+}
+function minuteSamplerTick(){
+  if(shuttingDown||lifecyclePhase==='DRAINING'||!durableTradingReady())return;
+  const weather=marketWeather(),ts=now();
+  for(const d of strategyDefs.filter(x=>x.minuteSampler)){
+    markEquity(d);
+    for(const p of [...positions].filter(x=>!x.closed&&x.strategy===d.id)){
+      const t=tokens.get(p.mint);if(t&&ts-num(p.opened)>=45000)closePos(d,p,t,'minute sampler scheduled recycle');
+    }
+    const history=[...trades,...positions].filter(x=>x.strategy===d.id),lastOpened=Math.max(0,...history.map(x=>num(x.opened)));
+    if(lastOpened&&ts-lastOpened<45000)continue;
+    const candidates=minuteSamplerCandidates(d);
+    const chosen=candidates.find(t=>!positions.some(p=>!p.closed&&p.strategy===d.id&&p.mint===t.mint))||candidates[0];
+    if(!chosen){
+      setHealth('minute-sampler-'+d.id,'warn',d.name+' could not find a currently observed safe token inside its exact market-cap band',{truth:'observed'});
+      continue;
+    }
+    if(openMinuteSamplerTrade(d,chosen,weather))setHealth('minute-sampler-'+d.id,'ok',d.name+' · forced paper cadence active · latest entry '+new Date().toISOString(),{truth:'observed'});
   }
 }
 
@@ -1832,6 +1893,12 @@ function manageCopyPosition(d,p,t){
 
 function exitDecision(d,p,t,f){
   const mode=exitModeFor(d),pnl=pct(t.price,p.entry),hold=(now()-p.opened)/60000,peakPnl=pct(p.peakDuring||t.price,p.entry),drawFromPeak=peakPnl-pnl;
+  if(d.minuteSampler){
+    if(pnl<=-d.stop)return{exit:true,why:'minute sampler stop',mode:'minute'};
+    if(pnl>=d.take)return{exit:true,why:'minute sampler take',mode:'minute'};
+    if(hold>=.80)return{exit:true,why:'minute sampler recycle',mode:'minute'};
+    return{exit:false,mode:'minute'};
+  }
   if(d.fastScalp){
     const velocityFade=hold>=.55&&(f.acceleration<48||f.buyRatio<.50||f.shortRet<-1.5);
     const microTrail=peakPnl>=7&&drawFromPeak>=3.5;
@@ -3430,7 +3497,7 @@ function traderArtMarkup(x,i){
 }
 function render(s){S=s;$('version').textContent=s.version;$('capital').textContent=money(s.summary.capital);$('capitalDelta').textContent=(s.summary.capital>=s.summary.start?'+':'')+money(s.summary.capital-s.summary.start)+' vs start';$('tradeCount').textContent=s.summary.trades;$('decisionCount').textContent=s.summary.decisions+' immutable decisions recorded';$('open').textContent=s.summary.open;$('tokenCount').textContent=s.summary.tokens;$('uptime').textContent='engine up '+age(s.startedAt);const c=s.strategies.find(x=>x.id==='champion');$('champ').textContent=money(c.equity)+' → $100,000 ('+(c.equity/100000*100).toFixed(2)+'%)';$('champMeta').textContent='P&L '+(c.equity>=1000?'+':'')+money(c.equity-1000)+' · max DD '+one(c.dd)+'% · '+c.n+' exits';$('champBar').style.width=Math.min(100,c.equity/100000*100)+'%';$('weather').textContent=s.weather.regime+' · '+one(s.weather.temperature)+'/100';$('weatherMeta').textContent='buy pressure '+one(s.weather.buyPressure)+'% · launch velocity '+one(s.weather.launchVelocity)+'/min · collapse rate '+one(s.weather.collapseRate)+'%';
 $('health').innerHTML=s.providers.map(x=>'<span>'+esc(x.component)+': <b class="'+(x.status==='ok'?'green':x.status==='warn'?'amber':'')+'">'+esc(x.status)+'</b><small class="muted"> · '+esc(x.detail)+'</small></span>').join('');
-$('strats').innerHTML=s.strategies.filter(x=>x.risk!=='CONTROL'&&(!x.specialist||['hyp_grad_fortress','hyp_grad_rebound','hyp_grad_outlier','velocity_scalper'].includes(x.id))).map((x,i)=>'<div class="card strategy" data-bot="'+esc(x.id)+'" onclick="openBotProfile(this.dataset.bot)">'+traderArtMarkup(x,i)+'<div class="topline"><b>'+x.icon+' '+esc(x.name)+'</b><span class="pill">'+esc(x.risk)+'</span></div><div class="money '+(x.equity>=1000?'green':'red')+'">'+money(x.equity)+'</div><div class="mini">'+x.n+' exits · '+one(x.winRate)+'% wins · '+one(x.dd)+'% max DD · '+x.open+' open</div><div class="mini">entry gate '+one(x.effectiveMin)+(x.coldStart&&x.thresholdRelief?' <span class="amber">(cold-start −'+one(x.thresholdRelief)+')</span>':'')+' · '+x.entryRejects+' rejects</div><div class="truth" style="margin-top:8px">'+esc(x.playbook||x.thesis)+'</div><div class="mini" style="margin-top:6px">'+esc(x.era||'current era')+' exits '+(x.eraN||0)+' · '+one(x.eraWinRate||0)+'% wins · era P&L '+((x.eraPnl||0)>=0?'+':'')+money(x.eraPnl||0)+' · avg '+one(x.eraAvgPnl||0)+'%</div></div>').join('');
+$('strats').innerHTML=s.strategies.filter(x=>x.risk!=='CONTROL'&&(!x.specialist||['hyp_grad_fortress','hyp_grad_rebound','hyp_grad_outlier','velocity_scalper','minute_sub100','minute_100_250','minute_500_1m'].includes(x.id))).map((x,i)=>'<div class="card strategy" data-bot="'+esc(x.id)+'" onclick="openBotProfile(this.dataset.bot)">'+traderArtMarkup(x,i)+'<div class="topline"><b>'+x.icon+' '+esc(x.name)+'</b><span class="pill">'+esc(x.risk)+'</span></div><div class="money '+(x.equity>=1000?'green':'red')+'">'+money(x.equity)+'</div><div class="mini">'+x.n+' exits · '+one(x.winRate)+'% wins · '+one(x.dd)+'% max DD · '+x.open+' open</div><div class="mini">entry gate '+one(x.effectiveMin)+(x.coldStart&&x.thresholdRelief?' <span class="amber">(cold-start −'+one(x.thresholdRelief)+')</span>':'')+' · '+x.entryRejects+' rejects</div><div class="truth" style="margin-top:8px">'+esc(x.playbook||x.thesis)+'</div><div class="mini" style="margin-top:6px">'+esc(x.era||'current era')+' exits '+(x.eraN||0)+' · '+one(x.eraWinRate||0)+'% wins · era P&L '+((x.eraPnl||0)>=0?'+':'')+money(x.eraPnl||0)+' · avg '+one(x.eraAvgPnl||0)+'%</div></div>').join('');
 $('feed').innerHTML=s.activity.slice(0,90).map(x=>'<div class="feedrow"><span class="muted">'+new Date(x.ts).toLocaleTimeString()+'</span><span>'+esc(x.text)+'</span></div>').join('');
 $('narrMini').innerHTML=s.narratives.slice(0,8).map(n=>'<div class="smallcard" style="margin:7px 0"><b>'+esc(n.name)+'</b><span style="float:right">'+one(n.heat)+'</span><div class="meter" style="margin:6px 0"><i style="width:'+n.heat+'%"></i></div><div class="mini">'+n.count+' tokens · '+one(n.buyPressure)+'% buys · '+n.recent+' fresh</div></div>').join('');
 $('tokenRows').innerHTML=s.tokens.map(t=>'<tr class="token" data-mint="'+esc(t.mint)+'" onclick="openToken(this.dataset.mint)"><td><b>$'+esc(t.symbol)+'</b><br><span class="muted">'+esc(t.name)+'</span></td><td>'+money(t.mc)+'</td><td>'+money(t.liq)+'</td><td>'+one(t.features.score)+'</td><td class="'+(t.detective.score>65?'red':t.detective.score>45?'amber':'green')+'">'+one(t.detective.score)+'</td><td>'+one(t.quality.score)+'</td><td>'+t.consensus.yes+'/'+t.consensus.total+'</td><td class="muted">'+esc((t.sources||[]).join(' + '))+'</td></tr>').join('');
@@ -3689,6 +3756,8 @@ setInterval(()=>runScheduled('solana-drain',()=>drainSolanaQueue(),{budgetMs:150
 setInterval(()=>runScheduled('pump-poll',()=>pumpPoll(),{budgetMs:6000,critical:true}),7000).unref?.();
 setInterval(()=>runScheduled('dex-poll',()=>dexPoll(),{budgetMs:9000,critical:true}),20000).unref?.();
 setInterval(()=>runScheduled('pump-open-marks',()=>pumpOpenPositionPoll(),{budgetMs:4500,critical:true}),4000).unref?.();
+setTimeout(()=>runScheduled('minute-samplers',()=>minuteSamplerTick(),{budgetMs:2500,critical:true}),15000).unref?.();
+setInterval(()=>runScheduled('minute-samplers',()=>minuteSamplerTick(),{budgetMs:2500,critical:true}),50000).unref?.();
 setInterval(()=>runScheduled('open-marks',()=>openPositionPoll(),{budgetMs:9000,critical:true}),15000).unref?.();
 setInterval(()=>runScheduled('timeline',()=>takeTimeline(),{budgetMs:150}),30000).unref?.();
 setInterval(()=>runScheduled('replay',()=>takeReplay(),{budgetMs:250}),30000).unref?.();
