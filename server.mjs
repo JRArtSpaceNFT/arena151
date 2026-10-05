@@ -33,6 +33,9 @@ const MAX_OPPORTUNITIES = Number(process.env.MAX_OPPORTUNITIES || 12000);
 const OPPORTUNITY_RETENTION_MS = Number(process.env.OPPORTUNITY_RETENTION_MS || 129600000);
 const PAPER_DAILY_LOSS_LIMIT_PCT = Number(process.env.PAPER_DAILY_LOSS_LIMIT_PCT || 10);
 const PAPER_MAX_DRAWDOWN_PCT = Number(process.env.PAPER_MAX_DRAWDOWN_PCT || 25);
+const PAPER_SAME_MINT_COOLDOWN_MS = Number(process.env.PAPER_SAME_MINT_COOLDOWN_MS || 21600000);
+const PAPER_CORE_ENTRY_GAP_MS = Number(process.env.PAPER_CORE_ENTRY_GAP_MS || 180000);
+const PAPER_MAX_CORE_ENTRIES_PER_HOUR = Number(process.env.PAPER_MAX_CORE_ENTRIES_PER_HOUR || 4);
 const SHADOW_EXECUTION_VALIDATED = (process.env.SHADOW_EXECUTION_VALIDATED || 'false') === 'true';
 const PUMP_PROGRAM = '6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P';
 const SOLANA_RPC_HTTP = process.env.SOLANA_RPC_HTTP || 'https://api.mainnet-beta.solana.com';
@@ -209,13 +212,13 @@ const xPublicFailures = new Map();
 
 const strategyDefs = [
   ['banker','🏦','The Banker','LOW',.025,62,14,90,1,'only confirmed momentum with capital preservation; tolerate small misses for rare asymmetric winners'],
-  ['quant','∑','The Quant','LOW',.03,64,14,110,1,'multi-factor confirmation with hard quality floors and catastrophic-loss avoidance'],
-  ['smart','🧠','Smart Money','MED',.03,62,15,110,1,'verified smart-wallet activity plus market confirmation; never use flow as a wallet proxy'],
+  ['quant','∑','The Quant','LOW',.03,64,11,110,1,'multi-factor confirmation with hard quality floors and catastrophic-loss avoidance'],
+  ['smart','🧠','Smart Money','MED',.03,62,10,110,1,'verified smart-wallet activity plus market confirmation; never use flow as a wallet proxy'],
   ['social','📡','Social Alpha','MED',.025,63,14,75,1,'social presence is context only; require fresh market confirmation and multiple channels'],
   ['momentum','⚡','Momentum Hunter','HIGH',.04,67,13,90,1,'trade acceleration, not stale absolute momentum; require fresh buyers and observed liquidity'],
   ['graduation','🎓','Graduation','MED',.03,64,14,85,1,'confirmed irreversible graduation breakout with post-migration liquidity and flow'],
   ['dip','↘','Dip Buyer','MED',.03,62,13,75,1,'real pullback plus rebound confirmation; never buy a falling knife from one tick'],
-  ['swing','🌊','Swing Trader','MED',.035,64,15,125,1,'deep observed liquidity, mature structure, small risk and room for asymmetric runners'],
+  ['swing','🌊','Swing Trader','MED',.035,64,12,125,1,'deep observed liquidity, mature structure, small risk and room for asymmetric runners'],
   ['degen','🔥','Early Degen','EXTREME',.02,66,11,80,1,'tiny early starter only after real flow appears; no blind first-second momentum'],
   ['smartmom','🧬','Smart Momentum','HIGH',.04,69,13,105,1,'high-quality acceleration with strong buyer pressure; modeled on the successful confirmation challenger'],
   ['culture','🌐','Culture Hybrid','HIGH',.035,65,14,95,1,'narrative/social context only when confirmed by fresh flow, quality and momentum'],
@@ -228,7 +231,7 @@ const strategyDefs = [
   ['copy_frank','🎒','Frank Consistency Copy','MED',.03,64,14,130,2,'paper-copy verified Frank entries only with fresh quality confirmation'],
   ['copy_orangie','🍊','Orangie Diversified Copy','LOW',.025,64,12,80,2,'paper-copy verified Orangie entries with diversified small sizing and disciplined exits'],
   ['copy_rasmr','⚡','Rasmr Fast Copy','HIGH',.02,65,10,50,2,'paper-copy verified Rasmr entries as short-horizon trades with strict chase and time limits'],
-  ['wallet_consensus','👥','Smart Wallet Consensus','MED',.04,69,12,125,2,'requires multiple independently verified tracked wallets to converge on the same token'],
+  ['wallet_consensus','👥','Smart Wallet Consensus','MED',.03,69,10,150,2,'requires multiple independently verified tracked wallets to converge on the same token'],
   ['confirmed_runner','🏃','Confirmed Runner','HIGH',.035,70,12,130,1,'fresh acceleration plus strong buyer flow, cross-source quality and room for a runner'],
   ['asym_swing','💎','Mac-Style Asymmetric Swing','MED',.025,67,14,220,1,'behavioral model inspired by MacDeGods payoff asymmetry; not direct copy until the current execution wallet is independently verified'],
   ['copy_megga','🎮','Megga Direct Copy','HIGH',.015,58,12,400,6,'paper-copy Megga public-wallet buys with tiny probes, strict chase limits, source-aware sells and runner preservation'],
@@ -373,7 +376,7 @@ const copyProfiles={
   copy_frank:{copyLab:true,copySource:'frankdegods',copyWindowMin:20,maxChase:10,exitMode:'runner',maxHold:240},
   copy_orangie:{copyLab:true,copySource:'orangie',copyWindowMin:15,maxChase:8,exitMode:'balanced',maxHold:120},
   copy_rasmr:{copyLab:true,copySource:'rasmr',copyWindowMin:8,maxChase:6,exitMode:'scalp',maxHold:28},
-  wallet_consensus:{copyLab:true,consensusWallets:2,copyWindowMin:15,maxChase:8,exitMode:'runner',maxHold:180},
+  wallet_consensus:{copyLab:true,consensusWallets:2,copyWindowMin:15,maxChase:8,minWalletQuality:58,minWalletCopyability:45,exitMode:'runner',maxHold:240,scaleOut:true},
   confirmed_runner:{researchProfile:'confirmed-runner',exitMode:'runner',maxHold:120},
   asym_swing:{researchProfile:'asymmetric-swing',exitMode:'conviction',maxHold:720,scaleOut:true},
   copy_megga:{copyLab:true,copySource:'megga',copyWindowMin:6,maxChase:8,exitMode:'conviction',maxHold:1440,scaleOut:true},
@@ -735,7 +738,7 @@ function strategyScore(d,f,t) {
   else if(sid==='copy_rasmr')s=f.momentum*.19+f.acceleration*.17+f.flow*.18+q.score*.16+(100-f.risk)*.10+Math.min(20,wallet.count*20);
   else if(sid==='copy_megga')s=f.early*.12+f.momentum*.12+f.acceleration*.12+f.flow*.11+q.score*.08+(100-f.risk)*.08+Math.min(37,wallet.count*37);
   else if(sid==='megga_scout')s=f.early*.27+f.momentum*.18+f.acceleration*.20+f.flow*.18+f.volScore*.07+(100-f.risk)*.05+q.score*.05;
-  else if(sid==='wallet_consensus')s=f.score*.40+q.score*.18+f.acceleration*.10+Math.min(32,wallet.count*16);
+  else if(sid==='wallet_consensus'){const wc=alphaOS.walletConsensus(t,d.copyWindowMin||15);s=f.score*.30+q.score*.18+f.acceleration*.08+(100-f.risk)*.10+Math.min(20,wc.qualifiedCount*8)+wc.score*.14;}
   else if(sid==='confirmed_runner')s=f.momentum*.25+f.acceleration*.20+f.flow*.20+q.score*.14+f.liqScore*.10+(100-f.risk)*.11;
   else if(sid==='asym_swing')s=f.liqScore*.19+q.score*.18+f.flow*.14+f.momentum*.14+f.acceleration*.10+(100-f.risk)*.20+f.volScore*.05;
   else if(sid==='volume')s=f.volScore*.70+f.liqScore*.30;
@@ -905,7 +908,7 @@ function verifiedWalletSignal(t,windowMin=15,traderId=null){
 const CORE_PLAYBOOKS={
   banker:{minQuality:62,minBuy:.49,maxBuy:.78,minTx:8,maxRisk:58,minMomentum:58,minAccel:46,minLiq:8000,minAge:1,instruction:'confirmation first; winners need real momentum; small losses are acceptable but catastrophic stops are not'},
   quant:{minQuality:66,minBuy:.49,maxBuy:.78,minTx:10,maxRisk:58,minMomentum:55,minAccel:48,minLiq:10000,minAge:1,requireCross:true,instruction:'multi-factor agreement from fresh independent data; reject anything with a missing market leg'},
-  smart:{minQuality:62,minBuy:.56,maxBuy:.82,minTx:8,maxRisk:62,minMomentum:52,minAccel:46,minLiq:7000,minAge:.5,walletCount:1,walletWindow:20,instruction:'verified tracked-wallet buy is mandatory; flow alone is never smart money'},
+  smart:{minQuality:68,minBuy:.52,maxBuy:.76,minTx:9,maxRisk:58,minMomentum:50,minAccel:44,minLiq:10000,minAge:1,walletCount:1,walletWindow:20,requireCross:true,instruction:'a tracked-wallet buy is only a lead; require wallet quality, copyability, cross-source market confirmation and compressed downside'},
   social:{minQuality:62,minBuy:.56,maxBuy:.82,minTx:8,maxRisk:62,minMomentum:55,minAccel:48,minLiq:7000,minAge:1,requireSocial2:true,instruction:'social presence is a prior, never a trigger; require at least two channels plus market confirmation'},
   momentum:{minQuality:62,minBuy:.52,maxBuy:.82,minTx:10,maxRisk:64,minMomentum:72,minAccel:55,minLiq:7000,minAge:.5,instruction:'buy acceleration with fresh buyers; never chase stale historical momentum'},
   graduation:{minQuality:65,minBuy:.52,maxBuy:.82,minTx:8,maxRisk:60,minMomentum:55,minAccel:48,minLiq:12000,minAge:1,requireGraduated:true,requireCross:true,instruction:'only confirmed irreversible graduation with observed post-migration liquidity'},
@@ -934,7 +937,7 @@ function strategyPlaybook(d){
     if(d.id==='copy_orangie')return{...base,minQuality:66,maxRisk:58,minBuy:.57};
     if(d.id==='copy_rasmr')return{...base,minQuality:60,maxRisk:64,minBuy:.60,minAccel:52};
     if(d.id==='copy_megga')return{...base,minQuality:48,maxRisk:70,minBuy:.48,maxBuy:.92,minTx:3,minMomentum:50,minAccel:40,minLiq:2500,minAge:.05,maxAge:10,mcMax:250000};
-    if(d.id==='wallet_consensus')return{...base,minQuality:68,maxRisk:60,minBuy:.58,minMomentum:58,minAccel:50};
+    if(d.id==='wallet_consensus')return{...base,minQuality:70,maxRisk:56,minBuy:.52,maxBuy:.76,minMomentum:52,minAccel:46,minLiq:12000,minAge:1.5,requireCross:true,mcMin:75000};
     return base;
   }
   if(d.specialist){
@@ -949,9 +952,9 @@ function strategyPlaybook(d){
   return{minQuality:60,minBuy:.55,maxRisk:64,minMomentum:50,minAccel:45,minLiq:5000,minAge:.5,instruction:d.thesis};
 }
 function evidenceStack(t,f,q){
-  let n=0;if(q.score>=70)n++;if(f.buyRatio>=.62)n++;if(f.momentum>=68)n++;if(f.acceleration>=55)n++;if(f.risk<=55)n++;if(q.sourceCount>=2)n++;if(f.liqScore>=45)n++;
-  const w=verifiedWalletSignal(t,15);if(w.count)n++;if(w.count>=2)n++;
-  return{n,wallets:w.count};
+  let n=0;if(q.score>=70)n++;if(f.buyRatio>=.58&&f.buyRatio<=.76)n++;if(f.momentum>=62)n++;if(f.acceleration>=52)n++;if(f.risk<=55)n++;if(q.sourceCount>=2)n++;if(f.liqScore>=45)n++;
+  const w=verifiedWalletSignal(t,15),wc=alphaOS.walletConsensus(t,15);if(w.count)n++;if(wc.qualifiedCount>=1)n++;if(wc.strong)n++;
+  return{n,wallets:w.count,qualifiedWallets:wc.qualifiedCount,walletConsensusScore:wc.score};
 }
 function entryPolicy(d){
   const cache=entryPolicyCache.get(d.id);
@@ -994,6 +997,8 @@ function entryGuard(d,t,f,score,policy,quality,adv,regime){
   if(Number.isFinite(p.walletCount)){
     const smartSignal=verifiedWalletSignal(t,p.walletWindow||15);
     if(smartSignal.count<p.walletCount)return fail('abstain: smart-wallet confirmation');
+    const ranked=smartSignal.events.map(e=>alphaOS.walletQuality(e.wallet,t.mc)).sort((a,b)=>b.score-a.score),best=ranked[0];
+    if(best&&best.evidenceN>=3&&(best.excluded||best.score<52||best.copyability<40))return fail('abstain: watched wallet not yet copyable');
   }
   if(Number.isFinite(p.drawMin)&&f.drawdown<p.drawMin)return fail('abstain: pullback too deep');
   if(Number.isFinite(p.drawMax)&&f.drawdown>p.drawMax)return fail('abstain: no qualifying pullback');
@@ -1003,10 +1008,18 @@ function entryGuard(d,t,f,score,policy,quality,adv,regime){
   if(p.requireGraduated&&!t.graduated)return fail('abstain: graduation unconfirmed');
   if(Number.isFinite(p.minEvidence)&&stack.n<p.minEvidence)return fail('abstain: evidence stack');
   if(d.copyLab){
-    const signal=verifiedWalletSignal(t,d.copyWindowMin||15,d.copySource||null);
-    const need=d.consensusWallets||1;
-    if(signal.count<need)return fail('abstain: verified wallet signal');
-    if(Number.isFinite(signal.maxChase)&&signal.maxChase>(d.maxChase??10))return fail('abstain: copy chase limit');
+    if(d.id==='wallet_consensus'){
+      const wc=alphaOS.walletConsensus(t,d.copyWindowMin||15);
+      if(wc.qualifiedCount<(d.consensusWallets||2))return fail('abstain: independent qualified-wallet consensus');
+      if(wc.score<(d.minWalletQuality||58))return fail('abstain: wallet consensus quality');
+      if(Number.isFinite(wc.avgChase)&&wc.avgChase>(d.maxChase??10))return fail('abstain: consensus chase limit');
+    }else{
+      const signal=verifiedWalletSignal(t,d.copyWindowMin||15,d.copySource||null);
+      if(signal.count<1)return fail('abstain: verified wallet signal');
+      if(Number.isFinite(signal.maxChase)&&signal.maxChase>(d.maxChase??10))return fail('abstain: copy chase limit');
+      const qualities=signal.events.map(e=>alphaOS.walletQuality(e.wallet,t.mc)),best=qualities.sort((a,b)=>b.score-a.score)[0];
+      if(best&&best.evidenceN>=3&&(best.excluded||best.copyability<(d.minWalletCopyability||35)))return fail('abstain: source wallet not copyable');
+    }
   }
   if(score<requiredScore)return fail('abstain: edge buffer');
   return{ok:true,reason:'v3 evidence stack passed',requiredScore,minQuality,minBuyRatio,health:h,playbook:p,stack};
@@ -1043,6 +1056,34 @@ function strategyRiskCircuit(d){
   if(drawdown>=PAPER_MAX_DRAWDOWN_PCT)return{ok:false,reason:`risk circuit: max drawdown ${drawdown.toFixed(1)}%`,drawdown,recent24h};
   if(recent24h<=-PAPER_DAILY_LOSS_LIMIT_PCT)return{ok:false,reason:`risk circuit: 24h loss ${recent24h.toFixed(1)}%`,drawdown,recent24h};
   return{ok:true,reason:'risk circuit clear',drawdown,recent24h};
+}
+function strategyExpectancyProfile(d){
+  const rows=trades.filter(x=>x.strategy===d.id&&x.policyVersion===STRATEGY_ERA&&Number.isFinite(num(x.pnlPct))).slice(0,60),wins=rows.filter(x=>num(x.pnlPct)>0),losses=rows.filter(x=>num(x.pnlPct)<0),n=rows.length;
+  const avgWin=avg(wins.map(x=>num(x.pnlPct))),avgLoss=Math.abs(avg(losses.map(x=>num(x.pnlPct)))),winRate=n?wins.length/n:0,expectancy=winRate*avgWin-(1-winRate)*avgLoss,grossWin=wins.reduce((s,x)=>s+num(x.pnlPct),0),grossLoss=Math.abs(losses.reduce((s,x)=>s+num(x.pnlPct),0)),profitFactor=grossLoss?grossWin/grossLoss:grossWin>0?9.99:0,reliability=n/(n+15);
+  let mult=n<5?.90:expectancy<0?clamp(.80+expectancy/40,.45,.82):profitFactor<1?.72:clamp(.92+Math.min(12,expectancy)/120+.06*reliability,.92,1.06);
+  if(n>=8&&avgLoss>Math.max(12,avgWin*1.5))mult=Math.min(mult,.60);
+  return{n,wins:wins.length,losses:losses.length,winRate:winRate*100,avgWin,avgLoss,expectancy,profitFactor,reliability,mult};
+}
+function tradeCadenceGuard(d,t){
+  if(d.risk==='CONTROL')return{ok:true,reason:'control cadence unrestricted'};
+  const ts=now(),isResearch=d.risk==='R&D'||d.specialist,isCopy=!!d.copyLab,minGap=isResearch?45000:isCopy?90000:PAPER_CORE_ENTRY_GAP_MS,sameMintGap=isResearch?Math.min(PAPER_SAME_MINT_COOLDOWN_MS,7200000):PAPER_SAME_MINT_COOLDOWN_MS,maxHour=isResearch||isCopy?7:PAPER_MAX_CORE_ENTRIES_PER_HOUR;
+  const history=[...trades,...positions].filter(x=>x.strategy===d.id),lastOpened=Math.max(0,...history.map(x=>num(x.opened))),recent=history.filter(x=>num(x.opened)>=ts-3600000).length,same=trades.find(x=>x.strategy===d.id&&x.mint===t.mint&&num(x.closedAt)>=ts-sameMintGap);
+  if(lastOpened&&ts-lastOpened<minGap)return{ok:false,reason:'cadence guard: strategy cooling down'};
+  if(recent>=maxHour)return{ok:false,reason:'cadence guard: hourly trade cap'};
+  if(same)return{ok:false,reason:'cadence guard: same-token rebuy cooldown'};
+  return{ok:true,reason:'cadence clear',recent,minGap,sameMintGap,maxHour};
+}
+function productionSafetyGate(d,t,f,quality,alpha){
+  if(d.risk==='CONTROL'||d.risk==='R&D'||d.specialist)return{ok:true,reason:'research/control population exempt'};
+  const wc=alpha?.walletConsensus||alphaOS.walletConsensus(t,15),dna=creatorDNA(t),reasons=[];
+  if(t.mc<50000)reasons.push('production safety: sub-$50K launch zone');
+  if(t.mc<100000&&!wc.strong)reasons.push('production safety: sub-$100K requires strong independent wallet consensus');
+  if(dna.launches<=1&&!wc.strong)reasons.push('production safety: first-observed creator requires strong wallet consensus');
+  if(!t.graduated&&t.mc<100000&&!wc.strong)reasons.push('production safety: fragile pre-graduation setup');
+  if(f.buyRatio>.80&&!wc.strong)reasons.push('production safety: euphoric buyer pressure');
+  if(quality.sourceCount<2&&!d.copyLab)reasons.push('production safety: single-source data');
+  if(alpha?.preTradeSafety?.score<55)reasons.push('production safety: composite safety score');
+  return{ok:reasons.length===0,reason:reasons[0]||'production safety passed',reasons,walletConsensus:wc};
 }
 function recentTokenVolatility(t){
   const h=(t.history||[]).filter(x=>x.price>0).slice(-14);if(h.length<3)return 0;
@@ -1094,8 +1135,8 @@ function adaptivePositionSizing(d,t,f,score,policy,quality,similar,guard,adv,reg
   const sizingPeak=num(d.auditPeak)||d.equity,currentDd=sizingPeak>0?Math.max(0,(1-d.equity/sizingPeak)*100):0;
   const ddMult=currentDd>=12?.45:currentDd>=8?.60:currentDd>=5?.78:1;
   const recent6h=recentRealizedPct(d,6),recentMult=recent6h<=-7?.50:recent6h<=-4?.70:recent6h>=5?1.04:1;
-  const learnedAlloc=clamp(allocatorMult,.70,1.18);
-  const mult=clamp(confidence*qualityMult*adverseMult*regimeMult*mcMult*ageMult*volMult*dnaMult*healthMult*streakMult*ddMult*recentMult*learnedAlloc,.35,1.28);
+  const learnedAlloc=clamp(allocatorMult,.70,1.18),expectancy=strategyExpectancyProfile(d),expectancyMult=expectancy.mult;
+  const mult=clamp(confidence*qualityMult*adverseMult*regimeMult*mcMult*ageMult*volMult*dnaMult*healthMult*streakMult*ddMult*recentMult*learnedAlloc*expectancyMult,.28,1.20);
 
   const stopFrac=clamp((num(d.stop)||14)/100,.07,.30);
   const maxStopLossPct=d.risk==='LOW'?.012:d.risk==='HIGH'?.018:d.risk==='EXTREME'?.016:d.risk==='R&D'?.010:.015;
@@ -1116,7 +1157,7 @@ function adaptivePositionSizing(d,t,f,score,policy,quality,similar,guard,adv,reg
   const live100Equivalent=budget*(100/START);
   return{
     ok:budget>=minStake&&budget>0,budget,basePct,mult,confidence,qualityMult,adverseMult,regimeMult,mcMult,ageMult,vol,volMult,dnaMult,
-    healthMult,streak,streakMult,currentDd,ddMult,recent6h,recentMult,learnedAlloc,stopFrac,maxStopLossPct,stopRiskCap,
+    healthMult,streak,streakMult,currentDd,ddMult,recent6h,recentMult,learnedAlloc,expectancy,expectancyMult,stopFrac,maxStopLossPct,stopRiskCap,
     openExposure,narrativeExposure,creatorExposure,portfolioCapPct,narrativeCapPct,creatorCapPct,liquidityCap,live100Equivalent,
     reason:budget<minStake?'sizing guard: insufficient safe exposure room':'adaptive bankroll sizing'
   };
@@ -1142,7 +1183,8 @@ function maybeTrade(t,weather=null) {
     const circuit=strategyRiskCircuit(d);
     if(!circuit.ok){if(!opportunities.has(`${d.id}:${t.mint}`))recordDecision(d,t,f,strategyScore(d,f,t),'REJECT',circuit.reason,weather);continue;}
     if(openCount(d.id)>=d.maxOpen||d.cash<Math.max(5,d.equity*.02)||!(t.price>0))continue;
-    const score=strategyScore(d,f,t);const policy=entryPolicy(d);const regime=weather.regime;
+    const score=strategyScore(d,f,t);const policy=entryPolicy(d);const regime=weather.regime,cadence=tradeCadenceGuard(d,t);
+    if(!cadence.ok){if(!opportunities.has(`${d.id}:${t.mint}`))recordDecision(d,t,f,score,'REJECT',cadence.reason,weather);continue;}
     const lowBlocked=d.risk==='LOW'&&f.risk>policy.lowRiskLimit;
     const sniperBlocked=(d.parentId==='sniper'||d.id==='sniper')&&f.risk>policy.sniperRiskLimit;
     const customBlocked=policy.customRiskLimit&&f.risk>policy.customRiskLimit;
@@ -1158,9 +1200,10 @@ function maybeTrade(t,weather=null) {
     const allocatorMult=d.type==='challenger'?1:allocationWeight(d.id);
     const sizing=adaptivePositionSizing(d,t,f,score,policy,quality,similar,activeGuard,adv,regime,allocatorMult,exploratory);
     if(!sizing.ok){recordDecision(d,t,f,score,'REJECT',sizing.reason,weather);continue;}
-    const alpha=alphaOS.evaluateCandidate({strategy:d,token:t,features:f,score,threshold:activeGuard.requiredScore||policy.min,quality,similar,regime});
+    const alpha=alphaOS.evaluateCandidate({strategy:d,token:t,features:f,score,threshold:activeGuard.requiredScore||policy.min,quality,similar,regime}),productionSafety=productionSafetyGate(d,t,f,quality,alpha);
     alphaOS.proposeCapital({strategy:d,token:t,features:f,score,threshold:activeGuard.requiredScore||policy.min,quality,similar,regime});
     if(alpha.veto){recordDecision(d,t,f,score,'REJECT','Alpha OS · '+alpha.vetoReason,weather);continue;}
+    if(!productionSafety.ok){recordDecision(d,t,f,score,'REJECT',productionSafety.reason,weather);continue;}
     let budget=Math.min(sizing.budget*alpha.sizeMultiplier,d.cash*(exploratory?.08:.25),d.equity*(exploratory?.035:.15),t.liq>0?Math.max(d.equity*(exploratory?.0075:.02),t.liq*.015):sizing.budget);
     if(budget<Math.max(exploratory?3:5,d.equity*(exploratory?.0075:.02))){recordDecision(d,t,f,score,'REJECT','Alpha OS · stake below minimum after EV adjustment',weather);continue;}
     const scienceGate=science.evaluateEntry({strategy:d,token:t,features:f,quality,market:weather,alpha,baseExecution:{...executionQuote(t,budget,'buy'),notional:budget}});
@@ -1171,7 +1214,7 @@ function maybeTrade(t,weather=null) {
     if(entryExec.slippage>.065){recordDecision(d,t,f,score,'REJECT','execution veto: modeled slippage',weather);continue;}const entry=entryExec.fillPrice;const cost=budget*(1+entryExec.feeRate)+num(entryExec.fixedCost)+num(entryExec.expectedFailureCost);
     if(cost>d.cash)continue;
     d.cash-=cost;
-    const p={id:'p'+now()+Math.random(),strategy:d.id,mint:t.mint,symbol:t.symbol,entry,units:budget/entry,originalUnits:budget/entry,invested:budget,entryCost:cost,entryExecution:entryExec,realizedProceeds:0,partialExits:[],scaleOutHits:[],sourceEntrySig:d.copyLab?(verifiedWalletSignal(t,d.copyWindowMin||15,d.copySource||null).events[0]?.signature||null):null,opened:now(),closed:false,lastPrice:t.price,lastMarkedAt:now(),markSource:'entry',score,entryFeatures:{...f,mc:t.mc,liq:t.liq},entryMc:t.mc,entryLiq:t.liq,entryQuality:quality.score,dnaHit25:similar.hit25,dnaSample:similar.n,allocationMult:allocatorMult,sizingMode:'alpha-os-ev-v1',samplePartition:partitionForMint(t.mint),sizing,alphaOS:alpha,budgetPct:d.equity>0?budget/d.equity:0,live100Equivalent:sizing.live100Equivalent,exitMode:exitModeFor(d),policyVersion:STRATEGY_ERA,guard:{requiredScore:activeGuard.requiredScore,minQuality:activeGuard.minQuality,minBuyRatio:activeGuard.minBuyRatio,recentAvg:activeGuard.health.avg,recentN:activeGuard.health.n,exploratory},reason:`${exploratory?'cold-start exploration · ':''}score ${score.toFixed(0)} · gate ${policy.min.toFixed(0)} · risk ${f.risk.toFixed(0)} · Q${quality.score.toFixed(0)} · stake ${(budget/Math.max(1,d.equity)*100).toFixed(1)}% · $100≈${sizing.live100Equivalent.toFixed(2)} · size×${sizing.mult.toFixed(2)} · science×${scienceSize.toFixed(2)} · EV ${alpha.expectedValue.toFixed(1)} · tox ${alpha.toxicity.score.toFixed(0)}`,entryRegime:regime,entryPhase:weather.phase,peakDuring:entry,troughDuring:entry};
+    const p={id:'p'+now()+Math.random(),strategy:d.id,mint:t.mint,symbol:t.symbol,entry,units:budget/entry,originalUnits:budget/entry,invested:budget,entryCost:cost,entryExecution:entryExec,realizedProceeds:0,partialExits:[],scaleOutHits:[],sourceEntrySig:d.copyLab?(verifiedWalletSignal(t,d.copyWindowMin||15,d.copySource||null).events[0]?.signature||null):null,opened:now(),closed:false,lastPrice:t.price,lastMarkedAt:now(),markSource:'entry',score,entryFeatures:{...f,mc:t.mc,liq:t.liq},entryMc:t.mc,entryLiq:t.liq,entryQuality:quality.score,dnaHit25:similar.hit25,dnaSample:similar.n,allocationMult:allocatorMult,sizingMode:'alpha-os-ev-v1',samplePartition:partitionForMint(t.mint),sizing,alphaOS:alpha,budgetPct:d.equity>0?budget/d.equity:0,live100Equivalent:sizing.live100Equivalent,exitMode:exitModeFor(d),policyVersion:STRATEGY_ERA,guard:{requiredScore:activeGuard.requiredScore,minQuality:activeGuard.minQuality,minBuyRatio:activeGuard.minBuyRatio,recentAvg:activeGuard.health.avg,recentN:activeGuard.health.n,exploratory},reason:`${exploratory?'cold-start exploration · ':''}score ${score.toFixed(0)} · gate ${policy.min.toFixed(0)} · risk ${f.risk.toFixed(0)} · Q${quality.score.toFixed(0)} · stake ${(budget/Math.max(1,d.equity)*100).toFixed(1)}% · $100≈${sizing.live100Equivalent.toFixed(2)} · size×${sizing.mult.toFixed(2)} · expectancy×${sizing.expectancyMult.toFixed(2)} · science×${scienceSize.toFixed(2)} · EV ${alpha.expectedValue.toFixed(1)} · safety ${alpha.preTradeSafety.score.toFixed(0)} · walletQ ${alpha.walletConsensus.score.toFixed(0)} · tox ${alpha.toxicity.score.toFixed(0)}`,entryRegime:regime,entryPhase:weather.phase,peakDuring:entry,troughDuring:entry};
     p.season2Science=scienceGate;positions.push(p);science.recordEntry(p,t,{features:f,quality,market:weather});alphaOS.recordShadowEntry({position:p,token:t,alpha});recordDecision(d,t,f,score,'BUY',p.reason,weather);queueTradeJournal('BUY',d,p,t,{score,exploratory});scheduleCriticalSave();
     if(d.risk!=='R&D')log('buy',`${d.icon} ${d.name} bought ${t.symbol} · ${budget.toFixed(0)} paper · ${p.reason}`,'good',{strategy:d.id,mint:t.mint});
   }
@@ -3507,7 +3550,7 @@ setLifecycle('WARMING','state restored; initializing market loops');
 logV3SelfTest();
 setHealth('engine','ok','v3.1 evidence playbooks + Megga copy/scout lab + 31 specialist cohorts + controls online',{truth:'observed'});
 setHealth('learning-core','ok','era-separated allocator + DNA memory + replay + exit optimizer + counterfactual lab online',{truth:'inferred'});
-setHealth('alpha-os','ok','10-system Alpha OS online · all execution remains paper/shadow only',{truth:'inferred'});
+setHealth('alpha-os','ok','Alpha OS v2 online · wallet profitability/copyability + independent consensus + safety/cadence/expectancy controls · PAPER/SHADOW ONLY',{truth:'inferred'});
 setHealth('season2-science','ok','Edge science online · walk-forward + Bayesian + calibrated probability + feature importance + survival + DNA + saturation + entry/exit counterfactuals + drift + evidence gates + abstention',{truth:'inferred'});
 setHealth('x-social','standby','Full X stream not connected · social agent uses token social metadata only',{truth:'not connected'});
 setHealth('wallet-intel','standby','Connecting Solana stream + verified Fomo wallet watchlist…',{truth:'not connected'});setHealth('fomo-watchlist','standby','Preparing verified public wallet subscriptions',{truth:'not connected'});
