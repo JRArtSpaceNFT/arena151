@@ -205,6 +205,8 @@ let lastPumpPollAt = 0;
 let lastDexPollAt = 0;
 let lastOpenPositionPollAt = 0;
 let lastPumpOpenPositionPollAt = 0;
+let lastMinuteUniverseAt = 0;
+let minuteUniverseInFlight = null;
 let fastOpenCursor = 0;
 let lastSolanaDrainAt = 0;
 const subsystemRuntime = new Map();
@@ -1261,6 +1263,52 @@ function maybeTrade(t,weather=null) {
   }
 }
 
+async function refreshMinuteSamplerUniverse(force=false){
+  const ts=now();
+  if(!force&&lastMinuteUniverseAt&&ts-lastMinuteUniverseAt<180000)return{ok:true,cached:true};
+  if(minuteUniverseInFlight)return minuteUniverseInFlight;
+  minuteUniverseInFlight=(async()=>{
+    const bands=[
+      {id:'minute_sub100',min:0,max:100000,target:18},
+      {id:'minute_100_250',min:100000,max:250000,target:18},
+      {id:'minute_500_1m',min:500000,max:1000000,target:18}
+    ];
+    const found=new Map(bands.map(b=>[b.id,new Map()]));
+    let pages=0,errors=0;
+    for(let offset=0;offset<=900;offset+=60){
+      pages++;
+      try{
+        const url='https://frontend-api-v3.pump.fun/coins?offset='+offset+'&limit=60&sort=market_cap&order=DESC&includeNsfw=false';
+        const j=await fetchJson(url,6500),rows=Array.isArray(j)?j:(j?.data||j?.coins||[]);
+        if(!rows.length)break;
+        for(const raw of rows){
+          const incoming=normalize(raw,'pump.fun-minute-universe');if(!incoming||!(incoming.price>0)||!(incoming.mc>0))continue;
+          const band=bands.find(b=>incoming.mc>=b.min&&incoming.mc<b.max);if(!band)continue;
+          const bucket=found.get(band.id);if(bucket.size<band.target)bucket.set(incoming.mint,raw);
+          const old=tokens.get(incoming.mint),merged=mergeToken(old,incoming);tokens.set(incoming.mint,merged);updateCreator(merged);updateDnaArchive(merged);
+        }
+        if(bands.every(b=>found.get(b.id).size>=b.target))break;
+      }catch{errors++;}
+    }
+    const mints=[...new Set([...found.values()].flatMap(m=>[...m.keys()]))],enriched=new Set();
+    for(let i=0;i<mints.length;i+=30){
+      const chunk=mints.slice(i,i+30);if(!chunk.length)continue;
+      try{
+        const pairs=await fetchJson('https://api.dexscreener.com/tokens/v1/solana/'+chunk.join(','),6500);
+        const best=new Map();
+        for(const p of (Array.isArray(pairs)?pairs:[])){const mint=p.baseToken?.address;if(!mint)continue;const cur=best.get(mint);if(!cur||(p.liquidity?.usd||0)>(cur.liquidity?.usd||0))best.set(mint,p);}
+        for(const [mint,pair] of best){enriched.add(mint);ingest({...pair,mint},'dexscreener-minute-universe');}
+      }catch{errors++;}
+    }
+    lastMinuteUniverseAt=now();
+    const counts=Object.fromEntries(bands.map(b=>[b.id,minuteSamplerCandidates(strategyDefs.find(x=>x.id===b.id)).length]));
+    setHealth('minute-sampler-universe',Object.values(counts).every(n=>n>0)?'ok':'warn','Dedicated market-cap discovery · '+Object.entries(counts).map(([k,v])=>k+': '+v).join(' · '),{truth:'observed'});
+    console.log('MINUTE_SAMPLER_UNIVERSE '+JSON.stringify({ts:lastMinuteUniverseAt,pages,raw:Object.fromEntries(bands.map(b=>[b.id,found.get(b.id).size])),enriched:enriched.size,eligible:counts,errors}));
+    return{ok:true,pages,enriched:enriched.size,counts,errors};
+  })();
+  try{return await minuteUniverseInFlight}finally{minuteUniverseInFlight=null}
+}
+
 function minuteSamplerRank(d,t){
   const f=features(t),q=tokenDataQuality(t),freshness=clamp(100-(now()-num(t.updatedAt))/1800);
   const novelty=trades.some(x=>x.strategy===d.id&&x.mint===t.mint&&now()-num(x.closedAt)<10*60000)?0:12;
@@ -1296,8 +1344,9 @@ function openMinuteSamplerTrade(d,t,weather){
   console.log('MINUTE_SAMPLER_ENTRY '+JSON.stringify({ts:now(),strategy:d.id,name:d.name,mint:t.mint,symbol:t.symbol,mc:t.mc,budget,entry,slippage:entryExec.slippage}));
   return true;
 }
-function minuteSamplerTick(){
+async function minuteSamplerTick(){
   if(shuttingDown||lifecyclePhase==='DRAINING'||!durableTradingReady())return;
+  await refreshMinuteSamplerUniverse(false);
   const weather=marketWeather(),ts=now();
   for(const d of strategyDefs.filter(x=>x.minuteSampler)){
     markEquity(d);
@@ -3758,8 +3807,8 @@ setInterval(()=>runScheduled('solana-drain',()=>drainSolanaQueue(),{budgetMs:150
 setInterval(()=>runScheduled('pump-poll',()=>pumpPoll(),{budgetMs:6000,critical:true}),7000).unref?.();
 setInterval(()=>runScheduled('dex-poll',()=>dexPoll(),{budgetMs:9000,critical:true}),20000).unref?.();
 setInterval(()=>runScheduled('pump-open-marks',()=>pumpOpenPositionPoll(),{budgetMs:4500,critical:true}),4000).unref?.();
-setTimeout(()=>runScheduled('minute-samplers',()=>minuteSamplerTick(),{budgetMs:2500,critical:true}),15000).unref?.();
-setInterval(()=>runScheduled('minute-samplers',()=>minuteSamplerTick(),{budgetMs:2500,critical:true}),50000).unref?.();
+setTimeout(()=>runScheduled('minute-samplers',()=>minuteSamplerTick(),{budgetMs:18000,critical:true}),15000).unref?.();
+setInterval(()=>runScheduled('minute-samplers',()=>minuteSamplerTick(),{budgetMs:18000,critical:true}),50000).unref?.();
 setInterval(()=>runScheduled('open-marks',()=>openPositionPoll(),{budgetMs:9000,critical:true}),15000).unref?.();
 setInterval(()=>runScheduled('timeline',()=>takeTimeline(),{budgetMs:150}),30000).unref?.();
 setInterval(()=>runScheduled('replay',()=>takeReplay(),{budgetMs:250}),30000).unref?.();
