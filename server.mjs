@@ -1097,7 +1097,7 @@ function strategyExpectancyProfile(d){
 function tradeCadenceGuard(d,t){
   if(d.risk==='CONTROL')return{ok:true,reason:'control cadence unrestricted'};
   const ts=now(),isResearch=d.risk==='R&D'||d.specialist,isCopy=!!d.copyLab,minGap=d.fastScalp?30000:isResearch?45000:isCopy?90000:PAPER_CORE_ENTRY_GAP_MS,sameMintGap=d.fastScalp?1800000:isResearch?Math.min(PAPER_SAME_MINT_COOLDOWN_MS,7200000):PAPER_SAME_MINT_COOLDOWN_MS,maxHour=d.fastScalp?12:isResearch||isCopy?7:PAPER_MAX_CORE_ENTRIES_PER_HOUR;
-  const history=[...trades,...positions].filter(x=>x.strategy===d.id),lastOpened=Math.max(0,...history.map(x=>num(x.opened))),recent=history.filter(x=>num(x.opened)>=ts-3600000).length,same=trades.find(x=>x.strategy===d.id&&x.mint===t.mint&&num(x.closedAt)>=ts-sameMintGap);
+  const history=[...trades.filter(x=>x.policyVersion===STRATEGY_ERA),...positions.filter(x=>x.policyVersion===STRATEGY_ERA)].filter(x=>x.strategy===d.id),lastOpened=Math.max(0,...history.map(x=>num(x.opened))),recent=history.filter(x=>num(x.opened)>=ts-3600000).length,same=trades.find(x=>x.policyVersion===STRATEGY_ERA&&x.strategy===d.id&&x.mint===t.mint&&num(x.closedAt)>=ts-sameMintGap);
   if(lastOpened&&ts-lastOpened<minGap)return{ok:false,reason:'cadence guard: strategy cooling down'};
   if(recent>=maxHour)return{ok:false,reason:'cadence guard: hourly trade cap'};
   if(same)return{ok:false,reason:'cadence guard: same-token rebuy cooldown'};
