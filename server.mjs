@@ -835,10 +835,10 @@ function markEquity(d){
 }
 
 function recordDecision(d,t,f,score,action,why='',weather=null) {
-  weather=weather||marketWeather();const row={ts:now(),era:STRATEGY_ERA,samplePartition:partitionForMint(t.mint),strategy:d.id,strategyName:d.name,mint:t.mint,symbol:t.symbol,action,score,risk:f.risk,price:t.price,mc:t.mc,narrative:t.narrative,regime:weather.regime,phase:weather.phase,why,
+  weather=weather||marketWeather();const exploratoryDecision=action==='BUY'&&String(why||'').startsWith('cold-start exploration');const row={ts:now(),era:STRATEGY_ERA,samplePartition:partitionForMint(t.mint),strategy:d.id,strategyName:d.name,mint:t.mint,symbol:t.symbol,action,score,risk:f.risk,price:t.price,mc:t.mc,narrative:t.narrative,regime:weather.regime,phase:weather.phase,why,exploratory:exploratoryDecision,
     features:{momentum:f.momentum,acceleration:f.acceleration,flow:f.flow,buyRatio:f.buyRatio,volScore:f.volScore,liqScore:f.liqScore,drawdown:f.drawdown,rebound:f.rebound,social:f.social,age:f.age,sourceQuality:f.sourceQuality,chartQuality:f.chart?.chartQuality,pathContinuity:f.chart?.bullContinuity,chartStructure:f.chart?.structure,spikeRisk:f.chart?.spikeRisk,memeSetup:f.meme?.setup,memeQuality:f.meme?.memeQuality,manipulationSuspicion:f.meme?.manipulationSuspicion,flowPersistence:f.meme?.flowPersistence}};
   decisions.unshift(row); decisions.splice(MAX_DECISIONS);
-  if(action==='BUY'&&d.risk!=='CONTROL'&&!d.specialist&&!d.minuteSampler)console.log('CORE_ENTRY '+JSON.stringify({ts:row.ts,strategy:d.id,name:d.name,symbol:t.symbol,mint:t.mint,score,threshold:entryPolicy(d).min,reason:why,mc:t.mc,regime:weather.regime}));
+  if(action==='BUY'&&d.risk!=='CONTROL'&&!d.specialist&&!d.minuteSampler)console.log('CORE_ENTRY '+JSON.stringify({ts:row.ts,strategy:d.id,name:d.name,symbol:t.symbol,mint:t.mint,score,threshold:entryPolicy(d).min,exploratory:exploratoryDecision,reason:why,mc:t.mc,regime:weather.regime}));
   const key=`${d.id}:${t.mint}`;
   if(!opportunities.has(key)){
     opportunities.set(key,{...row,firstTs:row.ts,firstPrice:t.price,bestReturn:0,worstReturn:0,latestReturn:0,entered:action==='BUY'});
@@ -986,7 +986,7 @@ function entryPolicy(d){
   if(cache&&cache.decisionCount===decisions.length&&now()-cache.ts<15000)return cache.value;
   const rows=decisions.filter(x=>x.strategy===d.id&&x.era===STRATEGY_ERA&&(x.samplePartition||partitionForMint(x.mint))==='train').slice(0,250);
   const rejects=rows.filter(x=>x.action==='REJECT').length,scores=rows.map(x=>num(x.score)).filter(Number.isFinite);
-  const p90=percentile(scores,.90),coldStart=!rows.some(x=>x.action==='BUY');
+  const p90=percentile(scores,.90),coldStart=!rows.some(x=>x.action==='BUY'&&!x.exploratory);
   let effectiveMin=d.min,relief=0;
   if(rows.length>=20&&Number.isFinite(p90)){
     if(coldStart){
@@ -1125,6 +1125,24 @@ function productionSafetyGate(d,t,f,quality,alpha){
   if(alpha?.preTradeSafety?.score<55)reasons.push('production safety: composite safety score');
   return{ok:reasons.length===0,reason:reasons[0]||'production safety passed',reasons,walletConsensus:wc};
 }
+function coldStartProbeSafety(d,t,f,quality,adv,alpha){
+  if(d.copyLab||d.risk==='CONTROL'||d.specialist||d.minuteSampler)return{ok:false,reason:'cold-start probe not allowed for this strategy'};
+  const reasons=[],tox=num(alpha?.toxicity?.score),pStop=num(alpha?.probability?.pStop15),congestion=num(alpha?.execution?.congestion),alphaSafety=num(alpha?.preTradeSafety?.score);
+  if(adv.hardVeto||num(adv.score)>=72)reasons.push('adversarial hard veto');
+  if(!(t.price>0))reasons.push('invalid price');
+  if(num(t.mc)<50000)reasons.push('market cap below $50K probe floor');
+  if(num(t.liq)<7500)reasons.push('liquidity below $7.5K probe floor');
+  if(num(quality?.score)<52||num(quality?.sourceCount)<1)reasons.push('insufficient observed data quality');
+  if(!f.flowFresh||!f.liqFresh)reasons.push('stale flow or liquidity');
+  if(num(f.risk)>70)reasons.push('structural risk too high');
+  if(num(f.age)<.35)reasons.push('token too young for probe');
+  if(alpha?.toxicity?.veto||tox>=76)reasons.push('toxic flow veto');
+  if(pStop>.78)reasons.push('loss probability hard veto');
+  if(congestion>95)reasons.push('execution congestion hard veto');
+  if(alphaSafety<42)reasons.push('Alpha safety below probe floor');
+  return{ok:reasons.length===0,reason:reasons[0]||'bounded cold-start probe safety passed',reasons,alphaSafety,toxicity:tox,pStop,congestion};
+}
+
 function recentTokenVolatility(t){
   const h=(t.history||[]).filter(x=>x.price>0).slice(-14);if(h.length<3)return 0;
   const rs=[];for(let i=1;i<h.length;i++)rs.push(Math.abs(pct(h[i].price,h[i-1].price)));
@@ -1246,11 +1264,13 @@ function maybeTrade(t,weather=null) {
     const allocatorMult=(d.type==='challenger'?1:allocationWeight(d.id))*accelGate.sizeMultiplier*corrGuard.sizeMultiplier*championMult;
     const sizing=adaptivePositionSizing(d,t,f,score,policy,quality,similar,activeGuard,adv,regime,allocatorMult,exploratory);
     if(!sizing.ok){recordDecision(d,t,f,score,'REJECT',sizing.reason,weather);continue;}
-    const alpha=alphaOS.evaluateCandidate({strategy:d,token:t,features:f,score,threshold:activeGuard.requiredScore||policy.min,quality,similar,regime}),productionSafety=productionSafetyGate(d,t,f,quality,alpha);
+    const alpha=alphaOS.evaluateCandidate({strategy:d,token:t,features:f,score,threshold:activeGuard.requiredScore||policy.min,quality,similar,regime}),productionSafety=productionSafetyGate(d,t,f,quality,alpha),probeSafety=exploratory?coldStartProbeSafety(d,t,f,quality,adv,alpha):null;
     alphaOS.proposeCapital({strategy:d,token:t,features:f,score,threshold:activeGuard.requiredScore||policy.min,quality,similar,regime});
     if(alpha.veto){recordDecision(d,t,f,score,'REJECT','Alpha OS · '+alpha.vetoReason,weather);continue;}
-    if(!productionSafety.ok){recordDecision(d,t,f,score,'REJECT',productionSafety.reason,weather);continue;}
-    let budget=d.fastScalp?Math.min(sizing.budget,num(d.fixedStakeUsd)||100,d.cash*.20,d.equity*.12,t.liq>0?Math.max(5,t.liq*.012):sizing.budget):Math.min(sizing.budget*alpha.sizeMultiplier,d.cash*(exploratory?.08:.25),d.equity*(exploratory?.035:.15),t.liq>0?Math.max(d.equity*(exploratory?.0075:.02),t.liq*.015):sizing.budget);
+    if(exploratory&&!probeSafety.ok){recordDecision(d,t,f,score,'REJECT','cold-start probe veto: '+probeSafety.reason,weather);continue;}
+    if(!productionSafety.ok&&!exploratory){recordDecision(d,t,f,score,'REJECT',productionSafety.reason,weather);continue;}
+    const alphaBudgetMult=exploratory?Math.max(.72,num(alpha.sizeMultiplier)||0):alpha.sizeMultiplier;
+    let budget=d.fastScalp?Math.min(sizing.budget,num(d.fixedStakeUsd)||100,d.cash*.20,d.equity*.12,t.liq>0?Math.max(5,t.liq*.012):sizing.budget):Math.min(sizing.budget*alphaBudgetMult,d.cash*(exploratory?.08:.25),d.equity*(exploratory?.035:.15),t.liq>0?Math.max(d.equity*(exploratory?.0075:.02),t.liq*.015):sizing.budget);
     if(budget<Math.max(exploratory?3:5,d.equity*(exploratory?.0075:.02))){recordDecision(d,t,f,score,'REJECT','Alpha OS · stake below minimum after EV adjustment',weather);continue;}
     const scienceGate=science.evaluateEntry({strategy:d,token:t,features:f,quality,market:weather,alpha,baseExecution:{...executionQuote(t,budget,'buy'),notional:budget}});
     const explorationScienceHardBlock=!!scienceGate.evidence?.block||num(scienceGate.survival?.collapsePct?.[5])>=85||num(scienceGate.execution?.txFailureProbability)>=.40;
@@ -1265,7 +1285,7 @@ function maybeTrade(t,weather=null) {
     if(entryExec.slippage>.065){recordDecision(d,t,f,score,'REJECT','execution veto: modeled slippage',weather);continue;}const entry=entryExec.fillPrice;const cost=budget*(1+entryExec.feeRate)+num(entryExec.fixedCost)+num(entryExec.expectedFailureCost);
     if(cost>d.cash)continue;
     d.cash-=cost;
-    const p={id:'p'+now()+Math.random(),strategy:d.id,mint:t.mint,symbol:t.symbol,entry,units:budget/entry,originalUnits:budget/entry,invested:budget,entryCost:cost,entryExecution:entryExec,executionQuality,realizedProceeds:0,partialExits:[],scaleOutHits:[],sourceEntrySig:d.copyLab?(verifiedWalletSignal(t,d.copyWindowMin||15,d.copySource||null).events[0]?.signature||null):null,opened:now(),closed:false,lastPrice:t.price,lastMarkedAt:now(),markSource:'entry',score,entryFeatures:{...f,mc:t.mc,liq:t.liq},entryMc:t.mc,entryLiq:t.liq,entryQuality:quality.score,dnaHit25:similar.hit25,dnaSample:similar.n,allocationMult:allocatorMult,sizingMode:'alpha-os-ev-v1',samplePartition:partitionForMint(t.mint),sizing,alphaOS:alpha,budgetPct:d.equity>0?budget/d.equity:0,live100Equivalent:sizing.live100Equivalent,exitMode:exitModeFor(d),policyVersion:STRATEGY_ERA,guard:{requiredScore:activeGuard.requiredScore,minQuality:activeGuard.minQuality,minBuyRatio:activeGuard.minBuyRatio,recentAvg:activeGuard.health.avg,recentN:activeGuard.health.n,exploratory},reason:`${exploratory?'cold-start exploration · ':''}score ${score.toFixed(0)} · gate ${policy.min.toFixed(0)} · risk ${f.risk.toFixed(0)} · Q${quality.score.toFixed(0)} · stake ${(budget/Math.max(1,d.equity)*100).toFixed(1)}% · $100≈${sizing.live100Equivalent.toFixed(2)} · size×${sizing.mult.toFixed(2)} · expectancy×${sizing.expectancyMult.toFixed(2)} · science×${scienceSize.toFixed(2)} · EV ${alpha.expectedValue.toFixed(1)} · safety ${alpha.preTradeSafety.score.toFixed(0)} · walletQ ${alpha.walletConsensus.score.toFixed(0)} · tox ${alpha.toxicity.score.toFixed(0)}`,entryRegime:regime,entryPhase:weather.phase,peakDuring:entry,troughDuring:entry};
+    const p={id:'p'+now()+Math.random(),strategy:d.id,mint:t.mint,symbol:t.symbol,entry,units:budget/entry,originalUnits:budget/entry,invested:budget,entryCost:cost,entryExecution:entryExec,executionQuality,realizedProceeds:0,partialExits:[],scaleOutHits:[],sourceEntrySig:d.copyLab?(verifiedWalletSignal(t,d.copyWindowMin||15,d.copySource||null).events[0]?.signature||null):null,opened:now(),closed:false,lastPrice:t.price,lastMarkedAt:now(),markSource:'entry',score,entryFeatures:{...f,mc:t.mc,liq:t.liq},entryMc:t.mc,entryLiq:t.liq,entryQuality:quality.score,dnaHit25:similar.hit25,dnaSample:similar.n,allocationMult:allocatorMult,sizingMode:'alpha-os-ev-v1',samplePartition:partitionForMint(t.mint),sizing,alphaOS:alpha,budgetPct:d.equity>0?budget/d.equity:0,live100Equivalent:sizing.live100Equivalent,exitMode:exitModeFor(d),policyVersion:STRATEGY_ERA,guard:{requiredScore:activeGuard.requiredScore,minQuality:activeGuard.minQuality,minBuyRatio:activeGuard.minBuyRatio,recentAvg:activeGuard.health.avg,recentN:activeGuard.health.n,exploratory},coldStartProbe:exploratory,probeSafety:exploratory?probeSafety:null,reason:`${exploratory?'cold-start exploration · ':''}score ${score.toFixed(0)} · gate ${policy.min.toFixed(0)} · risk ${f.risk.toFixed(0)} · Q${quality.score.toFixed(0)} · stake ${(budget/Math.max(1,d.equity)*100).toFixed(1)}% · $100≈${sizing.live100Equivalent.toFixed(2)} · size×${sizing.mult.toFixed(2)} · expectancy×${sizing.expectancyMult.toFixed(2)} · science×${scienceSize.toFixed(2)} · EV ${alpha.expectedValue.toFixed(1)} · safety ${alpha.preTradeSafety.score.toFixed(0)} · walletQ ${alpha.walletConsensus.score.toFixed(0)} · tox ${alpha.toxicity.score.toFixed(0)}`,entryRegime:regime,entryPhase:weather.phase,peakDuring:entry,troughDuring:entry};
     p.season2Science=scienceGate;positions.push(p);science.recordEntry(p,t,{features:f,quality,market:weather});alphaOS.recordShadowEntry({position:p,token:t,alpha});recordDecision(d,t,f,score,'BUY',p.reason,weather);queueTradeJournal('BUY',d,p,t,{score,exploratory});scheduleCriticalSave();
     if(d.risk!=='R&D')log('buy',`${d.icon} ${d.name} bought ${t.symbol} · ${budget.toFixed(0)} paper · ${p.reason}`,'good',{strategy:d.id,mint:t.mint});
   }
