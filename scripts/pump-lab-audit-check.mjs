@@ -96,7 +96,7 @@ for(const [name,needle] of [
   ['200-close proof tier',"evidenceN>=200?'PROVEN'"],
   ['90-day wallet evidence','d90:windowMetrics(90)'],
   ['pre-trade safety model','preTradeSafety(token,c={}'],
-  ['wallet quality leaderboard','qualityLeaderboard:this.walletLeaderboard(25)']
+  ['wallet quality leaderboard','this.walletLeaderboard(25)']
 ])if(!alphaSrc.includes(needle))failures.push(name+' missing');
 const scienceSystems=[
   'Walk Forward Testing','Bayesian Strategy Confidence','Meme Coin Survival Model','Creator + Wallet Cluster DNA',
