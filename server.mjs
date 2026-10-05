@@ -1292,7 +1292,8 @@ function openMinuteSamplerTrade(d,t,weather){
   d.cash-=cost;
   const p={id:'p'+now()+Math.random(),strategy:d.id,mint:t.mint,symbol:t.symbol,entry,units:budget/entry,originalUnits:budget/entry,invested:budget,entryCost:cost,entryExecution:entryExec,executionQuality:profitAccelerator.executionQuality(entryExec,alpha?.execution||{}),realizedProceeds:0,partialExits:[],scaleOutHits:[],opened:now(),closed:false,lastPrice:t.price,lastMarkedAt:now(),markSource:'minute-sampler',score,entryFeatures:{...f,mc:t.mc,liq:t.liq},entryMc:t.mc,entryLiq:t.liq,entryQuality:quality.score,dnaHit25:0,dnaSample:0,allocationMult:1,sizingMode:'forced-minute-sampler',samplePartition:partitionForMint(t.mint),alphaOS:alpha,budgetPct:d.equity>0?budget/d.equity:0,live100Equivalent:budget*(100/START),exitMode:'minute',policyVersion:STRATEGY_ERA,guard:{requiredScore:0,minQuality:0,minBuyRatio:0,recentAvg:0,recentN:0,exploratory:true},reason:`forced minute sampler · MC $${Math.round(t.mc).toLocaleString()} · paper $${budget.toFixed(0)} · band ${Number.isFinite(d.mcMin)?'$'+Math.round(d.mcMin/1000)+'K+':'open'} to ${Number.isFinite(d.mcMax)?'<$'+Math.round(d.mcMax/1000)+'K':'open'}`,entryRegime:weather.regime,entryPhase:weather.phase,peakDuring:entry,troughDuring:entry,minuteSampler:true};
   positions.push(p);science.recordEntry(p,t,{features:f,quality,market:weather});alphaOS.recordShadowEntry({position:p,token:t,alpha});recordDecision(d,t,f,score,'BUY',p.reason,weather);queueTradeJournal('BUY',d,p,t,{score,minuteSampler:true});scheduleCriticalSave();
-  log('buy',`${d.icon} ${d.name} sampled $${t.symbol} · $${budget.toFixed(0)} paper · MC $${Math.round(t.mc).toLocaleString()}`,'good',{strategy:d.id,mint:t.mint,minuteSampler:true});
+  log('buy',`${d.icon} ${d.name} sampled ${t.symbol} · ${budget.toFixed(0)} paper · MC ${Math.round(t.mc).toLocaleString()}`,'good',{strategy:d.id,mint:t.mint,minuteSampler:true});
+  console.log('MINUTE_SAMPLER_ENTRY '+JSON.stringify({ts:now(),strategy:d.id,name:d.name,mint:t.mint,symbol:t.symbol,mc:t.mc,budget,entry,slippage:entryExec.slippage}));
   return true;
 }
 function minuteSamplerTick(){
@@ -1309,6 +1310,7 @@ function minuteSamplerTick(){
     const chosen=candidates.find(t=>!positions.some(p=>!p.closed&&p.strategy===d.id&&p.mint===t.mint))||candidates[0];
     if(!chosen){
       setHealth('minute-sampler-'+d.id,'warn',d.name+' could not find a currently observed safe token inside its exact market-cap band',{truth:'observed'});
+      console.warn('MINUTE_SAMPLER_EMPTY '+JSON.stringify({ts:now(),strategy:d.id,name:d.name,mcMin:d.mcMin,mcMax:d.mcMax,tokens:tokens.size}));
       continue;
     }
     if(openMinuteSamplerTrade(d,chosen,weather))setHealth('minute-sampler-'+d.id,'ok',d.name+' · forced paper cadence active · latest entry '+new Date().toISOString(),{truth:'observed'});
