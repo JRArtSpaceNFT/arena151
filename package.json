@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "npm run check && node server.mjs",
-    "check": "node --check server.mjs && node --check frontend-proxy.mjs && node --check lib/pump-lab-alpha-os.mjs && node --check lib/pump-lab-season2-science.mjs && node --check lib/bot-profile.mjs && node scripts/pump-lab-audit-check.mjs && node scripts/pump-lab-alpha-os-check.mjs && node scripts/pump-lab-season2-science-check.mjs",
+    "check": "node --check server.mjs && node --check frontend-proxy.mjs && node --check lib/pump-lab-alpha-os.mjs && node --check lib/pump-lab-profit-accelerator.mjs && node --check lib/pump-lab-season2-science.mjs && node --check lib/bot-profile.mjs && node scripts/pump-lab-audit-check.mjs && node scripts/pump-lab-alpha-os-check.mjs && node scripts/pump-lab-profit-accelerator-check.mjs && node scripts/pump-lab-season2-science-check.mjs",
     "test": "npm run check"
   },
   "dependencies": {
