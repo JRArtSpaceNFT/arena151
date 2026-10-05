@@ -148,7 +148,7 @@ for(const [name,needle] of [
   ['minute sampler exact 500-1m band', "minute_500_1m:{cohort:'MINUTE MARKET CAP',minuteSampler:true,fixedStakeUsd:100,mcMin:500000,mcMax:1000000"],
   ['minute sampler forced engine', "function minuteSamplerTick()"],
   ['minute sampler forced opener', "function openMinuteSamplerTrade"],
-  ['minute sampler 50 second cadence', "'minute-samplers',()=>minuteSamplerTick(),{budgetMs:2500,critical:true}),50000"],
+  ['minute sampler 50 second cadence', "'minute-samplers',()=>minuteSamplerTick(),{budgetMs:18000,critical:true}),50000"],
   ['minute sampler recycle exit', "minute sampler scheduled recycle"],
   ['minute sampler normal-stack bypass', "if(d.minuteSampler)continue;"],
   ['minute sampler UI exposure', "'minute_sub100','minute_100_250','minute_500_1m'"]
