@@ -127,6 +127,22 @@ if(!src.includes("d.hypothesis&&d.hypothesisRetiredAt"))failures.push('Retired h
 if(!src.includes("hypothesisArena:hypothesisArenaSnapshot()"))failures.push('Hypothesis Arena missing from live state');
 
 
+// Forced minute market-cap sampler regression guards.
+for(const [name,needle] of [
+  ['Sub $100K minute sampler', "'minute_sub100','⏱️','Sub $100K Minute Trader'"],
+  ['$100K-$250K minute sampler', "'minute_100_250','⏱️','$100K–$250K Minute Trader'"],
+  ['$500K-$1M minute sampler', "'minute_500_1m','⏱️','$500K–$1M Minute Trader'"],
+  ['minute sampler exact sub100 ceiling', "minute_sub100:{cohort:'MINUTE MARKET CAP',minuteSampler:true,fixedStakeUsd:100,mcMin:0,mcMax:100000"],
+  ['minute sampler exact 100-250 band', "minute_100_250:{cohort:'MINUTE MARKET CAP',minuteSampler:true,fixedStakeUsd:100,mcMin:100000,mcMax:250000"],
+  ['minute sampler exact 500-1m band', "minute_500_1m:{cohort:'MINUTE MARKET CAP',minuteSampler:true,fixedStakeUsd:100,mcMin:500000,mcMax:1000000"],
+  ['minute sampler forced engine', "function minuteSamplerTick()"],
+  ['minute sampler forced opener', "function openMinuteSamplerTrade"],
+  ['minute sampler 50 second cadence', "'minute-samplers',()=>minuteSamplerTick(),{budgetMs:2500,critical:true}),50000"],
+  ['minute sampler recycle exit', "minute sampler scheduled recycle"],
+  ['minute sampler normal-stack bypass', "if(d.minuteSampler)continue;"],
+  ['minute sampler UI exposure', "'minute_sub100','minute_100_250','minute_500_1m'"]
+])if(!src.includes(needle))failures.push(name+' missing');
+
 // Fast scalp experiment regression guards.
 for(const [name,needle] of [
   ['Velocity Scalper strategy', "'velocity_scalper','⚡','Velocity Scalper'"],
