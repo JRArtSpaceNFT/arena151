@@ -2637,7 +2637,7 @@ function systemAudit(){
   if(!qualified.length)warnings.push('no core strategy yet meets minimum holdout profitability evidence');
   if(ALLOW_AUTO_PROMOTION)warnings.push('automatic strategy promotion is enabled');
   if(!SHADOW_EXECUTION_VALIDATED)critical.push('live shadow-execution validation has not been completed');
-  const alphaSnap=alphaOS.snapshot();
+  const alphaSnap=alphaOS.snapshot(true);
   if(!alphaSnap.shadow.routeQuoteConnected)warnings.push('Alpha OS shadow twin is measuring paper-vs-next-tick execution but exact route quote adapter is not connected');
   passes.push('Alpha OS ten-subsystem decision layer active');passes.push('Season 2 twelve-system science layer active');
   if(dbStateRestored)passes.push('durable state restore verified');
@@ -2717,7 +2717,7 @@ function getDeepResearchJson(){
 }
 
 function compactAlphaSnapshot(){
-  const a=alphaOS.snapshot();
+  const a=alphaOS.snapshot(true);
   return{version:a.version,subsystems:a.subsystems||[],master:{cash:a.master?.cash||0,equity:a.master?.equity||0,peak:a.master?.peak||0,dd:a.master?.dd||0,open:a.master?.open||0,trades:a.master?.trades||0,proposalCount:a.master?.proposalCount||0},shadow:a.shadow||{},forecasts:{total:a.forecasts?.total||0,settledTrain:a.forecasts?.settledTrain||0,up25Rate:a.forecasts?.up25Rate||0,down15Rate:a.forecasts?.down15Rate||0},wallets:{nodes:a.wallets?.nodes||0,edges:a.wallets?.edges||0},world:{snapshots:a.world?.snapshots||0,settled:a.world?.settled||0,current:a.world?.current||null},execution:a.execution||{},counters:a.counters||{}};
 }
 function uiResearchSnapshot(){
