@@ -14,6 +14,7 @@ const STRATEGY_ERA = 'v5.0-season3-clean-execution';
 const CLEAN_SEASON_LABEL = 'season3-clean-execution-2026-10-04';
 const FEE_RATE = 0.0125; // conservative fallback for unknown venue/lifecycle
 const PAPER_FIXED_TX_COST_USD = Number(process.env.PAPER_FIXED_TX_COST_USD || 0.02);
+const PAPER_MIN_PROFIT_TAKE_USD = Math.max(0, Number(process.env.PAPER_MIN_PROFIT_TAKE_USD || 50));
 const STATE_FILE = process.env.STATE_FILE || '/tmp/pump-lab-state-v06.json';
 const DATABASE_URL = process.env.DATABASE_URL || '';
 const REDIS_URL = process.env.REDIS_URL || '';
@@ -1179,7 +1180,7 @@ function executionQuote(t,notional,side='buy'){
 
 function adaptivePositionSizing(d,t,f,score,policy,quality,similar,guard,adv,regime,allocatorMult=1,exploratory=false){
   const isHypothesis=!!d.hypothesis,isResearch=d.risk==='R&D'||d.specialist,isProbe=!!d.copyLab||d.id==='megga_scout'||exploratory||isHypothesis,h=guard.health||strategyHealth(d);
-  const basePct=exploratory?.05:isHypothesis?.10:isProbe?.12:isResearch?.10:.18;
+  const basePct=exploratory?.10:isHypothesis?.18:isProbe?.24:isResearch?.20:.32;
   const confidence=clamp(.82+(score-(guard.requiredScore||policy.min))/40,.72,1.18);
   const qualityMult=clamp(.76+quality.score/300,.78,1.10);
   const adverseMult=clamp(1.14-num(adv.score)/180,.62,1.05);
@@ -1197,9 +1198,9 @@ function adaptivePositionSizing(d,t,f,score,policy,quality,similar,guard,adv,reg
   const mult=clamp(confidence*qualityMult*adverseMult*regimeMult*mcMult*ageMult*volMult*dnaMult*healthMult*streakMult*ddMult*recentMult*learnedAlloc*expectancyMult,.28,1.45);
 
   const stopFrac=clamp((num(d.stop)||14)/100,.07,.30);
-  const maxStopLossPct=d.risk==='LOW'?.020:d.risk==='HIGH'?.028:d.risk==='EXTREME'?.025:d.risk==='R&D'?.018:.024;
+  const maxStopLossPct=d.risk==='LOW'?.040:d.risk==='HIGH'?.060:d.risk==='EXTREME'?.070:d.risk==='R&D'?.035:.050;
   const stopRiskCap=d.equity*maxStopLossPct/stopFrac;
-  const positionCapPct=exploratory?.08:isHypothesis?.15:isProbe?.18:isResearch?.15:.25,portfolioCapPct=exploratory?.20:isHypothesis?.30:isProbe?.35:isResearch?.35:.55,narrativeCapPct=.30,creatorCapPct=.25;
+  const positionCapPct=exploratory?.15:isHypothesis?.28:isProbe?.35:isResearch?.30:.50,portfolioCapPct=exploratory?.30:isHypothesis?.50:isProbe?.60:isResearch?.55:.75,narrativeCapPct=.40,creatorCapPct=.35;
   const mine=positions.filter(p=>p.strategy===d.id&&!p.closed);
   const markValue=p=>p.units*positionMarkPrice(p);
   const openExposure=mine.reduce((s,p)=>s+markValue(p),0);
@@ -1208,10 +1209,10 @@ function adaptivePositionSizing(d,t,f,score,policy,quality,similar,guard,adv,reg
   const exposureRoom=Math.max(0,d.equity*portfolioCapPct-openExposure);
   const narrativeRoom=Math.max(0,d.equity*narrativeCapPct-narrativeExposure);
   const creatorRoom=Math.max(0,d.equity*creatorCapPct-creatorExposure);
-  const minStake=d.equity*(exploratory?.02:isHypothesis?.03:isProbe?.03:isResearch?.03:.05);
+  const minStake=d.equity*(exploratory?.05:isHypothesis?.08:isProbe?.10:isResearch?.08:.15);
   const liquidityCap=t.liq>0?Math.max(minStake,t.liq*.020):0;
   const desired=Number.isFinite(num(d.fixedStakeUsd))&&num(d.fixedStakeUsd)>0?Math.min(num(d.fixedStakeUsd),d.equity*positionCapPct):d.equity*basePct*mult;
-  const budget=Math.min(d.cash*.35,d.equity*positionCapPct,stopRiskCap,exposureRoom,narrativeRoom,creatorRoom,liquidityCap,Math.max(minStake,desired));
+  const budget=Math.min(d.cash*.55,d.equity*positionCapPct,stopRiskCap,exposureRoom,narrativeRoom,creatorRoom,liquidityCap,Math.max(minStake,desired));
   const live100Equivalent=budget*(100/START);
   return{
     ok:budget>=minStake&&budget>0,budget,basePct,mult,confidence,qualityMult,adverseMult,regimeMult,mcMult,ageMult,vol,volMult,dnaMult,
@@ -1959,7 +1960,9 @@ function partialClose(d,p,t,fraction,why){
 }
 function manageScaleOut(d,p,t){
   if(!d.scaleOut)return false;
-  const pnl=pct(t.price,p.entry),levels=[30,75,150,300];p.scaleOutHits=p.scaleOutHits||[];
+  const pnl=pct(t.price,p.entry),estimatedProfitUsd=(p.units*t.price)-((num(p.entryCost)||p.invested*(1+FEE_RATE))-num(p.realizedProceeds));
+  if(estimatedProfitUsd<PAPER_MIN_PROFIT_TAKE_USD)return false;
+  const levels=[30,75,150,300];p.scaleOutHits=p.scaleOutHits||[];
   const level=levels.find(x=>pnl>=x&&!p.scaleOutHits.includes(x));if(!level)return false;
   const frac=level>=150?.25:.20;if(partialClose(d,p,t,frac,`runner scale-out +${level}%`)){p.scaleOutHits.push(level);return true;}return false;
 }
@@ -2011,8 +2014,10 @@ function exitDecision(d,p,t,f){
   if(deadOnArrival)return{exit:true,why:'dead-on-arrival invalidation',mode};
   if(failedBreakout)return{exit:true,why:'failed breakout invalidation',mode};
   if(pnl<=-stop)return{exit:true,why:'stop',mode};
-  if(pnl>=take&&!d.scaleOut)return{exit:true,why:'take profit',mode};
-  if(trailing)return{exit:true,why:'trailing peak protection',mode};
+  const estimatedProfitUsd=(p.units*t.price)-((num(p.entryCost)||p.invested*(1+FEE_RATE))-num(p.realizedProceeds));
+  const meaningfulProfit=estimatedProfitUsd>=PAPER_MIN_PROFIT_TAKE_USD;
+  if(pnl>=take&&!d.scaleOut&&meaningfulProfit)return{exit:true,why:`take profit · ${estimatedProfitUsd.toFixed(0)}`,mode};
+  if(trailing&&meaningfulProfit)return{exit:true,why:`trailing peak protection · ${estimatedProfitUsd.toFixed(0)}`,mode};
   if(hold>maxHold)return{exit:true,why:'time exit',mode};
   if(fade&&hold>(mode==='scalp'?1.5:3))return{exit:true,why:'thesis broke',mode};
   return{exit:false,mode};
