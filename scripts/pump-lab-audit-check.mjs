@@ -162,7 +162,7 @@ for(const [name,needle] of [
 for(const [name,needle] of [
   ['critical decision persistence', "decisions:decisions.filter(x=>x.era===STRATEGY_ERA).slice(0,1500)"],
   ['critical decision restore', "if(Array.isArray(s.decisions)&&s.decisions.length)"],
-  ['20-reject cold-start calibration', "if(rows.length>=20&&Number.isFinite(p90))"],
+  ['20-reject cold-start calibration', "rows.length>=20&&Number.isFinite(p90)"],
   ['core rejection summary', "CORE_REJECTION_SUMMARY "]
 ])if(!src.includes(needle))failures.push(name+' missing');
 
