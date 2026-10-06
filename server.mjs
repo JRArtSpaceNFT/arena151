@@ -10,7 +10,7 @@ const PUMP_KEY = process.env.PUMPPORTAL_API_KEY || '';
 const ALLOW_METERED = (process.env.ALLOW_METERED_PUMPPORTAL || 'false') === 'true';
 const START = 1000;
 const TARGET = 100000;
-const STRATEGY_ERA = 'v5.0-season3-clean-execution';
+const STRATEGY_ERA = 'v5.1-integrity-freeze';
 const CLEAN_SEASON_LABEL = 'season3-clean-execution-2026-10-04';
 const FEE_RATE = 0.0125; // conservative fallback for unknown venue/lifecycle
 const PAPER_FIXED_TX_COST_USD = Number(process.env.PAPER_FIXED_TX_COST_USD || 0.02);
@@ -30,7 +30,12 @@ const SEASON2_SCIENCE_VETO = (process.env.SEASON2_SCIENCE_VETO || 'true') === 't
 const RESET_SEASON = (process.env.RESET_SEASON || '').trim();
 const DURABLE_WRITE_GRACE_MS = Number(process.env.DURABLE_WRITE_GRACE_MS || 900000);
 const STALE_MARK_WARN_MS = Number(process.env.STALE_MARK_WARN_MS || 120000);
-const STALE_MARK_ZERO_MS = Number(process.env.STALE_MARK_ZERO_MS || 1800000);
+const STALE_MARK_ZERO_MS = Number(process.env.STALE_MARK_ZERO_MS || 1800000); // retained only for backward-compatible config; stale marks are never decayed or written off
+const PRICE_QUOTE_MAX_AGE_MS = Number(process.env.PRICE_QUOTE_MAX_AGE_MS || 20000);
+const PRICE_STAGNANT_MAX_MS = Number(process.env.PRICE_STAGNANT_MAX_MS || 90000);
+const IMPOSSIBLE_LOSS_TOLERANCE_PCT = Number(process.env.IMPOSSIBLE_LOSS_TOLERANCE_PCT || 5);
+const FROZEN_EXPERIMENT_MIN_TRADES = Number(process.env.FROZEN_EXPERIMENT_MIN_TRADES || 30);
+const ACTIVE_EXPERIMENT_IDS = new Set(['banker','graduation','confirmed_runner','mc_over100','liq_50_plus','crosscheck','random','launchctl']);
 const MAX_RUNTIME_TOKENS = Number(process.env.MAX_RUNTIME_TOKENS || 1200);
 const MAX_OPPORTUNITIES = Number(process.env.MAX_OPPORTUNITIES || 12000);
 const OPPORTUNITY_RETENTION_MS = Number(process.env.OPPORTUNITY_RETENTION_MS || 129600000);
@@ -532,7 +537,7 @@ function normalize(raw,source='live') {
   const boosts=num(raw.boosts?.active||raw.boostAmount||0);
   const quoteSymbol=(raw.quoteToken?.symbol||raw.quoteSymbol||'').toString().toUpperCase();
   const dexId=(raw.dexId||raw.dex||'').toString().toLowerCase(),pairAddress=raw.pairAddress||raw.pair||'';
-  return {mint,symbol,name,source,price,mc,liq,vol,buys,sells,createdAt,updatedAt:ts,narrative:narrativeFor({name,symbol}),graduated:!!raw.complete,
+  return {mint,symbol,name,source,price,mc,liq,vol,buys,sells,createdAt,updatedAt:ts,quoteObservedAt:price>0?ts:0,priceUpdatedAt:price>0?ts:0,lastDistinctPriceAt:price>0?ts:0,unchangedPriceTicks:0,priceSource:price>0?src:'',narrative:narrativeFor({name,symbol}),graduated:!!raw.complete,
     twitter,telegram,website,image:raw.image_uri||raw.image||raw.info?.imageUrl||'',creator,boosts,quoteSymbol,dexId,pairAddress,history:[],sources:[src],sourceSeen:{[src]:ts},
     flowObserved,flowUpdatedAt:flowObserved?ts:0,flowSource:flowObserved?src:'',volumeObserved,volumeUpdatedAt:volumeObserved?ts:0,volumeSource:volumeObserved?src:'',
     liquidityObserved:liqObserved,liquidityUpdatedAt:liqObserved?ts:0,liquiditySource:liqObserved?src:'',liquidityKind,curveDepthUsd,inferredSolUsd,
@@ -548,8 +553,13 @@ function mergeToken(old,t) {
   const freshVol=t.volumeObserved;
   const freshLiq=t.liquidityObserved;
   const createdCandidates=[old.createdAt,t.createdAt].filter(x=>x>0);
+  const oldPrice=num(old.price),incomingPrice=num(t.price),samePrice=oldPrice>0&&incomingPrice>0&&incomingPrice===oldPrice;
+  const quoteObservedAt=incomingPrice>0?ts:num(old.quoteObservedAt||old.updatedAt);
+  const priceUpdatedAt=incomingPrice>0&&!samePrice?ts:num(old.priceUpdatedAt||old.lastDistinctPriceAt||old.updatedAt||quoteObservedAt);
+  const unchangedPriceTicks=incomingPrice>0?(samePrice?num(old.unchangedPriceTicks)+1:0):num(old.unchangedPriceTicks);
   return {...old,...t,
     createdAt:createdCandidates.length?Math.min(...createdCandidates):t.createdAt,
+    updatedAt:ts,quoteObservedAt,priceUpdatedAt,lastDistinctPriceAt:priceUpdatedAt,unchangedPriceTicks,priceSource:incomingPrice>0?(t.sources?.[0]||t.source||old.priceSource||'live'):(old.priceSource||''),
     graduated:!!old.graduated||!!t.graduated,
     firstPrice:old.firstPrice||t.price,firstMc:old.firstMc||t.mc,history:hist,
     peakPrice:Math.max(old.peakPrice||0,t.price||0),peakMc:Math.max(old.peakMc||0,t.mc||0),
@@ -564,6 +574,26 @@ function mergeToken(old,t) {
     quoteSymbol:t.quoteSymbol||old.quoteSymbol||'',dexId:t.dexId||old.dexId||'',pairAddress:t.pairAddress||old.pairAddress||'',
     chainFlow:old.chainFlow||[],boosts:Math.max(t.boosts||0,old.boosts||0)
   };
+}
+
+const NON_MEME_SYMBOLS=new Set(['SPYX','NVDAX','RDDT']);
+function tokenPriceIntegrity(t){
+  const ts=now(),price=num(t?.price),quoteAt=num(t?.quoteObservedAt||t?.updatedAt),distinctAt=num(t?.lastDistinctPriceAt||t?.priceUpdatedAt||quoteAt);
+  const quoteAgeMs=quoteAt>0?Math.max(0,ts-quoteAt):Infinity,distinctAgeMs=distinctAt>0?Math.max(0,ts-distinctAt):Infinity,unchangedPriceTicks=Math.max(0,num(t?.unchangedPriceTicks));
+  return{price,quoteAt,distinctAt,quoteAgeMs,distinctAgeMs,unchangedPriceTicks,freshQuote:price>0&&quoteAgeMs<=PRICE_QUOTE_MAX_AGE_MS,moving:unchangedPriceTicks===0||distinctAgeMs<=PRICE_QUOTE_MAX_AGE_MS,executable:price>0&&quoteAgeMs<=PRICE_QUOTE_MAX_AGE_MS};
+}
+function memeUniverseEligibility(t){
+  const symbol=String(t?.symbol||'').toUpperCase(),name=String(t?.name||''),text=(symbol+' '+name).toLowerCase();
+  if(NON_MEME_SYMBOLS.has(symbol))return{ok:false,reason:'known tokenized stock/equity symbol'};
+  if(/\b(tokenized|tokenised|stock|equity|etf|xstock|nasdaq|spdr|reddit|nvidia)\b/i.test(text))return{ok:false,reason:'non-meme/tokenized security metadata'};
+  return{ok:true,reason:'meme-universe eligible'};
+}
+function eraTradeCount(d){return trades.filter(x=>x.strategy===d.id&&x.policyVersion===STRATEGY_ERA).length;}
+function isFrozenExperimentStrategy(d){return !!d&&ACTIVE_EXPERIMENT_IDS.has(d.id);}
+function experimentStrategyEnabled(d){return !!d&&(d.minuteSampler||ACTIVE_EXPERIMENT_IDS.has(d.id));}
+function duplicateTickerAudit(){
+  const by=new Map();for(const t of tokens.values()){const s=String(t?.symbol||'').toUpperCase();if(!s)continue;if(!by.has(s))by.set(s,new Set());by.get(s).add(t.mint);}
+  return[...by].filter(([,m])=>m.size>1).map(([symbol,mints])=>({symbol,mints:[...mints]})).sort((a,b)=>b.mints.length-a.mints.length);
 }
 
 function updateCreator(t) {
@@ -815,14 +845,9 @@ function narrativeStats() {
 
 function openCount(id){return positions.filter(p=>p.strategy===id&&!p.closed).length;}
 function positionMarkDetail(p){
-  const t=tokens.get(p.mint),live=num(t?.price),liveTs=num(t?.updatedAt),last=num(p.lastPrice||p.entry),lastTs=num(p.lastMarkedAt||p.opened);
+  const t=tokens.get(p.mint),integrity=tokenPriceIntegrity(t),live=integrity.executable?num(t?.price):0,liveTs=integrity.executable?num(t?.quoteObservedAt||t?.updatedAt):0,last=num(p.lastPrice||p.entry),lastTs=num(p.lastMarkedAt||p.opened);
   const base=live>0?live:last,markTs=live>0?liveTs:lastTs,ageMs=Math.max(0,now()-markTs);
-  let multiplier=1;
-  if(ageMs>STALE_MARK_WARN_MS){
-    const span=Math.max(1,STALE_MARK_ZERO_MS-STALE_MARK_WARN_MS);
-    multiplier=clamp(1-(ageMs-STALE_MARK_WARN_MS)/span,0,1);
-  }
-  return{price:base*multiplier,rawPrice:base,ageMs,multiplier,stale:ageMs>STALE_MARK_WARN_MS,source:live>0?'token':'position'};
+  return{price:base,rawPrice:base,ageMs,multiplier:1,stale:ageMs>STALE_MARK_WARN_MS,executable:integrity.executable,quoteAgeMs:integrity.quoteAgeMs,distinctAgeMs:integrity.distinctAgeMs,unchangedPriceTicks:integrity.unchangedPriceTicks,source:live>0?'verified-token':'last-verified-position'};
 }
 function positionMarkPrice(p){return positionMarkDetail(p).price;}
 function markEquity(d){
@@ -989,7 +1014,7 @@ function entryPolicy(d){
   const rejects=rows.filter(x=>x.action==='REJECT').length,scores=rows.map(x=>num(x.score)).filter(Number.isFinite);
   const p90=percentile(scores,.90),coldStart=!rows.some(x=>x.action==='BUY'&&!x.exploratory);
   let effectiveMin=d.min,relief=0;
-  if(rows.length>=20&&Number.isFinite(p90)){
+  if(!isFrozenExperimentStrategy(d)&&rows.length>=20&&Number.isFinite(p90)){
     if(coldStart){
       const adaptiveFloor=Math.max(46,d.min-14);
       effectiveMin=clamp(p90+3,adaptiveFloor,d.min);
@@ -1009,11 +1034,12 @@ function strategyHealth(d){
 function entryGuard(d,t,f,score,policy,quality,adv,regime){
   if(d.risk==='CONTROL')return{ok:true,reason:'benchmark/control',requiredScore:policy.min,minQuality:0,minBuyRatio:0,health:strategyHealth(d),playbook:{instruction:d.thesis}};
   const h=strategyHealth(d),p=strategyPlaybook(d),stack=evidenceStack(t,f,quality);
+  const frozen=isFrozenExperimentStrategy(d)&&eraTradeCount(d)<FROZEN_EXPERIMENT_MIN_TRADES;
   let scoreBuffer=0,minQuality=p.minQuality??60,minBuyRatio=p.minBuy??.55,maxRisk=p.maxRisk??64;
   if(regime==='RISK OFF'){scoreBuffer+=4;minQuality+=4;minBuyRatio+=.03;maxRisk-=3;}
-  if(h.n>=4&&h.avg<0){scoreBuffer+=3;minQuality+=3;minBuyRatio+=.02;}
-  if(h.n>=5&&h.avg<=-8){scoreBuffer+=4;maxRisk-=3;}
-  const learned=policy.coldStart?policy.min:(Number.isFinite(policy.p90)?policy.p90:policy.min),requiredScore=Math.max(policy.min,learned+scoreBuffer);
+  if(!frozen&&h.n>=4&&h.avg<0){scoreBuffer+=3;minQuality+=3;minBuyRatio+=.02;}
+  if(!frozen&&h.n>=5&&h.avg<=-8){scoreBuffer+=4;maxRisk-=3;}
+  const learned=frozen?policy.min:(policy.coldStart?policy.min:(Number.isFinite(policy.p90)?policy.p90:policy.min)),requiredScore=Math.max(policy.min,learned+scoreBuffer);
   const fail=reason=>({ok:false,reason,requiredScore,minQuality,minBuyRatio,health:h,playbook:p,stack});
   if(quality.score<minQuality)return fail('abstain: data quality');
   if(p.requireCross&&quality.sourceCount<2)return fail('abstain: cross-source confirmation');
@@ -1237,10 +1263,16 @@ function maybeTrade(t,weather=null) {
       if(manageScaleOut(d,existing,t))continue;
       const ex=exitDecision(d,existing,t,f);if(ex.exit)closePos(d,existing,t,ex.why);continue;
     }
+    if(!experimentStrategyEnabled(d))continue;
     if(d.minuteSampler)continue;
+    const priceIntegrity=tokenPriceIntegrity(t),universe=memeUniverseEligibility(t);
+    if(!priceIntegrity.executable){recordDecision(d,t,f,strategyScore(d,f,t),'REJECT','data integrity: stale price quote',weather);continue;}
+    if(priceIntegrity.unchangedPriceTicks>0&&priceIntegrity.distinctAgeMs>PRICE_QUOTE_MAX_AGE_MS){recordDecision(d,t,f,strategyScore(d,f,t),'REJECT','data integrity: unchanged/stagnant price',weather);continue;}
+    if(!universe.ok){recordDecision(d,t,f,strategyScore(d,f,t),'REJECT','meme universe: '+universe.reason,weather);continue;}
     const eligibility=specialistEligibility(d,t,f,weather.regime);
     if(!eligibility.ok)continue;
-    const accelGate=profitAccelerator.strategyGate({strategy:d,trades,regime:weather.regime,era:STRATEGY_ERA});
+    const frozenN=eraTradeCount(d),frozenCollection=isFrozenExperimentStrategy(d)&&frozenN<FROZEN_EXPERIMENT_MIN_TRADES;
+    const accelGate=frozenCollection?{ok:true,sizeMultiplier:1,reason:'frozen evidence collection'}:profitAccelerator.strategyGate({strategy:d,trades,regime:weather.regime,era:STRATEGY_ERA});
     if(!accelGate.ok){if(!opportunities.has(`${d.id}:${t.mint}`))recordDecision(d,t,f,strategyScore(d,f,t),'REJECT',accelGate.reason,weather);continue;}
     const circuit=strategyRiskCircuit(d);
     if(!circuit.ok){if(!opportunities.has(`${d.id}:${t.mint}`))recordDecision(d,t,f,strategyScore(d,f,t),'REJECT',circuit.reason,weather);continue;}
@@ -1251,7 +1283,7 @@ function maybeTrade(t,weather=null) {
     const sniperBlocked=(d.parentId==='sniper'||d.id==='sniper')&&f.risk>policy.sniperRiskLimit;
     const customBlocked=policy.customRiskLimit&&f.risk>policy.customRiskLimit;
     const guard=entryGuard(d,t,f,score,policy,quality,adv,regime);
-    const exploration=dormantExplorationGuard(d,t,f,score,policy,quality,adv,regime);
+    const exploration=frozenCollection?{ok:false,reason:'frozen experiment: no cold-start rule relaxation'}:dormantExplorationGuard(d,t,f,score,policy,quality,adv,regime);
     const exploratory=(!guard.ok||score<policy.min||lowBlocked||sniperBlocked||customBlocked)&&exploration.ok&&!adv.hardVeto;
     const activeGuard=exploratory?exploration:guard;
     if(exploratory&&openCount(d.id)>=1)continue;
@@ -1262,7 +1294,7 @@ function maybeTrade(t,weather=null) {
     const corrGuard=profitAccelerator.correlationGuard({strategyId:d.id,token:t,positions,correlations:strategyCorrelation(),tokens});
     if(!corrGuard.ok){recordDecision(d,t,f,score,'REJECT',corrGuard.reason,weather);continue;}
     const championMult=profitAccelerator.championMultiplier({strategyId:d.id,strategies:strategyDefs,trades,regime,era:STRATEGY_ERA});
-    const allocatorMult=(d.type==='challenger'?1:allocationWeight(d.id))*accelGate.sizeMultiplier*corrGuard.sizeMultiplier*championMult;
+    const allocatorMult=frozenCollection?1:(d.type==='challenger'?1:allocationWeight(d.id))*accelGate.sizeMultiplier*corrGuard.sizeMultiplier*championMult;
     const sizing=adaptivePositionSizing(d,t,f,score,policy,quality,similar,activeGuard,adv,regime,allocatorMult,exploratory);
     if(!sizing.ok){recordDecision(d,t,f,score,'REJECT',sizing.reason,weather);continue;}
     const alpha=alphaOS.evaluateCandidate({strategy:d,token:t,features:f,score,threshold:activeGuard.requiredScore||policy.min,quality,similar,regime}),productionSafety=productionSafetyGate(d,t,f,quality,alpha),probeSafety=exploratory?coldStartProbeSafety(d,t,f,quality,adv,alpha):null;
@@ -1296,7 +1328,7 @@ function maybeTrade(t,weather=null) {
 
 async function refreshMinuteSamplerUniverse(force=false){
   const ts=now();
-  if(!force&&lastMinuteUniverseAt&&ts-lastMinuteUniverseAt<180000)return{ok:true,cached:true};
+  if(!force&&lastMinuteUniverseAt&&ts-lastMinuteUniverseAt<30000)return{ok:true,cached:true};
   if(minuteUniverseInFlight)return minuteUniverseInFlight;
   minuteUniverseInFlight=(async()=>{
     const bands=[
@@ -1346,9 +1378,9 @@ function minuteSamplerRank(d,t){
   return specialistScore(d,f,t)*.45+q.score*.18+f.liqScore*.12+f.volScore*.08+f.flow*.07+freshness*.10+novelty;
 }
 function minuteSamplerCandidates(d){
-  const cutoff=now()-8*60000;
   return [...tokens.values()].filter(t=>{
-    if(!(t?.price>0)||!(t?.mc>0)||num(t.updatedAt)<cutoff)return false;
+    const priceIntegrity=tokenPriceIntegrity(t),universe=memeUniverseEligibility(t);
+    if(!(t?.price>0)||!(t?.mc>0)||!priceIntegrity.executable||!priceIntegrity.moving||priceIntegrity.unchangedPriceTicks>0||priceIntegrity.distinctAgeMs>PRICE_STAGNANT_MAX_MS||!universe.ok)return false;
     if(Number.isFinite(d.mcMin)&&t.mc<d.mcMin)return false;
     if(Number.isFinite(d.mcMax)&&t.mc>=d.mcMax)return false;
     if(!(t.liq>=num(d.minuteMinLiq)))return false;
@@ -1359,6 +1391,7 @@ function minuteSamplerCandidates(d){
   }).sort((a,b)=>minuteSamplerRank(d,b)-minuteSamplerRank(d,a));
 }
 function openMinuteSamplerTrade(d,t,weather){
+  const priceIntegrity=tokenPriceIntegrity(t),universe=memeUniverseEligibility(t);if(!priceIntegrity.executable||!priceIntegrity.moving||priceIntegrity.unchangedPriceTicks>0||!universe.ok)return false;
   markEquity(d);const f=features(t),quality=tokenDataQuality(t),score=specialistScore(d,f,t),budget=Math.min(num(d.fixedStakeUsd)||100,d.cash*.20);
   if(budget<10)return false;
   const baseExec={...executionQuote(t,budget,'buy'),notional:budget};
@@ -1397,23 +1430,46 @@ async function minuteSamplerTick(){
   }
 }
 
+function effectiveMaxHoldMinutes(d){
+  if(!d)return 60;if(d.minuteSampler)return Math.max(.25,num(d.maxHold)||.8);if(d.fastScalp)return Math.max(.25,num(d.maxHold)||3.5);
+  let maxHold=num(d.maxHold)||60;const mode=exitModeFor(d);
+  if(mode==='scalp')maxHold=Math.min(maxHold,28);
+  if(mode==='defensive')maxHold=Math.min(maxHold,60);
+  if(mode==='runner')maxHold=Math.max(maxHold,120);
+  if(mode==='structure')maxHold=Math.max(maxHold,180);
+  if(mode==='conviction')maxHold=Math.max(maxHold,720);
+  return maxHold;
+}
 function stalePositionSweep(){
+  let quarantined=0,overdue=0;
   for(const p of [...positions]){
     if(p.closed)continue;
-    const detail=positionMarkDetail(p);if(detail.ageMs<STALE_MARK_ZERO_MS)continue;
     const d=allTraders().find(x=>x.id===p.strategy);if(!d)continue;
-    const old=tokens.get(p.mint)||{};
-    const synthetic={...old,price:0,liq:0,name:old.name||p.symbol||'Unknown',narrative:old.narrative||'Unknown'};
-    closePos(d,p,synthetic,'stale/unpriceable write-off');
+    const detail=positionMarkDetail(p),t=tokens.get(p.mint),heldMs=Math.max(0,now()-num(p.opened)),maxHoldMs=effectiveMaxHoldMinutes(d)*60000,isOverdue=heldMs>=maxHoldMs;
+    if(isOverdue)overdue++;
+    if(isOverdue&&t&&tokenPriceIntegrity(t).executable){
+      closePos(d,p,t,'hard max-hold verified exit');continue;
+    }
+    if(detail.stale||isOverdue){
+      quarantined++;p.exitPendingReason=isOverdue?'max hold exceeded; waiting for verified price':'stale quote; waiting for verified price';p.integrityQuarantinedAt=p.integrityQuarantinedAt||now();
+      if(now()-num(p.lastIntegrityAlertAt)>60000){p.lastIntegrityAlertAt=now();console.warn('STALE_POSITION_QUARANTINE '+JSON.stringify({ts:now(),strategy:p.strategy,mint:p.mint,symbol:p.symbol,ageMs:detail.ageMs,heldMin:heldMs/60000,maxHoldMin:effectiveMaxHoldMinutes(d),lastVerifiedPrice:detail.rawPrice,quoteAgeMs:detail.quoteAgeMs,reason:p.exitPendingReason}));}
+    }
   }
+  if(quarantined)setHealth('position-integrity','warn',quarantined+' position(s) quarantined for stale/overdue verified-price exit · synthetic zero write-offs disabled',{truth:'observed'});
+  else setHealth('position-integrity','ok','All open positions have timely verified-price handling · synthetic zero write-offs disabled',{truth:'observed'});
+  return{quarantined,overdue};
 }
-function updateOpenPositionExtremes(t){const f=features(t);for(const p of positions){if(p.closed||p.mint!==t.mint)continue;p.lastPrice=t.price;p.lastMarkedAt=now();p.markSource=(t.sources||[]).join('+')||'live';p.peakDuring=Math.max(p.peakDuring||p.entry,t.price);p.troughDuring=Math.min(p.troughDuring||p.entry,t.price);science.observePosition(p,t,f);}}
+function updateOpenPositionExtremes(t){const f=features(t),integrity=tokenPriceIntegrity(t);if(!integrity.executable)return;for(const p of positions){if(p.closed||p.mint!==t.mint)continue;p.lastPrice=t.price;p.lastMarkedAt=num(t.quoteObservedAt||t.updatedAt)||now();p.markSource=(t.sources||[]).join('+')||'live';p.peakDuring=Math.max(p.peakDuring||p.entry,t.price);p.troughDuring=Math.min(p.troughDuring||p.entry,t.price);science.observePosition(p,t,f);}}
 
 function closePos(d,p,t,why){
+  const priceIntegrity=tokenPriceIntegrity(t);if(!priceIntegrity.executable){p.exitPendingReason='exit blocked: no fresh verified price';return false;}
   const notional=p.units*t.price,exitAlpha=alphaOS.executionBrain(t,{features:features(t),score:p.score||50}),exec=science.executionSimulation(t,notional,'sell',{...executionQuote(t,notional,'sell'),notional},exitAlpha),exit=exec.fillPrice,gross=p.units*exit;const proceeds=Math.max(0,gross*(1-exec.feeRate)-num(exec.fixedCost)-num(exec.expectedFailureCost));
   d.cash+=proceeds;p.closed=true;p.closedAt=now();p.exit=exit;p.exitExecution=exec;const totalProceeds=num(p.realizedProceeds)+proceeds,entryCost=num(p.entryCost)||p.invested*(1+FEE_RATE);p.pnl=totalProceeds-entryCost;p.pnlPct=p.pnl/Math.max(.000001,entryCost)*100;p.why=why;
   p.mfe=pct(p.peakDuring||exit,p.entry);p.mae=pct(p.troughDuring||exit,p.entry);p.counterfactual={exitNow:p.pnlPct,holdAfterExit:{oneMin:null,fiveMin:null,fifteenMin:null},bestObservedAfterExit:null};
   const modeledRoundTrip=(num(p.entryExecution?.slippage)+num(p.exitExecution?.slippage)+num(p.entryExecution?.feeRate)+num(p.exitExecution?.feeRate))*100;const stressPenalty=Math.max(2.5,modeledRoundTrip+Math.min(8,(p.invested/Math.max(1000,t.liq))*100));
+  const integrityLowerBound=num(p.mae)-modeledRoundTrip-IMPOSSIBLE_LOSS_TOLERANCE_PCT,impossibleLoss=p.pnlPct<integrityLowerBound;
+  p.integrity={quoteAgeMs:priceIntegrity.quoteAgeMs,distinctAgeMs:priceIntegrity.distinctAgeMs,lastRealPrice:num(t.price),priceSource:t.priceSource||t.sources?.[0]||'live',observedWorstPct:num(p.mae),modeledRoundTripPct:modeledRoundTrip,tolerancePct:IMPOSSIBLE_LOSS_TOLERANCE_PCT,lowerBoundPct:integrityLowerBound,impossibleLoss};
+  if(impossibleLoss)console.error('IMPOSSIBLE_LOSS_FLAG '+JSON.stringify({strategy:d.id,mint:p.mint,symbol:p.symbol,pnlPct:p.pnlPct,mae:p.mae,modeledRoundTripPct:modeledRoundTrip,lowerBoundPct:integrityLowerBound,lastRealPrice:num(t.price),quoteAgeMs:priceIntegrity.quoteAgeMs,why}));
   p.executionStress={easy:p.pnlPct+1.5,realistic:p.pnlPct,nightmare:p.pnlPct-stressPenalty,penalty:stressPenalty};
   d.n++;if(p.pnl>0)d.wins++;else d.losses++;p.season2ScienceResult=science.recordTrade(p,t,{market:marketWeather()});trades.unshift({...p,name:t.name,narrative:t.narrative});trades.splice(MAX_TRADES);const pi=positions.indexOf(p);if(pi>=0)positions.splice(pi,1);markEquity(d);
   alphaOS.recordShadowClose(p);const aut=buildAutopsy(d,p,t);aut.accelerator=profitAccelerator.classifyTrade(p);autopsies.unshift(aut);autopsies.splice(250);queueTradeJournal('SELL',d,p,t,{why,pnlPct:p.pnlPct});scheduleCriticalSave();
@@ -1753,7 +1809,7 @@ function worstTrades(){return trades.filter(t=>!t.strategy.includes('-c')).sort(
 function creatorLeaderboard(){return [...creators.values()].map(c=>({...c,tokens:[...c.tokens]})).sort((a,b)=>b.launches-a.launches||b.bestPeakX-a.bestPeakX).slice(0,30);}
 
 
-function productionTrades(eraOnly=false){return trades.filter(t=>{const d=strategyDefs.find(x=>x.id===t.strategy);return !t.strategy.includes('-c')&&!['random','volume','launchctl','socialctl'].includes(t.strategy)&&!d?.specialist&&(!eraOnly||t.policyVersion===STRATEGY_ERA);});}
+function productionTrades(eraOnly=false){return trades.filter(t=>{const d=strategyDefs.find(x=>x.id===t.strategy);return !t.strategy.includes('-c')&&isFrozenExperimentStrategy(d)&&d.risk!=='CONTROL'&&!d.minuteSampler&&(!eraOnly||t.policyVersion===STRATEGY_ERA);});}
 function specialistTrades(eraOnly=false){return trades.filter(t=>strategyDefs.find(d=>d.id===t.strategy)?.specialist&&(!eraOnly||t.policyVersion===STRATEGY_ERA));}
 function avg(xs){return xs.length?xs.reduce((a,b)=>a+b,0)/xs.length:0;}
 function bandStats(rows,getBand){
@@ -1824,14 +1880,14 @@ function diversityWeight(id){
   const c=avg(a.map(x=>x.jaccard))/100;return clamp(1-c*.45,.55,1.05);
 }
 function tokenDataQuality(t){
-  const ts=now(),ageSec=Math.max(0,(ts-t.updatedAt)/1000),f=features(t);
+  const ts=now(),priceIntegrity=tokenPriceIntegrity(t),ageSec=Math.max(0,priceIntegrity.quoteAgeMs/1000),f=features(t);
   const freshSources=Object.entries(t.sourceSeen||{}).filter(([,v])=>ts-num(v)<180000).map(([k])=>k);
   if((t.chainFlow||[]).some(e=>ts-e.ts<90000)&&!freshSources.includes('solana-rpc'))freshSources.push('solana-rpc');
   const freshness=clamp(100-ageSec*2),cross=freshSources.length>=2?100:freshSources.length?45:0;
   const liq=f.liqFresh?100:0,flow=f.flowFresh?100:0,volume=f.volumeFresh?100:0,depth=clamp(Math.log10(1+f.totalTx)*45);
   const score=clamp(freshness*.20+cross*.20+liq*.20+flow*.18+volume*.12+depth*.10);
-  return{score,freshness,sourceCount:freshSources.length,sources:freshSources,ageSec,market:clamp(f.liqScore*.65+Math.min(35,f.totalTx*1.5)),
-    observed:{liquidity:f.liqFresh,flow:f.flowFresh,volume:f.volumeFresh},level:ageSec>90?'STALE':freshSources.length>=2?'CROSS-CHECKED':score>=60?'OBSERVED':'PARTIAL'};
+  return{score,freshness,sourceCount:freshSources.length,sources:freshSources,ageSec,market:clamp(f.liqScore*.65+Math.min(35,f.totalTx*1.5)),priceIntegrity,
+    observed:{price:priceIntegrity.freshQuote,liquidity:f.liqFresh,flow:f.flowFresh,volume:f.volumeFresh},level:!priceIntegrity.freshQuote?'STALE':freshSources.length>=2?'CROSS-CHECKED':score>=60?'OBSERVED':'PARTIAL'};
 }
 
 
@@ -1918,7 +1974,7 @@ function walletGraphSnapshot(){
   return{nodes:nout,edges:eout,clusters:eout.filter(x=>x.shared>=2).length};
 }
 function strategyStatistics(){
-  return strategyDefs.filter(d=>d.risk!=='CONTROL'&&!d.specialist).map(d=>{
+  return strategyDefs.filter(d=>isFrozenExperimentStrategy(d)&&d.risk!=='CONTROL'&&!d.minuteSampler).map(d=>{
     const all=trades.filter(t=>t.strategy===d.id),era=all.filter(t=>t.policyVersion===STRATEGY_ERA);
     const train=era.filter(t=>(t.samplePartition||partitionForMint(t.mint))==='train'),holdout=era.filter(t=>(t.samplePartition||partitionForMint(t.mint))==='holdout');
     const summarize=a=>{const rets=a.map(t=>t.pnlPct).filter(Number.isFinite),m=avg(rets),sd=stdev(rets),se=rets.length?sd/Math.sqrt(rets.length):0,grossWin=a.filter(t=>t.pnl>0).reduce((s,t)=>s+num(t.pnl),0),grossLoss=Math.abs(a.filter(t=>t.pnl<0).reduce((s,t)=>s+num(t.pnl),0));return{n:rets.length,mean:m,median:median(rets),stdev:sd,ciLow:m-1.96*se,ciHigh:m+1.96*se,winRate:rets.length?a.filter(t=>t.pnlPct>0).length/rets.length*100:0,profitFactor:grossLoss?grossWin/grossLoss:grossWin>0?9.99:0};};
@@ -1949,7 +2005,7 @@ function exitModeFor(d){
   return'balanced';
 }
 function partialClose(d,p,t,fraction,why){
-  if(!(p.units>0)||!(t.price>0))return false;
+  if(!(p.units>0)||!(t.price>0)||!tokenPriceIntegrity(t).executable)return false;
   const frac=clamp(fraction,.05,.80),units=p.units*frac,notional=units*t.price;
   const exec=executionQuote(t,notional,'sell'),partialAlpha=alphaOS.executionBrain(t,{features:features(t),score:p.score||50}),exit=exec.fillPrice,gross=units*exit;exec.networkCostUsd=Number(partialAlpha.networkCostUsd||0);exec.priorityLamports=Number(partialAlpha.priorityLamports||0);exec.jitoTipLamports=Number(partialAlpha.jitoTipLamports||0);exec.executionMode=partialAlpha.mode||'STANDARD_RPC';const proceeds=Math.max(0,gross*(1-exec.feeRate)-exec.fixedCost-exec.networkCostUsd);
   p.units=Math.max(0,p.units-units);p.realizedProceeds=num(p.realizedProceeds)+proceeds;
@@ -1997,7 +2053,7 @@ function exitDecision(d,p,t,f){
     if(hold>=3.5)return{exit:true,why:'velocity scalp timeout',mode:'scalp'};
     return{exit:false,mode:'scalp'};
   }
-  const learnedExit=profitAccelerator.exitLearning({strategyId:d.id,trades,era:STRATEGY_ERA});
+  const learnedExit=isFrozenExperimentStrategy(d)&&eraTradeCount(d)<FROZEN_EXPERIMENT_MIN_TRADES?{confidence:0}:profitAccelerator.exitLearning({strategyId:d.id,trades,era:STRATEGY_ERA});
   let stop=Math.min(d.stop,18),take=d.take,maxHold=d.maxHold||60;
   if(learnedExit.confidence>=.30){if(Number.isFinite(learnedExit.stopCap))stop=Math.min(stop,learnedExit.stopCap);if(Number.isFinite(learnedExit.takeFloor))take=Math.max(take,learnedExit.takeFloor);}
   if(mode==='scalp'){maxHold=Math.min(maxHold,28);stop=Math.min(stop,10);take=Math.min(take,50);}
@@ -2903,14 +2959,16 @@ async function logFullPostmortem(){
 }
 function systemAudit(){
   allTraders().forEach(markEquity);
-  const open=positions.filter(p=>!p.closed),markDetails=open.map(p=>({p,d:positionMarkDetail(p)})),stale=markDetails.filter(x=>x.d.stale),zeroed=markDetails.filter(x=>x.d.multiplier<=0);
-  const providers=providerAudit(),stats=strategyStatistics(),qualified=stats.filter(s=>s.holdoutN>=20&&s.holdoutMean>0&&s.holdoutProfitFactor>1.10&&s.dd<PAPER_MAX_DRAWDOWN_PCT);
+  const open=positions.filter(p=>!p.closed),markDetails=open.map(p=>({p,d:positionMarkDetail(p)})),stale=markDetails.filter(x=>x.d.stale),unexecutable=markDetails.filter(x=>!x.d.executable),duplicateTickers=duplicateTickerAudit(),impossibleLosses=trades.filter(t=>t.policyVersion===STRATEGY_ERA&&t.integrity?.impossibleLoss);
+  const providers=providerAudit(),stats=strategyStatistics(),qualified=stats.filter(s=>s.holdoutN>=50&&s.holdoutMean>0&&s.holdoutProfitFactor>1.30&&s.dd<PAPER_MAX_DRAWDOWN_PCT);
   const critical=[],warnings=[],passes=[];
   if((DATABASE_URL||REDIS_URL||PEER_RECOVERY_URL)&&!(dbStateRestored||kvStateRestored||localStateRestored||peerStateRestored))critical.push('no recovery source has restored state');
   if((DATABASE_URL||REDIS_URL||PEER_RECOVERY_URL)&&!durableTradingReady())critical.push('all persistence layers are outside the safe recovery window');
   if(DATABASE_URL&&!db&&(kvReady||peerStateRestored||localStateRestored))warnings.push('Postgres temporarily offline; emergency recovery layers are carrying protected state');
   if(REDIS_URL&&!kvReady&&db)warnings.push('Key Value failover offline; Postgres remains canonical');
-  if(zeroed.length)critical.push(`${zeroed.length} open positions have no executable fresh mark`);
+  if(unexecutable.length)critical.push(`${unexecutable.length} open positions lack a fresh executable quote; exits are quarantined and never written off`);
+  if(impossibleLosses.length)critical.push(`${impossibleLosses.length} new-era trades violated the loss-vs-MAE integrity bound`);
+  if(duplicateTickers.length)warnings.push(`${duplicateTickers.length} duplicate ticker symbol(s) observed; mint address remains canonical identity`);
   if(lastStateBuildMs>5000)warnings.push(`dashboard state build is slow at ${lastStateBuildMs} ms`);
   if(lastStateBytes>1500000)warnings.push(`dashboard state payload is large at ${Math.round(lastStateBytes/1024)} KB`);
   if(stale.length)warnings.push(`${stale.length} open positions are using stale-mark haircuts`);
@@ -2930,12 +2988,12 @@ function systemAudit(){
   passes.push('deterministic 80/20 holdout split active');
   passes.push('dynamic fee + slippage + fixed transaction friction modeled');
   passes.push('strategy drawdown and 24h loss circuits active');
-  passes.push('stale marks decay instead of freezing equity at last seen price');
+  passes.push('stale marks are quarantined at last verified price; synthetic zero write-offs are disabled');passes.push('mint address is canonical token identity; duplicate tickers are audited separately');passes.push('frozen experiment slate is 6 selective strategies + Random + Every Launch controls until 30+ new-era trades each');
   const liveReady=critical.length===0&&qualified.length>0&&providers.overall>=70&&stale.length===0;
   return{auditVersion:AUDIT_VERSION,status:liveReady?'LIVE GATE PASSED':'PAPER RESEARCH ONLY',liveReady,critical,warnings,passes,
-    launchCriteria:{holdoutTrades:20,holdoutMeanPositive:true,holdoutProfitFactorMin:1.10,maxDrawdownPct:PAPER_MAX_DRAWDOWN_PCT,providerHealthMin:70,shadowExecutionRequired:true},
+    launchCriteria:{holdoutTrades:50,holdoutMeanPositive:true,holdoutProfitFactorMin:1.30,maxDrawdownPct:PAPER_MAX_DRAWDOWN_PCT,providerHealthMin:70,shadowExecutionRequired:true},
     qualifiedStrategies:qualified.map(x=>({id:x.id,name:x.name,holdoutN:x.holdoutN,holdoutMean:x.holdoutMean,holdoutProfitFactor:x.holdoutProfitFactor,dd:x.dd})),
-    runtime:{tokens:tokens.size,openPositions:open.length,stalePositions:stale.length,opportunities:opportunities.size,stateBytes:lastStateBytes,stateBuildMs:lastStateBuildMs,deepResearchAt:deepResearchCache.ts,deepResearchBuildMs:deepResearchCache.data?.deepResearchBuildMs||0,dbConnected:!!db,tradingUnlocked:durableTradingReady()}};
+    runtime:{tokens:tokens.size,openPositions:open.length,stalePositions:stale.length,unexecutablePositions:unexecutable.length,impossibleLosses:impossibleLosses.length,duplicateTickers:duplicateTickers.length,activeExperiment:[...ACTIVE_EXPERIMENT_IDS],freezeMinTrades:FROZEN_EXPERIMENT_MIN_TRADES,opportunities:opportunities.size,stateBytes:lastStateBytes,stateBuildMs:lastStateBuildMs,deepResearchAt:deepResearchCache.ts,deepResearchBuildMs:deepResearchCache.data?.deepResearchBuildMs||0,dbConnected:!!db,tradingUnlocked:durableTradingReady()}};
 }
 
 function v3SelfTest(){
@@ -3841,16 +3899,16 @@ logV3SelfTest();
 setHealth('engine','ok','v3.1 evidence playbooks + Megga copy/scout lab + 31 specialist cohorts + controls online',{truth:'observed'});
 setHealth('learning-core','ok','era-separated allocator + DNA memory + replay + exit optimizer + counterfactual lab online',{truth:'inferred'});
 setHealth('alpha-os','ok','Alpha OS v2 online · wallet profitability/copyability + independent consensus + safety/cadence/expectancy controls · PAPER/SHADOW ONLY',{truth:'inferred'});
-setHealth('season3-science','ok','Season 3 clean execution science online · corrected marks + timed momentum + fresh evidence only',{truth:'inferred'});
+setHealth('season3-science','ok','Integrity Freeze science online · corrected marks + timed momentum + fresh evidence only',{truth:'inferred'});
 setHealth('profit-accelerator','ok','Profit Accelerator v1 · pruning + champion weighting + regime veto + MAE/MFE exits + execution quality + social proof + no-trade + expectancy + correlation + postmortems',{truth:'inferred'});
 setHealth('x-social','standby','Full X stream not connected · social agent uses token social metadata only',{truth:'not connected'});
 setHealth('wallet-intel','standby','Connecting Solana stream + verified Fomo wallet watchlist…',{truth:'not connected'});setHealth('fomo-watchlist','standby','Preparing verified public wallet subscriptions',{truth:'not connected'});
 if((DATABASE_URL||REDIS_URL)&&!durableTradingReady())console.log('STATE_LOCK engaged · trading paused until a recovery source is healthy');
-log('system','🚀 PUMP LAB v5.0 Season 3 Clean Execution started · PAPER ONLY','system');connectPumpPortal();connectSolanaStream();pumpPoll();dexPoll();console.log('PUMP LAB v5.0 Season 3 Clean Execution runtime online · PAPER ONLY');
+log('system','🚀 PUMP LAB v5.1 Integrity Freeze started · PAPER ONLY','system');connectPumpPortal();connectSolanaStream();pumpPoll();dexPoll();console.log('PUMP LAB v5.1 Integrity Freeze runtime online · PAPER ONLY');
 setTimeout(stateSelfTest,5000).unref?.();setInterval(()=>alphaOS.runCapitalAuction(m=>tokens.get(m),executionQuote),2000).unref?.();
 setInterval(()=>{alphaOS.observeWorld({weather:marketWeather(),tokens:[...tokens.values()].filter(t=>now()-t.updatedAt<900000),strategyEquity:Object.fromEntries(allTraders().map(d=>[d.id,d.equity]))});alphaOS.prune();},60000).unref?.();
 setInterval(()=>runScheduled('alpha-external',()=>alphaOS.pollExternal(),{budgetMs:5000}),30000).unref?.();
-setInterval(()=>runScheduled('stale-sweep',()=>stalePositionSweep(),{budgetMs:250,critical:true}),60000).unref?.();
+setInterval(()=>runScheduled('stale-sweep',()=>stalePositionSweep(),{budgetMs:250,critical:true}),15000).unref?.();
 setInterval(()=>runScheduled('runtime-prune',()=>pruneRuntimeMemory(),{budgetMs:300}),300000).unref?.();
 setInterval(()=>runScheduled('solana-drain',()=>drainSolanaQueue(),{budgetMs:1500,critical:true}),700).unref?.();
 setInterval(()=>runScheduled('pump-poll',()=>pumpPoll(),{budgetMs:6000,critical:true}),7000).unref?.();
