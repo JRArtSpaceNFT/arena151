@@ -37,7 +37,7 @@ const checks = [
   ['holdout partition', "partitionForMint(mint)"],
   ['auto promotion off by default', "process.env.ALLOW_AUTO_PROMOTION || 'false'"],
   ['Alpha OS EV sizing', "sizingMode:'alpha-os-ev-v1'"],
-  ['stale mark decay', 'STALE_MARK_ZERO_MS'],
+  ['stale mark quarantine', 'STALE_POSITION_QUARANTINE'],
   ['stale position sweep', 'stalePositionSweep()'],
   ['execution quote model', "executionQuote(t,budget,'buy')"],
   ['lifecycle fee model', 'platformFeeRate(t)'],
@@ -45,7 +45,7 @@ const checks = [
   ['live launch audit gate', 'function systemAudit()'],
   ['lazy deep research endpoint', "req.url==='/api/research'"],
   ['serialized state writes', 'if(saveInProgress){saveQueued=true;return;}'],
-  ['Season 3 clean execution era', "v5.0-season3-clean-execution"],
+  ['Integrity Freeze era', "v5.1-integrity-freeze"],
   ['Alpha OS integration', 'alphaOS.evaluateCandidate'],
   ['CIO capital auction', 'alphaOS.runCapitalAuction'],
   ['adaptive exit intelligence', 'alphaOS.exitPlan'],
@@ -77,6 +77,23 @@ const checks = [
 ];
 
 const failures = checks.filter(([, needle]) => !src.includes(needle)).map(([name])=>name);
+
+
+// Integrity Freeze regression guards.
+for(const [name,needle] of [
+  ['fresh quote age gate','PRICE_QUOTE_MAX_AGE_MS'],
+  ['price stagnation tracking','unchangedPriceTicks'],
+  ['synthetic zero writeoffs disabled','synthetic zero write-offs disabled'],
+  ['stale quarantine log','STALE_POSITION_QUARANTINE'],
+  ['impossible loss detector','IMPOSSIBLE_LOSS_FLAG'],
+  ['meme universe filter','memeUniverseEligibility(t)'],
+  ['tokenized stock blocklist',"NON_MEME_SYMBOLS=new Set(['SPYX','NVDAX','RDDT'])"],
+  ['mint duplicate audit','duplicateTickerAudit()'],
+  ['frozen strategy slate','ACTIVE_EXPERIMENT_IDS'],
+  ['30 trade freeze','FROZEN_EXPERIMENT_MIN_TRADES'],
+  ['50 holdout launch gate','holdoutN>=50'],
+  ['1.30 profit factor launch gate','holdoutProfitFactor>1.30']
+])if(!src.includes(needle))failures.push(name+' missing');
 
 // External-profitability research regression guards.
 for(const [name,needle] of [
