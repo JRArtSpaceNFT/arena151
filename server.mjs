@@ -1267,7 +1267,8 @@ function maybeTrade(t,weather=null) {
     if(d.minuteSampler)continue;
     const priceIntegrity=tokenPriceIntegrity(t),universe=memeUniverseEligibility(t);
     if(!priceIntegrity.executable){recordDecision(d,t,f,strategyScore(d,f,t),'REJECT','data integrity: stale price quote',weather);continue;}
-    if(priceIntegrity.unchangedPriceTicks>0&&priceIntegrity.distinctAgeMs>PRICE_QUOTE_MAX_AGE_MS){recordDecision(d,t,f,strategyScore(d,f,t),'REJECT','data integrity: unchanged/stagnant price',weather);continue;}
+    const corroboratingMarketUpdate=(num(t.flowUpdatedAt)>0&&now()-num(t.flowUpdatedAt)<=PRICE_STAGNANT_MAX_MS)||(num(t.volumeUpdatedAt)>0&&now()-num(t.volumeUpdatedAt)<=PRICE_STAGNANT_MAX_MS)||(num(t.liquidityUpdatedAt)>0&&now()-num(t.liquidityUpdatedAt)<=PRICE_STAGNANT_MAX_MS);
+    if(priceIntegrity.unchangedPriceTicks>=4&&priceIntegrity.distinctAgeMs>PRICE_STAGNANT_MAX_MS&&!corroboratingMarketUpdate){recordDecision(d,t,f,strategyScore(d,f,t),'REJECT','data integrity: truly stagnant quote without corroborating market updates',weather);continue;}
     if(!universe.ok){recordDecision(d,t,f,strategyScore(d,f,t),'REJECT','meme universe: '+universe.reason,weather);continue;}
     const eligibility=specialistEligibility(d,t,f,weather.regime);
     if(!eligibility.ok)continue;
