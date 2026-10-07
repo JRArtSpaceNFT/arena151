@@ -74,8 +74,8 @@ const checks = [
   ['critical local checkpoint', 'writeLocalCriticalAtomic(s)'],
   ['recovery snapshot endpoint', "req.url==='/api/recovery-snapshot'"],
   ['trusted recovery snapshot gate', 'const recoverable=stateIntegrityOk&&stateVersionTs>0'],
-  ['critical recovery monotonicity', 'CRITICAL_STATE_REGRESSION_REJECTED'],
-  ['recovery quality floor', 'CRITICAL_STATE_QUALITY_REJECTED'],
+  ['critical recovery monotonicity', 'CRITICAL_STATE_VERSION_REGRESSION_REJECTED'],
+  ['recovery high-water quality floor', 'RECOVERY_HIGH_WATER_REJECTED'],
   ['journal regression detector', 'function journalRegressionCutoff(rows)'],
   ['journal season rebuild', 'async function repairCurrentSeasonFromJournal'],
   ['journal repair startup hook', 'const journalRepaired=await repairCurrentSeasonFromJournal(db)']
