@@ -154,6 +154,10 @@ let lastPeerRestoreAt = 0;
 let lastPeerAttemptAt = 0;
 let stateVersionTs = 0;
 let dbReconnectTimer = null;
+let dbReconnectAttempt = 0;
+let dbDisabledUntil = 0;
+let lastDbFailure = '';
+const DB_RECONNECT_MAX_MS = Math.max(60000, Number(process.env.DB_RECONNECT_MAX_MS || 300000));
 const opportunityKeysByMint = new Map();
 const alphaOS = createPumpLabAlphaOS({
   start:START,
@@ -454,10 +458,14 @@ function setLifecycle(phase,detail=''){
   console.log('LIFECYCLE '+JSON.stringify({phase,detail:lifecycleDetail,ts:lifecycleSince}));
 }
 function runtimePressure(){
-  const queueDepth=solanaQueue.length+solanaPriorityQueue.length+pendingDbEvents.length+dbWriteHigh.length+dbWriteNormal.length+dbWriteLow.length;
-  if(eventLoopLagMs>=750||queueDepth>=1200)return'CRITICAL';
-  if(eventLoopLagMs>=250||queueDepth>=600)return'HIGH';
-  if(eventLoopLagMs>=100||queueDepth>=250)return'ELEVATED';
+  // Market-event backlog is intentionally non-critical while Postgres is unavailable.
+  // Counting an unreachable database backlog as runtime pressure caused a permanent
+  // CRITICAL loop that starved the very market/mark tasks needed to recover safely.
+  const durableEventDepth=db?pendingDbEvents.length:Math.min(50,pendingDbEvents.length);
+  const queueDepth=solanaQueue.length+solanaPriorityQueue.length+durableEventDepth+dbWriteHigh.length+dbWriteNormal.length+dbWriteLow.length;
+  if(eventLoopLagMs>=750||eventLoopLagP95>=900||queueDepth>=1200)return'CRITICAL';
+  if(eventLoopLagMs>=250||eventLoopLagP95>=500||queueDepth>=600)return'HIGH';
+  if(eventLoopLagMs>=100||eventLoopLagP95>=250||queueDepth>=250)return'ELEVATED';
   return'NORMAL';
 }
 function shouldDeferNonCritical(){return shuttingDown||systemPressure==='HIGH'||systemPressure==='CRITICAL';}
@@ -474,7 +482,7 @@ function watchdogTick(){
   if(ts-lastDexPollAt>60000){actions.push('dex-poll');runScheduled('dex-poll',()=>dexPoll(),{budgetMs:9000,critical:true});}
   if(positions.some(p=>!p.closed)&&ts-lastOpenPositionPollAt>45000){actions.push('open-marks');runScheduled('open-marks',()=>openPositionPoll(),{budgetMs:9000,critical:true});}
   if((solanaQueue.length||solanaPriorityQueue.length)&&ts-lastSolanaDrainAt>5000){actions.push('solana-drain');runScheduled('solana-drain',()=>drainSolanaQueue(),{budgetMs:1500,critical:true});}
-  if(DATABASE_URL&&!db&&!dbConnecting){actions.push('postgres-reconnect');scheduleDbReconnect(100);}
+  if(DATABASE_URL&&!db&&!dbConnecting&&ts>=dbDisabledUntil){actions.push('postgres-reconnect');scheduleDbReconnect();}
   if(systemPressure==='CRITICAL'&&lifecyclePhase==='READY')setLifecycle('DEGRADED','runtime pressure critical');
   else if(lifecyclePhase==='DEGRADED'&&lifecycleDetail==='runtime pressure critical'&&['NORMAL','ELEVATED'].includes(systemPressure)&&(!DATABASE_URL||!!db))setLifecycle('READY','runtime pressure recovered');
   if(actions.length)console.warn('WATCHDOG_SELF_HEAL '+JSON.stringify({ts,actions,pressure:systemPressure}));
@@ -482,7 +490,7 @@ function watchdogTick(){
 function readinessStatus(){
   const durable=durableTradingReady(),journalHealthy=pendingTradeJournal.length<250,integrityHealthy=lastIntegrityReport?.ok!==false,queuesHealthy=dbWriteHigh.length<100&&solanaPriorityQueue.length<100,eventLoopHealthy=eventLoopLagP95<1000;
   const ready=!shuttingDown&&durable&&journalHealthy&&integrityHealthy&&queuesHealthy&&eventLoopHealthy&&['READY','DEGRADED'].includes(lifecyclePhase);
-  return{ready,phase:lifecyclePhase,phaseSince:lifecycleSince,detail:lifecycleDetail,pressure:systemPressure,eventLoopLagMs,eventLoopLagP95,durable,dbConnected:!!db,kvConnected:kvReady,peerRestored:peerStateRestored,stateVersionTs,lastDurableSaveAt,lastCriticalSaveAt,lastPeerRestoreAt,lastIngestAt,integrity:lastIntegrityReport,checks:{durable,journalHealthy,integrityHealthy,queuesHealthy,eventLoopHealthy},journal:{pending:pendingTradeJournal.length,lastFlushAt:lastTradeJournalFlush,written:journalEventsWritten,replayedAt:journalReplayedAt},backpressure:{...backpressureDrops},circuits:Object.fromEntries(providerCircuits),queues:{solana:solanaQueue.length,prioritySolana:solanaPriorityQueue.length,pendingDbEvents:pendingDbEvents.length,dbHigh:dbWriteHigh.length,dbNormal:dbWriteNormal.length,dbLow:dbWriteLow.length},subsystems:Object.fromEntries(subsystemRuntime)};
+  return{ready,phase:lifecyclePhase,phaseSince:lifecycleSince,detail:lifecycleDetail,pressure:systemPressure,eventLoopLagMs,eventLoopLagP95,durable,dbConnected:!!db,dbReconnect:{attempt:dbReconnectAttempt,nextRetryAt:dbDisabledUntil,lastError:lastDbFailure||null},kvConnected:kvReady,peerRestored:peerStateRestored,stateVersionTs,lastDurableSaveAt,lastCriticalSaveAt,lastPeerRestoreAt,lastIngestAt,integrity:lastIntegrityReport,checks:{durable,journalHealthy,integrityHealthy,queuesHealthy,eventLoopHealthy},journal:{pending:pendingTradeJournal.length,lastFlushAt:lastTradeJournalFlush,written:journalEventsWritten,replayedAt:journalReplayedAt},backpressure:{...backpressureDrops},circuits:Object.fromEntries(providerCircuits),queues:{solana:solanaQueue.length,prioritySolana:solanaPriorityQueue.length,pendingDbEvents:pendingDbEvents.length,dbHigh:dbWriteHigh.length,dbNormal:dbWriteNormal.length,dbLow:dbWriteLow.length},subsystems:Object.fromEntries(subsystemRuntime)};
 }
 function broadcast(type,data) {
   const payload=`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`;
@@ -1392,8 +1400,12 @@ function minuteSamplerRank(d,t){
 }
 function minuteSamplerCandidates(d){
   return [...tokens.values()].filter(t=>{
-    const priceIntegrity=tokenPriceIntegrity(t),universe=memeUniverseEligibility(t);
-    if(!(t?.price>0)||!(t?.mc>0)||!priceIntegrity.executable||!priceIntegrity.moving||priceIntegrity.unchangedPriceTicks>0||priceIntegrity.distinctAgeMs>PRICE_STAGNANT_MAX_MS||!universe.ok)return false;
+    const priceIntegrity=tokenPriceIntegrity(t),universe=memeUniverseEligibility(t),sources=t?.sources||[];
+    // Minute samplers need an independently refreshable secondary quote path.
+    // Pump-only tokens can disappear from the launch API and become impossible to
+    // mark honestly at the scheduled exit, so require DexScreener confirmation.
+    const hasDexExitPath=sources.some(x=>String(x).startsWith('dexscreener'));
+    if(!(t?.price>0)||!(t?.mc>0)||!priceIntegrity.executable||!priceIntegrity.moving||priceIntegrity.unchangedPriceTicks>0||priceIntegrity.distinctAgeMs>PRICE_STAGNANT_MAX_MS||!universe.ok||!hasDexExitPath)return false;
     if(Number.isFinite(d.mcMin)&&t.mc<d.mcMin)return false;
     if(Number.isFinite(d.mcMax)&&t.mc>=d.mcMax)return false;
     if(!(t.liq>=num(d.minuteMinLiq)))return false;
@@ -1966,7 +1978,11 @@ function recordMarketEvent(t,source,weather=null){
   const scores={};for(const d of strategyDefs.filter(x=>x.risk!=='CONTROL'))scores[d.id]=strategyScore(d,f,t);
   const row={ts,era:STRATEGY_ERA,mint:t.mint,symbol:t.symbol,source,price:t.price,mc:t.mc,liq:t.liq,vol:t.vol,buys:t.buys,sells:t.sells,narrative:t.narrative,regime,features:{...f},dna,quality:quality.score,scores};
   marketEvents.push(row);while(marketEvents.length>MAX_MARKET_EVENTS)marketEvents.shift();
-  pendingDbEvents.push(row);if(pendingDbEvents.length>1500){pendingDbEvents.shift();backpressureDrops.dbEvents++;}
+  // Keep a small catch-up buffer when Postgres is offline, but do not let an
+  // unavailable database consume the process and trigger permanent backpressure.
+  pendingDbEvents.push(row);
+  const eventCap=db?1500:250;
+  while(pendingDbEvents.length>eventCap){pendingDbEvents.shift();backpressureDrops.dbEvents++;}
 }
 function replayLab(){
   const rows=[...dnaArchive.values()].filter(x=>x.observations>=2&&now()-x.firstTs>=5*60000);const out=[];
@@ -2428,9 +2444,12 @@ async function archiveAndResetSeason(label){
   }
 }
 
-function scheduleDbReconnect(delay=5000){
-  if(dbReconnectTimer)return;
-  dbReconnectTimer=setTimeout(()=>{dbReconnectTimer=null;initDb(!dbStateRestored);},delay);
+function scheduleDbReconnect(delay=null){
+  if(dbReconnectTimer||db||dbConnecting)return;
+  const ts=now();
+  if(ts<dbDisabledUntil)return;
+  const backoff=delay??Math.min(DB_RECONNECT_MAX_MS,5000*Math.pow(2,Math.min(6,dbReconnectAttempt)));
+  dbReconnectTimer=setTimeout(()=>{dbReconnectTimer=null;if(now()>=dbDisabledUntil)initDb(!dbStateRestored);},Math.max(1000,backoff));
   dbReconnectTimer.unref?.();
 }
 function markRestoreSource(source){
@@ -2515,7 +2534,7 @@ async function initDb(restoreState=true){
       if(lifecyclePhase==='READY')setLifecycle('DEGRADED','Postgres interrupted; failover active');
       console.warn('Postgres connection interrupted:',e.message);scheduleDbReconnect(5000);
     });
-    await client.connect();db=client;
+    await client.connect();db=client;dbReconnectAttempt=0;dbDisabledUntil=0;lastDbFailure='';
     await db.query('CREATE TABLE IF NOT EXISTS pump_lab_state (id text primary key, payload jsonb not null, updated_at timestamptz default now())');
     await db.query('CREATE TABLE IF NOT EXISTS pump_lab_market_events (id bigserial primary key, ts bigint not null, mint text not null, payload jsonb not null)');
     await db.query('CREATE INDEX IF NOT EXISTS pump_lab_market_events_ts_idx ON pump_lab_market_events(ts)');
@@ -2552,8 +2571,14 @@ async function initDb(restoreState=true){
   }catch(e){
     if(db===client)db=null;
     try{await client?.end();}catch{}
-    setHealth('research-memory','warn','Postgres connection failed · failover active while retrying: '+e.message,{truth:'observed'});
-    console.warn('Postgres connection failed:',e.message);scheduleDbReconnect(10000);
+    const msg=String(e?.message||e);lastDbFailure=msg;dbReconnectAttempt++;
+    const dnsFailure=/ENOTFOUND|EAI_AGAIN|ECONNREFUSED|timeout/i.test(msg);
+    const backoff=dnsFailure?Math.min(DB_RECONNECT_MAX_MS,30000*Math.pow(2,Math.min(4,dbReconnectAttempt-1))):Math.min(DB_RECONNECT_MAX_MS,5000*Math.pow(2,Math.min(6,dbReconnectAttempt-1)));
+    dbDisabledUntil=now()+backoff;
+    if(pendingDbEvents.length>250){const drop=pendingDbEvents.length-250;pendingDbEvents.splice(0,drop);backpressureDrops.dbEvents+=drop;}
+    setHealth('research-memory','warn','Postgres unavailable · failover active · next retry in '+Math.ceil(backoff/1000)+'s: '+msg,{truth:'observed'});
+    console.warn('POSTGRES_BACKOFF '+JSON.stringify({attempt:dbReconnectAttempt,backoffMs:backoff,error:msg}));
+    scheduleDbReconnect(backoff);
   }finally{dbConnecting=false;}
 }
 async function tryPeerRecovery(){
@@ -3098,8 +3123,8 @@ function snapshot(){
 }
 let stateJsonCache={ts:0,json:''};
 function getStateJsonCached(){
-  const ts=now();
-  if(stateJsonCache.json&&ts-stateJsonCache.ts<30000)return stateJsonCache.json;
+  const ts=now(),age=ts-stateJsonCache.ts;
+  if(stateJsonCache.json&&(age<30000||(shouldDeferNonCritical()&&age<120000)))return stateJsonCache.json;
   const started=Date.now(),json=JSON.stringify(snapshot());
   stateJsonCache={ts,json};
   const ms=Date.now()-started;lastStateBuildMs=ms;lastStateBytes=json.length;lastStateBuildAt=now();
