@@ -212,6 +212,8 @@ let eventLoopLagMs = 0;
 let eventLoopLagP95 = 0;
 const eventLoopSamples = [];
 let systemPressure = 'NORMAL';
+let criticalPressureSince = 0;
+const CRITICAL_PRESSURE_DEGRADE_MS = Math.max(20000, Number(process.env.CRITICAL_PRESSURE_DEGRADE_MS || 30000));
 let lastIngestAt = 0;
 let lastPumpPollAt = 0;
 let lastDexPollAt = 0;
@@ -484,8 +486,13 @@ function watchdogTick(){
   if(positions.some(p=>!p.closed)&&ts-lastOpenPositionPollAt>45000){actions.push('open-marks');runScheduled('open-marks',()=>openPositionPoll(),{budgetMs:9000,critical:true});}
   if((solanaQueue.length||solanaPriorityQueue.length)&&ts-lastSolanaDrainAt>5000){actions.push('solana-drain');runScheduled('solana-drain',()=>drainSolanaQueue(),{budgetMs:1500,critical:true});}
   if(DATABASE_URL&&!db&&!dbConnecting&&ts>=dbDisabledUntil){actions.push('postgres-reconnect');scheduleDbReconnect();}
-  if(systemPressure==='CRITICAL'&&lifecyclePhase==='READY')setLifecycle('DEGRADED','runtime pressure critical');
-  else if(lifecyclePhase==='DEGRADED'&&lifecycleDetail==='runtime pressure critical'&&['NORMAL','ELEVATED'].includes(systemPressure)&&durableTradingReady())setLifecycle('READY','runtime pressure recovered');
+  if(systemPressure==='CRITICAL'){
+    criticalPressureSince=criticalPressureSince||ts;
+    if(lifecyclePhase==='READY'&&ts-criticalPressureSince>=CRITICAL_PRESSURE_DEGRADE_MS)setLifecycle('DEGRADED','sustained runtime pressure critical');
+  }else{
+    criticalPressureSince=0;
+    if(lifecyclePhase==='DEGRADED'&&/runtime pressure critical/.test(lifecycleDetail)&&['NORMAL','ELEVATED'].includes(systemPressure)&&durableTradingReady())setLifecycle('READY','runtime pressure recovered');
+  }
   if(actions.length)console.warn('WATCHDOG_SELF_HEAL '+JSON.stringify({ts,actions,pressure:systemPressure}));
 }
 function readinessStatus(){
@@ -2549,8 +2556,10 @@ async function initDb(restoreState=true){
     client=new Client({connectionString:DATABASE_URL,ssl:DATABASE_URL.includes('render.com')?{rejectUnauthorized:false}:undefined,connectionTimeoutMillis:15000,keepAlive:true,keepAliveInitialDelayMillis:5000});
     client.on('error',e=>{
       if(db===client)db=null;
-      setHealth('research-memory','warn','Postgres interrupted · failover remains active while reconnecting',{truth:'observed'});
-      if(lifecyclePhase==='READY')setLifecycle('DEGRADED','Postgres interrupted; failover active');
+      setHealth('research-memory','warn','Postgres interrupted · independent failover remains active while reconnecting',{truth:'observed'});
+      // Postgres is canonical when healthy, but a brief canonical-store outage is not
+      // an engine outage when the peer/local failover has a fresh trusted checkpoint.
+      if(!durableTradingReady()&&lifecyclePhase==='READY')setLifecycle('DEGRADED','durable storage unavailable');
       console.warn('Postgres connection interrupted:',e.message);scheduleDbReconnect(5000);
     });
     await client.connect();db=client;dbReconnectAttempt=0;dbDisabledUntil=0;lastDbFailure='';
@@ -2581,8 +2590,8 @@ async function initDb(restoreState=true){
       console.log('STATE_LOCK unlocked · Postgres connected');
       logStrategyDiagnostics();
     }
-    setHealth('research-memory','ok','Postgres durable memory online · Key Value failover armed',{truth:'observed'});
-    if(lifecyclePhase==='DEGRADED'&&!shuttingDown)setLifecycle('READY','Postgres reconnected');
+    setHealth('research-memory','ok','Postgres durable memory online · failover armed',{truth:'observed'});
+    if(lifecyclePhase==='DEGRADED'&&!shuttingDown&&durableTradingReady()&&systemPressure!=='CRITICAL')setLifecycle('READY','Postgres reconnected');
     console.log('Postgres durable memory online');
     if(pendingTradeJournal.length)await flushTradeJournal(db);
     validateStateIntegrity({repair:true});
