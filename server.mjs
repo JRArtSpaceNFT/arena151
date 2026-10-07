@@ -159,6 +159,8 @@ let lastLocalRestoreAt = 0;
 let peerStateRestored = false;
 let lastPeerRestoreAt = 0;
 let lastPeerAttemptAt = 0;
+let peerRetryNotBefore = 0;
+let peerFailureCount = 0;
 let stateVersionTs = 0;
 let dbReconnectTimer = null;
 let dbReconnectAttempt = 0;
@@ -2692,14 +2694,26 @@ async function tryPeerRecovery(){
   lastPeerAttemptAt=now();const controller=new AbortController(),started=now(),timer=setTimeout(()=>controller.abort(),PEER_RECOVERY_TIMEOUT_MS);
   try{
     const r=await fetch(PEER_RECOVERY_URL,{headers:{accept:'application/json','cache-control':'no-cache','user-agent':'pump-lab-peer-recovery/1.0'},cache:'no-store',signal:controller.signal});
-    if(!r.ok)throw new Error('peer HTTP '+r.status);
+    if(!r.ok){
+      const retryAfter=Number(r.headers.get('retry-after')||0);
+      const cooldownMs=Math.max(30000,retryAfter>0?retryAfter*1000:Math.min(300000,30000*Math.pow(2,Math.min(3,peerFailureCount))));
+      peerRetryNotBefore=now()+cooldownMs;
+      throw new Error('peer HTTP '+r.status+' cooldown '+cooldownMs+'ms');
+    }
     const j=await r.json(),s=j?.state||j,ts=num(s?.stateMeta?.savedAt)||num(j?.savedAt)||0;
     const ageMs=now()-ts;if(!ts||ageMs>PEER_RECOVERY_MAX_AGE_MS)throw new Error('peer snapshot stale by '+Math.max(0,ageMs)+'ms');
     const restored=restoreCriticalFromSource(s,'peer',ts);
-    if(restored){setHealth('recovery-peer','ok','Independent UI recovery snapshot accepted',{truth:'observed'});console.log('PEER_RECOVERY_ACCEPTED '+JSON.stringify({savedAt:ts,ageMs:now()-ts,fetchMs:now()-started,stateVersionTs}));}
+    if(restored){peerFailureCount=0;peerRetryNotBefore=0;setHealth('recovery-peer','ok','Independent UI recovery snapshot accepted',{truth:'observed'});console.log('PEER_RECOVERY_ACCEPTED '+JSON.stringify({savedAt:ts,ageMs:now()-ts,fetchMs:now()-started,stateVersionTs}));}
     else console.warn('PEER_RECOVERY_NOT_APPLIED '+JSON.stringify({savedAt:ts,ageMs:now()-ts,fetchMs:now()-started,stateVersionTs}));
     return restored;
-  }catch(e){const msg=String(e?.name==='AbortError'?'peer recovery timeout after '+PEER_RECOVERY_TIMEOUT_MS+'ms':e?.message||e);setHealth('recovery-peer','warn','Recovery peer unavailable: '+msg,{truth:'observed'});console.warn('PEER_RECOVERY_FAILED '+JSON.stringify({url:PEER_RECOVERY_URL,elapsedMs:now()-started,error:msg}));return false;}
+  }catch(e){
+    peerFailureCount++;
+    if(!peerRetryNotBefore)peerRetryNotBefore=now()+Math.min(300000,30000*Math.pow(2,Math.min(3,peerFailureCount-1)));
+    const msg=String(e?.name==='AbortError'?'peer recovery timeout after '+PEER_RECOVERY_TIMEOUT_MS+'ms':e?.message||e);
+    setHealth('recovery-peer','warn','Recovery peer unavailable: '+msg,{truth:'observed'});
+    console.warn('PEER_RECOVERY_FAILED '+JSON.stringify({url:PEER_RECOVERY_URL,elapsedMs:now()-started,error:msg,failureCount:peerFailureCount,retryAt:peerRetryNotBefore}));
+    return false;
+  }
   finally{clearTimeout(timer);}
 }
 async function waitForInitialDurableRestore(maxMs=90000){
@@ -2707,7 +2721,7 @@ async function waitForInitialDurableRestore(maxMs=90000){
   const deadline=now()+maxMs;
   while(!(dbStateRestored||kvStateRestored||localStateRestored||peerStateRestored)&&now()<deadline){
     if(REDIS_URL&&!kvReady&&!kvConnecting)await initKv(true);
-    if(PEER_RECOVERY_URL&&now()-lastPeerAttemptAt>=5000)await tryPeerRecovery();
+    if(PEER_RECOVERY_URL&&now()>=peerRetryNotBefore&&now()-lastPeerAttemptAt>=5000)await tryPeerRecovery();
     if(dbStateRestored||kvStateRestored||localStateRestored||peerStateRestored)break;
     await new Promise(r=>setTimeout(r,1000));
   }
