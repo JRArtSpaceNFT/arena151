@@ -37,8 +37,8 @@ const PRICE_STAGNANT_MAX_MS = Number(process.env.PRICE_STAGNANT_MAX_MS || 90000)
 const IMPOSSIBLE_LOSS_TOLERANCE_PCT = Number(process.env.IMPOSSIBLE_LOSS_TOLERANCE_PCT || 5);
 const FROZEN_EXPERIMENT_MIN_TRADES = Number(process.env.FROZEN_EXPERIMENT_MIN_TRADES || 30);
 const ACTIVE_EXPERIMENT_IDS = new Set(['banker','graduation','confirmed_runner','mc_over100','liq_50_plus','crosscheck','random','launchctl']);
-const MAX_RUNTIME_TOKENS = Number(process.env.MAX_RUNTIME_TOKENS || 1200);
-const MAX_OPPORTUNITIES = Number(process.env.MAX_OPPORTUNITIES || 12000);
+const MAX_RUNTIME_TOKENS = Number(process.env.MAX_RUNTIME_TOKENS || 600);
+const MAX_OPPORTUNITIES = Number(process.env.MAX_OPPORTUNITIES || 5000);
 const OPPORTUNITY_RETENTION_MS = Number(process.env.OPPORTUNITY_RETENTION_MS || 129600000);
 const PAPER_DAILY_LOSS_LIMIT_PCT = Number(process.env.PAPER_DAILY_LOSS_LIMIT_PCT || 10);
 const PAPER_MAX_DRAWDOWN_PCT = Number(process.env.PAPER_MAX_DRAWDOWN_PCT || 25);
@@ -84,10 +84,11 @@ const FOMO_WATCHLIST = [
 const WATCHED_WALLET_LOOKUP = new Map();
 for(const trader of FOMO_WATCHLIST)for(const wallet of trader.wallets)WATCHED_WALLET_LOOKUP.set(wallet.address,{traderId:trader.id,traderName:trader.name,...wallet});
 
-const MAX_ACTIVITY = 400;
-const MAX_TRADES = 5000;
-const MAX_DECISIONS = 3000;
-const MAX_TIMELINE = 240;
+const MAX_ACTIVITY = 250;
+const MAX_TRADES = Math.max(1000, Number(process.env.MAX_TRADES || 2000));
+const MAX_DECISIONS = Math.max(750, Number(process.env.MAX_DECISIONS || 1500));
+const MAX_TIMELINE = 120;
+const MAX_TOKEN_HISTORY = Math.max(45, Number(process.env.MAX_TOKEN_HISTORY || 90));
 
 const tokens = new Map();
 const creators = new Map();
@@ -185,8 +186,8 @@ let seasonInfo = {label:'legacy',startedAt,archiveId:null,resetApplied:false};
 
 // PUMP LAB v2 learning memory. In-memory structures are bounded; the durable event
 // ledger is also flushed to Postgres so research survives process restarts.
-const MAX_MARKET_EVENTS = 6000;
-const MAX_DNA_ARCHIVE = 2500;
+const MAX_MARKET_EVENTS = Math.max(1000, Number(process.env.MAX_MARKET_EVENTS || 2500));
+const MAX_DNA_ARCHIVE = Math.max(600, Number(process.env.MAX_DNA_ARCHIVE || 1200));
 const marketEvents = [];
 const dnaArchive = new Map();
 const marketEventClock = new Map();
@@ -555,7 +556,7 @@ function normalize(raw,source='live') {
 
 function mergeToken(old,t) {
   if(!old) return t;
-  const ts=now(),hist=(old.history||[]).slice(-239);
+  const ts=now(),hist=(old.history||[]).slice(-(MAX_TOKEN_HISTORY-1));
   hist.push({ts,price:old.price,mc:old.mc,liq:old.liq,vol:old.vol,buys:old.buys,sells:old.sells});
   const seen={...(old.sourceSeen||{})};for(const [k,v] of Object.entries(t.sourceSeen||{}))seen[k]=Math.max(num(seen[k]),num(v));
   const freshFlow=t.flowObserved;
