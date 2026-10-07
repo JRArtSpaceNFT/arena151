@@ -21,7 +21,7 @@ const PAPER_MIN_EXPECTED_NET_WIN_USD = Math.max(0, Number(process.env.PAPER_MIN_
 const STATE_FILE = process.env.STATE_FILE || '/tmp/pump-lab-state-v06.json';
 const DATABASE_URL = process.env.DATABASE_URL || '';
 const REDIS_URL = process.env.REDIS_URL || '';
-const PEER_RECOVERY_URL = process.env.PEER_RECOVERY_URL || 'https://pump-lab-ui.onrender.com/api/recovery-snapshot-cache';
+const PEER_RECOVERY_URL = process.env.PEER_RECOVERY_URL === 'disabled' ? '' : (process.env.PEER_RECOVERY_URL || 'https://pump-lab-ui.onrender.com/api/recovery-snapshot-cache');
 const PEER_RECOVERY_MAX_AGE_MS = Number(process.env.PEER_RECOVERY_MAX_AGE_MS || 900000);
 const RECOVERY_MIN_EXITS = Math.max(1, Number(process.env.RECOVERY_MIN_EXITS || 1));
 const JOURNAL_REPAIR_MIN_GAP = Math.max(3, Number(process.env.JOURNAL_REPAIR_MIN_GAP || 5));
