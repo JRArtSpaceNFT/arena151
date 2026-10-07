@@ -184,7 +184,10 @@ for(const [name,needle] of [
   ['redundant peer list', "PEER_RECOVERY_URLS"],
   ['peer failover loop', "for(const url of PEER_RECOVERY_URLS)"],
   ['peer source telemetry', "PEER_RECOVERY_SOURCE_FAILED"],
-  ['bounded critical trade payload', "return picked.slice(0,250)"]
+  ['bounded critical trade payload', "return picked.slice(0,250)"],
+  ['postgres restore captured client', "repairCurrentSeasonFromJournal(client)"],
+  ['postgres restore ownership gate', "Postgres disconnected during restore"],
+  ['postgres readiness ownership gate', "Postgres disconnected before readiness"]
 ])if(!src.includes(needle))failures.push(name+' missing');
 
 // Dedicated market-cap discovery regression guards.
