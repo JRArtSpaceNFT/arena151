@@ -262,6 +262,10 @@ if(!src.includes("VALUES('main:highwater'"))failures.push('Postgres high-water r
 
 // Single-authority anti-regression guards.
 // Recovery source selection must be freshness-first.
+if(!src.includes("PEER_RECOVERY_TIMEOUT_MS"))failures.push('bounded peer recovery timeout missing');
+if(!src.includes("PEER_RECOVERY_ACCEPTED"))failures.push('peer recovery success telemetry missing');
+if(!src.includes("PEER_RECOVERY_FAILED"))failures.push('peer recovery failure telemetry missing');
+
 if(src.includes("sameSeasonRecovery(s)&&currentExits>=RECOVERY_MIN_EXITS&&incomingExits<currentExits"))failures.push('legacy exit-count richness veto still active');
 if(!src.includes("const peerRestoredNow=PEER_RECOVERY_URL?await tryPeerRecovery():false"))failures.push('peer is not evaluated before canonical repair/reseed');
 if(!src.includes("if(PEER_RECOVERY_URL)await tryPeerRecovery();"))failures.push('final peer freshness check missing');

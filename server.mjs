@@ -22,7 +22,8 @@ const STATE_FILE = process.env.STATE_FILE || '/tmp/pump-lab-state-v06.json';
 const DATABASE_URL = process.env.DATABASE_URL || '';
 const REDIS_URL = process.env.REDIS_URL || '';
 const PEER_RECOVERY_URL = process.env.PEER_RECOVERY_URL === 'disabled' ? '' : (process.env.PEER_RECOVERY_URL || 'https://pump-lab-ui.onrender.com/api/recovery-snapshot-cache');
-const PEER_RECOVERY_MAX_AGE_MS = Number(process.env.PEER_RECOVERY_MAX_AGE_MS || 900000);
+const PEER_RECOVERY_MAX_AGE_MS = Number(process.env.PEER_RECOVERY_MAX_AGE_MS || 3600000);
+const PEER_RECOVERY_TIMEOUT_MS = Math.max(6000, Number(process.env.PEER_RECOVERY_TIMEOUT_MS || 20000));
 const RECOVERY_MIN_EXITS = Math.max(1, Number(process.env.RECOVERY_MIN_EXITS || 1));
 const JOURNAL_REPAIR_MIN_GAP = Math.max(3, Number(process.env.JOURNAL_REPAIR_MIN_GAP || 5));
 const FORENSIC_BASELINE = (()=>{try{return JSON.parse(fs.readFileSync(new URL('./recovery/season2-pre-incident-2026-10-03T215312Z.json',import.meta.url),'utf8'));}catch{return null;}})();
@@ -2688,16 +2689,17 @@ async function initDb(restoreState=true){
 }
 async function tryPeerRecovery(){
   if(!PEER_RECOVERY_URL)return false;
-  lastPeerAttemptAt=now();const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),6000);
+  lastPeerAttemptAt=now();const controller=new AbortController(),started=now(),timer=setTimeout(()=>controller.abort(),PEER_RECOVERY_TIMEOUT_MS);
   try{
     const r=await fetch(PEER_RECOVERY_URL,{headers:{accept:'application/json','cache-control':'no-cache','user-agent':'pump-lab-peer-recovery/1.0'},cache:'no-store',signal:controller.signal});
     if(!r.ok)throw new Error('peer HTTP '+r.status);
     const j=await r.json(),s=j?.state||j,ts=num(s?.stateMeta?.savedAt)||num(j?.savedAt)||0;
-    if(!ts||now()-ts>PEER_RECOVERY_MAX_AGE_MS)throw new Error('peer snapshot stale');
+    const ageMs=now()-ts;if(!ts||ageMs>PEER_RECOVERY_MAX_AGE_MS)throw new Error('peer snapshot stale by '+Math.max(0,ageMs)+'ms');
     const restored=restoreCriticalFromSource(s,'peer',ts);
-    if(restored)setHealth('recovery-peer','ok','Independent UI recovery snapshot accepted',{truth:'observed'});
+    if(restored){setHealth('recovery-peer','ok','Independent UI recovery snapshot accepted',{truth:'observed'});console.log('PEER_RECOVERY_ACCEPTED '+JSON.stringify({savedAt:ts,ageMs:now()-ts,fetchMs:now()-started,stateVersionTs}));}
+    else console.warn('PEER_RECOVERY_NOT_APPLIED '+JSON.stringify({savedAt:ts,ageMs:now()-ts,fetchMs:now()-started,stateVersionTs}));
     return restored;
-  }catch(e){setHealth('recovery-peer','warn','Recovery peer unavailable: '+String(e?.message||e),{truth:'observed'});return false;}
+  }catch(e){const msg=String(e?.name==='AbortError'?'peer recovery timeout after '+PEER_RECOVERY_TIMEOUT_MS+'ms':e?.message||e);setHealth('recovery-peer','warn','Recovery peer unavailable: '+msg,{truth:'observed'});console.warn('PEER_RECOVERY_FAILED '+JSON.stringify({url:PEER_RECOVERY_URL,elapsedMs:now()-started,error:msg}));return false;}
   finally{clearTimeout(timer);}
 }
 async function waitForInitialDurableRestore(maxMs=90000){
