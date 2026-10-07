@@ -180,7 +180,10 @@ for(const [name,needle] of [
   ['collection expected-net floor', "PAPER_COLLECTION_MIN_EXPECTED_NET_WIN_USD"],
   ['hard cross-source safety retained', "if(p.requireCross&&quality.sourceCount<2)"],
   ['hard fresh-market-data safety retained', "if(!f.flowFresh||!f.liqFresh)"],
-  ['core entry observability', "CORE_ENTRY "]
+  ['core entry observability', "CORE_ENTRY "],
+  ['redundant peer list', "PEER_RECOVERY_URLS"],
+  ['peer failover loop', "for(const url of PEER_RECOVERY_URLS)"],
+  ['peer source telemetry', "PEER_RECOVERY_SOURCE_FAILED"]
 ])if(!src.includes(needle))failures.push(name+' missing');
 
 // Dedicated market-cap discovery regression guards.
