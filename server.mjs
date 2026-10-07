@@ -466,9 +466,12 @@ function runtimePressure(){
   // CRITICAL loop that starved the very market/mark tasks needed to recover safely.
   const durableEventDepth=db?pendingDbEvents.length:Math.min(50,pendingDbEvents.length);
   const queueDepth=solanaQueue.length+solanaPriorityQueue.length+durableEventDepth+dbWriteHigh.length+dbWriteNormal.length+dbWriteLow.length;
-  if(eventLoopLagMs>=750||eventLoopLagP95>=900||queueDepth>=1200)return'CRITICAL';
-  if(eventLoopLagMs>=250||eventLoopLagP95>=500||queueDepth>=600)return'HIGH';
-  if(eventLoopLagMs>=100||eventLoopLagP95>=250||queueDepth>=250)return'ELEVATED';
+  // p95 is historical context, not proof that the loop is blocked right now.
+  // Require current lag to corroborate a high historical p95 so one expected
+  // snapshot build cannot pin the engine in CRITICAL for the whole sample window.
+  if(eventLoopLagMs>=1000||queueDepth>=1200||(eventLoopLagP95>=1500&&eventLoopLagMs>=250))return'CRITICAL';
+  if(eventLoopLagMs>=500||queueDepth>=600||(eventLoopLagP95>=900&&eventLoopLagMs>=100))return'HIGH';
+  if(eventLoopLagMs>=150||eventLoopLagP95>=500||queueDepth>=250)return'ELEVATED';
   return'NORMAL';
 }
 function shouldDeferNonCritical(){return shuttingDown||systemPressure==='HIGH'||systemPressure==='CRITICAL';}
@@ -3174,6 +3177,7 @@ function getRecoveryJsonCached(){
 function getStateJsonCached(){
   const ts=now(),age=ts-stateJsonCache.ts;
   if(stateJsonCache.json&&(age<30000||(shouldDeferNonCritical()&&age<120000)))return stateJsonCache.json;
+  pruneRuntimeMemory();
   const started=Date.now(),json=JSON.stringify(snapshot());
   stateJsonCache={ts,json};
   const ms=Date.now()-started;lastStateBuildMs=ms;lastStateBytes=json.length;lastStateBuildAt=now();
@@ -4011,6 +4015,7 @@ setInterval(()=>runScheduled('critical-save',()=>saveCritical(),{budgetMs:3000,c
 setInterval(()=>runScheduled('journal-flush',()=>db?queueDbWrite(()=>flushTradeJournal(db),'high'):false,{budgetMs:2000,critical:true}),2000).unref?.();
 setInterval(()=>runScheduled('event-flush',()=>db?queueDbWrite(()=>flushMarketEvents(db),'normal'):false,{budgetMs:5000}),60000).unref?.();
 setInterval(()=>runScheduled('full-save',()=>save(),{budgetMs:15000}),300000).unref?.();
+setInterval(()=>{pruneRuntimeMemory();},30000).unref?.();
 const runDiagnostics=()=>runScheduled('diagnostics',async()=>{
   logStrategyDiagnostics();
   await new Promise(r=>setImmediate(r));
