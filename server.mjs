@@ -3145,6 +3145,14 @@ function snapshot(){
     fomoWatchlist:fomoWatchlistSnapshot(),fomoEvents:walletEvents.filter(e=>e.watchlist).slice(0,60),audit:systemAudit(),eventLedger:{memory:marketEvents.length,pending:pipelineSafe(pendingDbEvents.length),lastFlush:lastDbEventFlush,dnaArchive:dnaArchive.size},discovery:discoveryLab(),solana:{observed:solanaObserved,resolved:solanaResolved,createSignals:solanaCreateSignals,priorityQueued:solanaPriorityQueue.length,queued:solanaQueue.length,watchedWallets:WATCHED_WALLET_LOOKUP.size,subscriptionAcks:solanaSubAcks}};
 }
 let stateJsonCache={ts:0,json:''};
+let recoveryJsonCache={version:0,json:''};
+function getRecoveryJsonCached(){
+  const version=stateVersionTs;
+  if(recoveryJsonCache.json&&recoveryJsonCache.version===version)return recoveryJsonCache.json;
+  const snapshot=serializeCritical(),json=JSON.stringify({ok:true,recoverable:true,generatedAt:now(),sourceVersionTs:version,state:snapshot});
+  recoveryJsonCache={version,json};
+  return json;
+}
 function getStateJsonCached(){
   const ts=now(),age=ts-stateJsonCache.ts;
   if(stateJsonCache.json&&(age<30000||(shouldDeferNonCritical()&&age<120000)))return stateJsonCache.json;
@@ -3903,8 +3911,8 @@ const server=http.createServer(async (req,res)=>{
     try{
       const recoverable=stateIntegrityOk&&stateVersionTs>0&&(dbStateRestored||kvStateRestored||localStateRestored||peerStateRestored);
       if(!recoverable){res.writeHead(503,{'content-type':'application/json','cache-control':'no-store'});return res.end(JSON.stringify({ok:false,error:'recovery snapshot not yet trusted',phase:lifecyclePhase}));}
-      const snapshot=serializeCritical(),json=JSON.stringify({ok:true,recoverable:true,generatedAt:now(),sourceVersionTs:stateVersionTs,state:snapshot});
-      res.writeHead(200,{'content-type':'application/json','cache-control':'no-store','content-length':Buffer.byteLength(json),'x-robots-tag':'noindex, nofollow'});
+      const json=getRecoveryJsonCached();
+      res.writeHead(200,{'content-type':'application/json','cache-control':'private, max-age=10','content-length':Buffer.byteLength(json),'x-robots-tag':'noindex, nofollow'});
       return res.end(json);
     }catch(e){
       res.writeHead(500,{'content-type':'application/json','cache-control':'no-store'});
