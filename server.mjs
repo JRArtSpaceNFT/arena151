@@ -2751,14 +2751,14 @@ function serialize(){reconcileAuthoritativeExperimentState({repair:true,source:'
 function stripTrader(d){return{id:d.id,name:d.name,icon:d.icon,risk:d.risk,type:d.type,parentId:d.parentId,mutation:d.mutation,auto:d.auto,bornAt:d.bornAt,cash:d.cash,peak:d.peak,dd:d.dd,auditPeak:d.auditPeak,auditDd:d.auditDd,wins:d.wins,losses:d.losses,n:d.n,version:d.version,min:d.min,stop:d.stop,take:d.take,size:d.size,maxOpen:d.maxOpen,riskCap:d.riskCap,exitMode:d.exitMode,sizeBias:d.sizeBias,promotionCandidateAt:d.promotionCandidateAt,promotedAt:d.promotedAt,graveyardAt:d.graveyardAt,hypothesisCandidateAt:d.hypothesisCandidateAt,hypothesisRetiredAt:d.hypothesisRetiredAt,hypothesisReason:d.hypothesisReason};}
 function criticalRecoveryTrades(){
   const seasonStart=num(seasonInfo?.startedAt)||0,primaryIds=new Set(strategyDefs.map(d=>d.id)),picked=[],seen=new Set();
-  const add=t=>{if(!t||picked.length>=400)return;if(t.id&&seen.has(t.id))return;picked.push(t);if(t.id)seen.add(t.id);};
+  const add=t=>{if(!t||picked.length>=250)return;if(t.id&&seen.has(t.id))return;picked.push(t);if(t.id)seen.add(t.id);};
   // Preserve every clean-season strategy/control trade first so high-volume R&D samplers cannot crowd out the experiment ledger.
   for(const t of trades)if(primaryIds.has(t.strategy)&&num(t.closedAt)>=seasonStart)add(t);
   for(const t of trades)if(primaryIds.has(t.strategy))add(t);
   for(const t of trades)add(t);
-  return picked.slice(0,400);
+  return picked.slice(0,250);
 }
-function serializeCritical(){reconcileAuthoritativeExperimentState({repair:true,source:'serialize-critical'});return{stateMeta:{version:6,authority:STATE_AUTHORITY_VERSION,savedAt:now(),era:STRATEGY_ERA,scope:'critical',exitCount:currentExitTotal(),tradeCount:trades.length},season:seasonInfo,forensicLedgerGaps,forensicRecovery,scienceEvidence:science.serializeCriticalEvidence(),alphaCritical:alphaOS.serializeCritical(),strategies:strategyDefs.map(stripTrader),challengers:challengers.map(stripTrader),positions:positions.filter(p=>!p.closed),trades:criticalRecoveryTrades(),decisions:decisions.filter(x=>x.era===STRATEGY_ERA).slice(0,1500),activity:activity.slice(0,80),autopsies:autopsies.slice(0,80)};}
+function serializeCritical(){reconcileAuthoritativeExperimentState({repair:true,source:'serialize-critical'});return{stateMeta:{version:6,authority:STATE_AUTHORITY_VERSION,savedAt:now(),era:STRATEGY_ERA,scope:'critical',exitCount:currentExitTotal(),tradeCount:trades.length},season:seasonInfo,forensicLedgerGaps,forensicRecovery,scienceEvidence:science.serializeCriticalEvidence(),alphaCritical:alphaOS.serializeCritical(),strategies:strategyDefs.map(stripTrader),challengers:challengers.map(stripTrader),positions:positions.filter(p=>!p.closed),trades:criticalRecoveryTrades(),decisions:decisions.filter(x=>x.era===STRATEGY_ERA).slice(0,Math.min(750,MAX_DECISIONS)),activity:activity.slice(0,80),autopsies:autopsies.slice(0,80)};}
 function restoreCritical(s){try{
   if(!s||typeof s!=='object')return false;if(s.season)seasonInfo={...seasonInfo,...s.season};
   if(s.forensicLedgerGaps)forensicLedgerGaps={...forensicLedgerGaps,...s.forensicLedgerGaps};
