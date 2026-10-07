@@ -13,7 +13,7 @@ const checks = [
   ['science detailed-ledger method', "science.rebuildFromTradeLedger("],
   ['canonical recovery reseed', "async function reseedCanonicalFullSnapshot"],
   ['canonical reseed audit log', "CANONICAL_FULL_RESEED"],
-  ['critical recovery full reseed hook', "await reseedCanonicalFullSnapshot(db"],
+  ['critical recovery full reseed hook', "await reseedCanonicalFullSnapshot(client"],
   ['high-water health diagnostics', "highWater:{seasonKey:recoveryHighWater.seasonKey"],
   ['forensic health diagnostics', "forensic:{active:!!forensicRecovery.active"],
   ['peer-aware system audit', "DATABASE_URL||REDIS_URL||PEER_RECOVERY_URL"],
@@ -78,7 +78,7 @@ const checks = [
   ['recovery high-water quality floor', 'RECOVERY_HIGH_WATER_REJECTED'],
   ['journal regression detector', 'function journalRegressionCutoff(rows)'],
   ['journal season rebuild', 'async function repairCurrentSeasonFromJournal'],
-  ['journal repair startup hook', 'const journalRepaired=await repairCurrentSeasonFromJournal(db)']
+  ['journal repair startup hook', 'const journalRepaired=await repairCurrentSeasonFromJournal(client)']
 ];
 
 const failures = checks.filter(([, needle]) => !src.includes(needle)).map(([name])=>name);
