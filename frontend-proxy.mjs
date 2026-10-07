@@ -234,7 +234,7 @@ async function refreshStateCache(force=false){
       try{
         const state=await fetchBackendJson('/api/state',20000);
         stateCache=state;stateCacheAt=Date.now();backendWakeFailures=0;
-        const sm=state?.summary||{},tradeAccountingOk=sm.ledgerEraProductionTrades==null||Number(sm.trades||0)===Number(sm.ledgerEraProductionTrades||0);
+        const sm=state?.summary||{},tradeAccountingOk=sm.ledgerCleanProductionTrades==null||Number(sm.trades||0)===Number(sm.ledgerCleanProductionTrades||0);
         console.log('STATE_CACHE_REFRESH '+JSON.stringify({ok:true,attempt,version:state?.version||null,productionExits:sm.trades||0,ledgerRows:sm.ledgerTrades||0,ledgerDetailedRows:sm.ledgerDetailedTrades??sm.ledgerTrades??0,ledgerRecoveredAggregateRows:sm.ledgerRecoveredAggregateRows||0,ledgerProductionRows:sm.ledgerProductionTrades||0,cohortRows:sm.ledgerCohortTrades||0,controlRows:sm.ledgerControlTrades||0,scienceTrades:sm.scienceTrades||0,tradeAccountingOk,tokens:sm.tokens||0,bytes:Buffer.byteLength(JSON.stringify(state))}));
         if(!tradeAccountingOk)console.warn('TRADE_ACCOUNTING_MISMATCH '+JSON.stringify({productionExits:sm.trades||0,ledgerProductionRows:sm.ledgerProductionTrades||0,ledgerRows:sm.ledgerTrades||0}));
         refreshRecoveryCache(false).catch(e=>console.warn('RECOVERY_CACHE_REFRESH_FAILED '+String(e?.message||e)));
