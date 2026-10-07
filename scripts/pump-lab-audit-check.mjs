@@ -23,7 +23,12 @@ const checks = [
   ['recovery high-water KV key', "pump-lab:state:highwater"],
   ['recovery high-water Postgres row', "main:highwater"],
   ['recovery high-water advance', "advanceRecoveryHighWater("],
-  ['richer canonical precedence', "richerThanCurrent"],
+  ['strict state version regression rejection', "STATE_VERSION_REGRESSION_REJECTED"],
+  ['strict critical version regression rejection', "CRITICAL_STATE_VERSION_REGRESSION_REJECTED"],
+  ['single ledger authority', "STATE_AUTHORITY_VERSION"],
+  ['ledger reconciliation', "reconcileAuthoritativeExperimentState("],
+  ['authoritative strategy cards', "authoritativeStrategyView(d)"],
+  ['automatic season migration disabled', "ALLOW_SEASON_MIGRATION"],
   ['forensic observed high-water', "observedHighWater"],
   ['immutable science rebuild', "science.rebuildFromTradeLedger(rebuiltTrades)"],
   ['aggregate recovered coverage', "ledgerRecoveredAggregateRows"],
@@ -166,11 +171,14 @@ for(const [name,needle] of [
   ['core rejection summary', "CORE_REJECTION_SUMMARY "]
 ])if(!src.includes(needle))failures.push(name+' missing');
 
-// Cold-start calibration regression guards.
+// Collection calibration regression guards.
 for(const [name,needle] of [
-  ['cold-start adaptive floor', "const adaptiveFloor=Math.max(46,d.min-14)"],
-  ['cold-start threshold calibration', "effectiveMin=clamp(p90+3,adaptiveFloor,d.min)"],
-  ['cold-start learned score isolation', "policy.coldStart?policy.min"],
+  ['collection score floor', "CORE_COLLECTION_MIN_SCORE_FLOOR"],
+  ['collection score relief cap', "CORE_COLLECTION_MAX_SCORE_RELIEF"],
+  ['frozen adaptive threshold calibration', "effectiveMin=clamp(p90+5,adaptiveFloor,d.min)"],
+  ['collection expected-net floor', "PAPER_COLLECTION_MIN_EXPECTED_NET_WIN_USD"],
+  ['hard cross-source safety retained', "if(p.requireCross&&quality.sourceCount<2)"],
+  ['hard fresh-market-data safety retained', "if(!f.flowFresh||!f.liqFresh)"],
   ['core entry observability', "CORE_ENTRY "]
 ])if(!src.includes(needle))failures.push(name+' missing');
 
@@ -251,6 +259,15 @@ if(!src.includes("source:'Render observed pre-incident checkpoint'"))failures.pu
 
 if(!src.includes("kv.set('pump-lab:state:highwater'")&&!src.includes("kv.set(\'pump-lab:state:highwater\'"))failures.push('high-water must be persisted independently');
 if(!src.includes("VALUES('main:highwater'"))failures.push('Postgres high-water row missing');
+
+// Single-authority anti-regression guards.
+if(src.includes("ts<stateVersionTs&&!richer"))failures.push('older richer snapshots can still overwrite newer state');
+if(src.includes("if(!isFrozenExperimentStrategy(d)&&rows.length>=20"))failures.push('frozen experiment still bypasses adaptive collection calibration');
+if(!src.includes("throw new Error('Season migration required but ALLOW_SEASON_MIGRATION is false; refusing automatic reset')"))failures.push('season migration fail-closed guard missing');
+if(!src.includes("stateAuthority:{version:STATE_AUTHORITY_VERSION"))failures.push('state authority metadata missing');
+if(!src.includes("cleanStrategyTrades(d.id)"))failures.push('clean-season strategy ledger view missing');
+if(!src.includes("STATE_AUTHORITY_RECONCILE"))failures.push('state authority reconciliation observability missing');
+
 if (failures.length) {
   console.error('PUMP LAB AUDIT STATIC CHECK FAILED');
   for (const name of failures) console.error(' - ' + name);
