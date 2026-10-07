@@ -262,6 +262,10 @@ if(!src.includes("VALUES('main:highwater'"))failures.push('Postgres high-water r
 
 // Single-authority anti-regression guards.
 // Recovery source selection must be freshness-first.
+if(!src.includes("peerRetryNotBefore"))failures.push('peer retry cooldown state missing');
+if(!src.includes("retry-after"))failures.push('peer Retry-After handling missing');
+if(!src.includes("peerFailureCount"))failures.push('peer exponential failure backoff missing');
+
 if(!src.includes("PEER_RECOVERY_TIMEOUT_MS"))failures.push('bounded peer recovery timeout missing');
 if(!src.includes("PEER_RECOVERY_ACCEPTED"))failures.push('peer recovery success telemetry missing');
 if(!src.includes("PEER_RECOVERY_FAILED"))failures.push('peer recovery failure telemetry missing');
