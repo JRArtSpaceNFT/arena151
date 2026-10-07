@@ -261,6 +261,12 @@ if(!src.includes("kv.set('pump-lab:state:highwater'")&&!src.includes("kv.set(\'p
 if(!src.includes("VALUES('main:highwater'"))failures.push('Postgres high-water row missing');
 
 // Single-authority anti-regression guards.
+// Recovery source selection must be freshness-first.
+if(src.includes("sameSeasonRecovery(s)&&currentExits>=RECOVERY_MIN_EXITS&&incomingExits<currentExits"))failures.push('legacy exit-count richness veto still active');
+if(!src.includes("const peerRestoredNow=PEER_RECOVERY_URL?await tryPeerRecovery():false"))failures.push('peer is not evaluated before canonical repair/reseed');
+if(!src.includes("if(PEER_RECOVERY_URL)await tryPeerRecovery();"))failures.push('final peer freshness check missing');
+if(!src.includes("const reasons=[],critical=s?.stateMeta?.scope==='critical'"))failures.push('critical high-water scope awareness missing');
+
 if(src.includes("ts<stateVersionTs&&!richer"))failures.push('older richer snapshots can still overwrite newer state');
 if(src.includes("if(!isFrozenExperimentStrategy(d)&&rows.length>=20"))failures.push('frozen experiment still bypasses adaptive collection calibration');
 if(!src.includes("throw new Error('Season migration required but ALLOW_SEASON_MIGRATION is false; refusing automatic reset')"))failures.push('season migration fail-closed guard missing');
