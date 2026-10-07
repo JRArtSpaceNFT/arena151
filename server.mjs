@@ -2648,11 +2648,16 @@ async function initDb(restoreState=true){
       if(highRow?.payload)applyRecoveryHighWater(highRow.payload,'postgres-high-water');
       if(fullRow?.payload){fullRestored=restoreIfNewer(fullRow.payload,'postgres',new Date(fullRow.updated_at).getTime());restoredAny=fullRestored||restoredAny;}
       if(criticalRow?.payload){criticalRestored=restoreCriticalIfNewer(criticalRow.payload,new Date(criticalRow.updated_at).getTime());restoredAny=criticalRestored||restoredAny;}
+      // Postgres is not privileged during restore. Before journal repair or any
+      // canonical reseed, inspect the independent peer and let a newer valid
+      // timestamp supersede Postgres.
+      const peerRestoredNow=PEER_RECOVERY_URL?await tryPeerRecovery():false;
+      restoredAny=peerRestoredNow||restoredAny;
       if(!restoredAny){dbStateRestored=true;lastDurableRestoreAt=now();}
       const journalRepaired=await repairCurrentSeasonFromJournal(db);
       if(!journalRepaired)await replayTradeJournal(db,stateVersionTs);
-      const scienceRebuilt=rebuildScienceFromDetailedLedger(fullRestored?'full-restore':'critical-or-journal-restore');
-      if(!fullRestored||journalRepaired||scienceRebuilt)await reseedCanonicalFullSnapshot(db,journalRepaired?'journal-repair':scienceRebuilt?'science-ledger-rebuild':'critical-recovery');
+      const scienceRebuilt=rebuildScienceFromDetailedLedger(peerRestoredNow?'peer-restore':fullRestored?'full-restore':'critical-or-journal-restore');
+      if(peerRestoredNow||!fullRestored||journalRepaired||scienceRebuilt)await reseedCanonicalFullSnapshot(db,peerRestoredNow?'peer-newest':journalRepaired?'journal-repair':scienceRebuilt?'science-ledger-rebuild':'critical-recovery');
       try{
         const ar=await db.query("SELECT payload,updated_at FROM pump_lab_state WHERE id='archive:season2-2026-10-01'");
         if(ar.rows[0]?.payload){archiveMonsterExportCache=buildArchiveMonsterExport(ar.rows[0].payload,ar.rows[0].updated_at);console.log('ARCHIVE_MONSTER_CACHE '+JSON.stringify(archiveMonsterExportCache.counts));}
@@ -2767,11 +2772,14 @@ function applyRecoveryHighWater(h,source='unknown'){
 function recoveryHighWaterAllows(s,source='unknown'){
   if(!s||typeof s!=='object')return false;const m=recoveryMetricsFromState(s),same=!m.seasonKey||!recoveryHighWater.seasonKey||m.seasonKey===recoveryHighWater.seasonKey;
   if(!same)return true;
-  const reasons=[];
-  if(num(recoveryHighWater.ledgerRows)>0&&m.ledgerRows<num(recoveryHighWater.ledgerRows))reasons.push('ledger '+m.ledgerRows+' < '+recoveryHighWater.ledgerRows);
-  if(num(recoveryHighWater.productionExits)>0&&m.productionExits<num(recoveryHighWater.productionExits))reasons.push('production '+m.productionExits+' < '+recoveryHighWater.productionExits);
+  const reasons=[],critical=s?.stateMeta?.scope==='critical';
+  // Critical checkpoints intentionally retain a bounded detailed ledger. Judge
+  // them by strategy counters, not historical row count. Full snapshots must
+  // still satisfy the detailed-ledger high-water.
+  if(!critical&&num(recoveryHighWater.ledgerRows)>0&&m.ledgerRows<num(recoveryHighWater.ledgerRows))reasons.push('ledger '+m.ledgerRows+' < '+recoveryHighWater.ledgerRows);
+  if(num(recoveryHighWater.productionExits)>0&&m.productionExits<num(recoveryHighWater.productionExits))reasons.push('production '+m.productionExits+' < '+num(recoveryHighWater.productionExits));
   for(const [id,n] of Object.entries(recoveryHighWater.strategyN||{})){if(num(n)>0&&num(m.strategyN?.[id])<num(n)){reasons.push(id+' '+num(m.strategyN?.[id])+' < '+num(n));if(reasons.length>=5)break;}}
-  if(reasons.length){console.warn('RECOVERY_HIGH_WATER_REJECTED '+JSON.stringify({source,seasonKey:m.seasonKey,ledgerRows:m.ledgerRows,productionExits:m.productionExits,reasons}));return false;}
+  if(reasons.length){console.warn('RECOVERY_HIGH_WATER_REJECTED '+JSON.stringify({source,critical,seasonKey:m.seasonKey,ledgerRows:m.ledgerRows,productionExits:m.productionExits,reasons}));return false;}
   return true;
 }
 function advanceRecoveryHighWater(source='runtime'){
@@ -2786,14 +2794,9 @@ function restoreCriticalFromSource(s,source,sourceTs=0){
     console.warn('CRITICAL_STATE_VERSION_REGRESSION_REJECTED '+JSON.stringify({source,savedAt:ts,current:stateVersionTs,incomingExits,currentExits}));
     return false;
   }
-  if(sameSeasonRecovery(s)&&currentExits>=RECOVERY_MIN_EXITS&&incomingExits<currentExits){
-    console.warn('CRITICAL_STATE_REGRESSION_REJECTED '+JSON.stringify({source,savedAt:ts,incomingExits,currentExits}));
-    return false;
-  }
-  if(source!=='postgres'&&currentExits===0&&incomingExits<RECOVERY_MIN_EXITS&&(s?.trades||[]).length<RECOVERY_MIN_EXITS){
-    console.warn('CRITICAL_STATE_QUALITY_REJECTED '+JSON.stringify({source,savedAt:ts,incomingExits,trades:(s?.trades||[]).length}));
-    return false;
-  }
+  // Timestamp + same-season high-water are the authority. A newer critical
+  // checkpoint must not be rejected because an older full snapshot happens to
+  // contain larger aggregate counters or more historical rows.
   if(!restoreCritical(s))return false;stateVersionTs=Math.max(stateVersionTs,ts);markRestoreSource(source);reconcileAuthoritativeExperimentState({repair:true,source:'critical:'+source});console.log('CRITICAL_STATE_RESTORE '+JSON.stringify({source,savedAt:ts,current:stateVersionTs,trades:trades.length,open:positions.length,exits:currentExitTotal(),authority:STATE_AUTHORITY_VERSION}));return true;
 }
 function restoreCriticalIfNewer(s,sourceTs=0){return restoreCriticalFromSource(s,'postgres',sourceTs);}
@@ -4048,7 +4051,10 @@ console.log('RUNTIME_CONFIG_PRESENCE '+JSON.stringify({databaseUrl:!!DATABASE_UR
 loadLocal();
 await initKv(true);
 await initDb(true);
-if(!(dbStateRestored||kvStateRestored||localStateRestored)&&PEER_RECOVERY_URL)await tryPeerRecovery();
+// Always perform one final peer freshness check. restoreCriticalFromSource is
+// monotonic, so this is harmless when Postgres/local is newer and essential
+// when the independent peer is newer.
+if(PEER_RECOVERY_URL)await tryPeerRecovery();
 if((DATABASE_URL||REDIS_URL||PEER_RECOVERY_URL)&&!(dbStateRestored||kvStateRestored||localStateRestored||peerStateRestored)){
   console.log('STARTUP_STATE_GATE waiting for Postgres / Key Value / local / peer recovery before accepting traffic');
   const restored=await waitForInitialDurableRestore();
