@@ -296,6 +296,8 @@ const strategyDefs = [
   ['meme_survival','△','Five-Minute Survivor','R&D',.02,62,8,100,1,'require survival beyond the most fragile launch window plus cross-checked quality and path continuity'],
 
   ['random','🎲','Random Control','CONTROL',.05,70,22,45,1,'random baseline'],
+  ['winner1','🏆','Winner 1','CONTROL',.05,55,12,90,2,'broad randomized entry baseline with ruthless first-minute failure cutting and explicit post-entry path collection'],
+  ['winner2','🥇','Winner 2','CONTROL',.05,55,15,140,2,'broad randomized entry baseline that gives trades time to prove a winner shape, then preserves confirmed runners and records the full early path'],
   ['volume','📊','Volume Control','CONTROL',.06,68,22,50,1,'simple volume baseline'],
   ['launchctl','🧱','Every Launch Control','CONTROL',.035,0,30,50,3,'buy-everything launch baseline'],
   ['socialctl','📣','Social Metadata Control','CONTROL',.04,58,25,55,2,'simple social-metadata baseline'],
@@ -422,6 +424,8 @@ const copyProfiles={
   megga_scout:{researchProfile:'megga-scout',exitMode:'conviction',maxHold:1440,scaleOut:true}
 };
 for(const d of strategyDefs)if(copyProfiles[d.id])Object.assign(d,copyProfiles[d.id]);
+Object.assign(strategyDefs.find(d=>d.id==='winner1'),{postEntryProfile:'fast-failure',exitMode:'runner',maxHold:90,scaleOut:true});
+Object.assign(strategyDefs.find(d=>d.id==='winner2'),{postEntryProfile:'confirm-runner',exitMode:'conviction',maxHold:180,scaleOut:true});
 // The 6-3 Smart Money sample was essentially flat because losses overwhelmed winners.
 // Keep the signal thesis, but compress downside and preserve the right tail.
 Object.assign(strategyDefs.find(d=>d.id==='smart'),{exitMode:'runner',maxHold:240,scaleOut:true});
@@ -835,6 +839,8 @@ function strategyScore(d,f,t) {
   else if(sid==='launchctl')s=100;
   else if(sid==='socialctl')s=profitAccelerator.adjustedSocial(f.social,{trades,strategyId:sid,era:STRATEGY_ERA}).value;
   else if(sid==='random')s=deterministicScore('random-control:'+t.mint);
+  else if(sid==='winner1')s=deterministicScore('winner1-entry:'+t.mint);
+  else if(sid==='winner2')s=deterministicScore('winner2-entry:'+t.mint);
   return clamp(s);
 }
 function detective(t,f=features(t)) {
@@ -1351,8 +1357,9 @@ function maybeTrade(t,weather=null) {
     if(existing){
       if(manageCopyPosition(d,existing,t))continue;
       const alphaExit=alphaOS.exitPlan(existing,t,f),openProfitUsd=estimatedOpenProfitUsd(existing,t),alphaRiskExit=/risk|rug|liquidity|catastrophic|stop|fraud|honeypot|thesis|invalid/i.test(String(alphaExit.reason||'')),alphaProfitAllowed=openProfitUsd<=0||openProfitUsd>=PAPER_MIN_PROFIT_TAKE_USD||alphaRiskExit;
-      if(alphaExit.action==='EXIT'&&alphaProfitAllowed){existing.alphaExit=alphaExit;closePos(d,existing,t,'Alpha OS · '+alphaExit.reason);continue;}
-      if(alphaExit.action==='TRIM'&&alphaProfitAllowed&&now()-num(existing.alphaExitAt)>60000){existing.alphaExitAt=now();existing.alphaExit=alphaExit;partialClose(d,existing,t,alphaExit.fraction,'Alpha OS · '+alphaExit.reason);continue;}
+      const postEntryExperiment=!!d.postEntryProfile;
+      if(alphaExit.action==='EXIT'&&alphaProfitAllowed&&(!postEntryExperiment||alphaRiskExit)){existing.alphaExit=alphaExit;closePos(d,existing,t,'Alpha OS · '+alphaExit.reason);continue;}
+      if(alphaExit.action==='TRIM'&&alphaProfitAllowed&&!postEntryExperiment&&now()-num(existing.alphaExitAt)>60000){existing.alphaExitAt=now();existing.alphaExit=alphaExit;partialClose(d,existing,t,alphaExit.fraction,'Alpha OS · '+alphaExit.reason);continue;}
       if(manageScaleOut(d,existing,t))continue;
       const ex=exitDecision(d,existing,t,f);if(ex.exit)closePos(d,existing,t,ex.why);continue;
     }
@@ -2160,6 +2167,42 @@ function estimatedOpenProfitUsd(p,t){
 }
 function exitDecision(d,p,t,f){
   const mode=exitModeFor(d),pnl=pct(t.price,p.entry),hold=(now()-p.opened)/60000,peakPnl=pct(p.peakDuring||t.price,p.entry),drawFromPeak=peakPnl-pnl,estimatedProfitUsd=estimatedOpenProfitUsd(p,t),meaningfulProfit=estimatedProfitUsd>=PAPER_MIN_PROFIT_TAKE_USD;
+  if(d.postEntryProfile){
+    p.postEntryPath=p.postEntryPath||[];
+    const last=num(p.postEntryPath.at(-1)?.ts);
+    if(!last||now()-last>=15000){
+      p.postEntryPath.push({ts:now(),holdMin:hold,pnl,peakPnl,drawFromPeak,momentum:num(f.momentum),acceleration:num(f.acceleration),buyRatio:num(f.buyRatio),risk:num(f.risk),flow:num(f.flow),liqScore:num(f.liqScore)});
+      if(p.postEntryPath.length>48)p.postEntryPath.shift();
+    }
+    const catastrophic=(f.flowFresh&&f.buyRatio<.25)||f.risk>=84;
+    if(catastrophic&&hold>=.25)return{exit:true,why:d.postEntryProfile+' · emergency thesis break',mode:'post-entry'};
+    if(d.postEntryProfile==='fast-failure'){
+      const noSpark45=hold>=.75&&peakPnl<2&&pnl<=-3&&(f.acceleration<48||f.momentum<52||f.buyRatio<.48);
+      const failed90=hold>=1.5&&peakPnl<5&&pnl<1&&(f.acceleration<45||f.buyRatio<.50);
+      const hardLoss=pnl<=-12;
+      const winnerTrail=peakPnl>=15&&drawFromPeak>=Math.max(6,peakPnl*.26)&&meaningfulProfit;
+      if(hardLoss)return{exit:true,why:'Winner 1 · hard failure cut',mode:'post-entry-fast'};
+      if(noSpark45)return{exit:true,why:'Winner 1 · no early spark',mode:'post-entry-fast'};
+      if(failed90)return{exit:true,why:'Winner 1 · failed to confirm by 90s',mode:'post-entry-fast'};
+      if(winnerTrail)return{exit:true,why:'Winner 1 · confirmed winner trail',mode:'post-entry-fast'};
+      if(hold>=90&&(pnl<=0||meaningfulProfit))return{exit:true,why:'Winner 1 · max observation window',mode:'post-entry-fast'};
+      return{exit:false,mode:'post-entry-fast'};
+    }
+    if(d.postEntryProfile==='confirm-runner'){
+      p.winnerConfirmed=p.winnerConfirmed||false;
+      if(!p.winnerConfirmed&&((hold<=3&&peakPnl>=8&&f.momentum>=52&&f.acceleration>=44&&f.buyRatio>=.50)||(peakPnl>=12&&pnl>=6)))p.winnerConfirmed=true;
+      const hardLoss=pnl<=-15;
+      const failedProof=hold>=2.5&&!p.winnerConfirmed&&peakPnl<6&&pnl<2;
+      const lateNoProof=hold>=5&&!p.winnerConfirmed&&peakPnl<10;
+      const confirmedTrail=p.winnerConfirmed&&peakPnl>=18&&drawFromPeak>=Math.max(7,peakPnl*.34)&&meaningfulProfit;
+      if(hardLoss)return{exit:true,why:'Winner 2 · hard failure cut',mode:'post-entry-confirm'};
+      if(failedProof)return{exit:true,why:'Winner 2 · did not prove winner shape',mode:'post-entry-confirm'};
+      if(lateNoProof)return{exit:true,why:'Winner 2 · no confirmation after 5m',mode:'post-entry-confirm'};
+      if(confirmedTrail)return{exit:true,why:'Winner 2 · confirmed runner trail',mode:'post-entry-confirm'};
+      if(hold>=180&&(pnl<=0||meaningfulProfit))return{exit:true,why:'Winner 2 · max runner window',mode:'post-entry-confirm'};
+      return{exit:false,mode:'post-entry-confirm'};
+    }
+  }
   if(d.minuteSampler){
     if(pnl<=-d.stop)return{exit:true,why:'minute sampler stop',mode:'minute'};
     if(pnl>=d.take)return{exit:true,why:'minute sampler take',mode:'minute'};
@@ -3085,7 +3128,7 @@ function strategyDiagnostics(){
     const scores=rejects.map(x=>num(x.score));const riskVetos=rejects.filter(x=>x.why==='risk veto').length;
     const maxScore=scores.length?Math.max(...scores):null;const avgScore=scores.length?avg(scores):null;
     const ep=entryPolicy(d),h=strategyHealth(d);const near=rejects.filter(x=>num(x.score)>=ep.min-5).length;
-    return{id:d.id,name:d.name,n:d.n,wins:d.wins,losses:d.losses,open:openCount(d.id),equity:d.equity,pnl:d.equity-START,recentAvg:h.avg,recentN:h.n,threshold:d.min,effectiveMin:ep.min,relief:ep.relief,p90:ep.p90,riskLimit:d.id==='sniper'?ep.sniperRiskLimit:d.risk==='LOW'?ep.lowRiskLimit:ep.customRiskLimit,buys:buys.length,rejects:rejects.length,maxRejectScore:maxScore,avgRejectScore:avgScore,nearMisses:near,riskVetos,cash:d.cash};
+    return{id:d.id,name:d.name,postEntryProfile:d.postEntryProfile||null,n:d.n,wins:d.wins,losses:d.losses,open:openCount(d.id),equity:d.equity,pnl:d.equity-START,recentAvg:h.avg,recentN:h.n,threshold:d.min,effectiveMin:ep.min,relief:ep.relief,p90:ep.p90,riskLimit:d.id==='sniper'?ep.sniperRiskLimit:d.risk==='LOW'?ep.lowRiskLimit:ep.customRiskLimit,buys:buys.length,rejects:rejects.length,maxRejectScore:maxScore,avgRejectScore:avgScore,nearMisses:near,riskVetos,cash:d.cash};
   });
 }
 function logPerformanceSnapshot(){
