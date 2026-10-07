@@ -17,13 +17,12 @@
     return r;
   });
   const hedge=async(path,init)=>{
-    const secondary=new Promise((resolve,reject)=>setTimeout(()=>fetchUrl(UI,path,init).then(resolve,reject),900));
-    try{return await Promise.any([fetchUrl(ENGINE,path,init),secondary])}
-    catch(e){
-      const errs=e?.errors||[];
-      const response=errs.map(x=>x?.response).find(Boolean);
-      if(response)return response;
-      throw errs[0]||e;
+    // The live engine is authoritative. Do not race it against a potentially stale
+    // UI cache; only fall back when the engine request genuinely fails.
+    try{return await fetchUrl(ENGINE,path,init)}
+    catch(primaryError){
+      try{return await fetchUrl(UI,path,init)}
+      catch{return primaryError?.response||Promise.reject(primaryError)}
     }
   };
 
