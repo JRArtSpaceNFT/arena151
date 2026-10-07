@@ -1466,8 +1466,21 @@ function effectiveMaxHoldMinutes(d){
   if(mode==='conviction')maxHold=Math.max(maxHold,720);
   return maxHold;
 }
+function voidUnobservableMinuteSample(d,p,reason){
+  // A missing exit quote is a data failure, not a trading loss. Neutralize the
+  // paper sample exactly and exclude it from win/loss/trade statistics.
+  const realized=num(p.realizedProceeds),entryCost=num(p.entryCost)||num(p.invested);
+  d.cash+=entryCost-realized;
+  const pi=positions.indexOf(p);if(pi>=0)positions.splice(pi,1);
+  markEquity(d);
+  queueTradeJournal('VOID',d,p,tokens.get(p.mint),{positionId:p.id,reason,opened:p.opened,voidedAt:now(),minuteSampler:true});
+  scheduleCriticalSave();
+  log('integrity',`VOID sample · ${d.name} · ${p.symbol} · ${reason}`,'info',{strategy:d.id,mint:p.mint,positionId:p.id});
+  console.warn('MINUTE_SAMPLE_VOID '+JSON.stringify({ts:now(),strategy:d.id,mint:p.mint,symbol:p.symbol,heldMin:(now()-num(p.opened))/60000,reason}));
+  return true;
+}
 function stalePositionSweep(){
-  let quarantined=0,overdue=0;
+  let quarantined=0,overdue=0,voided=0;
   for(const p of [...positions]){
     if(p.closed)continue;
     const d=allTraders().find(x=>x.id===p.strategy);if(!d)continue;
@@ -1476,14 +1489,19 @@ function stalePositionSweep(){
     if(isOverdue&&t&&tokenPriceIntegrity(t).executable){
       closePos(d,p,t,'hard max-hold verified exit');continue;
     }
+    // Give the quote sources time to recover, then invalidate only R&D minute
+    // samples that cannot be marked. Core strategy positions are never voided.
+    if(d.minuteSampler&&isOverdue&&heldMs>=Math.max(10*60000,maxHoldMs+5*60000)&&(!t||!tokenPriceIntegrity(t).executable)){
+      if(voidUnobservableMinuteSample(d,p,'no verified exit quote after 10 minute recovery window')){voided++;continue;}
+    }
     if(detail.stale||isOverdue){
       quarantined++;p.exitPendingReason=isOverdue?'max hold exceeded; waiting for verified price':'stale quote; waiting for verified price';p.integrityQuarantinedAt=p.integrityQuarantinedAt||now();
       if(now()-num(p.lastIntegrityAlertAt)>60000){p.lastIntegrityAlertAt=now();console.warn('STALE_POSITION_QUARANTINE '+JSON.stringify({ts:now(),strategy:p.strategy,mint:p.mint,symbol:p.symbol,ageMs:detail.ageMs,heldMin:heldMs/60000,maxHoldMin:effectiveMaxHoldMinutes(d),lastVerifiedPrice:detail.rawPrice,quoteAgeMs:detail.quoteAgeMs,reason:p.exitPendingReason}));}
     }
   }
-  if(quarantined)setHealth('position-integrity','warn',quarantined+' position(s) quarantined for stale/overdue verified-price exit · synthetic zero write-offs disabled',{truth:'observed'});
-  else setHealth('position-integrity','ok','All open positions have timely verified-price handling · synthetic zero write-offs disabled',{truth:'observed'});
-  return{quarantined,overdue};
+  if(quarantined)setHealth('position-integrity','warn',quarantined+' position(s) quarantined for stale/overdue verified-price exit · '+voided+' invalid sampler(s) voided',{truth:'observed'});
+  else setHealth('position-integrity','ok','All open positions have timely verified-price handling · '+voided+' invalid sampler(s) voided',{truth:'observed'});
+  return{quarantined,overdue,voided};
 }
 function updateOpenPositionExtremes(t){const f=features(t),integrity=tokenPriceIntegrity(t);if(!integrity.executable)return;for(const p of positions){if(p.closed||p.mint!==t.mint)continue;p.lastPrice=t.price;p.lastMarkedAt=num(t.quoteObservedAt||t.updatedAt)||now();p.markSource=(t.sources||[]).join('+')||'live';p.peakDuring=Math.max(p.peakDuring||p.entry,t.price);p.troughDuring=Math.min(p.troughDuring||p.entry,t.price);science.observePosition(p,t,f);}}
 
@@ -2723,7 +2741,8 @@ function applyTraderJournalSnapshot(x){if(!x?.id)return;const d=allTraders().fin
 function queueTradeJournal(kind,d,p,t,extra={}){
   if(!p?.id||!d?.id)return;
   const ts=now(),eventId=kind+':'+p.id+':'+(kind==='PARTIAL'?String(p.partialExits?.at(-1)?.ts||ts):kind==='SELL'?String(p.closedAt||ts):String(p.opened||ts));
-  const row={eventId,ts,kind,strategy:d.id,mint:p.mint,trader:traderJournalSnapshot(d),position:kind==='SELL'?null:{...p},trade:kind==='SELL'?{...p,name:t?.name||p.name||'',narrative:t?.narrative||p.narrative||''}:null,extra};
+  const terminal=kind==='SELL'||kind==='VOID';
+  const row={eventId,ts,kind,strategy:d.id,mint:p.mint,trader:traderJournalSnapshot(d),position:terminal?null:{...p},trade:kind==='SELL'?{...p,name:t?.name||p.name||'',narrative:t?.narrative||p.narrative||''}:null,extra};
   pendingTradeJournal.push(row);if(pendingTradeJournal.length>1000){pendingTradeJournal.shift();backpressureDrops.journal++;}
   if(db)queueDbWrite(()=>flushTradeJournal(db),'high').catch(()=>{});
 }
@@ -2779,6 +2798,8 @@ async function repairCurrentSeasonFromJournal(client=db){
         const p=e.position;if(p?.id&&!tradeMap.has(p.id))posMap.set(p.id,p);
       }else if(row.kind==='SELL'){
         const tr=e.trade;if(tr?.id){posMap.delete(tr.id);tradeMap.set(tr.id,tr);}
+      }else if(row.kind==='VOID'){
+        const id=e.extra?.positionId||e.extra?.id;if(id)posMap.delete(id);
       }
     }
     const baseline=FORENSIC_BASELINE,baselineTs=num(baseline?.capturedAtMs),useBaseline=!!baseline&&baselineTs>seasonStart&&baselineTs<(cutoff||Infinity);
@@ -2827,6 +2848,7 @@ async function replayTradeJournal(client=db,afterTs=0){
     const current=allTraders().find(q=>q.id===e?.trader?.id);if(!current||num(e?.trader?.n)>=num(current.n))applyTraderJournalSnapshot(e.trader);
     if(row.kind==='BUY'||row.kind==='PARTIAL'){const p=e.position;if(p?.id&&!trades.some(t=>t.id===p.id)){const i=positions.findIndex(x=>x.id===p.id);if(i>=0)positions[i]=p;else positions.push(p);applied++;}}
     if(row.kind==='SELL'){const tr=e.trade;if(tr?.id){const i=positions.findIndex(x=>x.id===tr.id);if(i>=0)positions.splice(i,1);if(!trades.some(t=>t.id===tr.id)){trades.unshift(tr);applied++;}}}
+    if(row.kind==='VOID'){const id=e.extra?.positionId||e.extra?.id;const i=id?positions.findIndex(x=>x.id===id):-1;if(i>=0){positions.splice(i,1);applied++;}}
   }
   if(r.rows.length){stateVersionTs=Math.max(stateVersionTs,maxTs);journalReplayedAt=now();console.log('TRADE_JOURNAL_REPLAY '+JSON.stringify({rows:r.rows.length,applied,afterTs,maxTs}));}
   validateStateIntegrity({repair:true});return applied;
