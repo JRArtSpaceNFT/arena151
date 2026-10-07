@@ -1499,8 +1499,8 @@ function stalePositionSweep(){
       if(now()-num(p.lastIntegrityAlertAt)>60000){p.lastIntegrityAlertAt=now();console.warn('STALE_POSITION_QUARANTINE '+JSON.stringify({ts:now(),strategy:p.strategy,mint:p.mint,symbol:p.symbol,ageMs:detail.ageMs,heldMin:heldMs/60000,maxHoldMin:effectiveMaxHoldMinutes(d),lastVerifiedPrice:detail.rawPrice,quoteAgeMs:detail.quoteAgeMs,reason:p.exitPendingReason}));}
     }
   }
-  if(quarantined)setHealth('position-integrity','warn',quarantined+' position(s) quarantined for stale/overdue verified-price exit · '+voided+' invalid sampler(s) voided',{truth:'observed'});
-  else setHealth('position-integrity','ok','All open positions have timely verified-price handling · '+voided+' invalid sampler(s) voided',{truth:'observed'});
+  if(quarantined)setHealth('position-integrity','warn',quarantined+' position(s) quarantined for stale/overdue verified-price exit · synthetic zero write-offs disabled · '+voided+' invalid sampler(s) voided',{truth:'observed'});
+  else setHealth('position-integrity','ok','All open positions have timely verified-price handling · synthetic zero write-offs disabled · '+voided+' invalid sampler(s) voided',{truth:'observed'});
   return{quarantined,overdue,voided};
 }
 function updateOpenPositionExtremes(t){const f=features(t),integrity=tokenPriceIntegrity(t);if(!integrity.executable)return;for(const p of positions){if(p.closed||p.mint!==t.mint)continue;p.lastPrice=t.price;p.lastMarkedAt=num(t.quoteObservedAt||t.updatedAt)||now();p.markSource=(t.sources||[]).join('+')||'live';p.peakDuring=Math.max(p.peakDuring||p.entry,t.price);p.troughDuring=Math.min(p.troughDuring||p.entry,t.price);science.observePosition(p,t,f);}}
