@@ -1,0 +1,71 @@
+name: Pump Lab Offsite Recovery Snapshot
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/pump-lab-offsite-backup.yml"
+  workflow_dispatch:
+  schedule:
+    - cron: "*/15 * * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pump-lab-offsite-backup
+  cancel-in-progress: true
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Fetch and validate Pump Lab recovery state
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const url = 'https://pump-lab-live.onrender.com/api/recovery-snapshot';
+          (async () => {
+            let last;
+            for (let i = 0; i < 4; i++) {
+              try {
+                const c = new AbortController();
+                const t = setTimeout(() => c.abort(), 30000);
+                const r = await fetch(url, {headers:{accept:'application/json','user-agent':'pump-lab-github-offsite/1.0'}, signal:c.signal});
+                clearTimeout(t);
+                if (!r.ok) throw new Error('HTTP '+r.status);
+                const j = await r.json();
+                const s = j?.state || j;
+                if (!s?.stateMeta?.savedAt || !Array.isArray(s?.strategies) || !Array.isArray(s?.trades)) throw new Error('invalid recovery snapshot');
+                if (j?.recoverable === false) throw new Error('snapshot marked non-recoverable');
+                fs.writeFileSync('/tmp/pump-lab-recovery.json', JSON.stringify({ok:true,savedAt:s.stateMeta.savedAt,source:'github-offsite',capturedAt:Date.now(),state:s}));
+                console.log('validated snapshot', {savedAt:s.stateMeta.savedAt,trades:s.trades.length,open:(s.positions||[]).length});
+                return;
+              } catch (e) {
+                last = e;
+                if (i < 3) await new Promise(r => setTimeout(r, 5000 * (i+1)));
+              }
+            }
+            throw last || new Error('snapshot fetch failed');
+          })();
+          NODE
+
+      - name: Replace offsite backup branch atomically
+        shell: bash
+        run: |
+          git config user.name "pump-lab-backup-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git checkout --orphan pump-lab-backup-next
+          git rm -rf . >/dev/null 2>&1 || true
+          mkdir -p recovery
+          cp /tmp/pump-lab-recovery.json recovery/live.json
+          printf '%s\n' '# Pump Lab offsite recovery' 'This branch is force-replaced by GitHub Actions and contains only the newest validated critical recovery snapshot.' > README.md
+          git add README.md recovery/live.json
+          git commit -m "Pump Lab offsite recovery snapshot"
+          git push --force origin HEAD:pump-lab-backup
