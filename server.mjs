@@ -485,7 +485,7 @@ function watchdogTick(){
   if((solanaQueue.length||solanaPriorityQueue.length)&&ts-lastSolanaDrainAt>5000){actions.push('solana-drain');runScheduled('solana-drain',()=>drainSolanaQueue(),{budgetMs:1500,critical:true});}
   if(DATABASE_URL&&!db&&!dbConnecting&&ts>=dbDisabledUntil){actions.push('postgres-reconnect');scheduleDbReconnect();}
   if(systemPressure==='CRITICAL'&&lifecyclePhase==='READY')setLifecycle('DEGRADED','runtime pressure critical');
-  else if(lifecyclePhase==='DEGRADED'&&lifecycleDetail==='runtime pressure critical'&&['NORMAL','ELEVATED'].includes(systemPressure)&&(!DATABASE_URL||!!db))setLifecycle('READY','runtime pressure recovered');
+  else if(lifecyclePhase==='DEGRADED'&&lifecycleDetail==='runtime pressure critical'&&['NORMAL','ELEVATED'].includes(systemPressure)&&durableTradingReady())setLifecycle('READY','runtime pressure recovered');
   if(actions.length)console.warn('WATCHDOG_SELF_HEAL '+JSON.stringify({ts,actions,pressure:systemPressure}));
 }
 function readinessStatus(){
@@ -4013,7 +4013,7 @@ const diagTimer=setTimeout(runDiagnostics,45000);diagTimer.unref?.();
 const diagLoop=setInterval(runDiagnostics,300000);diagLoop.unref?.();
 const coreRejectTimer=setTimeout(logCoreRejectionSummary,25000);coreRejectTimer.unref?.();
 const coreRejectLoop=setInterval(logCoreRejectionSummary,60000);coreRejectLoop.unref?.();
-let loopExpected=Date.now()+1000;setInterval(()=>{const ts=Date.now(),lag=Math.max(0,ts-loopExpected);loopExpected=ts+1000;eventLoopLagMs=lag;eventLoopSamples.push(lag);if(eventLoopSamples.length>120)eventLoopSamples.shift();eventLoopLagP95=percentile(eventLoopSamples,.95)||0;systemPressure=runtimePressure();if(lag>500)setHealth('event-loop','warn','Event loop lag '+lag+'ms · pressure '+systemPressure,{truth:'observed'});else if(health.get('event-loop')?.status!=='ok')setHealth('event-loop','ok','Event loop responsive · p95 '+Math.round(eventLoopLagP95)+'ms',{truth:'observed'});},1000).unref?.();
+let loopExpected=Date.now()+1000;setInterval(()=>{const ts=Date.now(),lag=Math.max(0,ts-loopExpected);loopExpected=ts+1000;eventLoopLagMs=lag;eventLoopSamples.push(lag);if(eventLoopSamples.length>30)eventLoopSamples.shift();eventLoopLagP95=percentile(eventLoopSamples,.95)||0;systemPressure=runtimePressure();if(lag>500)setHealth('event-loop','warn','Event loop lag '+lag+'ms · pressure '+systemPressure,{truth:'observed'});else if(health.get('event-loop')?.status!=='ok')setHealth('event-loop','ok','Event loop responsive · p95 '+Math.round(eventLoopLagP95)+'ms',{truth:'observed'});},1000).unref?.();
 setInterval(watchdogTick,10000).unref?.();
 takeTimeline();takeReplay();alphaOS.observeWorld({weather:marketWeather(),tokens:[...tokens.values()],strategyEquity:Object.fromEntries(allTraders().map(d=>[d.id,d.equity]))});alphaOS.pollExternal();pumpOpenPositionPoll();openPositionPoll();
 setLifecycle('READY','market loops initialized');
