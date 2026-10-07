@@ -2640,15 +2640,15 @@ async function initDb(restoreState=true){
       console.warn('Postgres connection interrupted:',e.message);scheduleDbReconnect(5000);
     });
     await client.connect();db=client;dbReconnectAttempt=0;dbDisabledUntil=0;lastDbFailure='';
-    await db.query('CREATE TABLE IF NOT EXISTS pump_lab_state (id text primary key, payload jsonb not null, updated_at timestamptz default now())');
-    await db.query('CREATE TABLE IF NOT EXISTS pump_lab_market_events (id bigserial primary key, ts bigint not null, mint text not null, payload jsonb not null)');
-    await db.query('CREATE INDEX IF NOT EXISTS pump_lab_market_events_ts_idx ON pump_lab_market_events(ts)');
-    await db.query('CREATE INDEX IF NOT EXISTS pump_lab_market_events_mint_idx ON pump_lab_market_events(mint)');
-    await db.query('CREATE TABLE IF NOT EXISTS pump_lab_trade_journal (event_id text primary key, ts bigint not null, kind text not null, strategy text not null, mint text not null, payload jsonb not null)');
-    await db.query('CREATE INDEX IF NOT EXISTS pump_lab_trade_journal_ts_idx ON pump_lab_trade_journal(ts)');
-    await db.query('CREATE INDEX IF NOT EXISTS pump_lab_trade_journal_strategy_idx ON pump_lab_trade_journal(strategy,ts)');
+    await client.query('CREATE TABLE IF NOT EXISTS pump_lab_state (id text primary key, payload jsonb not null, updated_at timestamptz default now())');
+    await client.query('CREATE TABLE IF NOT EXISTS pump_lab_market_events (id bigserial primary key, ts bigint not null, mint text not null, payload jsonb not null)');
+    await client.query('CREATE INDEX IF NOT EXISTS pump_lab_market_events_ts_idx ON pump_lab_market_events(ts)');
+    await client.query('CREATE INDEX IF NOT EXISTS pump_lab_market_events_mint_idx ON pump_lab_market_events(mint)');
+    await client.query('CREATE TABLE IF NOT EXISTS pump_lab_trade_journal (event_id text primary key, ts bigint not null, kind text not null, strategy text not null, mint text not null, payload jsonb not null)');
+    await client.query('CREATE INDEX IF NOT EXISTS pump_lab_trade_journal_ts_idx ON pump_lab_trade_journal(ts)');
+    await client.query('CREATE INDEX IF NOT EXISTS pump_lab_trade_journal_strategy_idx ON pump_lab_trade_journal(strategy,ts)');
     if(restoreState||!dbStateRestored){
-      const r=await db.query("SELECT id,payload,updated_at FROM pump_lab_state WHERE id IN ('main','main:critical','main:highwater')");
+      const r=await client.query("SELECT id,payload,updated_at FROM pump_lab_state WHERE id IN ('main','main:critical','main:highwater')");
       const fullRow=r.rows.find(x=>x.id==='main'),criticalRow=r.rows.find(x=>x.id==='main:critical'),highRow=r.rows.find(x=>x.id==='main:highwater');let restoredAny=false,fullRestored=false,criticalRestored=false;
       if(highRow?.payload)applyRecoveryHighWater(highRow.payload,'postgres-high-water');
       if(fullRow?.payload){fullRestored=restoreIfNewer(fullRow.payload,'postgres',new Date(fullRow.updated_at).getTime());restoredAny=fullRestored||restoredAny;}
@@ -2659,19 +2659,21 @@ async function initDb(restoreState=true){
       const peerRestoredNow=PEER_RECOVERY_URL?await tryPeerRecovery():false;
       restoredAny=peerRestoredNow||restoredAny;
       if(!restoredAny){dbStateRestored=true;lastDurableRestoreAt=now();}
-      const journalRepaired=await repairCurrentSeasonFromJournal(db);
-      if(!journalRepaired)await replayTradeJournal(db,stateVersionTs);
+      const journalRepaired=await repairCurrentSeasonFromJournal(client);
+      if(!journalRepaired)await replayTradeJournal(client,stateVersionTs);
       const scienceRebuilt=rebuildScienceFromDetailedLedger(peerRestoredNow?'peer-restore':fullRestored?'full-restore':'critical-or-journal-restore');
-      if(peerRestoredNow||!fullRestored||journalRepaired||scienceRebuilt)await reseedCanonicalFullSnapshot(db,peerRestoredNow?'peer-newest':journalRepaired?'journal-repair':scienceRebuilt?'science-ledger-rebuild':'critical-recovery');
+      if(peerRestoredNow||!fullRestored||journalRepaired||scienceRebuilt)await reseedCanonicalFullSnapshot(client,peerRestoredNow?'peer-newest':journalRepaired?'journal-repair':scienceRebuilt?'science-ledger-rebuild':'critical-recovery');
       try{
-        const ar=await db.query("SELECT payload,updated_at FROM pump_lab_state WHERE id='archive:season2-2026-10-01'");
+        const ar=await client.query("SELECT payload,updated_at FROM pump_lab_state WHERE id='archive:season2-2026-10-01'");
         if(ar.rows[0]?.payload){archiveMonsterExportCache=buildArchiveMonsterExport(ar.rows[0].payload,ar.rows[0].updated_at);console.log('ARCHIVE_MONSTER_CACHE '+JSON.stringify(archiveMonsterExportCache.counts));}
       }catch(e){console.warn('Archive monster preload warning:',e.message);}
+      if(db!==client)throw new Error('Postgres disconnected during restore');
       if(RESET_SEASON)await archiveAndResetSeason(RESET_SEASON);
       dbStateRestored=true;lastDurableRestoreAt=now();
       console.log('STATE_LOCK unlocked · Postgres connected');
       logStrategyDiagnostics();
     }
+    if(db!==client)throw new Error('Postgres disconnected before readiness');
     setHealth('research-memory','ok','Postgres durable memory online · failover armed',{truth:'observed'});
     if(lifecyclePhase==='DEGRADED'&&!shuttingDown&&durableTradingReady()&&systemPressure!=='CRITICAL')setLifecycle('READY','Postgres reconnected');
     console.log('Postgres durable memory online');
