@@ -165,7 +165,7 @@ for(const [name,needle] of [
 
 // Cold-start persistence and rejection observability guards.
 for(const [name,needle] of [
-  ['critical decision persistence', "decisions:decisions.filter(x=>x.era===STRATEGY_ERA).slice(0,1500)"],
+  ['critical decision persistence', "decisions:decisions.filter(x=>x.era===STRATEGY_ERA).slice(0,Math.min(750,MAX_DECISIONS))"],
   ['critical decision restore', "if(Array.isArray(s.decisions)&&s.decisions.length)"],
   ['20-reject cold-start calibration', "rows.length>=20&&Number.isFinite(p90)"],
   ['core rejection summary', "CORE_REJECTION_SUMMARY "]
@@ -183,7 +183,8 @@ for(const [name,needle] of [
   ['core entry observability', "CORE_ENTRY "],
   ['redundant peer list', "PEER_RECOVERY_URLS"],
   ['peer failover loop', "for(const url of PEER_RECOVERY_URLS)"],
-  ['peer source telemetry', "PEER_RECOVERY_SOURCE_FAILED"]
+  ['peer source telemetry', "PEER_RECOVERY_SOURCE_FAILED"],
+  ['bounded critical trade payload', "return picked.slice(0,250)"]
 ])if(!src.includes(needle))failures.push(name+' missing');
 
 // Dedicated market-cap discovery regression guards.
