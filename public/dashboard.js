@@ -3,7 +3,7 @@ const $=x=>document.getElementById(x);const money=n=>'$'+Number(n||0).toLocaleSt
 const BROWSER_STATE_KEY='pump-lab:last-good-state:integrity-freeze-v2',LIVE_BACKEND_ORIGIN='https://pump-lab-live.onrender.com';const ACTIVE_EXPERIMENT_IDS=new Set(['banker','graduation','confirmed_runner','mc_over100','liq_50_plus','crosscheck']);const CONTROL_IDS=new Set(['random','launchctl']);let showingCachedState=false;
 function age(ms){const m=Math.max(0,Date.now()-ms)/60000;if(m<60)return m.toFixed(0)+'m';return(m/60).toFixed(1)+'h'}function esc(x){return String(x??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
 function saveBrowserState(state){try{localStorage.setItem(BROWSER_STATE_KEY,JSON.stringify({savedAt:Date.now(),state}))}catch{}}
-function restoreBrowserState(){try{const raw=localStorage.getItem(BROWSER_STATE_KEY);if(!raw)return false;const row=JSON.parse(raw);if(!row?.state?.summary||!Array.isArray(row.state.strategies))return false;render(row.state);showingCachedState=true;$('version').textContent='CACHED SNAPSHOT';const h=$('health');if(h)h.innerHTML='<span class="amber">LAST GOOD SNAPSHOT · waking the live engine now…</span>';return true}catch{return false}}
+function restoreBrowserState(){try{localStorage.removeItem(BROWSER_STATE_KEY)}catch{}return false}
 function wakeLiveBackend(){if(location.hostname==='pump-lab-live.onrender.com')return;try{fetch(LIVE_BACKEND_ORIGIN+'/api/health?wake='+Date.now(),{mode:'no-cors',cache:'no-store',keepalive:true}).catch(()=>{})}catch{}}
 
 const TRADER_ART_PROFILES={
