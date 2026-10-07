@@ -21,7 +21,9 @@ const PAPER_MIN_EXPECTED_NET_WIN_USD = Math.max(0, Number(process.env.PAPER_MIN_
 const STATE_FILE = process.env.STATE_FILE || '/tmp/pump-lab-state-v06.json';
 const DATABASE_URL = process.env.DATABASE_URL || '';
 const REDIS_URL = process.env.REDIS_URL || '';
-const PEER_RECOVERY_URL = process.env.PEER_RECOVERY_URL === 'disabled' ? '' : (process.env.PEER_RECOVERY_URL || 'https://pump-lab-ui.onrender.com/api/recovery-snapshot-cache');
+const PEER_RECOVERY_URLS = (process.env.PEER_RECOVERY_URLS || process.env.PEER_RECOVERY_URL || 'https://pump-lab-ui.onrender.com/api/recovery-snapshot-cache,https://pump-lab-recovery-peer.onrender.com/api/recovery-snapshot-cache')
+  .split(',').map(x=>x.trim()).filter(x=>x&&x!=='disabled');
+const PEER_RECOVERY_URL = PEER_RECOVERY_URLS[0] || '';
 const PEER_RECOVERY_MAX_AGE_MS = Number(process.env.PEER_RECOVERY_MAX_AGE_MS || 3600000);
 const PEER_RECOVERY_TIMEOUT_MS = Math.max(6000, Number(process.env.PEER_RECOVERY_TIMEOUT_MS || 20000));
 const RECOVERY_MIN_EXITS = Math.max(1, Number(process.env.RECOVERY_MIN_EXITS || 1));
@@ -2690,31 +2692,46 @@ async function initDb(restoreState=true){
   }finally{dbConnecting=false;}
 }
 async function tryPeerRecovery(){
-  if(!PEER_RECOVERY_URL)return false;
-  lastPeerAttemptAt=now();const controller=new AbortController(),started=now(),timer=setTimeout(()=>controller.abort(),PEER_RECOVERY_TIMEOUT_MS);
-  try{
-    const r=await fetch(PEER_RECOVERY_URL,{headers:{accept:'application/json','cache-control':'no-cache','user-agent':'pump-lab-peer-recovery/1.0'},cache:'no-store',signal:controller.signal});
-    if(!r.ok){
-      const retryAfter=Number(r.headers.get('retry-after')||0);
-      const cooldownMs=Math.max(30000,retryAfter>0?retryAfter*1000:Math.min(300000,30000*Math.pow(2,Math.min(3,peerFailureCount))));
-      peerRetryNotBefore=now()+cooldownMs;
-      throw new Error('peer HTTP '+r.status+' cooldown '+cooldownMs+'ms');
-    }
-    const j=await r.json(),s=j?.state||j,ts=num(s?.stateMeta?.savedAt)||num(j?.savedAt)||0;
-    const ageMs=now()-ts;if(!ts||ageMs>PEER_RECOVERY_MAX_AGE_MS)throw new Error('peer snapshot stale by '+Math.max(0,ageMs)+'ms');
-    const restored=restoreCriticalFromSource(s,'peer',ts);
-    if(restored){peerFailureCount=0;peerRetryNotBefore=0;setHealth('recovery-peer','ok','Independent UI recovery snapshot accepted',{truth:'observed'});console.log('PEER_RECOVERY_ACCEPTED '+JSON.stringify({savedAt:ts,ageMs:now()-ts,fetchMs:now()-started,stateVersionTs}));}
-    else console.warn('PEER_RECOVERY_NOT_APPLIED '+JSON.stringify({savedAt:ts,ageMs:now()-ts,fetchMs:now()-started,stateVersionTs}));
-    return restored;
-  }catch(e){
-    peerFailureCount++;
-    if(!peerRetryNotBefore)peerRetryNotBefore=now()+Math.min(300000,30000*Math.pow(2,Math.min(3,peerFailureCount-1)));
-    const msg=String(e?.name==='AbortError'?'peer recovery timeout after '+PEER_RECOVERY_TIMEOUT_MS+'ms':e?.message||e);
-    setHealth('recovery-peer','warn','Recovery peer unavailable: '+msg,{truth:'observed'});
-    console.warn('PEER_RECOVERY_FAILED '+JSON.stringify({url:PEER_RECOVERY_URL,elapsedMs:now()-started,error:msg,failureCount:peerFailureCount,retryAt:peerRetryNotBefore}));
-    return false;
+  if(!PEER_RECOVERY_URLS.length)return false;
+  lastPeerAttemptAt=now();const started=now(),errors=[];
+  for(const url of PEER_RECOVERY_URLS){
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),PEER_RECOVERY_TIMEOUT_MS),peerStarted=now();
+    try{
+      const r=await fetch(url,{headers:{accept:'application/json','cache-control':'no-cache','user-agent':'pump-lab-peer-recovery/2.0'},cache:'no-store',signal:controller.signal});
+      if(!r.ok){
+        const retryAfter=Number(r.headers.get('retry-after')||0);
+        errors.push({url,error:'HTTP '+r.status,retryAfter});
+        console.warn('PEER_RECOVERY_SOURCE_FAILED '+JSON.stringify({url,status:r.status,elapsedMs:now()-peerStarted}));
+        continue;
+      }
+      const j=await r.json(),state=j?.state||j,ts=num(state?.stateMeta?.savedAt)||num(j?.savedAt)||0;
+      const ageMs=now()-ts;
+      if(!ts||ageMs>PEER_RECOVERY_MAX_AGE_MS){
+        errors.push({url,error:'stale '+Math.max(0,ageMs)+'ms'});
+        console.warn('PEER_RECOVERY_SOURCE_FAILED '+JSON.stringify({url,error:'stale',ageMs,elapsedMs:now()-peerStarted}));
+        continue;
+      }
+      const restored=restoreCriticalFromSource(state,'peer',ts);
+      peerFailureCount=0;peerRetryNotBefore=0;
+      if(restored){
+        setHealth('recovery-peer','ok','Redundant recovery peer accepted',{truth:'observed'});
+        console.log('PEER_RECOVERY_ACCEPTED '+JSON.stringify({url,savedAt:ts,ageMs:now()-ts,fetchMs:now()-peerStarted,totalMs:now()-started,stateVersionTs}));
+      }else console.warn('PEER_RECOVERY_NOT_APPLIED '+JSON.stringify({url,savedAt:ts,ageMs:now()-ts,fetchMs:now()-peerStarted,stateVersionTs}));
+      return restored;
+    }catch(e){
+      const msg=String(e?.name==='AbortError'?'timeout after '+PEER_RECOVERY_TIMEOUT_MS+'ms':e?.message||e);
+      errors.push({url,error:msg});
+      console.warn('PEER_RECOVERY_SOURCE_FAILED '+JSON.stringify({url,elapsedMs:now()-peerStarted,error:msg}));
+    }finally{clearTimeout(timer);}
   }
-  finally{clearTimeout(timer);}
+  peerFailureCount++;
+  const retryAfterSec=Math.max(0,...errors.map(x=>Number(x.retryAfter||0)));
+  const cooldownMs=Math.max(30000,retryAfterSec>0?retryAfterSec*1000:Math.min(300000,30000*Math.pow(2,Math.min(3,peerFailureCount-1))));
+  peerRetryNotBefore=now()+cooldownMs;
+  const msg=errors.map(x=>x.url+': '+x.error).join(' | ')||'all recovery peers unavailable';
+  setHealth('recovery-peer','warn','All recovery peers unavailable: '+msg,{truth:'observed'});
+  console.warn('PEER_RECOVERY_FAILED '+JSON.stringify({urls:PEER_RECOVERY_URLS,elapsedMs:now()-started,error:msg,failureCount:peerFailureCount,retryAt:peerRetryNotBefore}));
+  return false;
 }
 async function waitForInitialDurableRestore(maxMs=90000){
   if(!DATABASE_URL&&!REDIS_URL&&!PEER_RECOVERY_URL)return true;
@@ -4063,7 +4080,7 @@ const server=http.createServer(async (req,res)=>{
 });
 
 setLifecycle('RESTORING','restoring durable state');
-console.log('RUNTIME_CONFIG_PRESENCE '+JSON.stringify({databaseUrl:!!DATABASE_URL,redisUrl:!!REDIS_URL,peerRecovery:!!PEER_RECOVERY_URL,stateFile:!!STATE_FILE}));
+console.log('RUNTIME_CONFIG_PRESENCE '+JSON.stringify({databaseUrl:!!DATABASE_URL,redisUrl:!!REDIS_URL,peerRecovery:PEER_RECOVERY_URLS.length>0,stateFile:!!STATE_FILE}));
 loadLocal();
 await initKv(true);
 await initDb(true);
