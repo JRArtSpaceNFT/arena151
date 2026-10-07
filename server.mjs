@@ -1084,14 +1084,14 @@ function entryPolicy(d){
   if(cache&&cache.decisionCount===decisions.length&&now()-cache.ts<15000)return cache.value;
   const rows=decisions.filter(x=>x.strategy===d.id&&x.era===STRATEGY_ERA&&(x.samplePartition||partitionForMint(x.mint))==='train').slice(0,250);
   const rejects=rows.filter(x=>x.action==='REJECT').length,scores=rows.map(x=>num(x.score)).filter(Number.isFinite);
-  const p90=percentile(scores,.90),coldStart=!rows.some(x=>x.action==='BUY'&&!x.exploratory);
+  const p75=percentile(scores,.75),p90=percentile(scores,.90),coldStart=!rows.some(x=>x.action==='BUY'&&!x.exploratory);
   let effectiveMin=d.min,relief=0;
   if(rows.length>=20&&Number.isFinite(p90)){
     if(isFrozenExperimentStrategy(d)&&eraTradeCount(d)<FROZEN_EXPERIMENT_MIN_TRADES){
       // Collection mode: calibrate to the market we are actually observing while
       // preserving every hard data/risk/liquidity/cross-source veto below.
       const adaptiveFloor=Math.max(CORE_COLLECTION_MIN_SCORE_FLOOR,d.min-CORE_COLLECTION_MAX_SCORE_RELIEF);
-      effectiveMin=clamp(p90+5,adaptiveFloor,d.min);
+      effectiveMin=clamp((Number.isFinite(p75)?p75:p90)+3,adaptiveFloor,d.min);
       relief=Math.max(0,d.min-effectiveMin);
     }else if(coldStart){
       const adaptiveFloor=Math.max(46,d.min-14);
@@ -1100,7 +1100,7 @@ function entryPolicy(d){
     }else effectiveMin=Math.max(d.min,p90);
   }
   const playbook=strategyPlaybook(d);
-  const value={coldStart,rejects,relief,min:effectiveMin,baseMin:d.min,p90,p25Risk:null,
+  const value={coldStart,rejects,relief,min:effectiveMin,baseMin:d.min,p75,p90,p25Risk:null,
     lowRiskLimit:playbook.maxRisk??58,sniperRiskLimit:playbook.maxRisk??52,customRiskLimit:d.riskCap||playbook.maxRisk||null};
   entryPolicyCache.set(d.id,{ts:now(),decisionCount:decisions.length,value});return value;
 }
