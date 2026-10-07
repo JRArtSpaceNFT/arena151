@@ -8,7 +8,7 @@ const X_BEARER_TOKEN = process.env.X_BEARER_TOKEN || '';
 const X_FEED_HANDLES = (process.env.X_FEED_HANDLES || '').split(',').map(x=>x.trim().replace(/^@/,'')).filter(Boolean);
 const X_REFRESH_MS = Math.max(30000, Number(process.env.X_REFRESH_MS || 45000));
 const X_MAX_CACHE = Math.max(20, Math.min(200, Number(process.env.X_MAX_CACHE || 100)));
-const RECOVERY_CACHE_REFRESH_MS = Math.max(30000, Number(process.env.RECOVERY_CACHE_REFRESH_MS || 60000));
+const RECOVERY_CACHE_REFRESH_MS = Math.max(60000, Number(process.env.RECOVERY_CACHE_REFRESH_MS || 60000));
 let xFeedCache = [];
 let xFeedLastFetch = 0;
 let xFeedSinceId = null;
