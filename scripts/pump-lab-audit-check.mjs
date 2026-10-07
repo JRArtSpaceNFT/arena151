@@ -175,7 +175,8 @@ for(const [name,needle] of [
 for(const [name,needle] of [
   ['collection score floor', "CORE_COLLECTION_MIN_SCORE_FLOOR"],
   ['collection score relief cap', "CORE_COLLECTION_MAX_SCORE_RELIEF"],
-  ['frozen adaptive threshold calibration', "effectiveMin=clamp(p90+5,adaptiveFloor,d.min)"],
+  ['frozen adaptive threshold calibration', "effectiveMin=clamp((Number.isFinite(p75)?p75:p90)+3,adaptiveFloor,d.min)"],
+  ['collection percentile calibration', "const p75=percentile(scores,.75),p90=percentile(scores,.90)"],
   ['collection expected-net floor', "PAPER_COLLECTION_MIN_EXPECTED_NET_WIN_USD"],
   ['hard cross-source safety retained', "if(p.requireCross&&quality.sourceCount<2)"],
   ['hard fresh-market-data safety retained', "if(!f.flowFresh||!f.liqFresh)"],
