@@ -342,7 +342,7 @@ const strategyDefs = [
   ['pre_grad','🛤️','Pre-Graduation','HIGH',.06,60,22,76,1,'only tokens not yet marked graduated'],
   ['post_grad','🎓','Post-Graduation','LOW',.06,63,18,68,1,'only tokens already marked graduated']
 ].map(([id,icon,name,risk,size,min,stop,take,maxOpen,thesis]) => ({
-  id,icon,name,risk,size,min,stop,take,maxOpen,thesis,version:3,equity:START,cash:START,peak:START,dd:0,wins:0,losses:0,n:0
+  id,icon,name,risk,size,min,stop,take,maxOpen:Math.max(4,Number(maxOpen)||0),thesis,version:3,equity:START,cash:START,peak:START,dd:0,wins:0,losses:0,n:0
 }));
 
 const specialistProfiles = {
@@ -1377,7 +1377,7 @@ function maybeTrade(t,weather=null) {
     if(!accelGate.ok){if(!opportunities.has(`${d.id}:${t.mint}`))recordDecision(d,t,f,strategyScore(d,f,t),'REJECT',accelGate.reason,weather);continue;}
     const circuit=strategyRiskCircuit(d);
     if(!circuit.ok){if(!opportunities.has(`${d.id}:${t.mint}`))recordDecision(d,t,f,strategyScore(d,f,t),'REJECT',circuit.reason,weather);continue;}
-    if(openCount(d.id)>=d.maxOpen||d.cash<Math.max(5,d.equity*.02)||!(t.price>0))continue;
+    if(openCount(d.id)>=Math.max(4,Number(d.maxOpen)||0)||d.cash<Math.max(5,d.equity*.02)||!(t.price>0))continue;
     const score=strategyScore(d,f,t);const policy=entryPolicy(d);const regime=weather.regime,cadence=tradeCadenceGuard(d,t);
     if(!cadence.ok){if(!opportunities.has(`${d.id}:${t.mint}`))recordDecision(d,t,f,score,'REJECT',cadence.reason,weather);continue;}
     const lowBlocked=d.risk==='LOW'&&f.risk>policy.lowRiskLimit;
@@ -1387,7 +1387,7 @@ function maybeTrade(t,weather=null) {
     const exploration=frozenCollection?{ok:false,reason:'frozen experiment: no cold-start rule relaxation'}:dormantExplorationGuard(d,t,f,score,policy,quality,adv,regime);
     const exploratory=(!guard.ok||score<policy.min||lowBlocked||sniperBlocked||customBlocked)&&exploration.ok&&!adv.hardVeto;
     const activeGuard=exploratory?exploration:guard;
-    if(exploratory&&openCount(d.id)>=1)continue;
+    if(exploratory&&openCount(d.id)>=Math.max(4,Number(d.maxOpen)||0))continue;
     if(!exploratory&&(score<policy.min||lowBlocked||sniperBlocked||customBlocked||adv.hardVeto||!guard.ok)){
       if(!opportunities.has(`${d.id}:${t.mint}`))recordDecision(d,t,f,score,'REJECT',score<policy.min?'below threshold':adv.hardVeto?'adversarial veto':!guard.ok?guard.reason:'risk veto',weather);
       continue;
