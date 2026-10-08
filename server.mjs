@@ -295,7 +295,7 @@ const strategyDefs = [
   ['meme_postgrad','◎','Post-Grad Continuation','R&D',.02,62,9,130,1,'post-graduation continuation on deeper canonical liquidity with clean chart structure'],
   ['meme_survival','△','Five-Minute Survivor','R&D',.02,62,8,100,1,'require survival beyond the most fragile launch window plus cross-checked quality and path continuity'],
 
-  ['random','🎲','Random Control','CONTROL',.05,70,22,45,1,'random baseline'],
+  ['random','🎲','Random Control','CONTROL',.05,50,22,45,2,'random baseline'],
   ['winner1','🏆','Winner 1','CONTROL',.05,55,12,90,2,'broad randomized entry baseline with ruthless first-minute failure cutting and explicit post-entry path collection'],
   ['winner2','🥇','Winner 2','CONTROL',.05,55,15,140,2,'broad randomized entry baseline that gives trades time to prove a winner shape, then preserves confirmed runners and records the full early path'],
   ['volume','📊','Volume Control','CONTROL',.06,68,22,50,1,'simple volume baseline'],
