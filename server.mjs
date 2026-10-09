@@ -295,8 +295,8 @@ const strategyDefs = [
   ['meme_postgrad','◎','Post-Grad Continuation','R&D',.02,62,9,130,1,'post-graduation continuation on deeper canonical liquidity with clean chart structure'],
   ['meme_survival','△','Five-Minute Survivor','R&D',.02,62,8,100,1,'require survival beyond the most fragile launch window plus cross-checked quality and path continuity'],
 
-  ['random','🎲','Random Control','CONTROL',.05,50,22,45,2,'random baseline'],
-  ['winner1','🏆','Winner 1','CONTROL',.05,55,12,90,2,'broad randomized entry baseline with ruthless first-minute failure cutting and explicit post-entry path collection'],
+  ['random','🎲','Random Control','CONTROL',.05,45,22,45,8,'random baseline'],
+  ['winner1','🏆','Winner 1','CONTROL',.05,50,12,90,8,'broad randomized entry baseline with ruthless first-minute failure cutting and explicit post-entry path collection'],
   ['winner2','🥇','Winner 2','CONTROL',.05,55,15,140,2,'broad randomized entry baseline that gives trades time to prove a winner shape, then preserves confirmed runners and records the full early path'],
   ['volume','📊','Volume Control','CONTROL',.06,68,22,50,1,'simple volume baseline'],
   ['launchctl','🧱','Every Launch Control','CONTROL',.035,0,30,50,3,'buy-everything launch baseline'],
@@ -1724,8 +1724,8 @@ async function pumpOpenPositionPoll(){
     const d=allTraders().find(x=>x.id===p.strategy),old=byMint.get(p.mint)||{mint:p.mint,fast:false,lastMarkedAt:Infinity};
     old.fast=old.fast||!!d?.fastScalp;old.lastMarkedAt=Math.min(old.lastMarkedAt,num(p.lastMarkedAt)||0);byMint.set(p.mint,old);
   }
-  const ranked=[...byMint.values()].sort((a,b)=>(Number(b.fast)-Number(a.fast))||(a.lastMarkedAt-b.lastMarkedAt));
-  const cap=Math.min(8,ranked.length),chosen=[];
+  const ranked=[...byMint.values()].sort((a,b)=>{const pa=positions.find(p=>!p.closed&&p.mint===a.mint),pb=positions.find(p=>!p.closed&&p.mint===b.mint),da=allTraders().find(x=>x.id===pa?.strategy),db=allTraders().find(x=>x.id===pb?.strategy),oa=pa?Math.max(0,now()-num(pa.opened)-effectiveMaxHoldMinutes(da)*60000):0,ob=pb?Math.max(0,now()-num(pb.opened)-effectiveMaxHoldMinutes(db)*60000):0,sa=pa?positionMarkDetail(pa).stale:false,sb=pb?positionMarkDetail(pb).stale:false;return (Number(ob>0)-Number(oa>0))||(Number(sb)-Number(sa))||(Number(b.fast)-Number(a.fast))||(a.lastMarkedAt-b.lastMarkedAt);});
+  const cap=Math.min(20,ranked.length),chosen=[];
   for(let i=0;i<cap;i++)chosen.push(ranked[(fastOpenCursor+i)%ranked.length]);
   fastOpenCursor=ranked.length?(fastOpenCursor+cap)%ranked.length:0;
   let updated=0,failed=0;
