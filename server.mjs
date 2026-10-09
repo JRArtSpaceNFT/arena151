@@ -295,8 +295,8 @@ const strategyDefs = [
   ['meme_postgrad','◎','Post-Grad Continuation','R&D',.02,62,9,130,1,'post-graduation continuation on deeper canonical liquidity with clean chart structure'],
   ['meme_survival','△','Five-Minute Survivor','R&D',.02,62,8,100,1,'require survival beyond the most fragile launch window plus cross-checked quality and path continuity'],
 
-  ['random','🎲','Random Control','CONTROL',.05,45,22,45,8,'random baseline'],
-  ['winner1','🏆','Winner 1','CONTROL',.05,50,12,90,8,'broad randomized entry baseline with ruthless first-minute failure cutting and explicit post-entry path collection'],
+  ['random','🎲','Random Control','CONTROL',.05,45,22,45,16,'random baseline'],
+  ['winner1','🏆','Winner 1','CONTROL',.05,50,12,90,16,'broad randomized entry baseline with ruthless first-minute failure cutting and explicit post-entry path collection'],
   ['winner2','🥇','Winner 2','CONTROL',.05,55,15,140,2,'broad randomized entry baseline that gives trades time to prove a winner shape, then preserves confirmed runners and records the full early path'],
   ['volume','📊','Volume Control','CONTROL',.06,68,22,50,1,'simple volume baseline'],
   ['launchctl','🧱','Every Launch Control','CONTROL',.035,0,30,50,3,'buy-everything launch baseline'],
@@ -1373,7 +1373,7 @@ function maybeTrade(t,weather=null) {
     const eligibility=specialistEligibility(d,t,f,weather.regime);
     if(!eligibility.ok)continue;
     const frozenN=eraTradeCount(d),frozenCollection=isFrozenExperimentStrategy(d)&&frozenN<FROZEN_EXPERIMENT_MIN_TRADES;
-    const accelGate=frozenCollection?{ok:true,sizeMultiplier:1,reason:'frozen evidence collection'}:profitAccelerator.strategyGate({strategy:d,trades,regime:weather.regime,era:STRATEGY_ERA});
+    const accelGate=(d.risk==='CONTROL'||frozenCollection)?{ok:true,sizeMultiplier:1,reason:d.risk==='CONTROL'?'control sample unrestricted':'frozen evidence collection'}:profitAccelerator.strategyGate({strategy:d,trades,regime:weather.regime,era:STRATEGY_ERA});
     if(!accelGate.ok){if(!opportunities.has(`${d.id}:${t.mint}`))recordDecision(d,t,f,strategyScore(d,f,t),'REJECT',accelGate.reason,weather);continue;}
     const circuit=strategyRiskCircuit(d);
     if(!circuit.ok){if(!opportunities.has(`${d.id}:${t.mint}`))recordDecision(d,t,f,strategyScore(d,f,t),'REJECT',circuit.reason,weather);continue;}
@@ -1392,7 +1392,7 @@ function maybeTrade(t,weather=null) {
       if(!opportunities.has(`${d.id}:${t.mint}`))recordDecision(d,t,f,score,'REJECT',score<policy.min?'below threshold':adv.hardVeto?'adversarial veto':!guard.ok?guard.reason:'risk veto',weather);
       continue;
     }
-    const corrGuard=profitAccelerator.correlationGuard({strategyId:d.id,token:t,positions,correlations:strategyCorrelation(),tokens});
+    const corrGuard=d.risk==='CONTROL'?{ok:true,sizeMultiplier:1,reason:'control sample unrestricted'}:profitAccelerator.correlationGuard({strategyId:d.id,token:t,positions,correlations:strategyCorrelation(),tokens});
     if(!corrGuard.ok){recordDecision(d,t,f,score,'REJECT',corrGuard.reason,weather);continue;}
     const championMult=profitAccelerator.championMultiplier({strategyId:d.id,strategies:strategyDefs,trades,regime,era:STRATEGY_ERA});
     const allocatorMult=frozenCollection?1:(d.type==='challenger'?1:allocationWeight(d.id))*accelGate.sizeMultiplier*corrGuard.sizeMultiplier*championMult;
@@ -1400,7 +1400,7 @@ function maybeTrade(t,weather=null) {
     if(!sizing.ok){recordDecision(d,t,f,score,'REJECT',sizing.reason,weather);continue;}
     const alpha=alphaOS.evaluateCandidate({strategy:d,token:t,features:f,score,threshold:activeGuard.requiredScore||policy.min,quality,similar,regime}),productionSafety=productionSafetyGate(d,t,f,quality,alpha),probeSafety=exploratory?coldStartProbeSafety(d,t,f,quality,adv,alpha):null;
     alphaOS.proposeCapital({strategy:d,token:t,features:f,score,threshold:activeGuard.requiredScore||policy.min,quality,similar,regime});
-    if(alpha.veto){recordDecision(d,t,f,score,'REJECT','Alpha OS · '+alpha.vetoReason,weather);continue;}
+    if(alpha.veto&&d.risk!=='CONTROL'){recordDecision(d,t,f,score,'REJECT','Alpha OS · '+alpha.vetoReason,weather);continue;}
     if(exploratory&&!probeSafety.ok){recordDecision(d,t,f,score,'REJECT','cold-start probe veto: '+probeSafety.reason,weather);continue;}
     if(!productionSafety.ok&&!exploratory){recordDecision(d,t,f,score,'REJECT',productionSafety.reason,weather);continue;}
     const alphaBudgetMult=exploratory?Math.max(.72,num(alpha.sizeMultiplier)||0):alpha.sizeMultiplier;
@@ -1420,7 +1420,7 @@ function maybeTrade(t,weather=null) {
     if(!d.fastScalp&&budget<meaningfulFloor){recordDecision(d,t,f,score,'REJECT','paper sizing veto: final stake too small to be meaningful',weather);continue;}
     if(entryExec.slippage>.065){recordDecision(d,t,f,score,'REJECT','execution veto: modeled slippage',weather);continue;}
     const economics=tradeEconomicsAtTarget(d,t,budget,entryExec),economicFloor=(isFrozenExperimentStrategy(d)&&eraTradeCount(d)<FROZEN_EXPERIMENT_MIN_TRADES)?PAPER_COLLECTION_MIN_EXPECTED_NET_WIN_USD:Math.min(PAPER_MIN_EXPECTED_NET_WIN_USD,Math.max(10,budget*.10));
-    if(!d.fastScalp&&economics.netAtTarget<economicFloor){recordDecision(d,t,f,score,'REJECT',`economic edge veto: target net ${economics.netAtTarget.toFixed(0)} below ${economicFloor.toFixed(0)} after fees/slippage`,weather);continue;}
+    if(d.risk!=='CONTROL'&&!d.fastScalp&&economics.netAtTarget<economicFloor){recordDecision(d,t,f,score,'REJECT',`economic edge veto: target net ${economics.netAtTarget.toFixed(0)} below ${economicFloor.toFixed(0)} after fees/slippage`,weather);continue;}
     const entry=entryExec.fillPrice;const cost=budget*(1+entryExec.feeRate)+num(entryExec.fixedCost)+num(entryExec.expectedFailureCost);
     if(cost>d.cash)continue;
     d.cash-=cost;
