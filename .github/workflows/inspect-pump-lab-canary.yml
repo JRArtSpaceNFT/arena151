@@ -1,0 +1,38 @@
+name: Inspect Pump Lab canary
+
+on:
+  push:
+    branches: [pump-lab-deploy]
+    paths:
+      - .github/workflows/inspect-pump-lab-canary.yml
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Inspect Random Control live decisions
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --show-error --location --retry 4 --max-time 30 \
+            https://pump-lab-canary.onrender.com/api/state -o /tmp/state.json
+          python - <<'PY'
+          import json, collections, time
+          j=json.load(open('/tmp/state.json'))
+          rows=[x for x in j.get('decisions',[]) if x.get('strategy')=='random']
+          fresh=[x for x in rows if x.get('ts',0)>=1791604095000]
+          counts=collections.Counter(x.get('why') or 'unknown' for x in fresh if x.get('action')=='REJECT')
+          print('RANDOM_LIVE_SUMMARY',json.dumps({
+            'all_rows':len(rows),
+            'fresh_rows':len(fresh),
+            'fresh_buys':sum(x.get('action')=='BUY' for x in fresh),
+            'fresh_rejects':sum(x.get('action')=='REJECT' for x in fresh),
+            'top_rejects':counts.most_common(12),
+            'latest':[{k:x.get(k) for k in ('ts','action','score','why','symbol','mc')} for x in fresh[:20]]
+          }))
+          trader=next((x for x in j.get('strategies',[]) if x.get('id')=='random'),None)
+          print('RANDOM_TRADER',json.dumps(trader))
+          print('WEATHER',json.dumps(j.get('weather')))
+          print('HEALTH',json.dumps(j.get('health')))
+          PY
