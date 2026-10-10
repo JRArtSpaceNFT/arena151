@@ -1396,26 +1396,27 @@ function maybeTrade(t,weather=null) {
     if(!corrGuard.ok){recordDecision(d,t,f,score,'REJECT',corrGuard.reason,weather);continue;}
     const championMult=profitAccelerator.championMultiplier({strategyId:d.id,strategies:strategyDefs,trades,regime,era:STRATEGY_ERA});
     const allocatorMult=frozenCollection?1:(d.type==='challenger'?1:allocationWeight(d.id))*accelGate.sizeMultiplier*corrGuard.sizeMultiplier*championMult;
-    const sizing=adaptivePositionSizing(d,t,f,score,policy,quality,similar,activeGuard,adv,regime,allocatorMult,exploratory);
+    const adaptiveSizing=adaptivePositionSizing(d,t,f,score,policy,quality,similar,activeGuard,adv,regime,allocatorMult,exploratory);
+    const sizing=d.risk==='CONTROL'?{...adaptiveSizing,ok:true,budget:Math.min(d.cash*.50,d.equity*.05),basePct:.05,mult:1,expectancyMult:1,live100Equivalent:Math.min(d.cash*.50,d.equity*.05)*(100/START),reason:'control fixed 5% paper stake'}:adaptiveSizing;
     if(!sizing.ok){recordDecision(d,t,f,score,'REJECT',sizing.reason,weather);continue;}
     const alpha=alphaOS.evaluateCandidate({strategy:d,token:t,features:f,score,threshold:activeGuard.requiredScore||policy.min,quality,similar,regime}),productionSafety=productionSafetyGate(d,t,f,quality,alpha),probeSafety=exploratory?coldStartProbeSafety(d,t,f,quality,adv,alpha):null;
     alphaOS.proposeCapital({strategy:d,token:t,features:f,score,threshold:activeGuard.requiredScore||policy.min,quality,similar,regime});
     if(alpha.veto&&d.risk!=='CONTROL'){recordDecision(d,t,f,score,'REJECT','Alpha OS · '+alpha.vetoReason,weather);continue;}
     if(exploratory&&!probeSafety.ok){recordDecision(d,t,f,score,'REJECT','cold-start probe veto: '+probeSafety.reason,weather);continue;}
     if(!productionSafety.ok&&!exploratory){recordDecision(d,t,f,score,'REJECT',productionSafety.reason,weather);continue;}
-    const alphaBudgetMult=exploratory?Math.max(.72,num(alpha.sizeMultiplier)||0):alpha.sizeMultiplier;
+    const alphaBudgetMult=d.risk==='CONTROL'?1:(exploratory?Math.max(.72,num(alpha.sizeMultiplier)||0):alpha.sizeMultiplier);
     let budget=d.fastScalp?Math.min(sizing.budget,num(d.fixedStakeUsd)||100,d.cash*.20,d.equity*.12,t.liq>0?Math.max(5,t.liq*.012):sizing.budget):Math.min(sizing.budget*alphaBudgetMult,d.cash*(exploratory?.15:.35),d.equity*(exploratory?.08:.25),t.liq>0?Math.max(d.equity*(exploratory?.02:.05),t.liq*.020):sizing.budget);
     if(budget<Math.max(exploratory?10:25,d.equity*(exploratory?.02:(d.risk==='R&D'||d.specialist)?.03:.05))){recordDecision(d,t,f,score,'REJECT','Alpha OS · stake below meaningful paper minimum',weather);continue;}
     const scienceGate=science.evaluateEntry({strategy:d,token:t,features:f,quality,market:weather,alpha,baseExecution:{...executionQuote(t,budget,'buy'),notional:budget}});
     const explorationScienceHardBlock=!!scienceGate.evidence?.block||num(scienceGate.survival?.collapsePct?.[5])>=85||num(scienceGate.execution?.txFailureProbability)>=.40;
     const fastScalpSoftBypass=!!d.fastScalp&&d.risk==='R&D'&&!explorationScienceHardBlock;
-    if(SEASON2_SCIENCE_VETO&&scienceGate.veto&&!fastScalpSoftBypass&&(!exploratory||explorationScienceHardBlock)){recordDecision(d,t,f,score,'REJECT','Season 2 Do Nothing · '+(scienceGate.reasons.join(', ')||('score '+scienceGate.score.toFixed(0))),weather);continue;}
-    const scienceSize=d.fastScalp?1:clamp(num(scienceGate.evidence?.sizeMultiplier)||1,exploratory?.40:(d.risk==='R&D'||d.specialist)?.35:.50,1.05);let entryExec=scienceGate.execution;
+    if(SEASON2_SCIENCE_VETO&&d.risk!=='CONTROL'&&scienceGate.veto&&!fastScalpSoftBypass&&(!exploratory||explorationScienceHardBlock)){recordDecision(d,t,f,score,'REJECT','Season 2 Do Nothing · '+(scienceGate.reasons.join(', ')||('score '+scienceGate.score.toFixed(0))),weather);continue;}
+    const scienceSize=(d.fastScalp||d.risk==='CONTROL')?1:clamp(num(scienceGate.evidence?.sizeMultiplier)||1,exploratory?.40:(d.risk==='R&D'||d.specialist)?.35:.50,1.05);let entryExec=scienceGate.execution;
     if(d.fastScalp)entryExec=science.executionSimulation(t,budget,'buy',{...executionQuote(t,budget,'buy'),notional:budget},alpha?.execution||{});
     else if(scienceSize<.999){budget=Math.max(3,budget*scienceSize);entryExec=science.executionSimulation(t,budget,'buy',{...executionQuote(t,budget,'buy'),notional:budget},alpha?.execution||{});}
     let executionQuality=profitAccelerator.executionQuality(entryExec,alpha?.execution||{});
     if(executionQuality.veto){recordDecision(d,t,f,score,'REJECT','execution veto: '+executionQuality.reason,weather);continue;}
-    if(!d.fastScalp&&executionQuality.sizeMultiplier<.999){budget=Math.max(3,budget*executionQuality.sizeMultiplier);entryExec=science.executionSimulation(t,budget,'buy',{...executionQuote(t,budget,'buy'),notional:budget},alpha?.execution||{});executionQuality=profitAccelerator.executionQuality(entryExec,alpha?.execution||{});}
+    if(d.risk!=='CONTROL'&&!d.fastScalp&&executionQuality.sizeMultiplier<.999){budget=Math.max(3,budget*executionQuality.sizeMultiplier);entryExec=science.executionSimulation(t,budget,'buy',{...executionQuote(t,budget,'buy'),notional:budget},alpha?.execution||{});executionQuality=profitAccelerator.executionQuality(entryExec,alpha?.execution||{});}
     const meaningfulFloor=d.equity*(exploratory?.015:(d.risk==='R&D'||d.specialist)?.025:.05);
     if(!d.fastScalp&&budget<meaningfulFloor){recordDecision(d,t,f,score,'REJECT','paper sizing veto: final stake too small to be meaningful',weather);continue;}
     if(entryExec.slippage>.065){recordDecision(d,t,f,score,'REJECT','execution veto: modeled slippage',weather);continue;}
