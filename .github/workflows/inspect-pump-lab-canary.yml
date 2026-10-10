@@ -21,7 +21,8 @@ jobs:
           import json, collections, time
           j=json.load(open('/tmp/state.json'))
           rows=[x for x in j.get('decisions',[]) if x.get('strategy')=='random']
-          fresh=[x for x in rows if x.get('ts',0)>=1791604095000]
+          cutoff=int(time.time()*1000)-120000
+          fresh=[x for x in rows if x.get('ts',0)>=cutoff]
           counts=collections.Counter(x.get('why') or 'unknown' for x in fresh if x.get('action')=='REJECT')
           print('RANDOM_LIVE_SUMMARY',json.dumps({
             'all_rows':len(rows),
