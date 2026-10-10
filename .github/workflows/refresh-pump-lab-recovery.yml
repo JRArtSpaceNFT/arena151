@@ -34,18 +34,19 @@ jobs:
           p='recovery/live.json.tmp'
           with open(p,'r',encoding='utf-8') as f:
               j=json.load(f)
-          meta=j.get('stateMeta') or {}
+          state=j.get('state') if isinstance(j, dict) and isinstance(j.get('state'), dict) else j
+          meta=state.get('stateMeta') or {}
           saved=int(meta.get('savedAt') or 0)
           now=int(time.time()*1000)
           if saved <= 0:
               raise SystemExit('snapshot missing stateMeta.savedAt')
           if now-saved > 10*60*1000:
               raise SystemExit(f'snapshot too old: {now-saved}ms')
-          if not isinstance(j.get('strategies'), list) or not j['strategies']:
+          if not isinstance(state.get('strategies'), list) or not state['strategies']:
               raise SystemExit('snapshot missing strategies')
-          if not isinstance(j.get('trades'), list):
+          if not isinstance(state.get('trades'), list):
               raise SystemExit('snapshot missing trades')
-          print('validated recovery snapshot', {'savedAt':saved,'trades':len(j['trades']),'positions':len(j.get('positions') or [])})
+          print('validated recovery snapshot', {'savedAt':saved,'trades':len(state['trades']),'positions':len(state.get('positions') or [])})
           PY
           mv recovery/live.json.tmp recovery/live.json
 
