@@ -1208,12 +1208,30 @@ function recentRealizedPct(d,hours=6){
   const cutoff=now()-hours*3600000,rows=trades.filter(x=>x.strategy===d.id&&x.policyVersion===STRATEGY_ERA&&num(x.closedAt)>=cutoff);
   return rows.reduce((s,x)=>s+num(x.pnl),0)/Math.max(1,d.equity)*100;
 }
-function strategyRiskCircuit(d){
+function currentEraRiskWatermark(d){
   markEquity(d);
-  const peak=num(d.auditPeak)||d.equity,drawdown=peak>0?Math.max(0,(1-d.equity/peak)*100):0,recent24h=recentRealizedPct(d,24);
-  if(drawdown>=PAPER_MAX_DRAWDOWN_PCT)return{ok:false,reason:`risk circuit: max drawdown ${drawdown.toFixed(1)}%`,drawdown,recent24h};
-  if(recent24h<=-PAPER_DAILY_LOSS_LIMIT_PCT)return{ok:false,reason:`risk circuit: 24h loss ${recent24h.toFixed(1)}%`,drawdown,recent24h};
-  return{ok:true,reason:'risk circuit clear',drawdown,recent24h};
+  const closed=trades.filter(x=>x.strategy===d.id&&x.policyVersion===STRATEGY_ERA&&Number.isFinite(num(x.pnl))).sort((a,b)=>num(a.closedAt)-num(b.closedAt));
+  const open=positions.filter(p=>p.strategy===d.id&&!p.closed&&p.policyVersion===STRATEGY_ERA);
+  const realized=closed.reduce((z,x)=>z+num(x.pnl),0);
+  const openPnl=open.reduce((z,p)=>{
+    const mark=num(p.units)*positionMarkPrice(p)+num(p.realizedProceeds);
+    const cost=num(p.entryCost)||num(p.invested)*(1+FEE_RATE);
+    return z+(mark-cost);
+  },0);
+  let base=d.equity-realized-openPnl;
+  if(!(base>0))base=Math.max(1,d.equity);
+  let equity=base,peak=base;
+  for(const x of closed){equity+=num(x.pnl);peak=Math.max(peak,equity);}
+  equity+=openPnl;
+  peak=Math.max(peak,equity,d.equity);
+  const drawdown=peak>0?Math.max(0,(1-d.equity/peak)*100):0;
+  return{base,peak,drawdown,closedN:closed.length,openN:open.length,realized,openPnl};
+}
+function strategyRiskCircuit(d){
+  const eraRisk=currentEraRiskWatermark(d),drawdown=eraRisk.drawdown,recent24h=recentRealizedPct(d,24);
+  if(drawdown>=PAPER_MAX_DRAWDOWN_PCT)return{ok:false,reason:`risk circuit: current-era max drawdown ${drawdown.toFixed(1)}%`,drawdown,recent24h,eraRisk};
+  if(recent24h<=-PAPER_DAILY_LOSS_LIMIT_PCT)return{ok:false,reason:`risk circuit: 24h loss ${recent24h.toFixed(1)}%`,drawdown,recent24h,eraRisk};
+  return{ok:true,reason:'risk circuit clear',drawdown,recent24h,eraRisk};
 }
 function strategyExpectancyProfile(d){
   const rows=trades.filter(x=>x.strategy===d.id&&x.policyVersion===STRATEGY_ERA&&Number.isFinite(num(x.pnlPct))).slice(0,60),wins=rows.filter(x=>num(x.pnlPct)>0),losses=rows.filter(x=>num(x.pnlPct)<0),n=rows.length;
@@ -1316,7 +1334,7 @@ function adaptivePositionSizing(d,t,f,score,policy,quality,similar,guard,adv,reg
   const dnaMult=similar.n>=6?clamp(.80+(similar.hit25/100)*.32,.80,1.12):.94;
   const healthMult=h.n<4?.92:h.avg<=-10?.55:h.avg<0?.74:h.avg>=8&&h.winRate>=55?1.06:1;
   const streak=recentLossStreak(d),streakMult=streak>=4?.45:streak===3?.58:streak===2?.72:streak===1?.88:1;
-  const sizingPeak=num(d.auditPeak)||d.equity,currentDd=sizingPeak>0?Math.max(0,(1-d.equity/sizingPeak)*100):0;
+  const sizingRisk=currentEraRiskWatermark(d),sizingPeak=sizingRisk.peak,currentDd=sizingRisk.drawdown;
   const ddMult=currentDd>=12?.45:currentDd>=8?.60:currentDd>=5?.78:1;
   const recent6h=recentRealizedPct(d,6),recentMult=recent6h<=-7?.50:recent6h<=-4?.70:recent6h>=5?1.04:1;
   const learnedAlloc=clamp(allocatorMult,.35,1.45),expectancy=strategyExpectancyProfile(d),expectancyMult=expectancy.mult;
