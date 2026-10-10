@@ -1,0 +1,64 @@
+name: Refresh Pump Lab recovery snapshot
+
+on:
+  push:
+    branches:
+      - pump-lab-deploy
+    paths:
+      - .github/workflows/refresh-pump-lab-recovery.yml
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout backup branch
+        uses: actions/checkout@v4
+        with:
+          ref: pump-lab-backup
+          fetch-depth: 0
+
+      - name: Fetch current trusted recovery snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p recovery
+          curl --fail --show-error --location --retry 5 --retry-delay 2 --max-time 30 \
+            https://pump-lab-live.onrender.com/api/recovery-snapshot \
+            -o recovery/live.json.tmp
+          python - <<'PY'
+          import json, time
+          p='recovery/live.json.tmp'
+          with open(p,'r',encoding='utf-8') as f:
+              j=json.load(f)
+          meta=j.get('stateMeta') or {}
+          saved=int(meta.get('savedAt') or 0)
+          now=int(time.time()*1000)
+          if saved <= 0:
+              raise SystemExit('snapshot missing stateMeta.savedAt')
+          if now-saved > 10*60*1000:
+              raise SystemExit(f'snapshot too old: {now-saved}ms')
+          if not isinstance(j.get('strategies'), list) or not j['strategies']:
+              raise SystemExit('snapshot missing strategies')
+          if not isinstance(j.get('trades'), list):
+              raise SystemExit('snapshot missing trades')
+          print('validated recovery snapshot', {'savedAt':saved,'trades':len(j['trades']),'positions':len(j.get('positions') or [])})
+          PY
+          mv recovery/live.json.tmp recovery/live.json
+
+      - name: Commit fresh snapshot to backup branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "pump-lab-recovery-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add recovery/live.json
+          if git diff --cached --quiet; then
+            echo "Snapshot already current"
+            exit 0
+          fi
+          git commit -m "Refresh live Pump Lab recovery snapshot"
+          git push origin HEAD:pump-lab-backup
