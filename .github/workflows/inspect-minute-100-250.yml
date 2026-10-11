@@ -18,42 +18,32 @@ jobs:
             "https://pump-lab-live.onrender.com/api/bot?id=minute_100_250" \
             -o /tmp/bot.json
           python - <<'PY'
-          import json, datetime
+          import json, csv
           j=json.load(open('/tmp/bot.json'))
-          print('BOT_SUMMARY '+json.dumps({'bot':j.get('bot'), 'stats':j.get('stats')}))
           trades=j.get('trades') or []
-          if trades:
-              print('TRADE_SAMPLE '+json.dumps(trades[0],separators=(',',':')))
+          print('LEDGER_COUNT', len(trades))
+          out=[]
           for idx,t in enumerate(reversed(trades),1):
               ee=t.get('entryExecution') or {}
               xe=t.get('exitExecution') or {}
-              row={
-                'i':idx,
-                'symbol':t.get('symbol'),
-                'mint':t.get('mint'),
-                'opened':t.get('opened'),
-                'closedAt':t.get('closedAt'),
-                'entry':t.get('entry'),
-                'entryRaw':ee.get('rawPrice') or ee.get('quotePrice') or ee.get('marketPrice') or ee.get('referencePrice'),
-                'entryFill':ee.get('fillPrice'),
-                'entrySlip':ee.get('slippage'),
-                'entryFeeRate':ee.get('feeRate'),
-                'entryFixedCost':ee.get('fixedCost'),
-                'exit':t.get('exit'),
-                'exitRaw':xe.get('rawPrice') or xe.get('quotePrice') or xe.get('marketPrice') or xe.get('referencePrice'),
-                'exitFill':xe.get('fillPrice'),
-                'exitSlip':xe.get('slippage'),
-                'exitFeeRate':xe.get('feeRate'),
-                'exitFixedCost':xe.get('fixedCost'),
-                'invested':t.get('invested'),
-                'entryCost':t.get('entryCost'),
-                'pnl':t.get('pnl'),
-                'pnlPct':t.get('pnlPct'),
-                'why':t.get('why'),
-                'entryMc':t.get('entryMc'),
-                'mae':t.get('mae'),
-                'mfe':t.get('mfe'),
-                'integrity':t.get('integrity')
-              }
-              print('TRADE_ROW '+json.dumps(row,separators=(',',':')))
+              entry_raw=ee.get('rawPrice') or ee.get('quotePrice') or ee.get('marketPrice') or ee.get('referencePrice')
+              entry_fill=ee.get('fillPrice') or t.get('entry')
+              exit_raw=xe.get('rawPrice') or xe.get('quotePrice') or xe.get('marketPrice') or xe.get('referencePrice')
+              exit_fill=xe.get('fillPrice') or t.get('exit')
+              entry_adj=((entry_fill/entry_raw)-1)*100 if entry_raw and entry_fill else None
+              exit_adj=((exit_fill/exit_raw)-1)*100 if exit_raw and exit_fill else None
+              trade=f"{t.get('symbol')} | ${float(t.get('invested') or 0):.2f} | {t.get('why')}"
+              adj=''
+              if entry_raw and entry_fill and exit_raw and exit_fill:
+                  adj=f"Entry {entry_raw:.10g} -> {entry_fill:.10g} ({entry_adj:+.2f}%) | Exit {exit_raw:.10g} -> {exit_fill:.10g} ({exit_adj:+.2f}%)"
+              out.append([idx,trade,t.get('pnl'),t.get('pnlPct'),adj])
+          with open('/tmp/minute_100_250_current.csv','w',newline='') as f:
+              w=csv.writer(f)
+              w.writerow(['#','Trade','PnL','PnL %','Price adjustment'])
+              w.writerows(out)
           PY
+      - name: Upload current detailed ledger
+        uses: actions/upload-artifact@v4
+        with:
+          name: minute-100-250-current-ledger
+          path: /tmp/minute_100_250_current.csv
