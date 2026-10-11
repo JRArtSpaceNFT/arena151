@@ -1,0 +1,38 @@
+name: Pump Lab offsite backup verification
+on:
+  pull_request:
+    branches: [pump-lab-deploy]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Examine offsite backup metadata only
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin pump-lab-backup
+          git show FETCH_HEAD:recovery/live.json > /tmp/pump-lab-snapshot.json
+          python - <<'PY'
+          import json,datetime,time,os
+          p='/tmp/pump-lab-snapshot.json'
+          s=json.load(open(p))
+          state=s.get('state',s) if isinstance(s,dict) else {}
+          meta=state.get('stateMeta',{})
+          h=state.get('recoveryHighWater',{})
+          ts=int(meta.get('savedAt') or 0)
+          result={'savedAt':ts,'savedUTC':datetime.datetime.fromtimestamp(ts/1000,datetime.timezone.utc).isoformat() if ts else None,
+             'ageMin':round((time.time()*1000-ts)/60000,1) if ts else None,
+             'authority':meta.get('authority'),'version':meta.get('version'),
+             'era':meta.get('era'),'exits':meta.get('exitCount'),'tradeCount':meta.get('tradeCount'),
+             'strategies':len(state.get('strategies') or []),'positions':len(state.get('positions') or []),
+             'trades':len(state.get('trades') or []),'highWaterExits':h.get('exitTotal'),
+             'payloadMB':round(os.stat(p).st_size/1048576,2)}
+          print('BACKUP_VERIFICATION',json.dumps(result,sort_keys=True))
+          assert ts>0 and len(state.get('strategies') or [])>10 and isinstance(state.get('trades'),list)
+          assert meta.get('version')==6
+          PY

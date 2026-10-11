@@ -1,0 +1,46 @@
+name: Bundle verified offsite recovery for staging
+on:
+  push:
+    branches: [pump-lab-memory-hardening-20261010]
+    paths: [.github/workflows/pump-lab-bundle-offsite.yml]
+permissions:
+  contents: write
+jobs:
+  copy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: pump-lab-memory-hardening-20261010
+          fetch-depth: 1
+      - name: Preserve offsite recovery without revealing trading data
+        run: |
+          set -euo pipefail
+          git fetch origin pump-lab-backup --depth=1
+          git show FETCH_HEAD:recovery/live.json >/tmp/pump-lab-safe-offsite.json
+          mkdir -p recovery
+          python - <<'PY'
+          import json,gzip,hashlib,datetime
+          src='/tmp/pump-lab-safe-offsite.json'
+          with open(src,'rb') as h: payload=h.read()
+          obj=json.loads(payload)
+          s=obj.get('state',obj)
+          m=s.get('stateMeta') or {}
+          assert m.get('version')==6 and m.get('authority')=='v6-single-runtime-ledger-authority'
+          assert len(s.get('strategies') or [])>=50 and isinstance(s.get('trades'),list)
+          assert int(m.get('exitCount') or 0)>500
+          assert (s.get('season') or {}).get('label')=='season3-clean-execution-2026-10-04'
+          dest='recovery/pump-lab-v6-pinned-offsite.json.gz'
+          with open(dest,'wb') as file:
+            with gzip.GzipFile(filename='',mode='wb',fileobj=file,compresslevel=9,mtime=0) as g:g.write(payload)
+          stamp=datetime.datetime.fromtimestamp(m['savedAt']/1000,datetime.timezone.utc).isoformat()
+          print('RECOVERY_BUNDLED',json.dumps({'savedUTC':stamp,'strategyRecords':len(s.get('strategies') or []),
+               'openPaperPositions':len(s.get('positions') or []),'recordedTradeCount':m.get('tradeCount'),
+               'exitHighWater':m.get('exitCount'),'sha256':hashlib.sha256(payload).hexdigest()}))
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add recovery/pump-lab-v6-pinned-offsite.json.gz
+          git commit -m "Pin verified last-known offsite paper recovery before safe rollout"
+          git push origin HEAD:pump-lab-memory-hardening-20261010

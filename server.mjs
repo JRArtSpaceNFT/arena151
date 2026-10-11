@@ -1,5 +1,7 @@
 import http from 'node:http';
 import fs from 'node:fs';
+import { gunzipSync } from 'node:zlib';
+import { memoryReport, rejectSlowStream, reuseSnapshotUnderPressure } from './lib/pump-lab-runtime-guard.mjs';
 import { createPumpLabAlphaOS } from './lib/pump-lab-alpha-os.mjs';
 import { createPumpLabSeason2Science } from './lib/pump-lab-season2-science.mjs';
 import { createPumpLabProfitAccelerator } from './lib/pump-lab-profit-accelerator.mjs';
@@ -93,6 +95,8 @@ const WATCHED_WALLET_LOOKUP = new Map();
 for(const trader of FOMO_WATCHLIST)for(const wallet of trader.wallets)WATCHED_WALLET_LOOKUP.set(wallet.address,{traderId:trader.id,traderName:trader.name,...wallet});
 
 const MAX_ACTIVITY = 250;
+const MAX_SSE_CLIENTS = 24;
+const RUNTIME_MEMORY_BUDGET_MIB = Math.max(128, Number(process.env.RUNTIME_MEMORY_BUDGET_MIB || 512));
 const MAX_TRADES = Math.max(1000, Number(process.env.MAX_TRADES || 2000));
 const MAX_DECISIONS = Math.max(750, Number(process.env.MAX_DECISIONS || 1500));
 const MAX_TIMELINE = 120;
@@ -135,6 +139,8 @@ let solanaObserved = 0;
 let solanaResolved = 0;
 let solanaSubAcks = 0;
 let db = null;
+let emergencyOffsiteRestored = false;
+let emergencyOffsiteSavedAt = 0;
 let archiveMonsterExportCache = null;
 let dbConnecting = false;
 let dbStateRestored = false;
@@ -475,6 +481,7 @@ function setLifecycle(phase,detail=''){
   console.log('LIFECYCLE '+JSON.stringify({phase,detail:lifecycleDetail,ts:lifecycleSince}));
 }
 function runtimePressure(){
+  if(memoryReport(process.memoryUsage(),RUNTIME_MEMORY_BUDGET_MIB).pressure==='CRITICAL')return 'CRITICAL';
   // Market-event backlog is intentionally non-critical while Postgres is unavailable.
   // Counting an unreachable database backlog as runtime pressure caused a permanent
   // CRITICAL loop that starved the very market/mark tasks needed to recover safely.
@@ -518,8 +525,15 @@ function readinessStatus(){
   return{ready,phase:lifecyclePhase,phaseSince:lifecycleSince,detail:lifecycleDetail,pressure:systemPressure,eventLoopLagMs,eventLoopLagP95,durable,dbConnected:!!db,dbReconnect:{attempt:dbReconnectAttempt,nextRetryAt:dbDisabledUntil,lastError:lastDbFailure||null},kvConnected:kvReady,peerRestored:peerStateRestored,stateVersionTs,lastDurableSaveAt,lastCriticalSaveAt,lastPeerRestoreAt,lastIngestAt,integrity:lastIntegrityReport,checks:{durable,journalHealthy,integrityHealthy,queuesHealthy,eventLoopHealthy},journal:{pending:pendingTradeJournal.length,lastFlushAt:lastTradeJournalFlush,written:journalEventsWritten,replayedAt:journalReplayedAt},backpressure:{...backpressureDrops},circuits:Object.fromEntries(providerCircuits),queues:{solana:solanaQueue.length,prioritySolana:solanaPriorityQueue.length,pendingDbEvents:pendingDbEvents.length,dbHigh:dbWriteHigh.length,dbNormal:dbWriteNormal.length,dbLow:dbWriteLow.length},subsystems:Object.fromEntries(subsystemRuntime)};
 }
 function broadcast(type,data) {
+  if(!clients.size)return;
   const payload=`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`;
-  for (const c of [...clients]) { try { c.write(payload); } catch { clients.delete(c); } }
+  for(const c of clients){
+    if(rejectSlowStream(c)){clients.delete(c);try{c.destroy()}catch{}continue}
+    try {
+      // Never queue unbounded SSE data for a stalled mobile client.
+      if(!c.write(payload)&&rejectSlowStream(c)){clients.delete(c);try{c.destroy()}catch{}}
+    }catch{clients.delete(c);try{c.destroy()}catch{}}
+  }
 }
 
 function narrativeFor(t) {
@@ -988,6 +1002,9 @@ function pruneOpportunities(){
   }
 }
 function durableTradingReady(){
+  // A pinned offsite snapshot is a rescue copy, not a writable current canonical store.
+  // Never open new paper positions from it until Postgres is restored and checkpointed.
+  if(emergencyOffsiteRestored&&(!db||!dbStateRestored||lastDurableSaveAt<=0))return false;
   if(!stateIntegrityOk||shuttingDown||lifecyclePhase==='DRAINING')return false;
   if(!DATABASE_URL&&!REDIS_URL&&!PEER_RECOVERY_URL)return true;
   if(!(dbStateRestored||kvStateRestored||localStateRestored||peerStateRestored))return false;
@@ -997,6 +1014,7 @@ function durableTradingReady(){
 function storageStatus(){
   return{
     canonical:DATABASE_URL?'postgres':REDIS_URL?'key-value':'local-memory',
+    pinnedOffsite:{restored:emergencyOffsiteRestored,savedAt:emergencyOffsiteSavedAt,paperEntryLocked:emergencyOffsiteRestored&&!durableTradingReady()},
     postgres:{configured:!!DATABASE_URL,connected:!!db,restored:dbStateRestored,lastSaveAt:lastDurableSaveAt,lastRestoreAt:lastDurableRestoreAt},
     keyValue:{configured:!!REDIS_URL,connected:kvReady,restored:kvStateRestored,lastSaveAt:lastKvSaveAt,lastRestoreAt:lastKvRestoreAt,persistent:false,role:'disposable failover cache'},
     peer:{configured:!!PEER_RECOVERY_URL,restored:peerStateRestored,lastRestoreAt:lastPeerRestoreAt,maxRecoveryAgeMs:PEER_RECOVERY_MAX_AGE_MS,role:'independent emergency snapshot peer'},
@@ -3065,6 +3083,26 @@ async function writeLocalCriticalAtomic(s){
     await fs.promises.writeFile(tmp,json);await fs.promises.rename(tmp,file);return true;
   }catch(e){console.warn('Local critical checkpoint write warning:',e.message);return false;}
 }
+function restorePinnedOffsite(){
+  try{
+    const archive=new URL('./recovery/pump-lab-v6-pinned-offsite.json.gz',import.meta.url);
+    const snapshot=JSON.parse(gunzipSync(fs.readFileSync(archive)).toString('utf8'));
+    const state=snapshot?.state&&typeof snapshot.state==='object'?snapshot.state:snapshot;
+    const meta=state?.stateMeta||{},savedAt=Number(meta.savedAt)||0;
+    const age=now()-savedAt;
+    if(meta.version!==6||meta.authority!==STATE_AUTHORITY_VERSION||meta.era!==STRATEGY_ERA||
+       state?.season?.label!==CLEAN_SEASON_LABEL||!Number.isFinite(age)||age<0||age>12*3600000||
+       !Array.isArray(state.strategies)||state.strategies.length<50||!Array.isArray(state.trades)){
+      console.error('PINNED_OFFSITE_REJECTED invalid, incompatible or older than 12 hours');return false;
+    }
+    if((Number(meta.exitCount)||0)<currentExitTotal())return false;
+    if(!restoreIfNewer(state,'local'))return false;
+    emergencyOffsiteRestored=true;emergencyOffsiteSavedAt=savedAt;
+    setHealth('pinned-offsite','warn','Validated last-known offsite state restored; all new paper entries locked until Postgres checkpoints',{truth:'observed'});
+    console.warn('PINNED_OFFSITE_READ_ONLY '+JSON.stringify({savedAt,ageMin:Math.round(age/60000),trades:trades.length,positions:positions.length,exits:meta.exitCount}));
+    return true;
+  }catch(e){console.warn('PINNED_OFFSITE_UNAVAILABLE '+String(e?.message||e).slice(0,180));return false;}
+}
 function loadLocal(){
   let restored=false;
   for(const file of [STATE_FILE,STATE_FILE+'.bak']){
@@ -3348,7 +3386,9 @@ function getRecoveryJsonCached(){
 }
 function getStateJsonCached(){
   const ts=now(),age=ts-stateJsonCache.ts;
-  if(stateJsonCache.json&&(age<30000||(shouldDeferNonCritical()&&age<120000)))return stateJsonCache.json;
+  const memory=memoryReport(process.memoryUsage(),RUNTIME_MEMORY_BUDGET_MIB);
+  if(reuseSnapshotUnderPressure({ageMs:age,hasSnapshot:!!stateJsonCache.json,pressure:memory.pressure}) ||
+      (stateJsonCache.json&&shouldDeferNonCritical()&&age<120000))return stateJsonCache.json;
   pruneRuntimeMemory();
   const started=Date.now(),json=JSON.stringify(snapshot());
   stateJsonCache={ts,json};
@@ -4138,8 +4178,14 @@ const server=http.createServer(async (req,res)=>{
   {const routePath=new URL(req.url,'http://pump-lab.local').pathname;
   if(routePath==='/livez'){const body=JSON.stringify({ok:true,phase:lifecyclePhase,uptimeSec:Math.round(process.uptime()),pressure:systemPressure,eventLoopLagMs});res.writeHead(200,{'content-type':'application/json','cache-control':'no-store','content-length':Buffer.byteLength(body)});return res.end(body);}
   if(routePath==='/readyz'){const r=readinessStatus(),body=JSON.stringify(r);res.writeHead(r.ready?200:503,{'content-type':'application/json','cache-control':'no-store','content-length':Buffer.byteLength(body)});return res.end(body);}
-  if(routePath==='/api/health'){const body=JSON.stringify({ok:true,paperOnly:true,version:'5.0 Season 3 Clean Execution',runtime:readinessStatus(),storage:storageStatus(),weather:marketWeather(),providers:[...health.values()]});res.writeHead(200,{'content-type':'application/json','cache-control':'no-store','content-length':Buffer.byteLength(body)});return res.end(body);}}
-  if(req.url==='/api/events'){res.writeHead(200,{'content-type':'text/event-stream','cache-control':'no-cache','connection':'keep-alive'});res.write('data: {}\n\n');clients.add(res);req.on('close',()=>clients.delete(res));return;}
+  if(routePath==='/api/health'){const body=JSON.stringify({ok:true,paperOnly:true,version:'5.0 Season 3 Clean Execution',runtime:readinessStatus(),memory:memoryReport(process.memoryUsage(),RUNTIME_MEMORY_BUDGET_MIB),sseClients:clients.size,storage:storageStatus(),weather:marketWeather(),providers:[...health.values()]});res.writeHead(200,{'content-type':'application/json','cache-control':'no-store','content-length':Buffer.byteLength(body)});return res.end(body);}}
+  if(req.url==='/api/events'){
+    if(clients.size>=MAX_SSE_CLIENTS){res.writeHead(503,{'content-type':'application/json','cache-control':'no-store','retry-after':'5'});return res.end(JSON.stringify({ok:false,error:'event stream capacity reached; retry later'}));}
+    res.writeHead(200,{'content-type':'text/event-stream','cache-control':'no-cache','connection':'keep-alive','x-accel-buffering':'no'});
+    res.write('data: {}\n\n');clients.add(res);
+    const cleanup=()=>clients.delete(res);req.on('close',cleanup);res.on('close',cleanup);
+    return;
+  }
   res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store'});res.end(HTML);
 });
 
@@ -4154,7 +4200,9 @@ await initDb(true);
 if(PEER_RECOVERY_URL)await tryPeerRecovery();
 if((DATABASE_URL||REDIS_URL||PEER_RECOVERY_URL)&&!(dbStateRestored||kvStateRestored||localStateRestored||peerStateRestored)){
   console.log('STARTUP_STATE_GATE waiting for Postgres / Key Value / local / peer recovery before accepting traffic');
-  const restored=await waitForInitialDurableRestore();
+  // Prefer newer Postgres/local/peer recovery. Only then fall back to the pinned,
+  // monotonic, read-only GitHub snapshot so the dashboard can return without fabricated defaults.
+  const restored=restorePinnedOffsite()||await waitForInitialDurableRestore();
   if(!restored)process.exit(1);
 }
 await beginCleanExecutionEraIfNeeded();
@@ -4205,8 +4253,19 @@ const coreRejectTimer=setTimeout(logCoreRejectionSummary,25000);coreRejectTimer.
 const coreRejectLoop=setInterval(logCoreRejectionSummary,60000);coreRejectLoop.unref?.();
 let loopExpected=Date.now()+1000;setInterval(()=>{const ts=Date.now(),lag=Math.max(0,ts-loopExpected);loopExpected=ts+1000;eventLoopLagMs=lag;eventLoopSamples.push(lag);if(eventLoopSamples.length>30)eventLoopSamples.shift();eventLoopLagP95=percentile(eventLoopSamples,.95)||0;systemPressure=runtimePressure();if(lag>500)setHealth('event-loop','warn','Event loop lag '+lag+'ms · pressure '+systemPressure,{truth:'observed'});else if(health.get('event-loop')?.status!=='ok')setHealth('event-loop','ok','Event loop responsive · p95 '+Math.round(eventLoopLagP95)+'ms',{truth:'observed'});},1000).unref?.();
 setInterval(watchdogTick,10000).unref?.();
+setInterval(()=>{
+  const m=memoryReport(process.memoryUsage(),RUNTIME_MEMORY_BUDGET_MIB);
+  if(m.pressure==='HIGH'||m.pressure==='CRITICAL'){
+    // Prune only regenerable caches and market-discovery windows.
+    // Do not delete open positions, completed trades, journal events, or checkpoints.
+    featureCache.clear();entryPolicyCache.clear();regimeWeightCache.clear();dnaSimilarityCache.clear();
+    pruneRuntimeMemory();alphaOS.prune();
+  }
+  setHealth('runtime-memory',m.pressure==='CRITICAL'?'warn':m.pressure==='HIGH'?'warn':'ok',
+    'RSS '+m.rssMiB+'/'+m.budgetMiB+' MiB · heap '+m.heapUsedMiB+' MiB · '+m.pressure,{truth:'observed'});
+},30000).unref?.();
 takeTimeline();takeReplay();alphaOS.observeWorld({weather:marketWeather(),tokens:[...tokens.values()],strategyEquity:Object.fromEntries(allTraders().map(d=>[d.id,d.equity]))});alphaOS.pollExternal();pumpOpenPositionPoll();openPositionPoll();
-setLifecycle('READY','market loops initialized');
+setLifecycle(emergencyOffsiteRestored&&!durableTradingReady()?'DEGRADED':'READY',emergencyOffsiteRestored&&!durableTradingReady()?'offsite recovery visible; paper entry locked pending durable Postgres':'market loops initialized');
 server.listen(PORT,'0.0.0.0',()=>{console.log('PUMP LAB HTTP port bound on '+PORT+' · READY after trusted state recovery');});
 runScheduled('x-feed-warmup',()=>refreshXFeed(false).then(x=>console.log('X_FEED_WARMUP '+JSON.stringify({ok:x.ok,source:x.source,posts:x.posts?.length||0,handles:x.handles,errors:x.errors||[]}))),{budgetMs:30000}).catch(()=>{});
 setInterval(()=>runScheduled('x-feed-refresh',()=>refreshXFeed(false),{budgetMs:30000}),120000).unref?.();
