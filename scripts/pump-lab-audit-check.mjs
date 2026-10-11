@@ -267,7 +267,10 @@ if(!src.includes("if(RESET_SEASON)await archiveAndResetSeason(RESET_SEASON)"))fa
 if(!src.includes("req.url==='/api/archives'"))failures.push('season archive metadata endpoint missing');
 if(!src.includes("freshAlpha=createPumpLabAlphaOS"))failures.push('Alpha OS fresh-season reset missing');
 
-if(src.indexOf("setLifecycle('READY','market loops initialized')")<0||src.indexOf("server.listen(PORT,'0.0.0.0'")<src.indexOf("setLifecycle('READY','market loops initialized')"))failures.push('public port must bind only after READY');
+const liveReadyAnchor="setLifecycle('READY','market loops initialized')";
+const rescueReadyAnchor="setLifecycle(emergencyOffsiteRestored&&!durableTradingReady()?'DEGRADED':'READY'";
+const readyAt=Math.max(src.indexOf(liveReadyAnchor),src.indexOf(rescueReadyAnchor));
+if(readyAt<0||src.indexOf("server.listen(PORT,'0.0.0.0'")<readyAt)failures.push('public port must bind only after validated ready/degraded recovery lifecycle');
 if(!src.includes("FATAL_STATE_INTEGRITY · refusing to bind public port"))failures.push('startup integrity fence missing');
 
 if(src.includes("forensic-placeholder-trade"))failures.push('forensic recovery must not synthesize placeholder trades');
