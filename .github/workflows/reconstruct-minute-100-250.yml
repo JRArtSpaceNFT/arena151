@@ -1,0 +1,76 @@
+name: Reconstruct minute 100-250 ledger
+on:
+  push:
+    branches: [pump-lab-deploy]
+    paths:
+      - .github/workflows/reconstruct-minute-100-250.yml
+
+jobs:
+  reconstruct:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout backup history
+        uses: actions/checkout@v4
+        with:
+          ref: pump-lab-backup
+          fetch-depth: 0
+      - name: Reconstruct all observed trades
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, subprocess, csv, os
+          commits=subprocess.check_output(['git','log','--format=%H','--','recovery/live.json'],text=True).split()
+          merged={}
+          snapshots=[]
+          for sha in reversed(commits):
+              try:
+                  raw=subprocess.check_output(['git','show',f'{sha}:recovery/live.json'],stderr=subprocess.DEVNULL)
+                  j=json.loads(raw)
+              except Exception:
+                  continue
+              state=j.get('state') if isinstance(j,dict) and isinstance(j.get('state'),dict) else j
+              trades=[t for t in (state.get('trades') or []) if t.get('strategy')=='minute_100_250']
+              snapshots.append((sha,len(trades),sum(float(t.get('pnl') or 0) for t in trades)))
+              for t in trades:
+                  key=t.get('id') or '|'.join(map(str,[t.get('mint'),t.get('opened'),t.get('closedAt'),t.get('entry'),t.get('exit')]))
+                  old=merged.get(key)
+                  if old is None or float(t.get('closedAt') or 0)>=float(old.get('closedAt') or 0):
+                      merged[key]=t
+          trades=sorted(merged.values(),key=lambda t:float(t.get('closedAt') or 0))
+          wins=[t for t in trades if float(t.get('pnl') or 0)>0]
+          losses=[t for t in trades if float(t.get('pnl') or 0)<=0]
+          total=sum(float(t.get('pnl') or 0) for t in trades)
+          print('RECON_SNAPSHOTS '+json.dumps(snapshots))
+          print('RECON_SUMMARY '+json.dumps({
+              'snapshotCommits':len(snapshots),'unionTrades':len(trades),'wins':len(wins),'losses':len(losses),
+              'totalPnl':total,'endingEquityFrom1000':1000+total,
+              'grossWins':sum(float(t.get('pnl') or 0) for t in wins),
+              'grossLosses':sum(float(t.get('pnl') or 0) for t in losses)
+          }))
+          top=sorted(trades,key=lambda t:float(t.get('pnl') or 0),reverse=True)[:30]
+          print('RECON_TOP '+json.dumps([{
+              'id':t.get('id'),'symbol':t.get('symbol'),'opened':t.get('opened'),'closedAt':t.get('closedAt'),
+              'entry':t.get('entry'),'exit':t.get('exit'),'pnl':t.get('pnl'),'pnlPct':t.get('pnlPct'),
+              'entryRaw':(t.get('entryExecution') or {}).get('rawPrice'),
+              'entrySlip':(t.get('entryExecution') or {}).get('slippage'),
+              'exitRaw':(t.get('exitExecution') or {}).get('rawPrice'),
+              'exitSlip':(t.get('exitExecution') or {}).get('slippage'),
+              'why':t.get('why')
+          } for t in top],separators=(',',':')))
+          with open('/tmp/minute_100_250_reconstructed.csv','w',newline='') as f:
+              w=csv.writer(f)
+              w.writerow(['#','symbol','mint','opened','closedAt','entry_raw','entry_fill','entry_slippage','entry_fee_rate','exit_raw','exit_fill','exit_slippage','exit_fee_rate','invested','pnl','pnl_pct','reason'])
+              for i,t in enumerate(trades,1):
+                  ee=t.get('entryExecution') or {}; xe=t.get('exitExecution') or {}
+                  w.writerow([i,t.get('symbol'),t.get('mint'),t.get('opened'),t.get('closedAt'),
+                    ee.get('rawPrice'),t.get('entry') or ee.get('fillPrice'),ee.get('slippage'),ee.get('feeRate'),
+                    xe.get('rawPrice'),t.get('exit') or xe.get('fillPrice'),xe.get('slippage'),xe.get('feeRate'),
+                    t.get('invested'),t.get('pnl'),t.get('pnlPct'),t.get('why')])
+          PY
+      - name: Upload reconstructed ledger
+        uses: actions/upload-artifact@v4
+        with:
+          name: minute-100-250-ledger
+          path: /tmp/minute_100_250_reconstructed.csv
