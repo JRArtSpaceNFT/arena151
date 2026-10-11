@@ -1,5 +1,6 @@
 import http from 'node:http';
 import fs from 'node:fs';
+import { gunzipSync } from 'node:zlib';
 import { memoryReport, rejectSlowStream, reuseSnapshotUnderPressure } from './lib/pump-lab-runtime-guard.mjs';
 import { createPumpLabAlphaOS } from './lib/pump-lab-alpha-os.mjs';
 import { createPumpLabSeason2Science } from './lib/pump-lab-season2-science.mjs';
@@ -138,6 +139,8 @@ let solanaObserved = 0;
 let solanaResolved = 0;
 let solanaSubAcks = 0;
 let db = null;
+let emergencyOffsiteRestored = false;
+let emergencyOffsiteSavedAt = 0;
 let archiveMonsterExportCache = null;
 let dbConnecting = false;
 let dbStateRestored = false;
@@ -999,6 +1002,9 @@ function pruneOpportunities(){
   }
 }
 function durableTradingReady(){
+  // A pinned offsite snapshot is a rescue copy, not a writable current canonical store.
+  // Never open new paper positions from it until Postgres is restored and checkpointed.
+  if(emergencyOffsiteRestored&&(!db||!dbStateRestored||lastDurableSaveAt<=0))return false;
   if(!stateIntegrityOk||shuttingDown||lifecyclePhase==='DRAINING')return false;
   if(!DATABASE_URL&&!REDIS_URL&&!PEER_RECOVERY_URL)return true;
   if(!(dbStateRestored||kvStateRestored||localStateRestored||peerStateRestored))return false;
@@ -1008,6 +1014,7 @@ function durableTradingReady(){
 function storageStatus(){
   return{
     canonical:DATABASE_URL?'postgres':REDIS_URL?'key-value':'local-memory',
+    pinnedOffsite:{restored:emergencyOffsiteRestored,savedAt:emergencyOffsiteSavedAt,paperEntryLocked:emergencyOffsiteRestored&&!durableTradingReady()},
     postgres:{configured:!!DATABASE_URL,connected:!!db,restored:dbStateRestored,lastSaveAt:lastDurableSaveAt,lastRestoreAt:lastDurableRestoreAt},
     keyValue:{configured:!!REDIS_URL,connected:kvReady,restored:kvStateRestored,lastSaveAt:lastKvSaveAt,lastRestoreAt:lastKvRestoreAt,persistent:false,role:'disposable failover cache'},
     peer:{configured:!!PEER_RECOVERY_URL,restored:peerStateRestored,lastRestoreAt:lastPeerRestoreAt,maxRecoveryAgeMs:PEER_RECOVERY_MAX_AGE_MS,role:'independent emergency snapshot peer'},
@@ -3076,6 +3083,26 @@ async function writeLocalCriticalAtomic(s){
     await fs.promises.writeFile(tmp,json);await fs.promises.rename(tmp,file);return true;
   }catch(e){console.warn('Local critical checkpoint write warning:',e.message);return false;}
 }
+function restorePinnedOffsite(){
+  try{
+    const archive=new URL('./recovery/pump-lab-v6-pinned-offsite.json.gz',import.meta.url);
+    const snapshot=JSON.parse(gunzipSync(fs.readFileSync(archive)).toString('utf8'));
+    const state=snapshot?.state&&typeof snapshot.state==='object'?snapshot.state:snapshot;
+    const meta=state?.stateMeta||{},savedAt=Number(meta.savedAt)||0;
+    const age=now()-savedAt;
+    if(meta.version!==6||meta.authority!==STATE_AUTHORITY_VERSION||meta.era!==STRATEGY_ERA||
+       state?.season?.label!==CLEAN_SEASON_LABEL||!Number.isFinite(age)||age<0||age>12*3600000||
+       !Array.isArray(state.strategies)||state.strategies.length<50||!Array.isArray(state.trades)){
+      console.error('PINNED_OFFSITE_REJECTED invalid, incompatible or older than 12 hours');return false;
+    }
+    if(Number(meta.exitCount)||0 < currentExitTotal())return false;
+    if(!restoreIfNewer(state,'local'))return false;
+    emergencyOffsiteRestored=true;emergencyOffsiteSavedAt=savedAt;
+    setHealth('pinned-offsite','warn','Validated last-known offsite state restored; all new paper entries locked until Postgres checkpoints',{truth:'observed'});
+    console.warn('PINNED_OFFSITE_READ_ONLY '+JSON.stringify({savedAt,ageMin:Math.round(age/60000),trades:trades.length,positions:positions.length,exits:meta.exitCount}));
+    return true;
+  }catch(e){console.warn('PINNED_OFFSITE_UNAVAILABLE '+String(e?.message||e).slice(0,180));return false;}
+}
 function loadLocal(){
   let restored=false;
   for(const file of [STATE_FILE,STATE_FILE+'.bak']){
@@ -4173,7 +4200,9 @@ await initDb(true);
 if(PEER_RECOVERY_URL)await tryPeerRecovery();
 if((DATABASE_URL||REDIS_URL||PEER_RECOVERY_URL)&&!(dbStateRestored||kvStateRestored||localStateRestored||peerStateRestored)){
   console.log('STARTUP_STATE_GATE waiting for Postgres / Key Value / local / peer recovery before accepting traffic');
-  const restored=await waitForInitialDurableRestore();
+  // Prefer newer Postgres/local/peer recovery. Only then fall back to the pinned,
+  // monotonic, read-only GitHub snapshot so the dashboard can return without fabricated defaults.
+  const restored=restorePinnedOffsite()||await waitForInitialDurableRestore();
   if(!restored)process.exit(1);
 }
 await beginCleanExecutionEraIfNeeded();
@@ -4236,7 +4265,7 @@ setInterval(()=>{
     'RSS '+m.rssMiB+'/'+m.budgetMiB+' MiB · heap '+m.heapUsedMiB+' MiB · '+m.pressure,{truth:'observed'});
 },30000).unref?.();
 takeTimeline();takeReplay();alphaOS.observeWorld({weather:marketWeather(),tokens:[...tokens.values()],strategyEquity:Object.fromEntries(allTraders().map(d=>[d.id,d.equity]))});alphaOS.pollExternal();pumpOpenPositionPoll();openPositionPoll();
-setLifecycle('READY','market loops initialized');
+setLifecycle(emergencyOffsiteRestored&&!durableTradingReady()?'DEGRADED':'READY',emergencyOffsiteRestored&&!durableTradingReady()?'offsite recovery visible; paper entry locked pending durable Postgres':'market loops initialized');
 server.listen(PORT,'0.0.0.0',()=>{console.log('PUMP LAB HTTP port bound on '+PORT+' · READY after trusted state recovery');});
 runScheduled('x-feed-warmup',()=>refreshXFeed(false).then(x=>console.log('X_FEED_WARMUP '+JSON.stringify({ok:x.ok,source:x.source,posts:x.posts?.length||0,handles:x.handles,errors:x.errors||[]}))),{budgetMs:30000}).catch(()=>{});
 setInterval(()=>runScheduled('x-feed-refresh',()=>refreshXFeed(false),{budgetMs:30000}),120000).unref?.();
