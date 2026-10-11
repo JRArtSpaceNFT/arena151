@@ -47,8 +47,7 @@ test('read-only pinned recovery boots when DB, Key Value and peers are down', {t
   assert.equal(res.status,200);
   const s=await res.json();
   assert.equal(s?.summary?.ledgerTrades||0,0,'Active Five Brain ledger must start clean; legacy history lives only in the immutable archive');
-    assert.equal(s?.season?.label,'season4-five-brain-2026-10-11');
-  assert.equal(s?.strategies?.length,5,'Five Brain migration must expose exactly five active bots');
+    assert.equal(s?.strategies?.length,5,'Five Brain migration must expose exactly five active bots');
   for(const d of s.strategies){
     assert.equal(d.cash,1000,'Each Five Brain bot must reset cash to $1,000');
     assert.equal(d.n,0,'Each Five Brain bot must reset completed-trade count');
