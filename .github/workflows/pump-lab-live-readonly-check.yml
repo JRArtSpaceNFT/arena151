@@ -1,0 +1,62 @@
+name: Pump Lab read-only live recovery audit
+on:
+  pull_request:
+    branches: [pump-lab-deploy]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Inspect live health and recovery peers without exposing portfolio content
+        env:
+          PYTHONUNBUFFERED: "1"
+        run: |
+          python - <<'PY'
+          import json, urllib.request, urllib.error, datetime, time
+          endpoints = [
+            ('engine-health','https://pump-lab-live.onrender.com/api/health'),
+            ('engine-ready','https://pump-lab-live.onrender.com/api/ready'),
+            ('engine-state','https://pump-lab-live.onrender.com/api/state'),
+            ('peer-ui','https://pump-lab-ui.onrender.com/api/recovery-snapshot-cache'),
+            ('peer-recovery','https://pump-lab-recovery-peer.onrender.com/api/recovery-snapshot-cache'),
+          ]
+          report=[]
+          for name,url in endpoints:
+            started=time.monotonic()
+            try:
+              req=urllib.request.Request(url,headers={'Accept':'application/json','User-Agent':'pump-lab-readonly-audit/1.0'})
+              with urllib.request.urlopen(req,timeout=14) as res:
+                status=res.status
+                body=res.read(20_000_000)
+              j=json.loads(body)
+              state=j.get('state') if isinstance(j,dict) and isinstance(j.get('state'),dict) else j
+              is_recovery=name.startswith('peer-')
+              meta=state.get('stateMeta') or {} if isinstance(state,dict) else {}
+              ts=int(meta.get('savedAt') or 0)
+              freshness=int(time.time()*1000)-ts if ts else None
+              summary=state.get('summary') or {} if isinstance(state,dict) else {}
+              runtime=state.get('runtime') or {} if isinstance(state,dict) else {}
+              storage=state.get('storage') or {} if isinstance(state,dict) else {}
+              row={'endpoint':name,'http':status,'ms':round(1000*(time.monotonic()-started)),
+                   'bytes':len(body),'state_age_min':round(freshness/60000,1) if freshness is not None else None,
+                   'strategy_count':len(state.get('strategies') or []) if isinstance(state,dict) else None,
+                   'saved_trade_count':len(state.get('trades') or []) if is_recovery and isinstance(state,dict) else None,
+                   'saved_open_count':len(state.get('positions') or []) if is_recovery and isinstance(state,dict) else None,
+                   'summary_trades':summary.get('trades'),
+                   'summary_ledger':summary.get('ledgerTrades'),
+                   'lifecycle':runtime.get('phase') if isinstance(runtime,dict) else None,
+                   'durable':runtime.get('durable') if isinstance(runtime,dict) else None,
+                   'db_connected':runtime.get('dbConnected') if isinstance(runtime,dict) else None,
+                   'canonical':storage.get('canonical') if isinstance(storage,dict) else None,
+                   'readiness_ok':j.get('ok') if isinstance(j,dict) else None}
+              report.append(row)
+              print('AUDIT_ROW',json.dumps(row,sort_keys=True))
+            except Exception as e:
+              row={'endpoint':name,'error':str(e)[:180],'ms':round(1000*(time.monotonic()-started))}
+              report.append(row)
+              print('AUDIT_ROW',json.dumps(row,sort_keys=True))
+          with open('/tmp/pump-lab-audit.json','w') as fh:json.dump(report,fh,indent=2)
+          PY
