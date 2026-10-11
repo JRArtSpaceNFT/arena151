@@ -1,0 +1,59 @@
+name: Inspect minute 100-250 ledger
+on:
+  push:
+    branches: [pump-lab-deploy]
+    paths:
+      - .github/workflows/inspect-minute-100-250.yml
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fetch bot ledger
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --show-error --location --retry 4 --max-time 45 \
+            "https://pump-lab-live.onrender.com/api/bot?id=minute_100_250" \
+            -o /tmp/bot.json
+          python - <<'PY'
+          import json, datetime
+          j=json.load(open('/tmp/bot.json'))
+          print('BOT_SUMMARY '+json.dumps({'bot':j.get('bot'), 'stats':j.get('stats')}))
+          trades=j.get('trades') or []
+          if trades:
+              print('TRADE_SAMPLE '+json.dumps(trades[0],separators=(',',':')))
+          for idx,t in enumerate(reversed(trades),1):
+              ee=t.get('entryExecution') or {}
+              xe=t.get('exitExecution') or {}
+              row={
+                'i':idx,
+                'symbol':t.get('symbol'),
+                'mint':t.get('mint'),
+                'opened':t.get('opened'),
+                'closedAt':t.get('closedAt'),
+                'entry':t.get('entry'),
+                'entryRaw':ee.get('rawPrice') or ee.get('quotePrice') or ee.get('marketPrice') or ee.get('referencePrice'),
+                'entryFill':ee.get('fillPrice'),
+                'entrySlip':ee.get('slippage'),
+                'entryFeeRate':ee.get('feeRate'),
+                'entryFixedCost':ee.get('fixedCost'),
+                'exit':t.get('exit'),
+                'exitRaw':xe.get('rawPrice') or xe.get('quotePrice') or xe.get('marketPrice') or xe.get('referencePrice'),
+                'exitFill':xe.get('fillPrice'),
+                'exitSlip':xe.get('slippage'),
+                'exitFeeRate':xe.get('feeRate'),
+                'exitFixedCost':xe.get('fixedCost'),
+                'invested':t.get('invested'),
+                'entryCost':t.get('entryCost'),
+                'pnl':t.get('pnl'),
+                'pnlPct':t.get('pnlPct'),
+                'why':t.get('why'),
+                'entryMc':t.get('entryMc'),
+                'mae':t.get('mae'),
+                'mfe':t.get('mfe'),
+                'integrity':t.get('integrity')
+              }
+              print('TRADE_ROW '+json.dumps(row,separators=(',',':')))
+          PY
