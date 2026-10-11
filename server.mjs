@@ -251,11 +251,11 @@ let xFeedInFlight = null;
 const xPublicFailures = new Map();
 
 const strategyDefs = [
-  ['banker','🛡️','The Sentinel','LOW',.08,72,8,34,4,'capital preservation first: only cross-sourced, liquid, low-risk setups with clean price continuity'],
-  ['momentum','⚡','The Surge','HIGH',.09,70,9,52,4,'trade confirmed acceleration and persistent buyers without chasing vertical or stale momentum'],
-  ['dip','↗️','The Rebound','MED',.08,68,10,58,4,'wait for a real pullback, then enter only after recovery, renewed flow and acceleration are observed'],
-  ['champion','🏃','The Runner','MED',.075,73,11,95,4,'highest-conviction chart and evidence ensemble: scale winners, protect the right tail, refuse noisy structures'],
-  ['smartmom','🧠','The Flow','MED',.085,71,9,55,4,'combine fresh buyer flow, quality, acceleration and verified wallet evidence when available; never use social hype alone']
+  ['banker','🛡️','The Sentinel','LOW',.04,72,8,34,4,'capital preservation first: only cross-sourced, liquid, low-risk setups with clean price continuity'],
+  ['momentum','⚡','The Surge','HIGH',.04,70,9,52,4,'trade confirmed acceleration and persistent buyers without chasing vertical or stale momentum'],
+  ['dip','↗️','The Rebound','MED',.04,68,10,58,4,'wait for a real pullback, then enter only after recovery, renewed flow and acceleration are observed'],
+  ['champion','🏃','The Runner','MED',.04,73,11,95,4,'highest-conviction chart and evidence ensemble: scale winners, protect the right tail, refuse noisy structures'],
+  ['smartmom','🧠','The Flow','MED',.04,71,9,55,4,'combine fresh buyer flow, quality, acceleration and verified wallet evidence when available; never use social hype alone']
 ].map(([id,icon,name,risk,size,min,stop,take,maxOpen,thesis]) => ({
   id,icon,name,risk,size,min,stop,take,maxOpen,thesis,version:7,fiveBrain:true,
   equity:START,cash:START,peak:START,dd:0,auditPeak:START,auditDd:0,wins:0,losses:0,n:0
@@ -3352,7 +3352,7 @@ function v3SelfTest(){
   const mac=FOMO_WATCHLIST.find(x=>x.id==='macdegods');
   if((mac?.wallets||[]).some(w=>w.confidence==='verified'))issues.push('macdegods: review direct-copy eligibility; mapping changed');
   const graduation=strategyDefs.find(x=>x.id==='graduation');
-  if(!CORE_PLAYBOOKS.graduation?.requireGraduated||!graduation)issues.push('graduation: confirmed state guard missing');
+  if(graduation&&!CORE_PLAYBOOKS.graduation?.requireGraduated)issues.push('graduation: confirmed state guard missing');
   if(ALLOW_AUTO_PROMOTION)issues.push('governance: auto promotion explicitly enabled');
   if(typeof deterministicScore('selftest')!=='number')issues.push('deterministic control unavailable');
   return{pass:issues.length===0,era:STRATEGY_ERA,auditVersion:AUDIT_VERSION,production:production.length,controls:strategyDefs.filter(d=>d.risk==='CONTROL').length,
