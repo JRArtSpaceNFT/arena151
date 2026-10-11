@@ -13,8 +13,8 @@ const PUMP_KEY = process.env.PUMPPORTAL_API_KEY || '';
 const ALLOW_METERED = (process.env.ALLOW_METERED_PUMPPORTAL || 'false') === 'true';
 const START = 1000;
 const TARGET = 100000;
-const STRATEGY_ERA = 'v5.1-integrity-freeze';
-const CLEAN_SEASON_LABEL = 'season3-clean-execution-2026-10-04';
+const STRATEGY_ERA = 'v7-five-brain-2026-10-11';
+const CLEAN_SEASON_LABEL = 'season4-five-brain-2026-10-11';
 const STATE_AUTHORITY_VERSION = 'v6-single-runtime-ledger-authority';
 const ALLOW_SEASON_MIGRATION = (process.env.ALLOW_SEASON_MIGRATION || 'false') === 'true';
 const FEE_RATE = 0.0125; // conservative fallback for unknown venue/lifecycle
@@ -47,7 +47,7 @@ const FROZEN_EXPERIMENT_MIN_TRADES = Number(process.env.FROZEN_EXPERIMENT_MIN_TR
 const CORE_COLLECTION_MIN_SCORE_FLOOR = Number(process.env.CORE_COLLECTION_MIN_SCORE_FLOOR || 48);
 const CORE_COLLECTION_MAX_SCORE_RELIEF = Number(process.env.CORE_COLLECTION_MAX_SCORE_RELIEF || 18);
 const PAPER_COLLECTION_MIN_EXPECTED_NET_WIN_USD = Math.max(5, Number(process.env.PAPER_COLLECTION_MIN_EXPECTED_NET_WIN_USD || 15));
-const ACTIVE_EXPERIMENT_IDS = new Set(['banker','graduation','confirmed_runner','mc_over100','liq_50_plus','crosscheck','random','winner1','winner2','launchctl']);
+const ACTIVE_EXPERIMENT_IDS = new Set(['banker','momentum','dip','champion','smartmom']);
 const MAX_RUNTIME_TOKENS = Number(process.env.MAX_RUNTIME_TOKENS || 600);
 const MAX_OPPORTUNITIES = Number(process.env.MAX_OPPORTUNITIES || 5000);
 const OPPORTUNITY_RETENTION_MS = Number(process.env.OPPORTUNITY_RETENTION_MS || 129600000);
@@ -251,205 +251,43 @@ let xFeedInFlight = null;
 const xPublicFailures = new Map();
 
 const strategyDefs = [
-  ['banker','🏦','The Banker','LOW',.025,62,14,90,1,'only confirmed momentum with capital preservation; tolerate small misses for rare asymmetric winners'],
-  ['quant','∑','The Quant','LOW',.03,64,11,110,1,'multi-factor confirmation with hard quality floors and catastrophic-loss avoidance'],
-  ['smart','🧠','Smart Money','MED',.03,62,10,110,1,'verified smart-wallet activity plus market confirmation; never use flow as a wallet proxy'],
-  ['social','📡','Social Alpha','MED',.025,63,14,75,1,'social presence is context only; require fresh market confirmation and multiple channels'],
-  ['momentum','⚡','Momentum Hunter','HIGH',.04,67,13,90,1,'trade acceleration, not stale absolute momentum; require fresh buyers and observed liquidity'],
-  ['graduation','🎓','Graduation','MED',.03,64,14,85,1,'confirmed irreversible graduation breakout with post-migration liquidity and flow'],
-  ['dip','↘','Dip Buyer','MED',.03,62,13,75,1,'real pullback plus rebound confirmation; never buy a falling knife from one tick'],
-  ['swing','🌊','Swing Trader','MED',.035,64,12,125,1,'deep observed liquidity, mature structure, small risk and room for asymmetric runners'],
-  ['degen','🔥','Early Degen','EXTREME',.02,66,11,80,1,'tiny early starter only after real flow appears; no blind first-second momentum'],
-  ['smartmom','🧬','Smart Momentum','HIGH',.04,69,13,105,1,'high-quality acceleration with strong buyer pressure; modeled on the successful confirmation challenger'],
-  ['culture','🌐','Culture Hybrid','HIGH',.035,65,14,95,1,'narrative/social context only when confirmed by fresh flow, quality and momentum'],
-  ['contrarian','🪞','Contrarian','MED',.025,64,12,70,1,'buy controlled pullback recovery, not weakness for its own sake'],
-  ['sniper','🎯','Patient Sniper','MED',.035,72,11,145,1,'rare cross-checked high-conviction setup with strong quality and acceleration'],
-  ['champion','👑','Champion','HIGH',.04,70,13,125,1,'ensemble only when independent evidence agrees; abstention is a valid win'],
-  ['professional','🛡','Professional','LOW',.025,68,11,85,1,'risk-adjusted return with cross-source data, deep liquidity and strict loss control'],
-  ['adaptive','🧭','Adaptive Master','MED',.035,68,13,105,1,'regime-aware evidence ensemble that ignores weak peers and can stay in cash'],
-  ['copy_unipcs','🔭','Unipcs Conviction Copy','MED',.025,62,16,220,2,'paper-copy verified Unipcs entries with chase limits; tiny starters and long asymmetric runners'],
-  ['copy_frank','🎒','Frank Consistency Copy','MED',.03,64,14,130,2,'paper-copy verified Frank entries only with fresh quality confirmation'],
-  ['copy_orangie','🍊','Orangie Diversified Copy','LOW',.025,64,12,80,2,'paper-copy verified Orangie entries with diversified small sizing and disciplined exits'],
-  ['copy_rasmr','⚡','Rasmr Fast Copy','HIGH',.02,65,10,50,2,'paper-copy verified Rasmr entries as short-horizon trades with strict chase and time limits'],
-  ['wallet_consensus','👥','Smart Wallet Consensus','MED',.03,69,10,150,2,'requires multiple independently verified tracked wallets to converge on the same token'],
-  ['confirmed_runner','🏃','Confirmed Runner','HIGH',.035,70,12,130,1,'fresh acceleration plus strong buyer flow, cross-source quality and room for a runner'],
-  ['asym_swing','💎','Mac-Style Asymmetric Swing','MED',.025,67,14,220,1,'behavioral model inspired by MacDeGods payoff asymmetry; not direct copy until the current execution wallet is independently verified'],
-  ['copy_megga','🎮','Megga Direct Copy','HIGH',.015,58,12,400,6,'paper-copy Megga public-wallet buys with tiny probes, strict chase limits, source-aware sells and runner preservation'],
-  ['megga_scout','🛰️','Megga Micro Scout','HIGH',.015,58,12,400,8,'behavioral model: many tiny sub-$100K scouts, asymmetric payoff, no averaging down, scale winners and keep a runner'],
-
-  // Hypothesis Arena: narrow, falsifiable momentum experiments. These never auto-promote.
-  ['hyp_bal_1_3','H1','1–3m Balanced Burst','R&D',.02,60,10,90,1,'H1: 1–3 minute tokens with strong but non-euphoric buyers outperform generic momentum'],
-  ['hyp_bal_3_6','H2','3–6m Confirmation','R&D',.02,61,10,95,1,'H2: waiting 3–6 minutes improves signal quality without giving up most upside'],
-  ['hyp_transition','H3','Transition Crosscheck','R&D',.02,61,10,100,1,'H3: $60K–$120K cross-checked transition tokens offer better expectancy than broad early-cap entries'],
-  ['hyp_accel','H4','Acceleration Not Euphoria','R&D',.02,62,9,105,1,'H4: high acceleration with moderate buyer pressure beats extreme crowding'],
-  ['hyp_liqrunner','H5','Liquidity Runner','R&D',.02,62,10,110,1,'H5: deeper-liquidity momentum produces smaller losers while retaining runner upside'],
-  ['hyp_lowrisk','H6','Low-Risk Momentum','R&D',.02,62,9,95,1,'H6: structural risk below 50 plus momentum produces superior risk-adjusted expectancy'],
-  ['hyp_rebound','H7','Rebound Momentum','R&D',.02,60,9,100,1,'H7: controlled pullback plus fresh rebound is better than buying the initial vertical move'],
-  ['hyp_quality','H8','Quality First Momentum','R&D',.02,60,9,100,1,'H8: very high data quality with only moderate momentum beats raw momentum intensity'],
-  ['hyp_hotbalanced','H9','Hot Regime Balanced','R&D',.02,61,10,110,1,'H9: in HOT regimes, balanced pressure outperforms euphoric pressure'],
-  ['hyp_riskoff','H10','Risk-Off Momentum','R&D',.015,63,8,70,1,'H10: only the cleanest low-risk momentum can retain positive expectancy in RISK OFF'],
-
-  // Research Graduate trio: paper-only experiments synthesized from the observed Season 2 evidence.
-  ['hyp_grad_fortress','G1','The Fortress','R&D',.015,65,8,70,1,'G1: established cross-checked quality with balanced pressure and clean creator history reduces catastrophic downside'],
-  ['hyp_grad_rebound','G2','Second Chance','R&D',.015,63,9,130,1,'G2: controlled pullback plus confirmed rebound outperforms chasing the first impulse'],
-  ['hyp_grad_outlier','G3','The Outlier','R&D',.0125,66,9,250,1,'G3: rare high-quality non-euphoric structures with asymmetric exits can offset a low hit rate'],
-  ['velocity_scalper','⚡','Velocity Scalper','R&D',.10,64,6,11,1,'fast paper scalper: target roughly $100 when fresh momentum accelerates, then exit within minutes instead of waiting for a moonshot'],
-  ['minute_sub100','⏱️','Sub $100K Minute Trader','R&D',.10,0,8,8,1,'forced paper sampler: take the best currently observed memecoin below $100K market cap roughly once per minute'],
-  ['minute_100_250','⏱️','$100K–$250K Minute Trader','R&D',.10,0,7,8,1,'forced paper sampler: take the best currently observed $100K–$250K memecoin roughly once per minute'],
-  ['minute_500_1m','⏱️','$500K–$1M Minute Trader','R&D',.10,0,6,7,1,'forced paper sampler: take the best currently observed $500K–$1M memecoin roughly once per minute'],
-
-  ['meme_smooth_curve','◒','Smooth Curve Climber','R&D',.02,61,9,110,1,'smooth pre-graduation climb with persistent participation; reject vertical mechanical curve spikes'],
-  ['meme_retest','↗','Breakout Retest','R&D',.02,61,9,120,1,'enter only when a prior resistance area is reclaimed and retested with healthy flow'],
-  ['meme_compression','◇','Compression Release','R&D',.02,62,9,125,1,'trade controlled volatility compression followed by expansion, not already-extended price'],
-  ['meme_postgrad','◎','Post-Grad Continuation','R&D',.02,62,9,130,1,'post-graduation continuation on deeper canonical liquidity with clean chart structure'],
-  ['meme_survival','△','Five-Minute Survivor','R&D',.02,62,8,100,1,'require survival beyond the most fragile launch window plus cross-checked quality and path continuity'],
-
-  ['random','🎲','Random Control','CONTROL',.05,45,22,45,16,'random baseline'],
-  ['winner1','🏆','Winner 1','CONTROL',.05,50,12,90,16,'broad randomized entry baseline with ruthless first-minute failure cutting and explicit post-entry path collection'],
-  ['winner2','🥇','Winner 2','CONTROL',.05,55,15,140,2,'broad randomized entry baseline that gives trades time to prove a winner shape, then preserves confirmed runners and records the full early path'],
-  ['volume','📊','Volume Control','CONTROL',.06,68,22,50,1,'simple volume baseline'],
-  ['launchctl','🧱','Every Launch Control','CONTROL',.035,0,30,50,3,'buy-everything launch baseline'],
-  ['socialctl','📣','Social Metadata Control','CONTROL',.04,58,25,55,2,'simple social-metadata baseline'],
-
-  // Specialist Cohort Lab: deliberately narrow populations for clean apples-to-apples experiments.
-  ['mc_u25','🔬','Under $25K','MED',.045,58,24,65,1,'only trades tokens below $25k market cap'],
-  ['mc_25_50','🧫','$25K–$50K','MED',.05,59,23,68,1,'only trades $25k–$50k market cap'],
-  ['mc_50_100','🌱','$50K–$100K','MED',.055,60,22,70,1,'only trades $50k–$100k market cap'],
-  ['mc_100_250','🚦','$100K–$250K','MED',.06,61,21,72,1,'only trades $100k–$250k market cap'],
-  ['mc_250_500','🏎️','$250K–$500K','MED',.065,62,20,75,1,'only trades $250k–$500k market cap'],
-  ['mc_500_1m','🏙️','$500K–$1M','LOW',.06,63,18,72,1,'only trades $500k–$1m market cap'],
-  ['mc_1m_plus','🏛️','$1M+','LOW',.055,64,17,68,1,'only trades above $1m market cap'],
-  ['mc_sub100','🪙','Sub $100K','HIGH',.065,59,23,72,2,'broad early-cap cohort below $100k'],
-  ['mc_over100','📈','$100K+','MED',.06,62,20,72,1,'broad cohort only after $100k'],
-  ['mc_over250','🧱','$250K+','LOW',.06,63,18,70,1,'established tokens only above $250k'],
-  ['mc_graduation_zone','🎓','Graduation Zone','MED',.06,61,21,74,1,'focuses on roughly $60k–$100k transition zone'],
-
-  ['age_flash','⏱️','First Minute','EXTREME',.055,60,24,75,1,'only the first 60 seconds after launch'],
-  ['age_1_5','🕐','1–5 Minute','HIGH',.06,60,22,74,1,'only tokens aged 1 to 5 minutes'],
-  ['age_5_15','🕔','5–15 Minute','MED',.06,61,20,72,1,'only tokens aged 5 to 15 minutes'],
-  ['age_mature','🕰️','15 Minute+','LOW',.055,62,18,68,1,'only tokens at least 15 minutes old'],
-
-  ['liq_5_15','💧','$5K–$15K Liquidity','HIGH',.05,59,24,72,1,'thin but tradable liquidity cohort'],
-  ['liq_15_50','🌊','$15K–$50K Liquidity','MED',.06,61,20,72,1,'medium liquidity cohort'],
-  ['liq_50_plus','🏦','$50K+ Liquidity','LOW',.06,63,18,68,1,'deep liquidity only'],
-  ['liq_ratio','⚖️','Liquidity Rich','MED',.06,61,20,72,1,'requires unusually strong liquidity relative to market cap'],
-
-  ['flow_70','🟢','70%+ Buyers','HIGH',.065,61,21,76,1,'only strong buyer-dominant order flow'],
-  ['flow_balanced','🧘','Balanced Flow','MED',.055,61,20,68,1,'tests healthy but non-euphoric buyer pressure'],
-  ['flow_extreme','🚀','80%+ Buyers','EXTREME',.06,63,23,82,1,'only extreme buyer-pressure bursts'],
-
-  ['meta_verified','✅','Full Metadata','MED',.055,61,20,70,1,'requires both X/Twitter and website metadata'],
-  ['meta_dark','🌑','No Metadata','HIGH',.045,62,25,75,1,'contrarian test of tokens with neither X nor website'],
-
-  ['creator_repeat_clean','🧬','Repeat Clean Creator','MED',.06,61,20,74,1,'repeat creators with no observed collapse history'],
-  ['creator_first','🆕','First-Time Creator','HIGH',.055,60,23,75,1,'creator has only one observed launch'],
-  ['crosscheck','🔎','Cross-Checked Only','LOW',.06,63,18,70,1,'requires two or more independent market-data sources'],
-
-  ['regime_hot','🔥','Hot Market Only','HIGH',.065,60,22,78,1,'only trades while market regime is HOT'],
-  ['regime_riskoff','🛡️','Risk-Off Only','LOW',.05,63,17,62,1,'only trades while market regime is RISK OFF'],
-
-  ['pre_grad','🛤️','Pre-Graduation','HIGH',.06,60,22,76,1,'only tokens not yet marked graduated'],
-  ['post_grad','🎓','Post-Graduation','LOW',.06,63,18,68,1,'only tokens already marked graduated']
+  ['banker','🛡️','The Sentinel','LOW',.08,72,8,34,4,'capital preservation first: only cross-sourced, liquid, low-risk setups with clean price continuity'],
+  ['momentum','⚡','The Surge','HIGH',.09,70,9,52,4,'trade confirmed acceleration and persistent buyers without chasing vertical or stale momentum'],
+  ['dip','↗️','The Rebound','MED',.08,68,10,58,4,'wait for a real pullback, then enter only after recovery, renewed flow and acceleration are observed'],
+  ['champion','🏃','The Runner','MED',.075,73,11,95,4,'highest-conviction chart and evidence ensemble: scale winners, protect the right tail, refuse noisy structures'],
+  ['smartmom','🧠','The Flow','MED',.085,71,9,55,4,'combine fresh buyer flow, quality, acceleration and verified wallet evidence when available; never use social hype alone']
 ].map(([id,icon,name,risk,size,min,stop,take,maxOpen,thesis]) => ({
-  id,icon,name,risk,size,min,stop,take,maxOpen:Math.max(4,Number(maxOpen)||0),thesis,version:3,equity:START,cash:START,peak:START,dd:0,wins:0,losses:0,n:0
+  id,icon,name,risk,size,min,stop,take,maxOpen,thesis,version:7,fiveBrain:true,
+  equity:START,cash:START,peak:START,dd:0,auditPeak:START,auditDd:0,wins:0,losses:0,n:0
 }));
 
-const specialistProfiles = {
-  hyp_bal_1_3:{hypothesis:true,cohort:'HYPOTHESIS ARENA',tokenAgeMin:1,tokenAgeMax:3,mcMin:35000,mcMax:140000,buyRatioMin:.52,buyRatioMax:.68,sourceMin:2,scoreMode:'hypothesis',exitMode:'runner',maxHold:120,scaleOut:true,playbookOverride:{minQuality:80,minBuy:.52,maxBuy:.68,minTx:8,maxRisk:56,minMomentum:64,maxMomentum:90,minAccel:50,minLiq:9000,minAge:1,maxAge:3,mcMin:35000,mcMax:140000,requireCross:true,minEvidence:4,instruction:'1–3m balanced burst: high quality, cross-checked, strong acceleration, never euphoric flow'}},
-  hyp_bal_3_6:{hypothesis:true,cohort:'HYPOTHESIS ARENA',tokenAgeMin:3,tokenAgeMax:6,mcMin:40000,mcMax:170000,buyRatioMin:.52,buyRatioMax:.70,sourceMin:2,scoreMode:'hypothesis',exitMode:'runner',maxHold:150,scaleOut:true,playbookOverride:{minQuality:80,minBuy:.52,maxBuy:.70,minTx:9,maxRisk:55,minMomentum:62,maxMomentum:90,minAccel:48,minLiq:10000,minAge:3,maxAge:6,mcMin:40000,mcMax:170000,requireCross:true,minEvidence:4,instruction:'3–6m confirmation: sacrifice first-tick upside for stronger evidence and cleaner structure'}},
-  hyp_transition:{hypothesis:true,cohort:'HYPOTHESIS ARENA',tokenAgeMin:.8,tokenAgeMax:8,mcMin:60000,mcMax:120000,buyRatioMin:.50,buyRatioMax:.70,sourceMin:2,scoreMode:'hypothesis',exitMode:'runner',maxHold:150,scaleOut:true,playbookOverride:{minQuality:82,minBuy:.50,maxBuy:.70,minTx:8,maxRisk:56,minMomentum:62,maxMomentum:90,minAccel:48,minLiq:9000,minAge:.8,maxAge:8,mcMin:60000,mcMax:120000,requireCross:true,minEvidence:4,instruction:'transition crosscheck: isolate the $60K–$120K zone with high-quality independent confirmation'}},
-  hyp_accel:{hypothesis:true,cohort:'HYPOTHESIS ARENA',tokenAgeMin:.6,tokenAgeMax:6,mcMin:25000,mcMax:180000,buyRatioMin:.50,buyRatioMax:.70,sourceMin:2,scoreMode:'hypothesis',exitMode:'runner',maxHold:120,scaleOut:true,playbookOverride:{minQuality:78,minBuy:.50,maxBuy:.70,minTx:8,maxRisk:58,minMomentum:60,maxMomentum:88,minAccel:60,minLiq:8000,minAge:.6,maxAge:6,mcMin:25000,mcMax:180000,requireCross:true,minEvidence:4,instruction:'acceleration not euphoria: demand acceleration while explicitly rejecting crowded buyer pressure and exhausted momentum'}},
-  hyp_liqrunner:{hypothesis:true,cohort:'HYPOTHESIS ARENA',tokenAgeMin:2,tokenAgeMax:10,mcMin:70000,mcMax:300000,liqMin:20000,buyRatioMin:.52,buyRatioMax:.72,sourceMin:2,scoreMode:'hypothesis',exitMode:'runner',maxHold:180,scaleOut:true,playbookOverride:{minQuality:80,minBuy:.52,maxBuy:.72,minTx:10,maxRisk:54,minMomentum:60,maxMomentum:90,minAccel:46,minLiq:20000,minAge:2,maxAge:10,mcMin:70000,mcMax:300000,requireCross:true,minEvidence:4,instruction:'liquidity runner: test whether deeper markets reduce catastrophic downside without killing upside'}},
-  hyp_lowrisk:{hypothesis:true,cohort:'HYPOTHESIS ARENA',tokenAgeMin:1,tokenAgeMax:10,mcMin:40000,mcMax:250000,buyRatioMin:.50,buyRatioMax:.70,sourceMin:2,scoreMode:'hypothesis',exitMode:'balanced',maxHold:120,playbookOverride:{minQuality:82,minBuy:.50,maxBuy:.70,minTx:9,maxRisk:50,minMomentum:60,maxMomentum:88,minAccel:48,minLiq:12000,minAge:1,maxAge:10,mcMin:40000,mcMax:250000,requireCross:true,minEvidence:4,instruction:'low-risk momentum: structural risk below 50 is non-negotiable; seek positive expectancy through loss compression'}},
-  hyp_rebound:{hypothesis:true,cohort:'HYPOTHESIS ARENA',tokenAgeMin:2,tokenAgeMax:12,mcMin:30000,mcMax:220000,buyRatioMin:.50,buyRatioMax:.70,sourceMin:2,scoreMode:'hypothesis',exitMode:'structure',maxHold:180,scaleOut:true,playbookOverride:{minQuality:78,minBuy:.50,maxBuy:.70,minTx:8,maxRisk:56,minMomentum:50,maxMomentum:82,minAccel:52,minLiq:9000,minAge:2,maxAge:12,mcMin:30000,mcMax:220000,drawMin:-25,drawMax:-5,minRebound:3,requireCross:true,minEvidence:4,instruction:'rebound momentum: buy recovery after a controlled pullback, never the first vertical extension'}},
-  hyp_quality:{hypothesis:true,cohort:'HYPOTHESIS ARENA',tokenAgeMin:1,tokenAgeMax:12,mcMin:35000,mcMax:250000,buyRatioMin:.50,buyRatioMax:.68,sourceMin:2,scoreMode:'hypothesis',exitMode:'balanced',maxHold:150,playbookOverride:{minQuality:88,minBuy:.50,maxBuy:.68,minTx:9,maxRisk:54,minMomentum:55,maxMomentum:84,minAccel:46,minLiq:10000,minAge:1,maxAge:12,mcMin:35000,mcMax:250000,requireCross:true,minEvidence:4,instruction:'quality first: very strong data quality and moderate momentum instead of chasing maximum speed'}},
-  hyp_hotbalanced:{hypothesis:true,cohort:'HYPOTHESIS ARENA',regime:'HOT',tokenAgeMin:.8,tokenAgeMax:8,mcMin:30000,mcMax:200000,buyRatioMin:.52,buyRatioMax:.70,sourceMin:2,scoreMode:'hypothesis',exitMode:'runner',maxHold:150,scaleOut:true,playbookOverride:{minQuality:78,minBuy:.52,maxBuy:.70,minTx:8,maxRisk:58,minMomentum:62,maxMomentum:90,minAccel:50,minLiq:8000,minAge:.8,maxAge:8,mcMin:30000,mcMax:200000,requireCross:true,minEvidence:4,instruction:'hot-regime balanced: test whether healthy pressure beats euphoria when the overall market is hot'}},
-  hyp_riskoff:{hypothesis:true,cohort:'HYPOTHESIS ARENA',regime:'RISK OFF',tokenAgeMin:2,tokenAgeMax:15,mcMin:60000,mcMax:300000,liqMin:18000,buyRatioMin:.50,buyRatioMax:.66,sourceMin:2,scoreMode:'hypothesis',exitMode:'defensive',maxHold:75,playbookOverride:{minQuality:88,minBuy:.50,maxBuy:.66,minTx:10,maxRisk:46,minMomentum:58,maxMomentum:82,minAccel:48,minLiq:18000,minAge:2,maxAge:15,mcMin:60000,mcMax:300000,requireCross:true,minEvidence:5,instruction:'risk-off momentum: only exceptional quality, deep liquidity and low structural risk are allowed'}},
+Object.assign(strategyDefs.find(d=>d.id==='banker'),{
+  exitMode:'defensive',maxHold:75,scaleOut:false,
+  playbookOverride:{minQuality:88,minBuy:.52,maxBuy:.68,minTx:12,maxRisk:44,minMomentum:52,maxMomentum:80,minAccel:44,minLiq:25000,minAge:2,maxAge:35,mcMin:75000,requireCross:true,minEvidence:5,minChartQuality:58,minPathQuality:48,maxSpikeRisk:42,instruction:'Sentinel: cross-source price truth, deep liquidity, balanced buyers, low structural risk, no vertical spikes'},
+  exitBrain:{proofMin:2.0,minSpark:3,failPnl:-2,confirmPeak:8,hardStop:8,trailStart:12,trailAbs:4,trailFrac:.28,maxHold:75}
+});
+Object.assign(strategyDefs.find(d=>d.id==='momentum'),{
+  exitMode:'runner',maxHold:120,scaleOut:true,
+  playbookOverride:{minQuality:82,minBuy:.55,maxBuy:.72,minTx:10,maxRisk:54,minMomentum:64,maxMomentum:88,minAccel:56,minLiq:12000,minAge:.8,maxAge:10,mcMin:40000,mcMax:400000,requireCross:true,minEvidence:5,minChartQuality:54,minPathQuality:45,maxSpikeRisk:48,instruction:'Surge: acceleration plus persistent buyers; reject exhausted/euphoric bursts and price discontinuities'},
+  exitBrain:{proofMin:1.25,minSpark:4,failPnl:-3,confirmPeak:10,hardStop:9,trailStart:16,trailAbs:5,trailFrac:.32,maxHold:120}
+});
+Object.assign(strategyDefs.find(d=>d.id==='dip'),{
+  exitMode:'structure',maxHold:180,scaleOut:true,
+  playbookOverride:{minQuality:82,minBuy:.50,maxBuy:.70,minTx:9,maxRisk:54,minMomentum:48,maxMomentum:82,minAccel:50,minLiq:12000,minAge:2,maxAge:25,mcMin:50000,mcMax:600000,drawMin:-30,drawMax:-5,minRebound:4,requireCross:true,minEvidence:4,minChartQuality:50,maxSpikeRisk:46,allowedStructures:['RECOVERY','BREAKOUT_RETEST','BASE'],instruction:'Rebound: controlled drawdown followed by measurable rebound and renewed acceleration; never catch a falling knife'},
+  exitBrain:{proofMin:2.5,minSpark:4,failPnl:-3,confirmPeak:9,hardStop:10,trailStart:18,trailAbs:6,trailFrac:.34,maxHold:180}
+});
+Object.assign(strategyDefs.find(d=>d.id==='champion'),{
+  exitMode:'conviction',maxHold:360,scaleOut:true,
+  playbookOverride:{minQuality:86,minBuy:.52,maxBuy:.72,minTx:12,maxRisk:50,minMomentum:56,maxMomentum:86,minAccel:48,minLiq:18000,minAge:2,maxAge:40,mcMin:80000,requireCross:true,minEvidence:6,minChartQuality:64,minPathQuality:56,maxSpikeRisk:42,allowedStructures:['SMOOTH_TREND','BREAKOUT_RETEST','BREAKOUT','COMPRESSION','RECOVERY'],instruction:'Runner: best total evidence plus clean chart structure; patiently preserve exceptional right-tail winners'},
+  exitBrain:{proofMin:3,minSpark:5,failPnl:-4,confirmPeak:12,hardStop:11,trailStart:22,trailAbs:7,trailFrac:.38,maxHold:360}
+});
+Object.assign(strategyDefs.find(d=>d.id==='smartmom'),{
+  exitMode:'runner',maxHold:150,scaleOut:true,
+  playbookOverride:{minQuality:84,minBuy:.54,maxBuy:.72,minTx:11,maxRisk:52,minMomentum:58,maxMomentum:86,minAccel:52,minLiq:14000,minAge:1.2,maxAge:20,mcMin:50000,mcMax:750000,requireCross:true,minEvidence:5,minChartQuality:54,minPathQuality:44,maxSpikeRisk:46,instruction:'Flow: fresh persistent order flow plus quality and acceleration; wallet intelligence is bonus evidence, never a substitute for market confirmation'},
+  exitBrain:{proofMin:1.75,minSpark:4,failPnl:-3,confirmPeak:9,hardStop:9,trailStart:17,trailAbs:5,trailFrac:.31,maxHold:150}
+});
 
-  hyp_grad_fortress:{hypothesis:true,cohort:'RESEARCH GRADUATES',tokenAgeMin:3,tokenAgeMax:40,mcMin:100000,buyRatioMin:.52,buyRatioMax:.72,sourceMin:1,repeatCleanCreator:true,scoreMode:'quality',exitMode:'defensive',maxHold:60,playbookOverride:{minQuality:84,minBuy:.52,maxBuy:.72,minTx:10,maxRisk:50,minMomentum:46,maxMomentum:76,minAccel:42,minLiq:15000,minAge:3,maxAge:40,mcMin:100000,requireCross:true,minEvidence:5,instruction:'Fortress: stay conservative but evaluate a wider mature-token population; retain cross-checking, clean creator history and loss compression'}},
-  hyp_grad_rebound:{hypothesis:true,cohort:'RESEARCH GRADUATES',tokenAgeMin:2,tokenAgeMax:25,mcMin:75000,mcMax:650000,buyRatioMin:.50,buyRatioMax:.72,sourceMin:1,scoreMode:'hypothesis',exitMode:'structure',maxHold:180,scaleOut:true,playbookOverride:{minQuality:82,minBuy:.50,maxBuy:.72,minTx:8,maxRisk:54,minMomentum:42,maxMomentum:80,minAccel:48,minLiq:10000,minAge:2,maxAge:25,mcMin:75000,mcMax:650000,drawMin:-35,drawMax:-4,minRebound:3,requireCross:false,minEvidence:4,instruction:'Second Chance: widen the recovery window but still require a real pullback, rebound, fresh flow, sufficient quality and renewed acceleration'}},
-  hyp_grad_outlier:{hypothesis:true,memeTheory:true,cohort:'RESEARCH GRADUATES',tokenAgeMin:1.5,tokenAgeMax:24,mcMin:90000,buyRatioMin:.52,buyRatioMax:.74,sourceMin:1,scoreMode:'meme',exitMode:'conviction',maxHold:480,scaleOut:true,sizeBias:.35,minChartQuality:58,maxSpikeRisk:55,maxManipulationRisk:58,minFlowPersistence:52,allowedStructures:['SMOOTH_TREND','BREAKOUT','BREAKOUT_RETEST','RECOVERY','COMPRESSION','BASE'],playbookOverride:{minQuality:84,minBuy:.52,maxBuy:.74,minTx:10,maxRisk:52,minMomentum:50,maxMomentum:86,minAccel:46,minLiq:12000,minAge:1.5,maxAge:24,mcMin:90000,requireCross:false,minEvidence:4,instruction:'Outlier: broaden candidate discovery while preserving chart structure, anti-spike controls, low structural risk and asymmetric exits'}},
-  velocity_scalper:{cohort:'FAST SCALP LAB',fastScalp:true,fixedStakeUsd:100,tokenAgeMin:.25,tokenAgeMax:10,mcMin:20000,mcMax:350000,buyRatioMin:.56,buyRatioMax:.84,sourceMin:1,scoreMode:'velocity',exitMode:'scalp',maxHold:3.5,playbookOverride:{minQuality:58,minBuy:.56,maxBuy:.84,minTx:6,maxRisk:70,minMomentum:60,maxMomentum:98,minAccel:52,minLiq:7000,minAge:.25,maxAge:10,mcMin:20000,mcMax:350000,minTimedCoverageSec:15,minRet5s:.4,minRet20s:2,maxRet20s:32,instruction:'Velocity Scalper: buy only a fresh time-normalized accelerating burst with real buyers/liquidity; aim for a quick double-digit gross move, cut fast when velocity fades, and never average down'}},
-  minute_sub100:{cohort:'MINUTE MARKET CAP',minuteSampler:true,fixedStakeUsd:100,mcMin:0,mcMax:100000,minuteMinLiq:1500,scoreMode:'momentum',exitMode:'minute',maxHold:.80,playbookOverride:{minQuality:0,minBuy:0,maxBuy:1,minTx:0,maxRisk:100,minMomentum:0,minAccel:0,minLiq:1500,mcMin:0,mcMax:100000,instruction:'Minute sampler: one forced paper entry about every minute, strictly below $100K market cap; rank available candidates but do not wait for a normal alpha threshold'}},
-  minute_100_250:{cohort:'MINUTE MARKET CAP',minuteSampler:true,fixedStakeUsd:100,mcMin:100000,mcMax:250000,minuteMinLiq:3000,scoreMode:'momentum',exitMode:'minute',maxHold:.80,playbookOverride:{minQuality:0,minBuy:0,maxBuy:1,minTx:0,maxRisk:100,minMomentum:0,minAccel:0,minLiq:3000,mcMin:100000,mcMax:250000,instruction:'Minute sampler: one forced paper entry about every minute, strictly $100K–$250K market cap; rank available candidates but do not wait for a normal alpha threshold'}},
-  minute_500_1m:{cohort:'MINUTE MARKET CAP',minuteSampler:true,fixedStakeUsd:100,mcMin:500000,mcMax:1000000,minuteMinLiq:5000,scoreMode:'quality',exitMode:'minute',maxHold:.80,playbookOverride:{minQuality:0,minBuy:0,maxBuy:1,minTx:0,maxRisk:100,minMomentum:0,minAccel:0,minLiq:5000,mcMin:500000,mcMax:1000000,instruction:'Minute sampler: one forced paper entry about every minute, strictly $500K–$1M market cap; rank available candidates but do not wait for a normal alpha threshold'}},
-
-  meme_smooth_curve:{memeTheory:true,cohort:'MEME / CHART THEORY',requireGraduated:false,tokenAgeMin:.8,tokenAgeMax:8,mcMin:25000,mcMax:180000,buyRatioMin:.50,buyRatioMax:.70,sourceMin:2,scoreMode:'meme',exitMode:'runner',maxHold:150,scaleOut:true,sizeBias:.35,minChartQuality:64,minPathQuality:58,maxSpikeRisk:58,maxManipulationRisk:62,minFlowPersistence:52,allowedStructures:['SMOOTH_TREND','BREAKOUT','BREAKOUT_RETEST']},
-  meme_retest:{memeTheory:true,cohort:'MEME / CHART THEORY',tokenAgeMin:2,tokenAgeMax:15,mcMin:40000,mcMax:300000,buyRatioMin:.50,buyRatioMax:.70,sourceMin:2,scoreMode:'meme',exitMode:'runner',maxHold:180,scaleOut:true,sizeBias:.35,minChartQuality:62,maxSpikeRisk:60,maxManipulationRisk:60,minFlowPersistence:50,allowedStructures:['BREAKOUT_RETEST']},
-  meme_compression:{memeTheory:true,cohort:'MEME / CHART THEORY',tokenAgeMin:2,tokenAgeMax:15,mcMin:30000,mcMax:250000,buyRatioMin:.50,buyRatioMax:.70,sourceMin:2,scoreMode:'meme',exitMode:'runner',maxHold:150,scaleOut:true,sizeBias:.35,minChartQuality:56,maxSpikeRisk:45,maxManipulationRisk:58,minCompression:45,minFlowPersistence:48,allowedStructures:['COMPRESSION','BREAKOUT']},
-  meme_postgrad:{memeTheory:true,cohort:'MEME / CHART THEORY',requireGraduated:true,tokenAgeMin:1,tokenAgeMax:30,buyRatioMin:.50,buyRatioMax:.72,sourceMin:2,liqMin:12000,scoreMode:'meme',exitMode:'structure',maxHold:210,scaleOut:true,sizeBias:.35,minChartQuality:60,minPathQuality:52,maxSpikeRisk:62,maxManipulationRisk:58,minFlowPersistence:50,allowedStructures:['SMOOTH_TREND','BREAKOUT','BREAKOUT_RETEST','RECOVERY']},
-  meme_survival:{memeTheory:true,cohort:'MEME / CHART THEORY',tokenAgeMin:5,tokenAgeMax:20,mcMin:40000,mcMax:300000,buyRatioMin:.50,buyRatioMax:.68,sourceMin:2,liqMin:10000,scoreMode:'meme',exitMode:'balanced',maxHold:120,sizeBias:.30,minChartQuality:60,minPathQuality:50,maxSpikeRisk:50,maxManipulationRisk:52,minFlowPersistence:55,minSurvival:58,allowedStructures:['SMOOTH_TREND','BREAKOUT_RETEST','RECOVERY','BASE']},
-
-  mc_u25:{cohort:'MARKET CAP',mcMax:25000,scoreMode:'early'},
-  mc_25_50:{cohort:'MARKET CAP',mcMin:25000,mcMax:50000,scoreMode:'early'},
-  mc_50_100:{cohort:'MARKET CAP',mcMin:50000,mcMax:100000,scoreMode:'momentum'},
-  mc_100_250:{cohort:'MARKET CAP',mcMin:100000,mcMax:250000,scoreMode:'momentum'},
-  mc_250_500:{cohort:'MARKET CAP',mcMin:250000,mcMax:500000,scoreMode:'quality'},
-  mc_500_1m:{cohort:'MARKET CAP',mcMin:500000,mcMax:1000000,scoreMode:'quality'},
-  mc_1m_plus:{cohort:'MARKET CAP',mcMin:1000000,scoreMode:'quality'},
-  mc_sub100:{cohort:'MARKET CAP',mcMax:100000,scoreMode:'momentum',exitMode:'runner'},
-  mc_over100:{cohort:'MARKET CAP',mcMin:100000,scoreMode:'quality'},
-  mc_over250:{cohort:'MARKET CAP',mcMin:250000,scoreMode:'quality',exitMode:'structure'},
-  mc_graduation_zone:{cohort:'MARKET CAP',mcMin:60000,mcMax:100000,scoreMode:'momentum'},
-
-  age_flash:{cohort:'TOKEN AGE',tokenAgeMax:1,scoreMode:'early',exitMode:'runner'},
-  age_1_5:{cohort:'TOKEN AGE',tokenAgeMin:1,tokenAgeMax:5,scoreMode:'momentum'},
-  age_5_15:{cohort:'TOKEN AGE',tokenAgeMin:5,tokenAgeMax:15,scoreMode:'quality'},
-  age_mature:{cohort:'TOKEN AGE',tokenAgeMin:15,scoreMode:'quality',exitMode:'structure'},
-
-  liq_5_15:{cohort:'LIQUIDITY',liqMin:5000,liqMax:15000,scoreMode:'momentum'},
-  liq_15_50:{cohort:'LIQUIDITY',liqMin:15000,liqMax:50000,scoreMode:'quality'},
-  liq_50_plus:{cohort:'LIQUIDITY',liqMin:50000,scoreMode:'quality',exitMode:'defensive'},
-  liq_ratio:{cohort:'LIQUIDITY',liqMcRatioMin:.12,scoreMode:'quality'},
-
-  flow_70:{cohort:'ORDER FLOW',buyRatioMin:.70,scoreMode:'flow',exitMode:'runner'},
-  flow_balanced:{cohort:'ORDER FLOW',buyRatioMin:.52,buyRatioMax:.62,scoreMode:'quality'},
-  flow_extreme:{cohort:'ORDER FLOW',buyRatioMin:.80,scoreMode:'flow',exitMode:'runner'},
-
-  meta_verified:{cohort:'METADATA',requireTwitter:true,requireWebsite:true,scoreMode:'social'},
-  meta_dark:{cohort:'METADATA',noSocial:true,scoreMode:'contrarian'},
-
-  creator_repeat_clean:{cohort:'CREATOR DNA',repeatCleanCreator:true,scoreMode:'creator'},
-  creator_first:{cohort:'CREATOR DNA',firstObservedCreator:true,scoreMode:'early'},
-  crosscheck:{cohort:'DATA QUALITY',sourceMin:2,scoreMode:'quality',exitMode:'defensive'},
-
-  regime_hot:{cohort:'MARKET REGIME',regime:'HOT',scoreMode:'momentum',exitMode:'runner'},
-  regime_riskoff:{cohort:'MARKET REGIME',regime:'RISK OFF',scoreMode:'quality',exitMode:'defensive'},
-
-  pre_grad:{cohort:'LIFECYCLE',requireGraduated:false,scoreMode:'early'},
-  post_grad:{cohort:'LIFECYCLE',requireGraduated:true,scoreMode:'quality',exitMode:'structure'}
-};
-for(const d of strategyDefs){if(specialistProfiles[d.id])Object.assign(d,{specialist:true,...specialistProfiles[d.id]});}
-
-const copyProfiles={
-  copy_unipcs:{copyLab:true,copySource:'unipcs',copyWindowMin:30,maxChase:12,exitMode:'conviction',maxHold:720},
-  copy_frank:{copyLab:true,copySource:'frankdegods',copyWindowMin:20,maxChase:10,exitMode:'runner',maxHold:240},
-  copy_orangie:{copyLab:true,copySource:'orangie',copyWindowMin:15,maxChase:8,exitMode:'balanced',maxHold:120},
-  copy_rasmr:{copyLab:true,copySource:'rasmr',copyWindowMin:8,maxChase:6,exitMode:'scalp',maxHold:28},
-  wallet_consensus:{copyLab:true,consensusWallets:2,copyWindowMin:15,maxChase:8,minWalletQuality:58,minWalletCopyability:45,exitMode:'runner',maxHold:240,scaleOut:true},
-  confirmed_runner:{researchProfile:'confirmed-runner',exitMode:'runner',maxHold:120},
-  asym_swing:{researchProfile:'asymmetric-swing',exitMode:'conviction',maxHold:720,scaleOut:true},
-  copy_megga:{copyLab:true,copySource:'megga',copyWindowMin:6,maxChase:8,exitMode:'conviction',maxHold:1440,scaleOut:true},
-  megga_scout:{researchProfile:'megga-scout',exitMode:'conviction',maxHold:1440,scaleOut:true}
-};
-for(const d of strategyDefs)if(copyProfiles[d.id])Object.assign(d,copyProfiles[d.id]);
-Object.assign(strategyDefs.find(d=>d.id==='winner1'),{postEntryProfile:'fast-failure',exitMode:'runner',maxHold:90,scaleOut:true});
-Object.assign(strategyDefs.find(d=>d.id==='winner2'),{postEntryProfile:'confirm-runner',exitMode:'conviction',maxHold:180,scaleOut:true});
-// The 6-3 Smart Money sample was essentially flat because losses overwhelmed winners.
-// Keep the signal thesis, but compress downside and preserve the right tail.
-Object.assign(strategyDefs.find(d=>d.id==='smart'),{exitMode:'runner',maxHold:240,scaleOut:true});
-Object.assign(strategyDefs.find(d=>d.id==='quant'),{exitMode:'balanced',maxHold:150});
-Object.assign(strategyDefs.find(d=>d.id==='swing'),{scaleOut:true,maxHold:300});
-
-const challengers = [
-  makeChallenger('momentum','momentum-c1','Momentum Challenger','stricter confirmation + fast invalidation',{minDelta:5,takeDelta:10,exitMode:'scalp',sizeBias:.75}),
-  makeChallenger('professional','professional-c1','Professional Challenger','stricter risk / slightly larger winners',{minDelta:2,takeDelta:8,riskCap:38}),
-  makeChallenger('degen','degen-c1','Degen Challenger','less trigger-happy early entries',{minDelta:6,stopDelta:-2}),
-  makeChallenger('smartmom','smartmom-c1','Smart Momentum Challenger','higher confirmation threshold',{minDelta:4,takeDelta:10}),
-  makeChallenger('smartmom','sweetspot-c1','Sweet Spot Runner','quality-first anti-chase runner in the strongest observed early/mid-cap zone',{minDelta:-4,exitMode:'runner',maxHold:150,scaleOut:true,sizeBias:.55,playbook:{minQuality:80,minBuy:.52,maxBuy:.72,minTx:8,maxRisk:55,minMomentum:65,maxMomentum:90,minAccel:50,minLiq:10000,minAge:1,maxAge:6,mcMin:40000,mcMax:150000,requireCross:true,minEvidence:4,instruction:'target the observed quality sweet spot: strong but not exhausted flow, high quality, controlled risk and room for a runner'}}),
-  makeChallenger('graduation','transition-c1','Transition Runner','research the 50K–120K transition zone without chasing extreme buyer pressure',{minDelta:-2,exitMode:'runner',maxHold:120,scaleOut:true,sizeBias:.55,playbook:{minQuality:80,minBuy:.50,maxBuy:.72,minTx:8,maxRisk:56,minMomentum:64,maxMomentum:90,minAccel:48,minLiq:9000,minAge:.8,maxAge:8,mcMin:50000,mcMax:120000,requireCross:true,minEvidence:4,instruction:'trade the transition zone only when quality is high and buyer pressure is strong but not euphoric'}}),
-  makeChallenger('quant','antichase-c1','Anti-Chase Quality','cross-checked quality with explicit exhaustion avoidance',{minDelta:-2,exitMode:'balanced',maxHold:90,sizeBias:.50,playbook:{minQuality:82,minBuy:.50,maxBuy:.70,minTx:9,maxRisk:55,minMomentum:60,maxMomentum:88,minAccel:48,minLiq:10000,minAge:1,maxAge:8,requireCross:true,minEvidence:4,instruction:'prefer high-quality balanced pressure; reject euphoric buyer ratios and momentum exhaustion'}})
-];
+const challengers = [];
 
 function makeChallenger(parentId,id,name,mutation,mods={}) {
   const p = strategyDefs.find(x=>x.id===parentId);
@@ -598,7 +436,7 @@ function normalize(raw,source='live') {
 function mergeToken(old,t) {
   if(!old) return t;
   const ts=now(),hist=(old.history||[]).slice(-(MAX_TOKEN_HISTORY-1));
-  hist.push({ts,price:old.price,mc:old.mc,liq:old.liq,vol:old.vol,buys:old.buys,sells:old.sells});
+  hist.push({ts,price:old.price,mc:old.mc,liq:old.liq,vol:old.vol,buys:old.buys,sells:old.sells,priceSource:old.priceSource||old.sources?.[0]||''});
   const seen={...(old.sourceSeen||{})};for(const [k,v] of Object.entries(t.sourceSeen||{}))seen[k]=Math.max(num(seen[k]),num(v));
   const freshFlow=t.flowObserved;
   const freshVol=t.volumeObserved;
@@ -632,6 +470,25 @@ function tokenPriceIntegrity(t){
   const ts=now(),price=num(t?.price),quoteAt=num(t?.quoteObservedAt||t?.updatedAt),distinctAt=num(t?.lastDistinctPriceAt||t?.priceUpdatedAt||quoteAt);
   const quoteAgeMs=quoteAt>0?Math.max(0,ts-quoteAt):Infinity,distinctAgeMs=distinctAt>0?Math.max(0,ts-distinctAt):Infinity,unchangedPriceTicks=Math.max(0,num(t?.unchangedPriceTicks));
   return{price,quoteAt,distinctAt,quoteAgeMs,distinctAgeMs,unchangedPriceTicks,freshQuote:price>0&&quoteAgeMs<=PRICE_QUOTE_MAX_AGE_MS,moving:unchangedPriceTicks===0||distinctAgeMs<=PRICE_QUOTE_MAX_AGE_MS,executable:price>0&&quoteAgeMs<=PRICE_QUOTE_MAX_AGE_MS};
+}
+function executionPathIntegrity(t){
+  const base=tokenPriceIntegrity(t),rows=(t?.history||[]).filter(x=>num(x.price)>0).slice(-12).map(x=>({ts:num(x.ts),price:num(x.price),source:String(x.priceSource||'')}));
+  if(num(t?.price)>0)rows.push({ts:num(t?.quoteObservedAt||t?.updatedAt||now()),price:num(t.price),source:String(t?.priceSource||t?.sources?.[0]||'')});
+  if(!base.executable)return{ok:false,reason:'stale/unverified quote',...base};
+  if(base.unchangedPriceTicks>=3&&base.distinctAgeMs>45000)return{ok:false,reason:'stagnant quote',...base};
+  if(rows.length<3)return{ok:false,reason:'insufficient continuous price path',...base};
+  let maxJump=0,crossSourceJump=0,pingPong=false,previousMove=null;
+  for(let i=1;i<rows.length;i++){
+    const move=pct(rows[i].price,rows[i-1].price),abs=Math.abs(move);maxJump=Math.max(maxJump,abs);
+    if(rows[i].source&&rows[i-1].source&&rows[i].source!==rows[i-1].source)crossSourceJump=Math.max(crossSourceJump,abs);
+    if(previousMove!==null&&Math.sign(previousMove)!==Math.sign(move)&&Math.abs(previousMove)>=28&&abs>=28)pingPong=true;
+    previousMove=move;
+  }
+  const recentSources=Object.entries(t?.sourceSeen||{}).filter(([,ts])=>now()-num(ts)<=60000).map(([k])=>k);
+  if(crossSourceJump>22)return{ok:false,reason:'cross-source price discontinuity',maxJump,crossSourceJump,pingPong,recentSources,...base};
+  if(pingPong)return{ok:false,reason:'price ping-pong / feed disagreement',maxJump,crossSourceJump,pingPong,recentSources,...base};
+  if(maxJump>70&&recentSources.length<2)return{ok:false,reason:'uncorroborated extreme one-tick move',maxJump,crossSourceJump,pingPong,recentSources,...base};
+  return{ok:true,reason:'continuous executable path',maxJump,crossSourceJump,pingPong,recentSources,...base};
 }
 function memeUniverseEligibility(t){
   const symbol=String(t?.symbol||'').toUpperCase(),name=String(t?.name||''),text=(symbol+' '+name).toLowerCase();
@@ -1155,6 +1012,13 @@ function entryGuard(d,t,f,score,policy,quality,adv,regime){
   if(!frozen&&h.n>=5&&h.avg<=-8){scoreBuffer+=4;maxRisk-=3;}
   const learned=frozen?policy.min:(policy.coldStart?policy.min:(Number.isFinite(policy.p90)?policy.p90:policy.min)),requiredScore=Math.max(policy.min,learned+scoreBuffer);
   const fail=reason=>({ok:false,reason,requiredScore,minQuality,minBuyRatio,health:h,playbook:p,stack});
+  const pathIntegrity=executionPathIntegrity(t);
+  if(!pathIntegrity.ok)return fail('abstain: '+pathIntegrity.reason);
+  const chart=f.chart||{};
+  if(Number.isFinite(p.minChartQuality)&&num(chart.chartQuality)<p.minChartQuality)return fail('abstain: chart quality');
+  if(Number.isFinite(p.minPathQuality)&&num(chart.bullContinuity)<p.minPathQuality)return fail('abstain: path continuity');
+  if(Number.isFinite(p.maxSpikeRisk)&&num(chart.spikeRisk)>p.maxSpikeRisk)return fail('abstain: spike/chase risk');
+  if(Array.isArray(p.allowedStructures)&&p.allowedStructures.length&&!p.allowedStructures.includes(chart.structure))return fail('abstain: chart structure');
   if(quality.score<minQuality)return fail('abstain: data quality');
   if(p.requireCross&&quality.sourceCount<2)return fail('abstain: cross-source confirmation');
   if(!f.flowFresh||!f.liqFresh)return fail('abstain: stale or unobserved market data');
@@ -1345,8 +1209,8 @@ function tradeEconomicsAtTarget(d,t,budget,entryExec=null){
 }
 
 function adaptivePositionSizing(d,t,f,score,policy,quality,similar,guard,adv,regime,allocatorMult=1,exploratory=false){
-  const isHypothesis=!!d.hypothesis,isResearch=d.risk==='R&D'||d.specialist,isProbe=!!d.copyLab||d.id==='megga_scout'||exploratory||isHypothesis,h=guard.health||strategyHealth(d);
-  const basePct=exploratory?.10:isHypothesis?.18:isProbe?.24:isResearch?.20:.32;
+  const isHypothesis=!!d.hypothesis,isResearch=d.risk==='R&D'||d.specialist,isProbe=!!d.copyLab||d.id==='megga_scout'||exploratory||isHypothesis,isFive=!!d.fiveBrain,h=guard.health||strategyHealth(d);
+  const basePct=isFive?clamp(num(d.size)||.08,.05,.10):exploratory?.10:isHypothesis?.18:isProbe?.24:isResearch?.20:.32;
   const confidence=clamp(.82+(score-(guard.requiredScore||policy.min))/40,.72,1.18);
   const qualityMult=clamp(.76+quality.score/300,.78,1.10);
   const adverseMult=clamp(1.14-num(adv.score)/180,.62,1.05);
@@ -1364,9 +1228,9 @@ function adaptivePositionSizing(d,t,f,score,policy,quality,similar,guard,adv,reg
   const mult=clamp(confidence*qualityMult*adverseMult*regimeMult*mcMult*ageMult*volMult*dnaMult*healthMult*streakMult*ddMult*recentMult*learnedAlloc*expectancyMult,.28,1.45);
 
   const stopFrac=clamp((num(d.stop)||14)/100,.07,.30);
-  const maxStopLossPct=d.risk==='LOW'?.040:d.risk==='HIGH'?.060:d.risk==='EXTREME'?.070:d.risk==='R&D'?.035:.050;
+  const maxStopLossPct=isFive?.015:d.risk==='LOW'?.040:d.risk==='HIGH'?.060:d.risk==='EXTREME'?.070:d.risk==='R&D'?.035:.050;
   const stopRiskCap=d.equity*maxStopLossPct/stopFrac;
-  const positionCapPct=exploratory?.15:isHypothesis?.28:isProbe?.35:isResearch?.30:.50,portfolioCapPct=exploratory?.30:isHypothesis?.50:isProbe?.60:isResearch?.55:.75,narrativeCapPct=.40,creatorCapPct=.35;
+  const positionCapPct=isFive?.12:exploratory?.15:isHypothesis?.28:isProbe?.35:isResearch?.30:.50,portfolioCapPct=isFive?.36:exploratory?.30:isHypothesis?.50:isProbe?.60:isResearch?.55:.75,narrativeCapPct=isFive?.20:.40,creatorCapPct=isFive?.18:.35;
   const mine=positions.filter(p=>p.strategy===d.id&&!p.closed);
   const markValue=p=>p.units*positionMarkPrice(p);
   const openExposure=mine.reduce((s,p)=>s+markValue(p),0);
@@ -1375,9 +1239,9 @@ function adaptivePositionSizing(d,t,f,score,policy,quality,similar,guard,adv,reg
   const exposureRoom=Math.max(0,d.equity*portfolioCapPct-openExposure);
   const narrativeRoom=Math.max(0,d.equity*narrativeCapPct-narrativeExposure);
   const creatorRoom=Math.max(0,d.equity*creatorCapPct-creatorExposure);
-  const minStake=d.equity*(exploratory?.05:isHypothesis?.08:isProbe?.10:isResearch?.08:.15);
+  const minStake=d.equity*(isFive?.04:exploratory?.05:isHypothesis?.08:isProbe?.10:isResearch?.08:.15);
   const liquidityCap=t.liq>0?Math.max(minStake,t.liq*.020):0;
-  const desired=Number.isFinite(num(d.fixedStakeUsd))&&num(d.fixedStakeUsd)>0?Math.min(num(d.fixedStakeUsd),d.equity*positionCapPct):d.equity*basePct*mult;
+  const desired=Number.isFinite(num(d.fixedStakeUsd))&&num(d.fixedStakeUsd)>0?Math.min(num(d.fixedStakeUsd),d.equity*positionCapPct):d.equity*basePct*(isFive?clamp(mult,.75,1.15):mult);
   const budget=Math.min(d.cash*.55,d.equity*positionCapPct,stopRiskCap,exposureRoom,narrativeRoom,creatorRoom,liquidityCap,Math.max(minStake,desired));
   const live100Equivalent=budget*(100/START);
   return{
@@ -1466,7 +1330,7 @@ function maybeTrade(t,weather=null) {
     const entry=entryExec.fillPrice;const cost=budget*(1+entryExec.feeRate)+num(entryExec.fixedCost)+num(entryExec.expectedFailureCost);
     if(cost>d.cash)continue;
     d.cash-=cost;
-    const p={id:'p'+now()+Math.random(),strategy:d.id,mint:t.mint,symbol:t.symbol,entry,units:budget/entry,originalUnits:budget/entry,invested:budget,entryCost:cost,entryExecution:entryExec,executionQuality,entryEconomics:economics,realizedProceeds:0,partialExits:[],scaleOutHits:[],sourceEntrySig:d.copyLab?(verifiedWalletSignal(t,d.copyWindowMin||15,d.copySource||null).events[0]?.signature||null):null,opened:now(),closed:false,lastPrice:t.price,lastMarkedAt:now(),markSource:'entry',score,entryFeatures:{...f,mc:t.mc,liq:t.liq},entryMc:t.mc,entryLiq:t.liq,entryQuality:quality.score,dnaHit25:similar.hit25,dnaSample:similar.n,allocationMult:allocatorMult,sizingMode:'alpha-os-ev-v1',samplePartition:partitionForMint(t.mint),sizing,alphaOS:alpha,budgetPct:d.equity>0?budget/d.equity:0,live100Equivalent:sizing.live100Equivalent,exitMode:exitModeFor(d),policyVersion:STRATEGY_ERA,guard:{requiredScore:activeGuard.requiredScore,minQuality:activeGuard.minQuality,minBuyRatio:activeGuard.minBuyRatio,recentAvg:activeGuard.health.avg,recentN:activeGuard.health.n,exploratory},coldStartProbe:exploratory,probeSafety:exploratory?probeSafety:null,reason:`${exploratory?'cold-start exploration · ':''}score ${score.toFixed(0)} · gate ${policy.min.toFixed(0)} · risk ${f.risk.toFixed(0)} · Q${quality.score.toFixed(0)} · stake ${(budget/Math.max(1,d.equity)*100).toFixed(1)}% · $100≈${sizing.live100Equivalent.toFixed(2)} · size×${sizing.mult.toFixed(2)} · expectancy×${sizing.expectancyMult.toFixed(2)} · science×${scienceSize.toFixed(2)} · EV ${alpha.expectedValue.toFixed(1)} · targetNet ${economics.netAtTarget.toFixed(0)} · RTcost ${economics.roundTripCosts.toFixed(1)} · safety ${alpha.preTradeSafety.score.toFixed(0)} · walletQ ${alpha.walletConsensus.score.toFixed(0)} · tox ${alpha.toxicity.score.toFixed(0)}`,entryRegime:regime,entryPhase:weather.phase,peakDuring:entry,troughDuring:entry};
+    const p={id:'p'+now()+Math.random(),strategy:d.id,mint:t.mint,symbol:t.symbol,entry,units:budget/entry,originalUnits:budget/entry,invested:budget,entryCost:cost,entryExecution:entryExec,executionQuality,entryEconomics:economics,realizedProceeds:0,partialExits:[],scaleOutHits:[],sourceEntrySig:d.copyLab?(verifiedWalletSignal(t,d.copyWindowMin||15,d.copySource||null).events[0]?.signature||null):null,opened:now(),closed:false,lastPrice:t.price,lastMarkedAt:now(),markSource:'entry',score,entryFeatures:{...f,mc:t.mc,liq:t.liq},entryMc:t.mc,entryLiq:t.liq,entryQuality:quality.score,dnaHit25:similar.hit25,dnaSample:similar.n,allocationMult:allocatorMult,sizingMode:'alpha-os-ev-v1',samplePartition:partitionForMint(t.mint),sizing,alphaOS:alpha,budgetPct:d.equity>0?budget/d.equity:0,live100Equivalent:sizing.live100Equivalent,exitMode:exitModeFor(d),policyVersion:STRATEGY_ERA,guard:{requiredScore:activeGuard.requiredScore,minQuality:activeGuard.minQuality,minBuyRatio:activeGuard.minBuyRatio,recentAvg:activeGuard.health.avg,recentN:activeGuard.health.n,exploratory},coldStartProbe:exploratory,probeSafety:exploratory?probeSafety:null,reason:`${exploratory?'cold-start exploration · ':''}score ${score.toFixed(0)} · gate ${policy.min.toFixed(0)} · risk ${f.risk.toFixed(0)} · Q${quality.score.toFixed(0)} · stake ${(budget/Math.max(1,d.equity)*100).toFixed(1)}% · $100≈${sizing.live100Equivalent.toFixed(2)} · size×${sizing.mult.toFixed(2)} · expectancy×${sizing.expectancyMult.toFixed(2)} · science×${scienceSize.toFixed(2)} · EV ${alpha.expectedValue.toFixed(1)} · targetNet ${economics.netAtTarget.toFixed(0)} · RTcost ${economics.roundTripCosts.toFixed(1)} · safety ${alpha.preTradeSafety.score.toFixed(0)} · walletQ ${alpha.walletConsensus.score.toFixed(0)} · tox ${alpha.toxicity.score.toFixed(0)}`,entryRegime:regime,entryPhase:weather.phase,entryPriceSource:t.priceSource||t.sources?.[0]||'live',entrySources:[...(t.sources||[])],peakDuring:entry,troughDuring:entry};
     p.season2Science=scienceGate;positions.push(p);science.recordEntry(p,t,{features:f,quality,market:weather});alphaOS.recordShadowEntry({position:p,token:t,alpha});recordDecision(d,t,f,score,'BUY',p.reason,weather);queueTradeJournal('BUY',d,p,t,{score,exploratory});scheduleCriticalSave();
     if(d.risk!=='R&D')log('buy',`${d.icon} ${d.name} bought ${t.symbol} · ${budget.toFixed(0)} paper · ${p.reason}`,'good',{strategy:d.id,mint:t.mint});
   }
@@ -1560,9 +1424,10 @@ function openMinuteSamplerTrade(d,t,weather){
 }
 async function minuteSamplerTick(){
   if(shuttingDown||lifecyclePhase==='DRAINING'||!durableTradingReady())return;
+  const activeMinuteSamplers=strategyDefs.filter(x=>x.minuteSampler);if(!activeMinuteSamplers.length)return;
   await refreshMinuteSamplerUniverse(false);
   const weather=marketWeather(),ts=now();
-  for(const d of strategyDefs.filter(x=>x.minuteSampler)){
+  for(const d of activeMinuteSamplers){
     markEquity(d);
     for(const p of [...positions].filter(x=>!x.closed&&x.strategy===d.id)){
       const t=tokens.get(p.mint);if(t&&ts-num(p.opened)>=45000)closePos(d,p,t,'minute sampler scheduled recycle');
@@ -1631,6 +1496,7 @@ function updateOpenPositionExtremes(t){const f=features(t),integrity=tokenPriceI
 
 function closePos(d,p,t,why){
   const priceIntegrity=tokenPriceIntegrity(t);if(!priceIntegrity.executable){p.exitPendingReason='exit blocked: no fresh verified price';return false;}
+  const pathIntegrity=executionPathIntegrity(t);if(!pathIntegrity.ok){p.exitPendingReason='exit blocked: '+pathIntegrity.reason;console.warn('EXIT_PRICE_INTEGRITY_BLOCK '+JSON.stringify({strategy:d.id,mint:p.mint,symbol:p.symbol,reason:pathIntegrity.reason,entry:p.entry,current:num(t.price),entrySource:p.entryPriceSource,currentSource:t.priceSource||''}));return false;}
   const notional=p.units*t.price,exitAlpha=alphaOS.executionBrain(t,{features:features(t),score:p.score||50}),exec=science.executionSimulation(t,notional,'sell',{...executionQuote(t,notional,'sell'),notional},exitAlpha),exit=exec.fillPrice,gross=p.units*exit;const proceeds=Math.max(0,gross*(1-exec.feeRate)-num(exec.fixedCost)-num(exec.expectedFailureCost));
   d.cash+=proceeds;p.closed=true;p.closedAt=now();p.exit=exit;p.exitExecution=exec;const totalProceeds=num(p.realizedProceeds)+proceeds,entryCost=num(p.entryCost)||p.invested*(1+FEE_RATE);p.pnl=totalProceeds-entryCost;p.pnlPct=p.pnl/Math.max(.000001,entryCost)*100;p.why=why;
   p.mfe=pct(p.peakDuring||exit,p.entry);p.mae=pct(p.troughDuring||exit,p.entry);p.counterfactual={exitNow:p.pnlPct,holdAfterExit:{oneMin:null,fiveMin:null,fifteenMin:null},bestObservedAfterExit:null};
@@ -2189,10 +2055,11 @@ function partialClose(d,p,t,fraction,why){
 function manageScaleOut(d,p,t){
   if(!d.scaleOut)return false;
   const pnl=pct(t.price,p.entry),estimatedProfitUsd=(p.units*t.price)-((num(p.entryCost)||p.invested*(1+FEE_RATE))-num(p.realizedProceeds));
-  if(estimatedProfitUsd<PAPER_MIN_PROFIT_TAKE_USD)return false;
-  const levels=[30,75,150,300];p.scaleOutHits=p.scaleOutHits||[];
+  const minScaleProfit=d.fiveBrain?Math.max(3,d.equity*.004):PAPER_MIN_PROFIT_TAKE_USD;
+  if(estimatedProfitUsd<minScaleProfit)return false;
+  const levels=d.fiveBrain?[15,30,60,120]:[30,75,150,300];p.scaleOutHits=p.scaleOutHits||[];
   const level=levels.find(x=>pnl>=x&&!p.scaleOutHits.includes(x));if(!level)return false;
-  const frac=level>=150?.25:.20;if(partialClose(d,p,t,frac,`runner scale-out +${level}%`)){p.scaleOutHits.push(level);return true;}return false;
+  const frac=level>=(d.fiveBrain?60:150)?.25:.20;if(partialClose(d,p,t,frac,`runner scale-out +${level}%`)){p.scaleOutHits.push(level);return true;}return false;
 }
 function manageCopyPosition(d,p,t){
   if(!d.copyLab||!d.copySource)return false;
@@ -2209,6 +2076,32 @@ function estimatedOpenProfitUsd(p,t){
 }
 function exitDecision(d,p,t,f){
   const mode=exitModeFor(d),pnl=pct(t.price,p.entry),hold=(now()-p.opened)/60000,peakPnl=pct(p.peakDuring||t.price,p.entry),drawFromPeak=peakPnl-pnl,estimatedProfitUsd=estimatedOpenProfitUsd(p,t),meaningfulProfit=estimatedProfitUsd>=PAPER_MIN_PROFIT_TAKE_USD;
+  if(d.fiveBrain&&d.exitBrain){
+    const b=d.exitBrain;
+    p.fiveBrainPath=p.fiveBrainPath||[];
+    const last=num(p.fiveBrainPath.at(-1)?.ts);
+    if(!last||now()-last>=15000){
+      p.fiveBrainPath.push({ts:now(),holdMin:hold,pnl,peakPnl,drawFromPeak,momentum:num(f.momentum),acceleration:num(f.acceleration),buyRatio:num(f.buyRatio),risk:num(f.risk),chartQuality:num(f.chart?.chartQuality),structure:f.chart?.structure||''});
+      if(p.fiveBrainPath.length>64)p.fiveBrainPath.shift();
+    }
+    const pathIntegrity=executionPathIntegrity(t);
+    if(!pathIntegrity.ok){p.exitPendingReason='price integrity quarantine: '+pathIntegrity.reason;return{exit:false,mode:'integrity-quarantine'};}
+    const catastrophic=(f.flowFresh&&f.buyRatio<.28)||f.risk>=84||(f.meme?.manipulationSuspicion||0)>=82;
+    if(catastrophic&&hold>=.25)return{exit:true,why:d.name+' · emergency thesis break',mode:'five-brain'};
+    if(pnl<=-num(b.hardStop||d.stop))return{exit:true,why:d.name+' · hard risk cut',mode:'five-brain'};
+    if(!p.winnerConfirmed&&peakPnl>=num(b.confirmPeak||10)&&f.momentum>=50&&f.acceleration>=42&&f.buyRatio>=.48)p.winnerConfirmed=true;
+    const noProof=hold>=num(b.proofMin||2)&&peakPnl<num(b.minSpark||4)&&pnl<=num(b.failPnl??-3)&&(f.acceleration<48||f.momentum<52||f.buyRatio<.48);
+    if(noProof)return{exit:true,why:d.name+' · thesis failed to prove itself',mode:'five-brain'};
+    const trail=p.winnerConfirmed&&peakPnl>=num(b.trailStart||18)&&drawFromPeak>=Math.max(num(b.trailAbs||6),peakPnl*num(b.trailFrac||.33));
+    if(trail&&estimatedProfitUsd>0)return{exit:true,why:d.name+' · winner trail protected',mode:'five-brain'};
+    const fade=hold>=3&&f.flowFresh&&f.acceleration<38&&f.momentum<44&&f.buyRatio<.44;
+    if(fade&&pnl<=2)return{exit:true,why:d.name+' · momentum/flow thesis faded',mode:'five-brain'};
+    if(hold>=num(b.maxHold||d.maxHold||120)){
+      if(pnl<=0)return{exit:true,why:d.name+' · max hold with no edge',mode:'five-brain'};
+      if(estimatedProfitUsd>0)return{exit:true,why:d.name+' · disciplined time exit',mode:'five-brain'};
+    }
+    return{exit:false,mode:'five-brain'};
+  }
   if(d.postEntryProfile){
     p.postEntryPath=p.postEntryPath||[];
     const last=num(p.postEntryPath.at(-1)?.ts);
@@ -2542,7 +2435,7 @@ async function beginCleanExecutionEraIfNeeded(){
   promotions.splice(0);graveyard.splice(0);opportunities.clear();opportunityKeysByMint.clear();
   entryPolicyCache.clear();regimeWeightCache.clear();dnaSimilarityCache.clear();featureCache.clear();
   marketWeatherCache={ts:0,value:null};narrativeStatsCache={ts:0,value:null};corrCache={ts:0,rows:[]};edgeFocusCache={ts:0,data:null};allocatorCache={ts:0,regime:'',data:null};
-  research={last:0,notes:['Season 3 clean execution era started. Season 2 detailed trades remain available only as historical forensic evidence.'],hypotheses:[]};lastScientistRun=0;
+  research={last:0,notes:['Five Brain clean era started. Prior detailed trades are retained only as historical forensic evidence.'],hypotheses:[]};lastScientistRun=0;
   const freshAlpha=createPumpLabAlphaOS({start:START,rpcUrl:SOLANA_RPC_HTTP,routeQuoteUrl:SHADOW_ROUTE_QUOTE_URL,shadowWalletPublicKey:SHADOW_WALLET_PUBLIC_KEY});
   alphaOS.restore(freshAlpha.serialize());science.reset();
   startedAt=now();
@@ -2554,13 +2447,13 @@ async function beginCleanExecutionEraIfNeeded(){
     exitTotal:0,
     strategyN:Object.fromEntries(allTraders().map(d=>[d.id,0])),
     updatedAt:now(),
-    source:'season3-clean-execution-migration'
+    source:'five-brain-clean-migration'
   };
   stateVersionTs=now();
   validateStateIntegrity({repair:true});
   await writeLocalAtomic(serialize());
   await writeLocalCriticalAtomic(serializeCritical());
-  console.warn('SEASON3_CLEAN_EXECUTION_START '+JSON.stringify({label:CLEAN_SEASON_LABEL,previous,retainedHistoricalTrades:trades.length,newProductionExits:0,newOpen:positions.length}));
+  console.warn('FIVE_BRAIN_CLEAN_START '+JSON.stringify({label:CLEAN_SEASON_LABEL,previous,retainedHistoricalTrades:trades.length,newProductionExits:0,newOpen:positions.length}));
   return true;
 }
 
@@ -4249,7 +4142,7 @@ if(!validateStateIntegrity({repair:true})){console.error('FATAL_STATE_INTEGRITY 
 if(dbStateRestored||kvStateRestored||localStateRestored||peerStateRestored)logStrategyDiagnostics();
 setLifecycle('WARMING','state restored; initializing market loops');
 logV3SelfTest();
-setHealth('engine','ok','v3.1 evidence playbooks + Megga copy/scout lab + 31 specialist cohorts + controls online',{truth:'observed'});
+setHealth('engine','ok','Five Brain engine online · Sentinel + Surge + Rebound + Runner + Flow · PAPER ONLY',{truth:'observed'});
 setHealth('learning-core','ok','era-separated allocator + DNA memory + replay + exit optimizer + counterfactual lab online',{truth:'inferred'});
 setHealth('alpha-os','ok','Alpha OS v2 online · wallet profitability/copyability + independent consensus + safety/cadence/expectancy controls · PAPER/SHADOW ONLY',{truth:'inferred'});
 setHealth('season3-science','ok','Integrity Freeze science online · corrected marks + timed momentum + fresh evidence only',{truth:'inferred'});
@@ -4257,7 +4150,7 @@ setHealth('profit-accelerator','ok','Profit Accelerator v1 · pruning + champion
 setHealth('x-social','standby','Full X stream not connected · social agent uses token social metadata only',{truth:'not connected'});
 setHealth('wallet-intel','standby','Connecting Solana stream + verified Fomo wallet watchlist…',{truth:'not connected'});setHealth('fomo-watchlist','standby','Preparing verified public wallet subscriptions',{truth:'not connected'});
 if((DATABASE_URL||REDIS_URL)&&!durableTradingReady())console.log('STATE_LOCK engaged · trading paused until a recovery source is healthy');
-log('system','🚀 PUMP LAB v5.1 Integrity Freeze started · PAPER ONLY','system');connectPumpPortal();connectSolanaStream();pumpPoll();dexPoll();console.log('PUMP LAB v5.1 Integrity Freeze runtime online · PAPER ONLY');
+log('system','🧠 PUMP LAB Five Brain reset started · PAPER ONLY','system');connectPumpPortal();connectSolanaStream();pumpPoll();dexPoll();console.log('PUMP LAB Five Brain runtime online · PAPER ONLY');
 setTimeout(stateSelfTest,5000).unref?.();setInterval(()=>alphaOS.runCapitalAuction(m=>tokens.get(m),executionQuote),2000).unref?.();
 setInterval(()=>{alphaOS.observeWorld({weather:marketWeather(),tokens:[...tokens.values()].filter(t=>now()-t.updatedAt<900000),strategyEquity:Object.fromEntries(allTraders().map(d=>[d.id,d.equity]))});alphaOS.prune();},60000).unref?.();
 setInterval(()=>runScheduled('alpha-external',()=>alphaOS.pollExternal(),{budgetMs:5000}),30000).unref?.();
