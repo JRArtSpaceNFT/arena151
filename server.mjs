@@ -2549,7 +2549,10 @@ function restoreIfNewer(s,source,sourceTs=0){
     console.warn('STATE_VERSION_REGRESSION_REJECTED '+JSON.stringify({source,savedAt:ts,current:stateVersionTs,ledgerRows:incoming.ledgerRows,productionExits:incoming.productionExits}));
     return false;
   }
-  restore(s);expectedDetailedHistory=Math.max(expectedDetailedHistory,detailedLedgerTarget(s.stateMeta,s.trades?.length||0,MAX_TRADES));stateVersionTs=Math.max(stateVersionTs,ts);markRestoreSource(source);
+  restore(s);
+  const adoptedCurrentEra=adoptCurrentEraRecoveryHighWater(s,source);
+  if(!adoptedCurrentEra)expectedDetailedHistory=Math.max(expectedDetailedHistory,detailedLedgerTarget(s.stateMeta,s.trades?.length||0,MAX_TRADES));
+  stateVersionTs=Math.max(stateVersionTs,ts);markRestoreSource(source);
   reconcileAuthoritativeExperimentState({repair:true,source:'restore:'+source});
   console.log('STATE_RESTORE '+JSON.stringify({source,savedAt:ts,current:stateVersionTs,ledgerRows:incoming.ledgerRows,productionExits:incoming.productionExits,authority:STATE_AUTHORITY_VERSION}));
   return true;
@@ -2646,10 +2649,12 @@ async function initDb(restoreState=true){
       restoredAny=peerRestoredNow||restoredAny;
       if(!restoredAny){dbStateRestored=true;lastDurableRestoreAt=now();}
       // Preserve newer critical counters and positions; merge older full DB fills by ID.
-      if(Array.isArray(fullRow?.payload?.trades)){
+      if(Array.isArray(fullRow?.payload?.trades)&&stateIsCurrentFiveBrainEra(fullRow.payload)){
         expectedDetailedHistory=Math.max(expectedDetailedHistory,detailedLedgerTarget(fullRow.payload.stateMeta,fullRow.payload.trades.length,MAX_TRADES));
         const merge=mergeHistoricalTrades(trades,fullRow.payload.trades,MAX_TRADES);
-        if(merge.added){trades.splice(0,trades.length,...merge.trades);console.log('HISTORICAL_LEDGER_MERGE '+JSON.stringify({added:merge.added,available:trades.length,expected:expectedDetailedHistory}));}
+        if(merge.added){trades.splice(0,trades.length,...merge.trades);console.log('HISTORICAL_LEDGER_MERGE '+JSON.stringify({added:merge.added,available:trades.length,expected:expectedDetailedHistory,era:STRATEGY_ERA}));}
+      }else if(Array.isArray(fullRow?.payload?.trades)&&fullRow.payload.trades.length){
+        console.warn('LEGACY_LEDGER_MERGE_BLOCKED '+JSON.stringify({rows:fullRow.payload.trades.length,sourceEra:fullRow.payload?.stateMeta?.era||'',sourceSeason:fullRow.payload?.season?.label||'',currentEra:STRATEGY_ERA,currentSeason:CLEAN_SEASON_LABEL}));
       }
       const journalRepaired=missingDetailedTrades()>0?false:await repairCurrentSeasonFromJournal(client);
       if(missingDetailedTrades()>0)await backfillDetailedLedgerOnly(client);
@@ -2798,6 +2803,18 @@ function applyRecoveryHighWater(h,source='unknown'){
   recoveryHighWater.updatedAt=Math.max(num(recoveryHighWater.updatedAt),num(h.updatedAt));recoveryHighWater.source=source||h.source||recoveryHighWater.source;
   return true;
 }
+function stateIsCurrentFiveBrainEra(s){
+  return s?.stateMeta?.era===STRATEGY_ERA&&s?.season?.label===CLEAN_SEASON_LABEL;
+}
+function adoptCurrentEraRecoveryHighWater(s,source='unknown'){
+  if(!stateIsCurrentFiveBrainEra(s))return false;
+  const m=recoveryMetricsFromState(s),key=String(m.seasonKey||CLEAN_SEASON_LABEL);
+  if(String(recoveryHighWater.seasonKey||'')===key)return false;
+  recoveryHighWater={seasonKey:key,ledgerRows:m.ledgerRows,productionExits:m.productionExits,exitTotal:m.exitTotal,strategyN:{...(m.strategyN||{})},updatedAt:num(s?.stateMeta?.savedAt)||now(),source:'five-brain:'+source};
+  expectedDetailedHistory=detailedLedgerTarget(s?.stateMeta,s?.trades?.length||0,MAX_TRADES);
+  console.log('FIVE_BRAIN_RECOVERY_HIGH_WATER_ADOPTED '+JSON.stringify({source,seasonKey:key,ledgerRows:recoveryHighWater.ledgerRows,expectedDetailedHistory}));
+  return true;
+}
 function recoveryHighWaterAllows(s,source='unknown'){
   if(!s||typeof s!=='object')return false;const m=recoveryMetricsFromState(s),same=!m.seasonKey||!recoveryHighWater.seasonKey||m.seasonKey===recoveryHighWater.seasonKey;
   if(!same)return true;
@@ -2826,7 +2843,10 @@ function restoreCriticalFromSource(s,source,sourceTs=0){
   // Timestamp + same-season high-water are the authority. A newer critical
   // checkpoint must not be rejected because an older full snapshot happens to
   // contain larger aggregate counters or more historical rows.
-  if(!restoreCritical(s))return false;expectedDetailedHistory=Math.max(expectedDetailedHistory,detailedLedgerTarget(s?.stateMeta,s?.trades?.length||0,MAX_TRADES));stateVersionTs=Math.max(stateVersionTs,ts);markRestoreSource(source);reconcileAuthoritativeExperimentState({repair:true,source:'critical:'+source});console.log('CRITICAL_STATE_RESTORE '+JSON.stringify({source,savedAt:ts,current:stateVersionTs,trades:trades.length,open:positions.length,exits:currentExitTotal(),authority:STATE_AUTHORITY_VERSION}));return true;
+  if(!restoreCritical(s))return false;
+  const adoptedCurrentEra=adoptCurrentEraRecoveryHighWater(s,source);
+  if(!adoptedCurrentEra)expectedDetailedHistory=Math.max(expectedDetailedHistory,detailedLedgerTarget(s?.stateMeta,s?.trades?.length||0,MAX_TRADES));
+  stateVersionTs=Math.max(stateVersionTs,ts);markRestoreSource(source);reconcileAuthoritativeExperimentState({repair:true,source:'critical:'+source});console.log('CRITICAL_STATE_RESTORE '+JSON.stringify({source,savedAt:ts,current:stateVersionTs,trades:trades.length,open:positions.length,exits:currentExitTotal(),authority:STATE_AUTHORITY_VERSION}));return true;
 }
 function restoreCriticalIfNewer(s,sourceTs=0){return restoreCriticalFromSource(s,'postgres',sourceTs);}
 function restore(s){try{if(s.season)seasonInfo={...seasonInfo,...s.season};if(s.forensicLedgerGaps)forensicLedgerGaps={...forensicLedgerGaps,...s.forensicLedgerGaps};if(s.forensicRecovery)forensicRecovery={...forensicRecovery,...s.forensicRecovery};alphaOS.restore(s.alphaOS);science.restore(s.science);
@@ -3033,9 +3053,8 @@ function pinDetailedLedgerHighWater(){
   const file=new URL('./recovery/pump-lab-v6-pinned-offsite.json.gz',import.meta.url);
   const input=JSON.parse(gunzipSync(fs.readFileSync(file)).toString('utf8'));
   const state=input?.state&&typeof input.state==='object'?input.state:input;
-  const currentEra=state?.stateMeta?.era===STRATEGY_ERA&&state?.season?.label===CLEAN_SEASON_LABEL;
-  const migratablePriorEra=ALLOW_SEASON_MIGRATION&&state?.stateMeta?.era!==STRATEGY_ERA&&state?.season?.label!==CLEAN_SEASON_LABEL;
-  if(state?.stateMeta?.version!==6||state?.stateMeta?.authority!==STATE_AUTHORITY_VERSION||(!currentEra&&!migratablePriorEra))return;
+  const currentEra=stateIsCurrentFiveBrainEra(state);
+  if(state?.stateMeta?.version!==6||state?.stateMeta?.authority!==STATE_AUTHORITY_VERSION||!currentEra)return;
   expectedDetailedHistory=Math.max(expectedDetailedHistory,detailedLedgerTarget(state.stateMeta,state?.trades?.length||0,MAX_TRADES));
   console.log('PINNED_LEDGER_HIGH_WATER '+JSON.stringify({expected:expectedDetailedHistory,sourceSavedAt:state.stateMeta.savedAt}));
  }catch(e){console.warn('PINNED_LEDGER_HIGH_WATER_UNAVAILABLE '+String(e?.message||e).slice(0,140))}
