@@ -39,6 +39,8 @@ test('read-only pinned recovery boots when DB, Key Value and peers are down', {t
   assert.equal(health.paperOnly,true);
   assert.equal(health.storage?.pinnedOffsite?.restored,true);
   assert.equal(health.storage?.pinnedOffsite?.paperEntryLocked,true);
+  assert.ok(health.storage?.detailLedger?.missing>0,'Partial recovery must display missing historical fills');
+  assert.equal(health.storage?.detailLedger?.canonicalWriteLocked,true);
   assert.equal(health.storage?.tradingUnlocked,false);
   assert.equal(health.runtime?.dbConnected,false);
   const res=await fetch('http://127.0.0.1:'+p+'/api/state');

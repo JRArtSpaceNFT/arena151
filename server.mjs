@@ -2,6 +2,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { memoryReport, rejectSlowStream, reuseSnapshotUnderPressure } from './lib/pump-lab-runtime-guard.mjs';
+import { detailedLedgerTarget, detailedLedgerGap, mergeHistoricalTrades, permitCanonicalOverwrite } from './lib/pump-lab-ledger-integrity.mjs';
 import { createPumpLabAlphaOS } from './lib/pump-lab-alpha-os.mjs';
 import { createPumpLabSeason2Science } from './lib/pump-lab-season2-science.mjs';
 import { createPumpLabProfitAccelerator } from './lib/pump-lab-profit-accelerator.mjs';
@@ -141,6 +142,8 @@ let solanaSubAcks = 0;
 let db = null;
 let emergencyOffsiteRestored = false;
 let emergencyOffsiteSavedAt = 0;
+let expectedDetailedHistory = 0;
+function missingDetailedTrades(){return detailedLedgerGap(expectedDetailedHistory,trades.length)}
 let archiveMonsterExportCache = null;
 let dbConnecting = false;
 let dbStateRestored = false;
@@ -521,8 +524,8 @@ function watchdogTick(){
 }
 function readinessStatus(){
   const durable=durableTradingReady(),journalHealthy=pendingTradeJournal.length<250,integrityHealthy=lastIntegrityReport?.ok!==false,queuesHealthy=dbWriteHigh.length<100&&solanaPriorityQueue.length<100,eventLoopHealthy=eventLoopLagP95<1000;
-  const ready=!shuttingDown&&durable&&journalHealthy&&integrityHealthy&&queuesHealthy&&eventLoopHealthy&&['READY','DEGRADED'].includes(lifecyclePhase);
-  return{ready,phase:lifecyclePhase,phaseSince:lifecycleSince,detail:lifecycleDetail,pressure:systemPressure,eventLoopLagMs,eventLoopLagP95,durable,dbConnected:!!db,dbReconnect:{attempt:dbReconnectAttempt,nextRetryAt:dbDisabledUntil,lastError:lastDbFailure||null},kvConnected:kvReady,peerRestored:peerStateRestored,stateVersionTs,lastDurableSaveAt,lastCriticalSaveAt,lastPeerRestoreAt,lastIngestAt,integrity:lastIntegrityReport,checks:{durable,journalHealthy,integrityHealthy,queuesHealthy,eventLoopHealthy},journal:{pending:pendingTradeJournal.length,lastFlushAt:lastTradeJournalFlush,written:journalEventsWritten,replayedAt:journalReplayedAt},backpressure:{...backpressureDrops},circuits:Object.fromEntries(providerCircuits),queues:{solana:solanaQueue.length,prioritySolana:solanaPriorityQueue.length,pendingDbEvents:pendingDbEvents.length,dbHigh:dbWriteHigh.length,dbNormal:dbWriteNormal.length,dbLow:dbWriteLow.length},subsystems:Object.fromEntries(subsystemRuntime)};
+  const ready=!shuttingDown&&durable&&missingDetailedTrades()===0&&journalHealthy&&integrityHealthy&&queuesHealthy&&eventLoopHealthy&&['READY','DEGRADED'].includes(lifecyclePhase);
+  return{ready,phase:lifecyclePhase,phaseSince:lifecycleSince,detail:lifecycleDetail,pressure:systemPressure,eventLoopLagMs,eventLoopLagP95,durable,dbConnected:!!db,dbReconnect:{attempt:dbReconnectAttempt,nextRetryAt:dbDisabledUntil,lastError:lastDbFailure||null},kvConnected:kvReady,peerRestored:peerStateRestored,stateVersionTs,lastDurableSaveAt,lastCriticalSaveAt,lastPeerRestoreAt,lastIngestAt,integrity:lastIntegrityReport,checks:{durable,detailedLedgerHealthy:missingDetailedTrades()===0,journalHealthy,integrityHealthy,queuesHealthy,eventLoopHealthy},journal:{pending:pendingTradeJournal.length,lastFlushAt:lastTradeJournalFlush,written:journalEventsWritten,replayedAt:journalReplayedAt},backpressure:{...backpressureDrops},circuits:Object.fromEntries(providerCircuits),queues:{solana:solanaQueue.length,prioritySolana:solanaPriorityQueue.length,pendingDbEvents:pendingDbEvents.length,dbHigh:dbWriteHigh.length,dbNormal:dbWriteNormal.length,dbLow:dbWriteLow.length},subsystems:Object.fromEntries(subsystemRuntime)};
 }
 function broadcast(type,data) {
   if(!clients.size)return;
@@ -1002,6 +1005,7 @@ function pruneOpportunities(){
   }
 }
 function durableTradingReady(){
+  if(missingDetailedTrades()>0)return false; // incomplete detailed ledger cannot authorize entries
   // A pinned offsite snapshot is a rescue copy, not a writable current canonical store.
   // Never open new paper positions from it until Postgres is restored and checkpointed.
   if(emergencyOffsiteRestored&&(!db||!dbStateRestored||lastDurableSaveAt<=0))return false;
@@ -1015,6 +1019,7 @@ function storageStatus(){
   return{
     canonical:DATABASE_URL?'postgres':REDIS_URL?'key-value':'local-memory',
     pinnedOffsite:{restored:emergencyOffsiteRestored,savedAt:emergencyOffsiteSavedAt,paperEntryLocked:emergencyOffsiteRestored&&!durableTradingReady()},
+    detailLedger:{available:trades.length,expected:expectedDetailedHistory,missing:missingDetailedTrades(),canonicalWriteLocked:missingDetailedTrades()>0},
     postgres:{configured:!!DATABASE_URL,connected:!!db,restored:dbStateRestored,lastSaveAt:lastDurableSaveAt,lastRestoreAt:lastDurableRestoreAt},
     keyValue:{configured:!!REDIS_URL,connected:kvReady,restored:kvStateRestored,lastSaveAt:lastKvSaveAt,lastRestoreAt:lastKvRestoreAt,persistent:false,role:'disposable failover cache'},
     peer:{configured:!!PEER_RECOVERY_URL,restored:peerStateRestored,lastRestoreAt:lastPeerRestoreAt,maxRecoveryAgeMs:PEER_RECOVERY_MAX_AGE_MS,role:'independent emergency snapshot peer'},
@@ -2531,6 +2536,7 @@ async function beginCleanExecutionEraIfNeeded(){
     note:'Season 2 results retained for forensics but excluded from Season 3 strategy-era scoring.'
   };
   for(const d of allTraders())resetTraderRuntime(d);
+  expectedDetailedHistory=0; // explicit opt-in season migration starts a fresh detailed ledger
   positions.splice(0);
   activity.splice(0);decisions.splice(0);timeline.splice(0);autopsies.splice(0);experiments.splice(0);replayFrames.splice(0);
   promotions.splice(0);graveyard.splice(0);opportunities.clear();opportunityKeysByMint.clear();
@@ -2646,7 +2652,7 @@ function restoreIfNewer(s,source,sourceTs=0){
     console.warn('STATE_VERSION_REGRESSION_REJECTED '+JSON.stringify({source,savedAt:ts,current:stateVersionTs,ledgerRows:incoming.ledgerRows,productionExits:incoming.productionExits}));
     return false;
   }
-  restore(s);stateVersionTs=Math.max(stateVersionTs,ts);markRestoreSource(source);
+  restore(s);expectedDetailedHistory=Math.max(expectedDetailedHistory,detailedLedgerTarget(s.stateMeta,s.trades?.length||0,MAX_TRADES));stateVersionTs=Math.max(stateVersionTs,ts);markRestoreSource(source);
   reconcileAuthoritativeExperimentState({repair:true,source:'restore:'+source});
   console.log('STATE_RESTORE '+JSON.stringify({source,savedAt:ts,current:stateVersionTs,ledgerRows:incoming.ledgerRows,productionExits:incoming.productionExits,authority:STATE_AUTHORITY_VERSION}));
   return true;
@@ -2689,6 +2695,9 @@ function rebuildScienceFromDetailedLedger(reason='critical-recovery'){
 }
 async function reseedCanonicalFullSnapshot(client,reason='recovery'){
   if(!client)return false;
+  if(!permitCanonicalOverwrite(expectedDetailedHistory,trades.length)){
+    console.warn('CANONICAL_RESEED_BLOCKED_INCOMPLETE_LEDGER '+JSON.stringify({available:trades.length,expected:expectedDetailedHistory,reason}));return false;
+  }
   try{
     validateStateIntegrity({repair:true});advanceRecoveryHighWater('canonical-reseed');
     const s=serialize(),savedAt=num(s?.stateMeta?.savedAt)||now();stateVersionTs=Math.max(stateVersionTs,savedAt);
@@ -2739,9 +2748,17 @@ async function initDb(restoreState=true){
       const peerRestoredNow=PEER_RECOVERY_URL?await tryPeerRecovery():false;
       restoredAny=peerRestoredNow||restoredAny;
       if(!restoredAny){dbStateRestored=true;lastDurableRestoreAt=now();}
-      const journalRepaired=await repairCurrentSeasonFromJournal(client);
+      // Preserve newer critical counters and positions; merge older full DB fills by ID.
+      if(Array.isArray(fullRow?.payload?.trades)){
+        expectedDetailedHistory=Math.max(expectedDetailedHistory,detailedLedgerTarget(fullRow.payload.stateMeta,fullRow.payload.trades.length,MAX_TRADES));
+        const merge=mergeHistoricalTrades(trades,fullRow.payload.trades,MAX_TRADES);
+        if(merge.added){trades.splice(0,trades.length,...merge.trades);console.log('HISTORICAL_LEDGER_MERGE '+JSON.stringify({added:merge.added,available:trades.length,expected:expectedDetailedHistory}));}
+      }
+      const journalRepaired=missingDetailedTrades()>0?false:await repairCurrentSeasonFromJournal(client);
+      if(missingDetailedTrades()>0)await backfillDetailedLedgerOnly(client);
       if(!journalRepaired)await replayTradeJournal(client,stateVersionTs);
-      const scienceRebuilt=rebuildScienceFromDetailedLedger(peerRestoredNow?'peer-restore':fullRestored?'full-restore':'critical-or-journal-restore');
+      if(missingDetailedTrades()>0)console.warn('DETAIL_LEDGER_INCOMPLETE '+JSON.stringify({available:trades.length,expected:expectedDetailedHistory,missing:missingDetailedTrades(),canonicalWriteLocked:true}));
+      const scienceRebuilt=missingDetailedTrades()>0?false:rebuildScienceFromDetailedLedger(peerRestoredNow?'peer-restore':fullRestored?'full-restore':'critical-or-journal-restore');
       if(peerRestoredNow||!fullRestored||journalRepaired||scienceRebuilt)await reseedCanonicalFullSnapshot(client,peerRestoredNow?'peer-newest':journalRepaired?'journal-repair':scienceRebuilt?'science-ledger-rebuild':'critical-recovery');
       try{
         const ar=await client.query("SELECT payload,updated_at FROM pump_lab_state WHERE id='archive:season2-2026-10-01'");
@@ -2829,7 +2846,7 @@ async function waitForInitialDurableRestore(maxMs=90000){
   return false;
 }
 
-function serialize(){reconcileAuthoritativeExperimentState({repair:true,source:'serialize'});return{stateMeta:{version:6,authority:STATE_AUTHORITY_VERSION,savedAt:now(),era:STRATEGY_ERA,exitCount:currentExitTotal(),tradeCount:trades.length},auditVersion:AUDIT_VERSION,season:seasonInfo,forensicLedgerGaps,forensicRecovery,alphaOS:alphaOS.serialize(),science:science.serialize(),strategies:strategyDefs.map(stripTrader),challengers:challengers.map(stripTrader),positions:positions.filter(p=>!p.closed),trades,activity,decisions,opportunities:[...opportunities],research,timeline,replayFrames,autopsies,promotions,graveyard,walletEvents:walletEvents.slice(0,1200),marketEvents:marketEvents.slice(-1000),discoveryLedger:discoveryLedger.slice(-1500),dnaArchive:[...dnaArchive],creators:[...creators].map(([k,v])=>[k,{...v,tokens:[...v.tokens]}])};}
+function serialize(){reconcileAuthoritativeExperimentState({repair:true,source:'serialize'});return{stateMeta:{version:6,authority:STATE_AUTHORITY_VERSION,savedAt:now(),era:STRATEGY_ERA,exitCount:currentExitTotal(),tradeCount:Math.max(trades.length,expectedDetailedHistory),detailLedgerComplete:missingDetailedTrades()===0},auditVersion:AUDIT_VERSION,season:seasonInfo,forensicLedgerGaps,forensicRecovery,alphaOS:alphaOS.serialize(),science:science.serialize(),strategies:strategyDefs.map(stripTrader),challengers:challengers.map(stripTrader),positions:positions.filter(p=>!p.closed),trades,activity,decisions,opportunities:[...opportunities],research,timeline,replayFrames,autopsies,promotions,graveyard,walletEvents:walletEvents.slice(0,1200),marketEvents:marketEvents.slice(-1000),discoveryLedger:discoveryLedger.slice(-1500),dnaArchive:[...dnaArchive],creators:[...creators].map(([k,v])=>[k,{...v,tokens:[...v.tokens]}])};}
 function stripTrader(d){return{id:d.id,name:d.name,icon:d.icon,risk:d.risk,type:d.type,parentId:d.parentId,mutation:d.mutation,auto:d.auto,bornAt:d.bornAt,cash:d.cash,peak:d.peak,dd:d.dd,auditPeak:d.auditPeak,auditDd:d.auditDd,wins:d.wins,losses:d.losses,n:d.n,version:d.version,min:d.min,stop:d.stop,take:d.take,size:d.size,maxOpen:d.maxOpen,riskCap:d.riskCap,exitMode:d.exitMode,sizeBias:d.sizeBias,promotionCandidateAt:d.promotionCandidateAt,promotedAt:d.promotedAt,graveyardAt:d.graveyardAt,hypothesisCandidateAt:d.hypothesisCandidateAt,hypothesisRetiredAt:d.hypothesisRetiredAt,hypothesisReason:d.hypothesisReason};}
 function criticalRecoveryTrades(){
   const seasonStart=num(seasonInfo?.startedAt)||0,primaryIds=new Set(strategyDefs.map(d=>d.id)),picked=[],seen=new Set();
@@ -2840,7 +2857,7 @@ function criticalRecoveryTrades(){
   for(const t of trades)add(t);
   return picked.slice(0,250);
 }
-function serializeCritical(){reconcileAuthoritativeExperimentState({repair:true,source:'serialize-critical'});return{stateMeta:{version:6,authority:STATE_AUTHORITY_VERSION,savedAt:now(),era:STRATEGY_ERA,scope:'critical',exitCount:currentExitTotal(),tradeCount:trades.length},season:seasonInfo,forensicLedgerGaps,forensicRecovery,scienceEvidence:science.serializeCriticalEvidence(),alphaCritical:alphaOS.serializeCritical(),strategies:strategyDefs.map(stripTrader),challengers:challengers.map(stripTrader),positions:positions.filter(p=>!p.closed),trades:criticalRecoveryTrades(),decisions:decisions.filter(x=>x.era===STRATEGY_ERA).slice(0,Math.min(750,MAX_DECISIONS)),activity:activity.slice(0,80),autopsies:autopsies.slice(0,80)};}
+function serializeCritical(){reconcileAuthoritativeExperimentState({repair:true,source:'serialize-critical'});return{stateMeta:{version:6,authority:STATE_AUTHORITY_VERSION,savedAt:now(),era:STRATEGY_ERA,scope:'critical',exitCount:currentExitTotal(),tradeCount:Math.max(trades.length,expectedDetailedHistory),detailLedgerComplete:missingDetailedTrades()===0},season:seasonInfo,forensicLedgerGaps,forensicRecovery,scienceEvidence:science.serializeCriticalEvidence(),alphaCritical:alphaOS.serializeCritical(),strategies:strategyDefs.map(stripTrader),challengers:challengers.map(stripTrader),positions:positions.filter(p=>!p.closed),trades:criticalRecoveryTrades(),decisions:decisions.filter(x=>x.era===STRATEGY_ERA).slice(0,Math.min(750,MAX_DECISIONS)),activity:activity.slice(0,80),autopsies:autopsies.slice(0,80)};}
 function restoreCritical(s){try{
   if(!s||typeof s!=='object')return false;if(s.season)seasonInfo={...seasonInfo,...s.season};
   if(s.forensicLedgerGaps)forensicLedgerGaps={...forensicLedgerGaps,...s.forensicLedgerGaps};
@@ -2912,7 +2929,7 @@ function restoreCriticalFromSource(s,source,sourceTs=0){
   // Timestamp + same-season high-water are the authority. A newer critical
   // checkpoint must not be rejected because an older full snapshot happens to
   // contain larger aggregate counters or more historical rows.
-  if(!restoreCritical(s))return false;stateVersionTs=Math.max(stateVersionTs,ts);markRestoreSource(source);reconcileAuthoritativeExperimentState({repair:true,source:'critical:'+source});console.log('CRITICAL_STATE_RESTORE '+JSON.stringify({source,savedAt:ts,current:stateVersionTs,trades:trades.length,open:positions.length,exits:currentExitTotal(),authority:STATE_AUTHORITY_VERSION}));return true;
+  if(!restoreCritical(s))return false;expectedDetailedHistory=Math.max(expectedDetailedHistory,detailedLedgerTarget(s?.stateMeta,s?.trades?.length||0,MAX_TRADES));stateVersionTs=Math.max(stateVersionTs,ts);markRestoreSource(source);reconcileAuthoritativeExperimentState({repair:true,source:'critical:'+source});console.log('CRITICAL_STATE_RESTORE '+JSON.stringify({source,savedAt:ts,current:stateVersionTs,trades:trades.length,open:positions.length,exits:currentExitTotal(),authority:STATE_AUTHORITY_VERSION}));return true;
 }
 function restoreCriticalIfNewer(s,sourceTs=0){return restoreCriticalFromSource(s,'postgres',sourceTs);}
 function restore(s){try{if(s.season)seasonInfo={...seasonInfo,...s.season};if(s.forensicLedgerGaps)forensicLedgerGaps={...forensicLedgerGaps,...s.forensicLedgerGaps};if(s.forensicRecovery)forensicRecovery={...forensicRecovery,...s.forensicRecovery};alphaOS.restore(s.alphaOS);science.restore(s.science);
@@ -3052,6 +3069,15 @@ async function repairCurrentSeasonFromJournal(client=db){
     return true;
   }catch(e){console.warn('Trade journal repair warning:',e.message);return false;}
 }
+async function backfillDetailedLedgerOnly(client=db){
+ if(!client||missingDetailedTrades()===0)return 0;
+ const result=await client.query("SELECT payload FROM pump_lab_trade_journal WHERE kind='SELL' ORDER BY ts DESC LIMIT 5000");
+ const history=(result.rows||[]).map(x=>x.payload?.trade).filter(x=>x&&x.id);
+ const merged=mergeHistoricalTrades(trades,history,MAX_TRADES);
+ if(merged.added){trades.splice(0,trades.length,...merged.trades);}
+ console.log('TRADE_DETAIL_BACKFILL '+JSON.stringify({journalRows:history.length,added:merged.added,available:trades.length,expected:expectedDetailedHistory,missing:missingDetailedTrades()}));
+ return merged.added;
+}
 async function replayTradeJournal(client=db,afterTs=0){
   if(!client)return 0;const r=await client.query("SELECT event_id,ts,kind,payload FROM pump_lab_trade_journal WHERE ts>$1 ORDER BY ts ASC LIMIT 5000",[Math.max(0,num(afterTs))]);let applied=0,maxTs=afterTs;
   for(const row of r.rows){const e=row.payload||{};maxTs=Math.max(maxTs,num(row.ts));
@@ -3103,6 +3129,17 @@ function restorePinnedOffsite(){
     return true;
   }catch(e){console.warn('PINNED_OFFSITE_UNAVAILABLE '+String(e?.message||e).slice(0,180));return false;}
 }
+function pinDetailedLedgerHighWater(){
+ try{
+  const file=new URL('./recovery/pump-lab-v6-pinned-offsite.json.gz',import.meta.url);
+  const input=JSON.parse(gunzipSync(fs.readFileSync(file)).toString('utf8'));
+  const state=input?.state&&typeof input.state==='object'?input.state:input;
+  if(state?.stateMeta?.version!==6||state?.stateMeta?.authority!==STATE_AUTHORITY_VERSION||
+     state?.season?.label!==CLEAN_SEASON_LABEL)return;
+  expectedDetailedHistory=Math.max(expectedDetailedHistory,detailedLedgerTarget(state.stateMeta,state?.trades?.length||0,MAX_TRADES));
+  console.log('PINNED_LEDGER_HIGH_WATER '+JSON.stringify({expected:expectedDetailedHistory,sourceSavedAt:state.stateMeta.savedAt}));
+ }catch(e){console.warn('PINNED_LEDGER_HIGH_WATER_UNAVAILABLE '+String(e?.message||e).slice(0,140))}
+}
 function loadLocal(){
   let restored=false;
   for(const file of [STATE_FILE,STATE_FILE+'.bak']){
@@ -3131,7 +3168,7 @@ async function save(){
       try{await Promise.all([kv.set('pump-lab:state:main',JSON.stringify(s)),kv.set('pump-lab:state:highwater',JSON.stringify(recoveryHighWater))]);lastKvSaveAt=now();setHealth('research-failover','ok','Free Key Value failover synchronized',{truth:'observed'});}
       catch(e){kvReady=false;setHealth('research-failover','warn','Key Value checkpoint failed: '+e.message,{truth:'observed'});initKv(false);}
     }
-    if(db){
+    if(db&&permitCanonicalOverwrite(expectedDetailedHistory,trades.length)){
       try{
         const wrote=await queueDbWrite(async()=>{const client=db;if(!client)return false;await flushMarketEvents(client);await client.query('BEGIN');try{await client.query("INSERT INTO pump_lab_state(id,payload,updated_at) VALUES('main',$1,now()) ON CONFLICT(id) DO UPDATE SET payload=$1,updated_at=now()",[s]);await client.query("INSERT INTO pump_lab_state(id,payload,updated_at) VALUES('main:highwater',$1,now()) ON CONFLICT(id) DO UPDATE SET payload=$1,updated_at=now()",[recoveryHighWater]);await client.query('COMMIT');}catch(e){try{await client.query('ROLLBACK')}catch{}throw e;}return true;},'low');
         if(wrote){lastDurableSaveAt=now();setHealth('research-memory','ok','Postgres durable memory online · failover synchronized',{truth:'observed'});}
@@ -4191,6 +4228,7 @@ const server=http.createServer(async (req,res)=>{
 
 setLifecycle('RESTORING','restoring durable state');
 console.log('RUNTIME_CONFIG_PRESENCE '+JSON.stringify({databaseUrl:!!DATABASE_URL,redisUrl:!!REDIS_URL,peerRecovery:PEER_RECOVERY_URLS.length>0,stateFile:!!STATE_FILE}));
+pinDetailedLedgerHighWater();
 loadLocal();
 await initKv(true);
 await initDb(true);
