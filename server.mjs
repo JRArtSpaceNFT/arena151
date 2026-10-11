@@ -3009,10 +3009,12 @@ function restorePinnedOffsite(){
     const state=snapshot?.state&&typeof snapshot.state==='object'?snapshot.state:snapshot;
     const meta=state?.stateMeta||{},savedAt=Number(meta.savedAt)||0;
     const age=now()-savedAt;
-    if(meta.version!==6||meta.authority!==STATE_AUTHORITY_VERSION||meta.era!==STRATEGY_ERA||
-       state?.season?.label!==CLEAN_SEASON_LABEL||!Number.isFinite(age)||age<0||age>12*3600000||
-       !Array.isArray(state.strategies)||state.strategies.length<50||!Array.isArray(state.trades)){
-      console.error('PINNED_OFFSITE_REJECTED invalid, incompatible or older than 12 hours');return false;
+    const currentEra=meta.era===STRATEGY_ERA&&state?.season?.label===CLEAN_SEASON_LABEL;
+    const migratablePriorEra=ALLOW_SEASON_MIGRATION&&meta.era!==STRATEGY_ERA&&state?.season?.label!==CLEAN_SEASON_LABEL;
+    if(meta.version!==6||meta.authority!==STATE_AUTHORITY_VERSION||(!currentEra&&!migratablePriorEra)||
+       !Number.isFinite(age)||age<0||age>12*3600000||
+       !Array.isArray(state.strategies)||state.strategies.length<5||!Array.isArray(state.trades)){
+      console.error('PINNED_OFFSITE_REJECTED invalid, non-migratable or older than 12 hours');return false;
     }
     if((Number(meta.exitCount)||0)<currentExitTotal())return false;
     if(!restoreIfNewer(state,'local'))return false;
@@ -3027,8 +3029,9 @@ function pinDetailedLedgerHighWater(){
   const file=new URL('./recovery/pump-lab-v6-pinned-offsite.json.gz',import.meta.url);
   const input=JSON.parse(gunzipSync(fs.readFileSync(file)).toString('utf8'));
   const state=input?.state&&typeof input.state==='object'?input.state:input;
-  if(state?.stateMeta?.version!==6||state?.stateMeta?.authority!==STATE_AUTHORITY_VERSION||
-     state?.season?.label!==CLEAN_SEASON_LABEL)return;
+  const currentEra=state?.stateMeta?.era===STRATEGY_ERA&&state?.season?.label===CLEAN_SEASON_LABEL;
+  const migratablePriorEra=ALLOW_SEASON_MIGRATION&&state?.stateMeta?.era!==STRATEGY_ERA&&state?.season?.label!==CLEAN_SEASON_LABEL;
+  if(state?.stateMeta?.version!==6||state?.stateMeta?.authority!==STATE_AUTHORITY_VERSION||(!currentEra&&!migratablePriorEra))return;
   expectedDetailedHistory=Math.max(expectedDetailedHistory,detailedLedgerTarget(state.stateMeta,state?.trades?.length||0,MAX_TRADES));
   console.log('PINNED_LEDGER_HIGH_WATER '+JSON.stringify({expected:expectedDetailedHistory,sourceSavedAt:state.stateMeta.savedAt}));
  }catch(e){console.warn('PINNED_LEDGER_HIGH_WATER_UNAVAILABLE '+String(e?.message||e).slice(0,140))}
