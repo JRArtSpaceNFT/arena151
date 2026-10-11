@@ -3095,7 +3095,7 @@ function restorePinnedOffsite(){
        !Array.isArray(state.strategies)||state.strategies.length<50||!Array.isArray(state.trades)){
       console.error('PINNED_OFFSITE_REJECTED invalid, incompatible or older than 12 hours');return false;
     }
-    if(Number(meta.exitCount)||0 < currentExitTotal())return false;
+    if((Number(meta.exitCount)||0)<currentExitTotal())return false;
     if(!restoreIfNewer(state,'local'))return false;
     emergencyOffsiteRestored=true;emergencyOffsiteSavedAt=savedAt;
     setHealth('pinned-offsite','warn','Validated last-known offsite state restored; all new paper entries locked until Postgres checkpoints',{truth:'observed'});
