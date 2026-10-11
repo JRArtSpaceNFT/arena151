@@ -2998,11 +2998,16 @@ function journalRegressionCutoff(rows){
 async function repairCurrentSeasonFromJournal(client=db){
   if(!client)return false;
   try{
-    const ar=await client.query("SELECT payload,updated_at FROM pump_lab_state WHERE id='archive:season2-2026-10-01'");
-    const archive=ar.rows[0]?.payload||null,seasonStart=num(archive?.archivedAt)||new Date(ar.rows[0]?.updated_at||0).getTime()||0;
+    const fiveBrainSeason=seasonInfo?.label===CLEAN_SEASON_LABEL;
+    let archive=null,seasonStart=num(seasonInfo?.startedAt)||0;
+    if(!fiveBrainSeason){
+      const ar=await client.query("SELECT payload,updated_at FROM pump_lab_state WHERE id='archive:season2-2026-10-01'");
+      archive=ar.rows[0]?.payload||null;seasonStart=num(archive?.archivedAt)||new Date(ar.rows[0]?.updated_at||0).getTime()||0;
+    }
     if(!seasonStart)return false;
     const jr=await client.query("SELECT event_id,ts,kind,strategy,payload FROM pump_lab_trade_journal WHERE ts>$1 ORDER BY ts ASC LIMIT 10000",[seasonStart]);
-    const allRows=jr.rows||[],cutoff=journalRegressionCutoff(allRows),rows=cutoff?allRows.filter(x=>num(x.ts)<cutoff):allRows;
+    const eligible=row=>!fiveBrainSeason||(ACTIVE_EXPERIMENT_IDS.has(row?.strategy)&&num(row?.ts)>=seasonStart);
+    const allRows=(jr.rows||[]).filter(eligible),cutoff=journalRegressionCutoff(allRows),rows=(cutoff?allRows.filter(x=>num(x.ts)<cutoff):allRows).filter(eligible);
     const sellRows=rows.filter(x=>x.kind==='SELL'&&x.payload?.trade?.id),uniqueSellIds=new Set(sellRows.map(x=>x.payload.trade.id));
     const journalExits=uniqueSellIds.size,currentExits=currentExitTotal();
     console.log('TRADE_JOURNAL_AUDIT '+JSON.stringify({seasonStart,rows:allRows.length,authoritativeRows:rows.length,journalExits,currentExits,regressionCutoff:cutoff||null}));
@@ -3023,7 +3028,7 @@ async function repairCurrentSeasonFromJournal(client=db){
         const id=e.extra?.positionId||e.extra?.id;if(id)posMap.delete(id);
       }
     }
-    const baseline=FORENSIC_BASELINE,baselineTs=num(baseline?.capturedAtMs),useBaseline=!!baseline&&baselineTs>seasonStart&&baselineTs<(cutoff||Infinity);
+    const baseline=FORENSIC_BASELINE,baselineTs=num(baseline?.capturedAtMs),useBaseline=!fiveBrainSeason&&!!baseline&&baselineTs>seasonStart&&baselineTs<(cutoff||Infinity);
     for(const d of allTraders())resetTraderRuntime(d);
     if(useBaseline){
       for(const b of baseline.traders||[]){
@@ -3037,8 +3042,8 @@ async function repairCurrentSeasonFromJournal(client=db){
     }else{
       for(const snap of traderSnapshots.values())applyTraderJournalSnapshot(snap);
     }
-    const rebuiltTrades=[...tradeMap.values()].sort((a,b)=>num(b.closedAt)-num(a.closedAt)).slice(0,MAX_TRADES);
-    const rebuiltPositions=[...posMap.values()].filter(p=>p&&!p.closed);
+    const rebuiltTrades=[...tradeMap.values()].filter(t=>!fiveBrainSeason||isCurrentFiveBrainTrade(t,seasonStart)).sort((a,b)=>num(b.closedAt)-num(a.closedAt)).slice(0,MAX_TRADES);
+    const rebuiltPositions=[...posMap.values()].filter(p=>p&&!p.closed&&(!fiveBrainSeason||isCurrentFiveBrainPosition(p,seasonStart)));
     trades.splice(0,trades.length,...rebuiltTrades);positions.splice(0,positions.length,...rebuiltPositions);
     for(const d of allTraders())markEquity(d);
 
@@ -3055,8 +3060,14 @@ async function repairCurrentSeasonFromJournal(client=db){
         baselineAt:baselineTs,source:'Render observed pre-incident checkpoint'
       };
     }
-    forensicRecovery={active:true,lastRepairAt:now(),regressionCutoff:cutoff||0,journalRows:rows.length,detailedTrades:rebuiltTrades.length,observedLedgerRows:rebuiltTrades.length+num(forensicLedgerGaps.total)};
-    if(archive){seasonInfo={label:archive.label||'season2-2026-10-01',startedAt:seasonStart,archiveId:'archive:season2-2026-10-01',resetApplied:true};}
+    if(fiveBrainSeason){
+      forensicLedgerGaps={total:0,production:0,cohort:0,control:0,other:0,baselineAt:0,source:''};
+      forensicRecovery={active:false,lastRepairAt:now(),regressionCutoff:cutoff||0,journalRows:rows.length,detailedTrades:rebuiltTrades.length,observedLedgerRows:rebuiltTrades.length};
+      seasonInfo={...seasonInfo,label:CLEAN_SEASON_LABEL,archiveId:String(seasonInfo.archiveId||'').startsWith('five-brain:')?seasonInfo.archiveId:'five-brain:'+seasonStart,resetApplied:true};
+    }else{
+      forensicRecovery={active:true,lastRepairAt:now(),regressionCutoff:cutoff||0,journalRows:rows.length,detailedTrades:rebuiltTrades.length,observedLedgerRows:rebuiltTrades.length+num(forensicLedgerGaps.total)};
+      if(archive){seasonInfo={label:archive.label||'season2-2026-10-01',startedAt:seasonStart,archiveId:'archive:season2-2026-10-01',resetApplied:true};}
+    }
     science.rebuildFromTradeLedger(rebuiltTrades);
     stateVersionTs=now();journalReplayedAt=stateVersionTs;validateStateIntegrity({repair:true});
     console.warn('TRADE_JOURNAL_REPAIR '+JSON.stringify({restoredDetailedTrades:trades.length,observedLedgerRows:forensicRecovery.observedLedgerRows,aggregateRecoveredRows:forensicLedgerGaps.total,restoredOpen:positions.length,restoredExits:currentExitTotal(),regressionCutoff:cutoff||null,baselineAt:useBaseline?baselineTs:null,rows:rows.length}));
@@ -3065,22 +3076,27 @@ async function repairCurrentSeasonFromJournal(client=db){
 }
 async function backfillDetailedLedgerOnly(client=db){
  if(!client||missingDetailedTrades()===0)return 0;
- const result=await client.query("SELECT payload FROM pump_lab_trade_journal WHERE kind='SELL' ORDER BY ts DESC LIMIT 5000");
- const history=(result.rows||[]).map(x=>x.payload?.trade).filter(x=>x&&x.id);
+ const fiveBrainSeason=seasonInfo?.label===CLEAN_SEASON_LABEL,seasonStart=fiveBrainSeason?num(seasonInfo?.startedAt):0;
+ const result=await client.query("SELECT ts,strategy,payload FROM pump_lab_trade_journal WHERE kind='SELL' AND ts>$1 ORDER BY ts DESC LIMIT 5000",[seasonStart]);
+ const history=(result.rows||[]).filter(x=>!fiveBrainSeason||(ACTIVE_EXPERIMENT_IDS.has(x?.strategy)&&num(x?.ts)>=seasonStart)).map(x=>x.payload?.trade).filter(x=>x&&x.id&&(!fiveBrainSeason||isCurrentFiveBrainTrade(x,seasonStart)));
  const merged=mergeHistoricalTrades(trades,history,MAX_TRADES);
  if(merged.added){trades.splice(0,trades.length,...merged.trades);}
- console.log('TRADE_DETAIL_BACKFILL '+JSON.stringify({journalRows:history.length,added:merged.added,available:trades.length,expected:expectedDetailedHistory,missing:missingDetailedTrades()}));
+ console.log('TRADE_DETAIL_BACKFILL '+JSON.stringify({journalRows:history.length,added:merged.added,available:trades.length,expected:expectedDetailedHistory,missing:missingDetailedTrades(),seasonStart}));
  return merged.added;
 }
 async function replayTradeJournal(client=db,afterTs=0){
-  if(!client)return 0;const r=await client.query("SELECT event_id,ts,kind,payload FROM pump_lab_trade_journal WHERE ts>$1 ORDER BY ts ASC LIMIT 5000",[Math.max(0,num(afterTs))]);let applied=0,maxTs=afterTs;
-  for(const row of r.rows){const e=row.payload||{};maxTs=Math.max(maxTs,num(row.ts));
-    const current=allTraders().find(q=>q.id===e?.trader?.id);if(!current||num(e?.trader?.n)>=num(current.n))applyTraderJournalSnapshot(e.trader);
-    if(row.kind==='BUY'||row.kind==='PARTIAL'){const p=e.position;if(p?.id&&!trades.some(t=>t.id===p.id)){const i=positions.findIndex(x=>x.id===p.id);if(i>=0)positions[i]=p;else positions.push(p);applied++;}}
-    if(row.kind==='SELL'){const tr=e.trade;if(tr?.id){const i=positions.findIndex(x=>x.id===tr.id);if(i>=0)positions.splice(i,1);if(!trades.some(t=>t.id===tr.id)){trades.unshift(tr);applied++;}}}
+  if(!client)return 0;
+  const fiveBrainSeason=seasonInfo?.label===CLEAN_SEASON_LABEL,seasonStart=fiveBrainSeason?num(seasonInfo?.startedAt):0,lowerBound=Math.max(0,num(afterTs),seasonStart);
+  const r=await client.query("SELECT event_id,ts,kind,strategy,payload FROM pump_lab_trade_journal WHERE ts>$1 ORDER BY ts ASC LIMIT 5000",[lowerBound]);let applied=0,maxTs=lowerBound,eligibleRows=0;
+  for(const row of r.rows){
+    if(fiveBrainSeason&&(!ACTIVE_EXPERIMENT_IDS.has(row?.strategy)||num(row?.ts)<seasonStart))continue;
+    const e=row.payload||{};maxTs=Math.max(maxTs,num(row.ts));eligibleRows++;
+    const current=allTraders().find(q=>q.id===e?.trader?.id);if(current&&num(e?.trader?.n)>=num(current.n))applyTraderJournalSnapshot(e.trader);
+    if(row.kind==='BUY'||row.kind==='PARTIAL'){const p=e.position;if(p?.id&&(!fiveBrainSeason||isCurrentFiveBrainPosition(p,seasonStart))&&!trades.some(t=>t.id===p.id)){const i=positions.findIndex(x=>x.id===p.id);if(i>=0)positions[i]=p;else positions.push(p);applied++;}}
+    if(row.kind==='SELL'){const tr=e.trade;if(tr?.id&&(!fiveBrainSeason||isCurrentFiveBrainTrade(tr,seasonStart))){const i=positions.findIndex(x=>x.id===tr.id);if(i>=0)positions.splice(i,1);if(!trades.some(t=>t.id===tr.id)){trades.unshift(tr);applied++;}}}
     if(row.kind==='VOID'){const id=e.extra?.positionId||e.extra?.id;const i=id?positions.findIndex(x=>x.id===id):-1;if(i>=0){positions.splice(i,1);applied++;}}
   }
-  if(r.rows.length){stateVersionTs=Math.max(stateVersionTs,maxTs);journalReplayedAt=now();console.log('TRADE_JOURNAL_REPLAY '+JSON.stringify({rows:r.rows.length,applied,afterTs,maxTs}));}
+  if(eligibleRows){stateVersionTs=Math.max(stateVersionTs,maxTs);journalReplayedAt=now();console.log('TRADE_JOURNAL_REPLAY '+JSON.stringify({rows:eligibleRows,applied,afterTs,seasonStart,maxTs}));}
   validateStateIntegrity({repair:true});return applied;
 }
 async function flushMarketEvents(client=db){
