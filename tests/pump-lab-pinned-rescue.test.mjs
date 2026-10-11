@@ -19,7 +19,7 @@ test('read-only pinned recovery boots when DB, Key Value and peers are down', {t
   cwd:process.cwd(),stdio:['ignore','ignore','pipe'],
   env:{...process.env,PORT:String(p),DATABASE_URL:'postgresql://bad:bad@127.0.0.1:2/bad',
    REDIS_URL:'',PEER_RECOVERY_URLS:'disabled',STATE_FILE:path.join(folder,'saved.json'),
-   PUMPPORTAL_API_KEY:'',ALLOW_METERED_PUMPPORTAL:'false',ALLOW_SEASON_MIGRATION:'false',
+   PUMPPORTAL_API_KEY:'',ALLOW_METERED_PUMPPORTAL:'false',ALLOW_SEASON_MIGRATION:'true',
    SOLANA_RPC_HTTP:'http://127.0.0.1:2',SOLANA_RPC_WSS:'ws://127.0.0.1:2',
    NODE_OPTIONS:'--max-old-space-size=300'}});
  child.stderr.on('data',b=>{stderr+=String(b).slice(0,1200);if(stderr.length>5000)stderr=stderr.slice(-5000)});
@@ -47,6 +47,11 @@ test('read-only pinned recovery boots when DB, Key Value and peers are down', {t
   assert.equal(res.status,200);
   const s=await res.json();
   assert.ok((s?.summary?.ledgerTrades||0)>0,'Historical ledger should remain visible');
-  assert.ok((s?.strategies?.length||0)>=50,'Never present default empty portfolios');
+    assert.equal(s?.season?.label,'season4-five-brain-2026-10-11');
+  assert.equal(s?.strategies?.length,5,'Five Brain migration must expose exactly five active bots');
+  for(const d of s.strategies){
+    assert.equal(d.cash,1000,'Each Five Brain bot must reset cash to $1,000');
+    assert.equal(d.n,0,'Each Five Brain bot must reset completed-trade count');
+  }
  }finally{child.kill('SIGKILL');rmSync(folder,{recursive:true,force:true})}
 });
