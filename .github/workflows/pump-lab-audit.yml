@@ -20,3 +20,4 @@ jobs:
           cache: npm
       - run: npm install --no-audit --no-fund
       - run: npm test
+      - run: node --test tests/pump-lab-runtime-guard.test.mjs
