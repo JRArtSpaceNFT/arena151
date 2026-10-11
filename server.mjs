@@ -2754,10 +2754,13 @@ async function initDb(restoreState=true){
     const {Client}=await import('pg');
     client=new Client({connectionString:DATABASE_URL,ssl:DATABASE_URL.includes('render.com')?{rejectUnauthorized:false}:undefined,connectionTimeoutMillis:15000,keepAlive:true,keepAliveInitialDelayMillis:5000});
     client.on('error',e=>{
-      if(db===client)db=null;
+      if(db===client){
+        db=null;
+        // Do not retain dead PG sockets after repeated transient network outages.
+        // Never let a retired connection close a newer active connection.
+        Promise.resolve(client.end()).catch(()=>{});
+      }
       setHealth('research-memory','warn','Postgres interrupted · independent failover remains active while reconnecting',{truth:'observed'});
-      // Postgres is canonical when healthy, but a brief canonical-store outage is not
-      // an engine outage when the peer/local failover has a fresh trusted checkpoint.
       if(!durableTradingReady()&&lifecyclePhase==='READY')setLifecycle('DEGRADED','durable storage unavailable');
       console.warn('Postgres connection interrupted:',e.message);scheduleDbReconnect(5000);
     });
