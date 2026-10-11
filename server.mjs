@@ -2429,20 +2429,24 @@ async function beginCleanExecutionEraIfNeeded(){
     note:'Season 2 results retained for forensics but excluded from Season 3 strategy-era scoring.'
   };
   for(const d of allTraders())resetTraderRuntime(d);
-  expectedDetailedHistory=0; // explicit opt-in season migration starts a fresh detailed ledger
-  positions.splice(0);
+  expectedDetailedHistory=0; // the immutable pre-reset archive owns legacy history; active Five Brain ledger starts at zero
+  positions.splice(0);trades.splice(0);
   activity.splice(0);decisions.splice(0);timeline.splice(0);autopsies.splice(0);experiments.splice(0);replayFrames.splice(0);
-  promotions.splice(0);graveyard.splice(0);opportunities.clear();opportunityKeysByMint.clear();
+  promotions.splice(0);graveyard.splice(0);walletEvents.splice(0);marketEvents.splice(0);pendingDbEvents.splice(0);pendingTradeJournal.splice(0);
+  solanaQueue.splice(0);solanaPriorityQueue.splice(0);discoveryLedger.splice(0);discoveryFirstByMint.clear();solanaSubscriptionKinds.clear();solanaCreateSignals=0;
+  opportunities.clear();opportunityKeysByMint.clear();tokens.clear();creators.clear();dnaArchive.clear();marketEventClock.clear();solanaSeen.clear();
+  forensicLedgerGaps={total:0,production:0,cohort:0,control:0,other:0,baselineAt:0,source:''};
+  forensicRecovery={active:false,lastRepairAt:0,regressionCutoff:0,journalRows:0,detailedTrades:0,observedLedgerRows:0};
   entryPolicyCache.clear();regimeWeightCache.clear();dnaSimilarityCache.clear();featureCache.clear();
   marketWeatherCache={ts:0,value:null};narrativeStatsCache={ts:0,value:null};corrCache={ts:0,rows:[]};edgeFocusCache={ts:0,data:null};allocatorCache={ts:0,regime:'',data:null};
-  research={last:0,notes:['Five Brain clean era started. Prior detailed trades are retained only as historical forensic evidence.'],hypotheses:[]};lastScientistRun=0;
+  research={last:0,notes:['Five Brain clean era started. All legacy trades and runtime learning are isolated in archive/pre-five-brain-20261011; only distilled strategy rules carry forward.'],hypotheses:[]};lastScientistRun=0;
   const freshAlpha=createPumpLabAlphaOS({start:START,rpcUrl:SOLANA_RPC_HTTP,routeQuoteUrl:SHADOW_ROUTE_QUOTE_URL,shadowWalletPublicKey:SHADOW_WALLET_PUBLIC_KEY});
   alphaOS.restore(freshAlpha.serialize());science.reset();
   startedAt=now();
   seasonInfo={label:CLEAN_SEASON_LABEL,startedAt,archiveId:'historical:season2-contaminated',resetApplied:true,previous};
   recoveryHighWater={
     seasonKey:CLEAN_SEASON_LABEL,
-    ledgerRows:trades.length+Math.max(0,num(forensicLedgerGaps.total)),
+    ledgerRows:0,
     productionExits:0,
     exitTotal:0,
     strategyN:Object.fromEntries(allTraders().map(d=>[d.id,0])),
@@ -2453,7 +2457,7 @@ async function beginCleanExecutionEraIfNeeded(){
   validateStateIntegrity({repair:true});
   await writeLocalAtomic(serialize());
   await writeLocalCriticalAtomic(serializeCritical());
-  console.warn('FIVE_BRAIN_CLEAN_START '+JSON.stringify({label:CLEAN_SEASON_LABEL,previous,retainedHistoricalTrades:trades.length,newProductionExits:0,newOpen:positions.length}));
+  console.warn('FIVE_BRAIN_CLEAN_START '+JSON.stringify({label:CLEAN_SEASON_LABEL,previous,archivedHistoricalTrades:previous.detailedTrades,newActiveTrades:trades.length,newProductionExits:0,newOpen:positions.length}));
   return true;
 }
 
