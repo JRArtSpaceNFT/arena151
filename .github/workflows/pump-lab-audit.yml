@@ -21,4 +21,5 @@ jobs:
       - run: npm install --no-audit --no-fund
       - run: npm test
       - run: node --test tests/pump-lab-runtime-guard.test.mjs
+      - run: node --test tests/pump-lab-ledger-integrity.test.mjs
       - run: node --test tests/pump-lab-pinned-rescue.test.mjs
