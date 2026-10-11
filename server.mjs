@@ -1565,7 +1565,7 @@ async function minuteSamplerTick(){
     const history=[...trades,...positions].filter(x=>x.strategy===d.id),lastOpened=Math.max(0,...history.map(x=>num(x.opened)));
     if(lastOpened&&ts-lastOpened<45000)continue;
     const candidates=minuteSamplerCandidates(d);
-    const chosen=candidates.find(t=>!positions.some(p=>!p.closed&&p.strategy===d.id&&p.mint===t.mint))||candidates[0];
+    const chosen=candidates.find(t=>!positions.some(p=>!p.closed&&p.strategy===d.id&&p.mint===t.mint)&&!history.some(p=>p.mint===t.mint&&ts-num(p.opened)<10*60000));
     if(!chosen){
       setHealth('minute-sampler-'+d.id,'warn',d.name+' could not find a currently observed safe token inside its exact market-cap band',{truth:'observed'});
       console.warn('MINUTE_SAMPLER_EMPTY '+JSON.stringify({ts:now(),strategy:d.id,name:d.name,mcMin:d.mcMin,mcMax:d.mcMax,tokens:tokens.size}));
