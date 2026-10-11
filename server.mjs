@@ -2,6 +2,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { memoryReport, rejectSlowStream, reuseSnapshotUnderPressure } from './lib/pump-lab-runtime-guard.mjs';
+import { bestGeckoExitPool, quoteRecoveryCandidates } from './lib/pump-lab-quote-recovery.mjs';
 import { createPumpLabAlphaOS } from './lib/pump-lab-alpha-os.mjs';
 import { createPumpLabSeason2Science } from './lib/pump-lab-season2-science.mjs';
 import { createPumpLabProfitAccelerator } from './lib/pump-lab-profit-accelerator.mjs';
@@ -48,6 +49,7 @@ const CORE_COLLECTION_MAX_SCORE_RELIEF = Number(process.env.CORE_COLLECTION_MAX_
 const PAPER_COLLECTION_MIN_EXPECTED_NET_WIN_USD = Math.max(5, Number(process.env.PAPER_COLLECTION_MIN_EXPECTED_NET_WIN_USD || 15));
 const ACTIVE_EXPERIMENT_IDS = new Set(['banker','graduation','confirmed_runner','mc_over100','liq_50_plus','crosscheck','random','winner1','winner2','launchctl']);
 const MAX_RUNTIME_TOKENS = Number(process.env.MAX_RUNTIME_TOKENS || 600);
+const ALLOW_PUBLIC_EXIT_QUOTE_RECOVERY = process.env.ALLOW_PUBLIC_EXIT_QUOTE_RECOVERY !== 'false';
 const MAX_OPPORTUNITIES = Number(process.env.MAX_OPPORTUNITIES || 5000);
 const OPPORTUNITY_RETENTION_MS = Number(process.env.OPPORTUNITY_RETENTION_MS || 129600000);
 const PAPER_DAILY_LOSS_LIMIT_PCT = Number(process.env.PAPER_DAILY_LOSS_LIMIT_PCT || 10);
@@ -238,6 +240,7 @@ let lastPumpOpenPositionPollAt = 0;
 let lastMinuteUniverseAt = 0;
 let minuteUniverseInFlight = null;
 let fastOpenCursor = 0;
+let geckoExitCursor = 0;
 let lastSolanaDrainAt = 0;
 const subsystemRuntime = new Map();
 const providerCircuits = new Map();
@@ -550,7 +553,7 @@ function narrativeFor(t) {
   return 'Memes';
 }
 
-function canonicalSource(source='live'){return source.startsWith('dexscreener')?'dexscreener':source.startsWith('pump.fun')?'pump.fun':source;}
+function canonicalSource(source='live'){return source.startsWith('dexscreener')?'dexscreener':source.startsWith('geckoterminal')?'geckoterminal':source.startsWith('pump.fun')?'pump.fun':source;}
 function normalize(raw,source='live') {
   const mint = raw.mint || raw.tokenAddress || raw.address || raw.baseToken?.address;
   if(!mint) return null;
@@ -1002,8 +1005,10 @@ function pruneOpportunities(){
   }
 }
 function durableTradingReady(){
-  // A pinned offsite snapshot is a rescue copy, not a writable current canonical store.
-  // Never open new paper positions from it until Postgres is restored and checkpointed.
+  // A pinned offsite snapshot or an ephemeral local file cannot replace
+  // the canonical Postgres ledger. Halt NEW paper entries during DB outages,
+  // but keep market marks and overdue position exit checks running.
+  if(DATABASE_URL&&(!db||!dbStateRestored||lastDurableSaveAt<=0))return false;
   if(emergencyOffsiteRestored&&(!db||!dbStateRestored||lastDurableSaveAt<=0))return false;
   if(!stateIntegrityOk||shuttingDown||lifecyclePhase==='DRAINING')return false;
   if(!DATABASE_URL&&!REDIS_URL&&!PEER_RECOVERY_URL)return true;
@@ -1785,6 +1790,43 @@ async function pumpOpenPositionPoll(){
     }catch{failed++;}
   }));
   setHealth('pump-open-marks',failed&&updated===0?'warn':'ok',`Fast Pump.fun open marks · ${updated}/${chosen.length} refreshed${failed?' · '+failed+' failed':''}`,{truth:'observed'});
+}
+
+async function recoverUnquotedExits(){
+  if(!ALLOW_PUBLIC_EXIT_QUOTE_RECOVERY||shuttingDown)return;
+  const ts=now(),candidates=quoteRecoveryCandidates(
+    positions,p=>({maxHoldMinutes:effectiveMaxHoldMinutes(allTraders().find(x=>x.id===p.strategy))}),
+    ts,100
+  );
+  if(!candidates.length)return;
+  const chosen=[...candidates.slice(geckoExitCursor),...candidates.slice(0,geckoExitCursor)].slice(0,3);
+  geckoExitCursor=(geckoExitCursor+chosen.length)%candidates.length;
+  let recovered=0,unquoted=0,errors=0;
+  for(const mint of chosen){
+    try{
+      const url='https://api.geckoterminal.com/api/v2/networks/solana/tokens/'+encodeURIComponent(mint)+'/pools';
+      const data=await fetchJson(url,6000);
+      const quote=bestGeckoExitPool(data,mint);
+      if(!quote){unquoted++;continue;}
+      const old=tokens.get(mint);
+      const incoming=normalize({...quote,symbol:old?.symbol||'TOKEN',name:old?.name||'Unidentified token'},'geckoterminal-recovery');
+      if(!incoming)continue;
+      const t=mergeToken(old,incoming);tokens.set(mint,t);
+      updateOpenPositionExtremes(t);
+      for(const p of [...positions].filter(x=>!x.closed&&x.mint===mint)){
+        const d=allTraders().find(x=>x.id===p.strategy);if(!d)continue;
+        const heldMs=now()-num(p.opened);
+        const overdue=heldMs>=effectiveMaxHoldMinutes(d)*60000;
+        if(overdue)closePos(d,p,t,'hard max-hold verified pooled quote');
+        else {const ex=exitDecision(d,p,t,features(t));if(ex.exit)closePos(d,p,t,ex.why);else markEquity(d);}
+      }
+      recovered++;
+    }catch(e){errors++;console.warn('EXIT_QUOTE_RECOVERY_ERROR '+JSON.stringify({mint,error:String(e?.message||e).slice(0,150)}));}
+  }
+  setHealth('exit-quote-recovery',recovered?'ok':'warn',
+    'Public pool recovery · '+recovered+' fresh active pools · '+unquoted+
+    ' lacking verified liquidity/trades · '+errors+' errors · '+candidates.length+' candidates pending',
+    {truth:'observed',recovered,unquoted,errors,pending:candidates.length,lastRunAt:ts});
 }
 
 async function openPositionPoll(){
@@ -4232,6 +4274,7 @@ setInterval(()=>runScheduled('pump-open-marks',()=>pumpOpenPositionPoll(),{budge
 setTimeout(()=>runScheduled('minute-samplers',()=>minuteSamplerTick(),{budgetMs:18000,critical:true}),15000).unref?.();
 setInterval(()=>runScheduled('minute-samplers',()=>minuteSamplerTick(),{budgetMs:18000,critical:true}),50000).unref?.();
 setInterval(()=>runScheduled('open-marks',()=>openPositionPoll(),{budgetMs:9000,critical:true}),15000).unref?.();
+setInterval(()=>runScheduled('exit-quote-recovery',()=>recoverUnquotedExits(),{budgetMs:24000,critical:true}),60000).unref?.();
 setInterval(()=>runScheduled('timeline',()=>takeTimeline(),{budgetMs:150}),30000).unref?.();
 setInterval(()=>runScheduled('replay',()=>takeReplay(),{budgetMs:250}),30000).unref?.();
 setInterval(()=>runScheduled('research',()=>researchCycle(),{budgetMs:15000}),3600000).unref?.();
