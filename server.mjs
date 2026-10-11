@@ -1289,10 +1289,13 @@ function maybeTrade(t,weather=null) {
     const sniperBlocked=(d.parentId==='sniper'||d.id==='sniper')&&f.risk>policy.sniperRiskLimit;
     const customBlocked=policy.customRiskLimit&&f.risk>policy.customRiskLimit;
     const guard=entryGuard(d,t,f,score,policy,quality,adv,regime);
-    const exploration=frozenCollection?{ok:false,reason:'frozen experiment: no cold-start rule relaxation'}:dormantExplorationGuard(d,t,f,score,policy,quality,adv,regime);
+    // Permit explicitly risk-checked, labeled PAPER micro-probes during the five-brain cold start.
+    // The probe safety gate and science hard veto still apply; no live execution is enabled.
+    const exploration=dormantExplorationGuard(d,t,f,score,policy,quality,adv,regime);
     const exploratory=(!guard.ok||score<policy.min||lowBlocked||sniperBlocked||customBlocked)&&exploration.ok&&!adv.hardVeto;
     const activeGuard=exploratory?exploration:guard;
-    if(exploratory&&openCount(d.id)>=Math.max(4,Number(d.maxOpen)||0))continue;
+    // During cold-start collection, limit each five-brain strategy to one open micro-probe.
+    if(exploratory&&openCount(d.id)>=(frozenCollection?1:Math.max(4,Number(d.maxOpen)||0)))continue;
     if(!exploratory&&(score<policy.min||lowBlocked||sniperBlocked||customBlocked||adv.hardVeto||!guard.ok)){
       if(!opportunities.has(`${d.id}:${t.mint}`))recordDecision(d,t,f,score,'REJECT',score<policy.min?'below threshold':adv.hardVeto?'adversarial veto':!guard.ok?guard.reason:'risk veto',weather);
       continue;
