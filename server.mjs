@@ -2536,6 +2536,7 @@ async function beginCleanExecutionEraIfNeeded(){
     note:'Season 2 results retained for forensics but excluded from Season 3 strategy-era scoring.'
   };
   for(const d of allTraders())resetTraderRuntime(d);
+  expectedDetailedHistory=0; // explicit opt-in season migration starts a fresh detailed ledger
   positions.splice(0);
   activity.splice(0);decisions.splice(0);timeline.splice(0);autopsies.splice(0);experiments.splice(0);replayFrames.splice(0);
   promotions.splice(0);graveyard.splice(0);opportunities.clear();opportunityKeysByMint.clear();
@@ -2754,7 +2755,8 @@ async function initDb(restoreState=true){
         if(merge.added){trades.splice(0,trades.length,...merge.trades);console.log('HISTORICAL_LEDGER_MERGE '+JSON.stringify({added:merge.added,available:trades.length,expected:expectedDetailedHistory}));}
       }
       const journalRepaired=missingDetailedTrades()>0?false:await repairCurrentSeasonFromJournal(client);
-      if(!journalRepaired)await replayTradeJournal(client,missingDetailedTrades()>0?0:stateVersionTs);
+      if(missingDetailedTrades()>0)await backfillDetailedLedgerOnly(client);
+      if(!journalRepaired)await replayTradeJournal(client,stateVersionTs);
       if(missingDetailedTrades()>0)console.warn('DETAIL_LEDGER_INCOMPLETE '+JSON.stringify({available:trades.length,expected:expectedDetailedHistory,missing:missingDetailedTrades(),canonicalWriteLocked:true}));
       const scienceRebuilt=missingDetailedTrades()>0?false:rebuildScienceFromDetailedLedger(peerRestoredNow?'peer-restore':fullRestored?'full-restore':'critical-or-journal-restore');
       if(peerRestoredNow||!fullRestored||journalRepaired||scienceRebuilt)await reseedCanonicalFullSnapshot(client,peerRestoredNow?'peer-newest':journalRepaired?'journal-repair':scienceRebuilt?'science-ledger-rebuild':'critical-recovery');
@@ -3067,6 +3069,15 @@ async function repairCurrentSeasonFromJournal(client=db){
     return true;
   }catch(e){console.warn('Trade journal repair warning:',e.message);return false;}
 }
+async function backfillDetailedLedgerOnly(client=db){
+ if(!client||missingDetailedTrades()===0)return 0;
+ const result=await client.query("SELECT payload FROM pump_lab_trade_journal WHERE kind='SELL' ORDER BY ts DESC LIMIT 5000");
+ const history=(result.rows||[]).map(x=>x.payload?.trade).filter(x=>x&&x.id);
+ const merged=mergeHistoricalTrades(trades,history,MAX_TRADES);
+ if(merged.added){trades.splice(0,trades.length,...merged.trades);}
+ console.log('TRADE_DETAIL_BACKFILL '+JSON.stringify({journalRows:history.length,added:merged.added,available:trades.length,expected:expectedDetailedHistory,missing:missingDetailedTrades()}));
+ return merged.added;
+}
 async function replayTradeJournal(client=db,afterTs=0){
   if(!client)return 0;const r=await client.query("SELECT event_id,ts,kind,payload FROM pump_lab_trade_journal WHERE ts>$1 ORDER BY ts ASC LIMIT 5000",[Math.max(0,num(afterTs))]);let applied=0,maxTs=afterTs;
   for(const row of r.rows){const e=row.payload||{};maxTs=Math.max(maxTs,num(row.ts));
@@ -3117,6 +3128,17 @@ function restorePinnedOffsite(){
     console.warn('PINNED_OFFSITE_READ_ONLY '+JSON.stringify({savedAt,ageMin:Math.round(age/60000),trades:trades.length,positions:positions.length,exits:meta.exitCount}));
     return true;
   }catch(e){console.warn('PINNED_OFFSITE_UNAVAILABLE '+String(e?.message||e).slice(0,180));return false;}
+}
+function pinDetailedLedgerHighWater(){
+ try{
+  const file=new URL('./recovery/pump-lab-v6-pinned-offsite.json.gz',import.meta.url);
+  const input=JSON.parse(gunzipSync(fs.readFileSync(file)).toString('utf8'));
+  const state=input?.state&&typeof input.state==='object'?input.state:input;
+  if(state?.stateMeta?.version!==6||state?.stateMeta?.authority!==STATE_AUTHORITY_VERSION||
+     state?.season?.label!==CLEAN_SEASON_LABEL)return;
+  expectedDetailedHistory=Math.max(expectedDetailedHistory,detailedLedgerTarget(state.stateMeta,state?.trades?.length||0,MAX_TRADES));
+  console.log('PINNED_LEDGER_HIGH_WATER '+JSON.stringify({expected:expectedDetailedHistory,sourceSavedAt:state.stateMeta.savedAt}));
+ }catch(e){console.warn('PINNED_LEDGER_HIGH_WATER_UNAVAILABLE '+String(e?.message||e).slice(0,140))}
 }
 function loadLocal(){
   let restored=false;
@@ -4206,6 +4228,7 @@ const server=http.createServer(async (req,res)=>{
 
 setLifecycle('RESTORING','restoring durable state');
 console.log('RUNTIME_CONFIG_PRESENCE '+JSON.stringify({databaseUrl:!!DATABASE_URL,redisUrl:!!REDIS_URL,peerRecovery:PEER_RECOVERY_URLS.length>0,stateFile:!!STATE_FILE}));
+pinDetailedLedgerHighWater();
 loadLocal();
 await initKv(true);
 await initDb(true);
