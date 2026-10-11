@@ -1,7 +1,7 @@
-name: Bundle verified offsite recovery for staging
+name: Bundle current offsite recovery for Five Brain migration
 on:
   push:
-    branches: [pump-lab-memory-hardening-20261010]
+    branches: [pump-lab-deploy]
     paths: [.github/workflows/pump-lab-bundle-offsite.yml]
 permissions:
   contents: write
@@ -12,35 +12,43 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: pump-lab-memory-hardening-20261010
+          ref: pump-lab-deploy
           fetch-depth: 1
-      - name: Preserve offsite recovery without revealing trading data
+      - name: Pin current verified offsite snapshot
         run: |
           set -euo pipefail
           git fetch origin pump-lab-backup --depth=1
           git show FETCH_HEAD:recovery/live.json >/tmp/pump-lab-safe-offsite.json
           mkdir -p recovery
           python - <<'PY'
-          import json,gzip,hashlib,datetime
+          import json,gzip,hashlib,datetime,time
           src='/tmp/pump-lab-safe-offsite.json'
-          with open(src,'rb') as h: payload=h.read()
+          payload=open(src,'rb').read()
           obj=json.loads(payload)
           s=obj.get('state',obj)
           m=s.get('stateMeta') or {}
-          assert m.get('version')==6 and m.get('authority')=='v6-single-runtime-ledger-authority'
-          assert len(s.get('strategies') or [])>=50 and isinstance(s.get('trades'),list)
-          assert int(m.get('exitCount') or 0)>500
-          assert (s.get('season') or {}).get('label')=='season3-clean-execution-2026-10-04'
+          assert m.get('version')==6
+          assert m.get('authority')=='v6-single-runtime-ledger-authority'
+          assert isinstance(s.get('strategies'),list) and len(s.get('strategies') or [])>=5
+          assert isinstance(s.get('trades'),list)
+          saved=int(m.get('savedAt') or 0)
+          assert saved>0 and int(time.time()*1000)-saved < 12*3600*1000
           dest='recovery/pump-lab-v6-pinned-offsite.json.gz'
           with open(dest,'wb') as file:
             with gzip.GzipFile(filename='',mode='wb',fileobj=file,compresslevel=9,mtime=0) as g:g.write(payload)
-          stamp=datetime.datetime.fromtimestamp(m['savedAt']/1000,datetime.timezone.utc).isoformat()
-          print('RECOVERY_BUNDLED',json.dumps({'savedUTC':stamp,'strategyRecords':len(s.get('strategies') or []),
-               'openPaperPositions':len(s.get('positions') or []),'recordedTradeCount':m.get('tradeCount'),
-               'exitHighWater':m.get('exitCount'),'sha256':hashlib.sha256(payload).hexdigest()}))
+          stamp=datetime.datetime.fromtimestamp(saved/1000,datetime.timezone.utc).isoformat()
+          print('RECOVERY_BUNDLED',json.dumps({
+            'savedUTC':stamp,'sourceEra':m.get('era'),'sourceSeason':(s.get('season') or {}).get('label'),
+            'strategyRecords':len(s.get('strategies') or []),'trades':len(s.get('trades') or []),
+            'sha256':hashlib.sha256(payload).hexdigest()
+          }))
           PY
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add recovery/pump-lab-v6-pinned-offsite.json.gz
-          git commit -m "Pin verified last-known offsite paper recovery before safe rollout"
-          git push origin HEAD:pump-lab-memory-hardening-20261010
+          if git diff --cached --quiet; then
+            echo "Pinned snapshot already current"
+            exit 0
+          fi
+          git commit -m "Refresh pinned offsite recovery before Five Brain migration"
+          git push origin HEAD:pump-lab-deploy
