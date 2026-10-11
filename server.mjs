@@ -2443,7 +2443,7 @@ async function beginCleanExecutionEraIfNeeded(){
   const freshAlpha=createPumpLabAlphaOS({start:START,rpcUrl:SOLANA_RPC_HTTP,routeQuoteUrl:SHADOW_ROUTE_QUOTE_URL,shadowWalletPublicKey:SHADOW_WALLET_PUBLIC_KEY});
   alphaOS.restore(freshAlpha.serialize());science.reset();
   startedAt=now();
-  seasonInfo={label:CLEAN_SEASON_LABEL,startedAt,archiveId:'historical:season2-contaminated',resetApplied:true,previous};
+  seasonInfo={label:CLEAN_SEASON_LABEL,startedAt,archiveId:'five-brain:'+startedAt,resetApplied:true,previous};
   recoveryHighWater={
     seasonKey:CLEAN_SEASON_LABEL,
     ledgerRows:0,
@@ -2542,6 +2542,7 @@ function markRestoreSource(source){
 }
 function restoreIfNewer(s,source,sourceTs=0){
   if(!s||typeof s!=='object')return false;
+  const normalized=sanitizeFiveBrainRecoverySnapshot(s,source);s=normalized.state;
   const ts=num(s?.stateMeta?.savedAt)||num(sourceTs)||0;
   if(!recoveryHighWaterAllows(s,source))return false;
   const incoming=recoveryMetricsFromState(s);
@@ -2649,12 +2650,16 @@ async function initDb(restoreState=true){
       restoredAny=peerRestoredNow||restoredAny;
       if(!restoredAny){dbStateRestored=true;lastDurableRestoreAt=now();}
       // Preserve newer critical counters and positions; merge older full DB fills by ID.
-      if(Array.isArray(fullRow?.payload?.trades)&&stateIsCurrentFiveBrainEra(fullRow.payload)){
-        expectedDetailedHistory=Math.max(expectedDetailedHistory,detailedLedgerTarget(fullRow.payload.stateMeta,fullRow.payload.trades.length,MAX_TRADES));
-        const merge=mergeHistoricalTrades(trades,fullRow.payload.trades,MAX_TRADES);
-        if(merge.added){trades.splice(0,trades.length,...merge.trades);console.log('HISTORICAL_LEDGER_MERGE '+JSON.stringify({added:merge.added,available:trades.length,expected:expectedDetailedHistory,era:STRATEGY_ERA}));}
-      }else if(Array.isArray(fullRow?.payload?.trades)&&fullRow.payload.trades.length){
-        console.warn('LEGACY_LEDGER_MERGE_BLOCKED '+JSON.stringify({rows:fullRow.payload.trades.length,sourceEra:fullRow.payload?.stateMeta?.era||'',sourceSeason:fullRow.payload?.season?.label||'',currentEra:STRATEGY_ERA,currentSeason:CLEAN_SEASON_LABEL}));
+      if(Array.isArray(fullRow?.payload?.trades)){
+        const normalizedFull=sanitizeFiveBrainRecoverySnapshot(fullRow.payload,'postgres-merge'),safeFull=normalizedFull.state,safeRows=(safeFull?.trades||[]).filter(t=>isCurrentFiveBrainTrade(t,num(safeFull?.season?.startedAt)));
+        if(stateIsCurrentFiveBrainEra(safeFull)){
+          expectedDetailedHistory=Math.max(expectedDetailedHistory,safeRows.length);
+          const merge=mergeHistoricalTrades(trades,safeRows,MAX_TRADES);
+          if(merge.added){trades.splice(0,trades.length,...merge.trades);console.log('HISTORICAL_LEDGER_MERGE '+JSON.stringify({added:merge.added,available:trades.length,expected:expectedDetailedHistory,era:STRATEGY_ERA}));}
+          if(normalizedFull.legacyRows)console.warn('LEGACY_LEDGER_MERGE_BLOCKED '+JSON.stringify({rows:normalizedFull.legacyRows,currentEra:STRATEGY_ERA,currentSeason:CLEAN_SEASON_LABEL}));
+        }else if(fullRow.payload.trades.length){
+          console.warn('LEGACY_LEDGER_MERGE_BLOCKED '+JSON.stringify({rows:fullRow.payload.trades.length,sourceEra:fullRow.payload?.stateMeta?.era||'',sourceSeason:fullRow.payload?.season?.label||'',currentEra:STRATEGY_ERA,currentSeason:CLEAN_SEASON_LABEL}));
+        }
       }
       const journalRepaired=missingDetailedTrades()>0?false:await repairCurrentSeasonFromJournal(client);
       if(missingDetailedTrades()>0)await backfillDetailedLedgerOnly(client);
@@ -2761,11 +2766,19 @@ function criticalRecoveryTrades(){
 }
 function serializeCritical(){reconcileAuthoritativeExperimentState({repair:true,source:'serialize-critical'});return{stateMeta:{version:6,authority:STATE_AUTHORITY_VERSION,savedAt:now(),era:STRATEGY_ERA,scope:'critical',exitCount:currentExitTotal(),tradeCount:Math.max(trades.length,expectedDetailedHistory),detailLedgerComplete:missingDetailedTrades()===0},season:seasonInfo,forensicLedgerGaps,forensicRecovery,scienceEvidence:science.serializeCriticalEvidence(),alphaCritical:alphaOS.serializeCritical(),strategies:strategyDefs.map(stripTrader),challengers:challengers.map(stripTrader),positions:positions.filter(p=>!p.closed),trades:criticalRecoveryTrades(),decisions:decisions.filter(x=>x.era===STRATEGY_ERA).slice(0,Math.min(750,MAX_DECISIONS)),activity:activity.slice(0,80),autopsies:autopsies.slice(0,80)};}
 function restoreCritical(s){try{
-  if(!s||typeof s!=='object')return false;if(s.season)seasonInfo={...seasonInfo,...s.season};
+  if(!s||typeof s!=='object')return false;
+  const sanitized=!!s?.stateMeta?.fiveBrainSanitizedFromLegacy;
+  if(sanitized){
+    for(const d of allTraders())resetTraderRuntime(d);
+    positions.splice(0);trades.splice(0);decisions.splice(0);activity.splice(0);autopsies.splice(0);expectedDetailedHistory=0;
+    const freshAlpha=createPumpLabAlphaOS({start:START,rpcUrl:SOLANA_RPC_HTTP,routeQuoteUrl:SHADOW_ROUTE_QUOTE_URL,shadowWalletPublicKey:SHADOW_WALLET_PUBLIC_KEY});alphaOS.restore(freshAlpha.serialize());science.reset();
+    forensicLedgerGaps={total:0,production:0,cohort:0,control:0,other:0,baselineAt:0,source:''};forensicRecovery={active:false,lastRepairAt:0,regressionCutoff:0,journalRows:0,detailedTrades:0,observedLedgerRows:0};
+  }
+  if(s.season)seasonInfo={...seasonInfo,...s.season};
   if(s.forensicLedgerGaps)forensicLedgerGaps={...forensicLedgerGaps,...s.forensicLedgerGaps};
   if(s.forensicRecovery)forensicRecovery={...forensicRecovery,...s.forensicRecovery};
-  if(s.scienceEvidence)science.restoreCriticalEvidence(s.scienceEvidence);
-  if(s.alphaCritical)alphaOS.restoreCritical(s.alphaCritical);
+  if(!sanitized&&s.scienceEvidence)science.restoreCriticalEvidence(s.scienceEvidence);
+  if(!sanitized&&s.alphaCritical)alphaOS.restoreCritical(s.alphaCritical);
   for(const x of s.strategies||[]){const d=strategyDefs.find(q=>q.id===x.id);if(!d)continue;for(const k of ['cash','peak','dd','auditPeak','auditDd','wins','losses','n','promotionCandidateAt','promotedAt','graveyardAt','bornAt','auto','hypothesisCandidateAt','hypothesisRetiredAt','hypothesisReason'])if(x[k]!==undefined)d[k]=x[k];}
   for(const x of s.challengers||[]){const d=challengers.find(q=>q.id===x.id);if(!d)continue;for(const k of ['cash','peak','dd','wins','losses','n','promotedAt','graveyardAt','bornAt','auto'])if(x[k]!==undefined)d[k]=x[k];}
   if(Array.isArray(s.positions))positions.splice(0,positions.length,...s.positions.filter(p=>!p.closed));
@@ -2777,7 +2790,7 @@ function restoreCritical(s){try{
 }catch(e){console.warn('Critical state restore warning:',e.message);return false;}}
 function recoveryExitTotal(s){return[...(s?.strategies||[]),...(s?.challengers||[])].reduce((z,x)=>z+Math.max(0,num(x?.n)),0);}
 function currentExitTotal(){return allTraders().reduce((z,d)=>z+Math.max(0,num(d?.n)),0);}
-function recoverySeasonKey(s){return String(s?.season?.archiveId||s?.season?.label||'');}
+function recoverySeasonKey(s){return stateIsCurrentFiveBrainEra(s)?CLEAN_SEASON_LABEL:String(s?.season?.archiveId||s?.season?.label||'');}
 function sameSeasonRecovery(s){const a=recoverySeasonKey(s),b=String(seasonInfo?.archiveId||seasonInfo?.label||'');return !a||!b||a===b;}
 function recoveryMetricsFromState(s){
   const prodIds=new Set(strategyDefs.filter(d=>d.risk!=='CONTROL'&&!d.specialist).map(d=>d.id)),strategyN={};
@@ -2789,7 +2802,7 @@ function recoveryMetricsFromState(s){
 }
 function currentRecoveryMetrics(){
   const prodIds=new Set(strategyDefs.filter(d=>d.risk!=='CONTROL'&&!d.specialist).map(d=>d.id)),strategyN=Object.fromEntries(allTraders().map(d=>[d.id,Math.max(0,num(d.n))]));
-  return{seasonKey:String(seasonInfo?.archiveId||seasonInfo?.label||''),ledgerRows:trades.length+Math.max(0,num(forensicLedgerGaps.total)),productionExits:strategyDefs.filter(d=>prodIds.has(d.id)).reduce((z,d)=>z+Math.max(0,num(d.n)),0),exitTotal:currentExitTotal(),strategyN};
+  return{seasonKey:seasonInfo?.label===CLEAN_SEASON_LABEL?CLEAN_SEASON_LABEL:String(seasonInfo?.archiveId||seasonInfo?.label||''),ledgerRows:trades.filter(t=>isCurrentFiveBrainTrade(t,num(seasonInfo?.startedAt))).length,productionExits:strategyDefs.filter(d=>prodIds.has(d.id)).reduce((z,d)=>z+Math.max(0,num(d.n)),0),exitTotal:currentExitTotal(),strategyN};
 }
 function applyRecoveryHighWater(h,source='unknown'){
   if(!h||typeof h!=='object')return false;const incomingKey=String(h.seasonKey||''),currentKey=String(recoveryHighWater.seasonKey||'');
@@ -2806,12 +2819,66 @@ function applyRecoveryHighWater(h,source='unknown'){
 function stateIsCurrentFiveBrainEra(s){
   return s?.stateMeta?.era===STRATEGY_ERA&&s?.season?.label===CLEAN_SEASON_LABEL;
 }
+function isCurrentFiveBrainTrade(t,seasonStart=0){
+  const ts=num(t?.closedAt||t?.opened)||0;
+  return ACTIVE_EXPERIMENT_IDS.has(t?.strategy)&&ts>=num(seasonStart)&&(!t?.policyVersion||t.policyVersion===STRATEGY_ERA);
+}
+function isCurrentFiveBrainPosition(p,seasonStart=0){
+  return ACTIVE_EXPERIMENT_IDS.has(p?.strategy)&&!p?.closed&&num(p?.opened)>=num(seasonStart)&&(!p?.policyVersion||p.policyVersion===STRATEGY_ERA);
+}
+function sanitizeFiveBrainRecoverySnapshot(input,source='unknown'){
+  if(!stateIsCurrentFiveBrainEra(input))return{state:input,sanitized:false,legacyRows:0};
+  const seasonStart=num(input?.season?.startedAt)||0,rawTrades=Array.isArray(input?.trades)?input.trades:[],rawPositions=Array.isArray(input?.positions)?input.positions:[];
+  const cleanTrades=rawTrades.filter(t=>isCurrentFiveBrainTrade(t,seasonStart));
+  const cleanPositions=rawPositions.filter(p=>isCurrentFiveBrainPosition(p,seasonStart));
+  const legacyMarker=/historical|season2|contaminated/i.test(String(input?.season?.archiveId||''));
+  const staleTradeTarget=Math.max(0,num(input?.stateMeta?.tradeCount))>cleanTrades.length;
+  const legacyRows=rawTrades.length-cleanTrades.length,legacyPositions=rawPositions.length-cleanPositions.length;
+  const contaminated=legacyMarker||legacyRows>0||legacyPositions>0||staleTradeTarget;
+  if(!contaminated){
+    const cleanArchive=String(input?.season?.archiveId||'').startsWith('five-brain:')?input.season.archiveId:'five-brain:'+seasonStart;
+    if(cleanArchive===input?.season?.archiveId)return{state:input,sanitized:false,legacyRows:0};
+    return{state:{...input,season:{...input.season,archiveId:cleanArchive}},sanitized:false,legacyRows:0};
+  }
+  const resetStrategies=(input?.strategies||[]).filter(x=>ACTIVE_EXPERIMENT_IDS.has(x?.id)).map(x=>({...x,cash:START,peak:START,dd:0,auditPeak:START,auditDd:0,wins:0,losses:0,n:0}));
+  const clean={
+    ...input,
+    stateMeta:{...(input.stateMeta||{}),tradeCount:cleanTrades.length,exitCount:0,detailLedgerComplete:true,fiveBrainSanitizedFromLegacy:true},
+    season:{...(input.season||{}),label:CLEAN_SEASON_LABEL,archiveId:'five-brain:'+seasonStart,resetApplied:true},
+    forensicLedgerGaps:{total:0,production:0,cohort:0,control:0,other:0,baselineAt:0,source:''},
+    forensicRecovery:{active:false,lastRepairAt:0,regressionCutoff:0,journalRows:0,detailedTrades:0,observedLedgerRows:0},
+    strategies:resetStrategies,
+    challengers:[],
+    positions:cleanPositions,
+    trades:cleanTrades,
+    decisions:(input?.decisions||[]).filter(x=>x?.era===STRATEGY_ERA&&num(x?.ts)>=seasonStart),
+    activity:(input?.activity||[]).filter(x=>num(x?.ts)>=seasonStart),
+    autopsies:(input?.autopsies||[]).filter(x=>num(x?.closedAt||x?.ts)>=seasonStart),
+    opportunities:[],
+    timeline:[],
+    replayFrames:[],
+    promotions:[],
+    graveyard:[],
+    walletEvents:[],
+    marketEvents:[],
+    discoveryLedger:[],
+    dnaArchive:[],
+    creators:[],
+    alphaOS:null,
+    science:null,
+    alphaCritical:null,
+    scienceEvidence:null
+  };
+  console.warn('FIVE_BRAIN_LEGACY_STATE_SANITIZED '+JSON.stringify({source,seasonStart,legacyRows,legacyPositions,rawTradeTarget:num(input?.stateMeta?.tradeCount),cleanTrades:cleanTrades.length,cleanPositions:cleanPositions.length}));
+  return{state:clean,sanitized:true,legacyRows};
+}
 function adoptCurrentEraRecoveryHighWater(s,source='unknown'){
   if(!stateIsCurrentFiveBrainEra(s))return false;
-  const m=recoveryMetricsFromState(s),key=String(m.seasonKey||CLEAN_SEASON_LABEL);
-  if(String(recoveryHighWater.seasonKey||'')===key)return false;
+  const m=recoveryMetricsFromState(s),key=CLEAN_SEASON_LABEL;
+  const mustReplace=String(recoveryHighWater.seasonKey||'')!==key||num(recoveryHighWater.ledgerRows)!==num(m.ledgerRows)||num(recoveryHighWater.productionExits)!==num(m.productionExits);
+  if(!mustReplace)return false;
   recoveryHighWater={seasonKey:key,ledgerRows:m.ledgerRows,productionExits:m.productionExits,exitTotal:m.exitTotal,strategyN:{...(m.strategyN||{})},updatedAt:num(s?.stateMeta?.savedAt)||now(),source:'five-brain:'+source};
-  expectedDetailedHistory=detailedLedgerTarget(s?.stateMeta,s?.trades?.length||0,MAX_TRADES);
+  expectedDetailedHistory=Array.isArray(s?.trades)?s.trades.length:0;
   console.log('FIVE_BRAIN_RECOVERY_HIGH_WATER_ADOPTED '+JSON.stringify({source,seasonKey:key,ledgerRows:recoveryHighWater.ledgerRows,expectedDetailedHistory}));
   return true;
 }
@@ -2834,6 +2901,7 @@ function advanceRecoveryHighWater(source='runtime'){
   applyRecoveryHighWater({...m,updatedAt:now()},source);return true;
 }
 function restoreCriticalFromSource(s,source,sourceTs=0){
+  const normalized=sanitizeFiveBrainRecoverySnapshot(s,source);s=normalized.state;
   const ts=num(s?.stateMeta?.savedAt)||num(sourceTs)||0,incomingExits=recoveryExitTotal(s),currentExits=currentExitTotal();
   if(!recoveryHighWaterAllows(s,source))return false;
   if(stateVersionTs&&ts&&ts<stateVersionTs){
@@ -2849,7 +2917,16 @@ function restoreCriticalFromSource(s,source,sourceTs=0){
   stateVersionTs=Math.max(stateVersionTs,ts);markRestoreSource(source);reconcileAuthoritativeExperimentState({repair:true,source:'critical:'+source});console.log('CRITICAL_STATE_RESTORE '+JSON.stringify({source,savedAt:ts,current:stateVersionTs,trades:trades.length,open:positions.length,exits:currentExitTotal(),authority:STATE_AUTHORITY_VERSION}));return true;
 }
 function restoreCriticalIfNewer(s,sourceTs=0){return restoreCriticalFromSource(s,'postgres',sourceTs);}
-function restore(s){try{if(s.season)seasonInfo={...seasonInfo,...s.season};if(s.forensicLedgerGaps)forensicLedgerGaps={...forensicLedgerGaps,...s.forensicLedgerGaps};if(s.forensicRecovery)forensicRecovery={...forensicRecovery,...s.forensicRecovery};alphaOS.restore(s.alphaOS);science.restore(s.science);
+function restore(s){try{
+  const sanitized=!!s?.stateMeta?.fiveBrainSanitizedFromLegacy;
+  if(sanitized){
+    for(const d of allTraders())resetTraderRuntime(d);
+    positions.splice(0);trades.splice(0);activity.splice(0);decisions.splice(0);opportunities.clear();timeline.splice(0);replayFrames.splice(0);autopsies.splice(0);promotions.splice(0);graveyard.splice(0);walletEvents.splice(0);marketEvents.splice(0);discoveryLedger.splice(0);dnaArchive.clear();creators.clear();
+    const freshAlpha=createPumpLabAlphaOS({start:START,rpcUrl:SOLANA_RPC_HTTP,routeQuoteUrl:SHADOW_ROUTE_QUOTE_URL,shadowWalletPublicKey:SHADOW_WALLET_PUBLIC_KEY});alphaOS.restore(freshAlpha.serialize());science.reset();
+    expectedDetailedHistory=0;forensicLedgerGaps={total:0,production:0,cohort:0,control:0,other:0,baselineAt:0,source:''};forensicRecovery={active:false,lastRepairAt:0,regressionCutoff:0,journalRows:0,detailedTrades:0,observedLedgerRows:0};
+  }
+  if(s.season)seasonInfo={...seasonInfo,...s.season};if(s.forensicLedgerGaps)forensicLedgerGaps={...forensicLedgerGaps,...s.forensicLedgerGaps};if(s.forensicRecovery)forensicRecovery={...forensicRecovery,...s.forensicRecovery};
+  if(!sanitized){if(s.alphaOS)alphaOS.restore(s.alphaOS);if(s.science)science.restore(s.science);}
   for(const x of s.strategies||[]){
     const d=strategyDefs.find(q=>q.id===x.id);if(!d)continue;
     const codeVersion=num(d.version)||1;
