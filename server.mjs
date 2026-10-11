@@ -1,5 +1,6 @@
 import http from 'node:http';
 import fs from 'node:fs';
+import { memoryReport, rejectSlowStream, reuseSnapshotUnderPressure } from './lib/pump-lab-runtime-guard.mjs';
 import { createPumpLabAlphaOS } from './lib/pump-lab-alpha-os.mjs';
 import { createPumpLabSeason2Science } from './lib/pump-lab-season2-science.mjs';
 import { createPumpLabProfitAccelerator } from './lib/pump-lab-profit-accelerator.mjs';
@@ -93,6 +94,8 @@ const WATCHED_WALLET_LOOKUP = new Map();
 for(const trader of FOMO_WATCHLIST)for(const wallet of trader.wallets)WATCHED_WALLET_LOOKUP.set(wallet.address,{traderId:trader.id,traderName:trader.name,...wallet});
 
 const MAX_ACTIVITY = 250;
+const MAX_SSE_CLIENTS = 24;
+const RUNTIME_MEMORY_BUDGET_MIB = Math.max(128, Number(process.env.RUNTIME_MEMORY_BUDGET_MIB || 512));
 const MAX_TRADES = Math.max(1000, Number(process.env.MAX_TRADES || 2000));
 const MAX_DECISIONS = Math.max(750, Number(process.env.MAX_DECISIONS || 1500));
 const MAX_TIMELINE = 120;
@@ -475,6 +478,7 @@ function setLifecycle(phase,detail=''){
   console.log('LIFECYCLE '+JSON.stringify({phase,detail:lifecycleDetail,ts:lifecycleSince}));
 }
 function runtimePressure(){
+  if(memoryReport(process.memoryUsage(),RUNTIME_MEMORY_BUDGET_MIB).pressure==='CRITICAL')return 'CRITICAL';
   // Market-event backlog is intentionally non-critical while Postgres is unavailable.
   // Counting an unreachable database backlog as runtime pressure caused a permanent
   // CRITICAL loop that starved the very market/mark tasks needed to recover safely.
@@ -518,8 +522,15 @@ function readinessStatus(){
   return{ready,phase:lifecyclePhase,phaseSince:lifecycleSince,detail:lifecycleDetail,pressure:systemPressure,eventLoopLagMs,eventLoopLagP95,durable,dbConnected:!!db,dbReconnect:{attempt:dbReconnectAttempt,nextRetryAt:dbDisabledUntil,lastError:lastDbFailure||null},kvConnected:kvReady,peerRestored:peerStateRestored,stateVersionTs,lastDurableSaveAt,lastCriticalSaveAt,lastPeerRestoreAt,lastIngestAt,integrity:lastIntegrityReport,checks:{durable,journalHealthy,integrityHealthy,queuesHealthy,eventLoopHealthy},journal:{pending:pendingTradeJournal.length,lastFlushAt:lastTradeJournalFlush,written:journalEventsWritten,replayedAt:journalReplayedAt},backpressure:{...backpressureDrops},circuits:Object.fromEntries(providerCircuits),queues:{solana:solanaQueue.length,prioritySolana:solanaPriorityQueue.length,pendingDbEvents:pendingDbEvents.length,dbHigh:dbWriteHigh.length,dbNormal:dbWriteNormal.length,dbLow:dbWriteLow.length},subsystems:Object.fromEntries(subsystemRuntime)};
 }
 function broadcast(type,data) {
+  if(!clients.size)return;
   const payload=`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`;
-  for (const c of [...clients]) { try { c.write(payload); } catch { clients.delete(c); } }
+  for(const c of clients){
+    if(rejectSlowStream(c)){clients.delete(c);try{c.destroy()}catch{}continue}
+    try {
+      // Never queue unbounded SSE data for a stalled mobile client.
+      if(!c.write(payload)&&rejectSlowStream(c)){clients.delete(c);try{c.destroy()}catch{}}
+    }catch{clients.delete(c);try{c.destroy()}catch{}}
+  }
 }
 
 function narrativeFor(t) {
@@ -3348,7 +3359,9 @@ function getRecoveryJsonCached(){
 }
 function getStateJsonCached(){
   const ts=now(),age=ts-stateJsonCache.ts;
-  if(stateJsonCache.json&&(age<30000||(shouldDeferNonCritical()&&age<120000)))return stateJsonCache.json;
+  const memory=memoryReport(process.memoryUsage(),RUNTIME_MEMORY_BUDGET_MIB);
+  if(reuseSnapshotUnderPressure({ageMs:age,hasSnapshot:!!stateJsonCache.json,pressure:memory.pressure}) ||
+      (stateJsonCache.json&&shouldDeferNonCritical()&&age<120000))return stateJsonCache.json;
   pruneRuntimeMemory();
   const started=Date.now(),json=JSON.stringify(snapshot());
   stateJsonCache={ts,json};
@@ -4138,8 +4151,14 @@ const server=http.createServer(async (req,res)=>{
   {const routePath=new URL(req.url,'http://pump-lab.local').pathname;
   if(routePath==='/livez'){const body=JSON.stringify({ok:true,phase:lifecyclePhase,uptimeSec:Math.round(process.uptime()),pressure:systemPressure,eventLoopLagMs});res.writeHead(200,{'content-type':'application/json','cache-control':'no-store','content-length':Buffer.byteLength(body)});return res.end(body);}
   if(routePath==='/readyz'){const r=readinessStatus(),body=JSON.stringify(r);res.writeHead(r.ready?200:503,{'content-type':'application/json','cache-control':'no-store','content-length':Buffer.byteLength(body)});return res.end(body);}
-  if(routePath==='/api/health'){const body=JSON.stringify({ok:true,paperOnly:true,version:'5.0 Season 3 Clean Execution',runtime:readinessStatus(),storage:storageStatus(),weather:marketWeather(),providers:[...health.values()]});res.writeHead(200,{'content-type':'application/json','cache-control':'no-store','content-length':Buffer.byteLength(body)});return res.end(body);}}
-  if(req.url==='/api/events'){res.writeHead(200,{'content-type':'text/event-stream','cache-control':'no-cache','connection':'keep-alive'});res.write('data: {}\n\n');clients.add(res);req.on('close',()=>clients.delete(res));return;}
+  if(routePath==='/api/health'){const body=JSON.stringify({ok:true,paperOnly:true,version:'5.0 Season 3 Clean Execution',runtime:readinessStatus(),memory:memoryReport(process.memoryUsage(),RUNTIME_MEMORY_BUDGET_MIB),sseClients:clients.size,storage:storageStatus(),weather:marketWeather(),providers:[...health.values()]});res.writeHead(200,{'content-type':'application/json','cache-control':'no-store','content-length':Buffer.byteLength(body)});return res.end(body);}}
+  if(req.url==='/api/events'){
+    if(clients.size>=MAX_SSE_CLIENTS){res.writeHead(503,{'content-type':'application/json','cache-control':'no-store','retry-after':'5'});return res.end(JSON.stringify({ok:false,error:'event stream capacity reached; retry later'}));}
+    res.writeHead(200,{'content-type':'text/event-stream','cache-control':'no-cache','connection':'keep-alive','x-accel-buffering':'no'});
+    res.write('data: {}\n\n');clients.add(res);
+    const cleanup=()=>clients.delete(res);req.on('close',cleanup);res.on('close',cleanup);
+    return;
+  }
   res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store'});res.end(HTML);
 });
 
@@ -4205,6 +4224,17 @@ const coreRejectTimer=setTimeout(logCoreRejectionSummary,25000);coreRejectTimer.
 const coreRejectLoop=setInterval(logCoreRejectionSummary,60000);coreRejectLoop.unref?.();
 let loopExpected=Date.now()+1000;setInterval(()=>{const ts=Date.now(),lag=Math.max(0,ts-loopExpected);loopExpected=ts+1000;eventLoopLagMs=lag;eventLoopSamples.push(lag);if(eventLoopSamples.length>30)eventLoopSamples.shift();eventLoopLagP95=percentile(eventLoopSamples,.95)||0;systemPressure=runtimePressure();if(lag>500)setHealth('event-loop','warn','Event loop lag '+lag+'ms · pressure '+systemPressure,{truth:'observed'});else if(health.get('event-loop')?.status!=='ok')setHealth('event-loop','ok','Event loop responsive · p95 '+Math.round(eventLoopLagP95)+'ms',{truth:'observed'});},1000).unref?.();
 setInterval(watchdogTick,10000).unref?.();
+setInterval(()=>{
+  const m=memoryReport(process.memoryUsage(),RUNTIME_MEMORY_BUDGET_MIB);
+  if(m.pressure==='HIGH'||m.pressure==='CRITICAL'){
+    // Prune only regenerable caches and market-discovery windows.
+    // Do not delete open positions, completed trades, journal events, or checkpoints.
+    featureCache.clear();entryPolicyCache.clear();regimeWeightCache.clear();dnaSimilarityCache.clear();
+    pruneRuntimeMemory();alphaOS.prune();
+  }
+  setHealth('runtime-memory',m.pressure==='CRITICAL'?'warn':m.pressure==='HIGH'?'warn':'ok',
+    'RSS '+m.rssMiB+'/'+m.budgetMiB+' MiB · heap '+m.heapUsedMiB+' MiB · '+m.pressure,{truth:'observed'});
+},30000).unref?.();
 takeTimeline();takeReplay();alphaOS.observeWorld({weather:marketWeather(),tokens:[...tokens.values()],strategyEquity:Object.fromEntries(allTraders().map(d=>[d.id,d.equity]))});alphaOS.pollExternal();pumpOpenPositionPoll();openPositionPoll();
 setLifecycle('READY','market loops initialized');
 server.listen(PORT,'0.0.0.0',()=>{console.log('PUMP LAB HTTP port bound on '+PORT+' · READY after trusted state recovery');});
