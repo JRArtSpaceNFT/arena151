@@ -1,6 +1,6 @@
 
 const $=x=>document.getElementById(x);const money=n=>'$'+Number(n||0).toLocaleString(undefined,{maximumFractionDigits:0});const one=n=>Number(n||0).toFixed(1);let S=null;
-const BROWSER_STATE_KEY='pump-lab:last-good-state:integrity-freeze-v2',LIVE_BACKEND_ORIGIN='https://pump-lab-live.onrender.com';const ACTIVE_EXPERIMENT_IDS=new Set(['banker','graduation','confirmed_runner','mc_over100','liq_50_plus','crosscheck']);const CONTROL_IDS=new Set(['random','winner1','winner2','launchctl']);const WINNER_IDS=new Set(['winner1','winner2']);let showingCachedState=false;
+const BROWSER_STATE_KEY='pump-lab:last-good-state:five-brain-v7',LIVE_BACKEND_ORIGIN='https://pump-lab-live.onrender.com';const ACTIVE_EXPERIMENT_IDS=new Set(['banker','momentum','dip','champion','smartmom']);const CONTROL_IDS=new Set([]);const WINNER_IDS=new Set(['winner1','winner2']);let showingCachedState=false;
 function age(ms){const m=Math.max(0,Date.now()-ms)/60000;if(m<60)return m.toFixed(0)+'m';return(m/60).toFixed(1)+'h'}function esc(x){return String(x??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
 function saveBrowserState(state){try{localStorage.setItem(BROWSER_STATE_KEY,JSON.stringify({savedAt:Date.now(),state}))}catch{}}
 function restoreBrowserState(){try{localStorage.removeItem(BROWSER_STATE_KEY)}catch{}return false}
