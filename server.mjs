@@ -2059,7 +2059,7 @@ function manageScaleOut(d,p,t){
   if(estimatedProfitUsd<minScaleProfit)return false;
   const levels=d.fiveBrain?[15,30,60,120]:[30,75,150,300];p.scaleOutHits=p.scaleOutHits||[];
   const level=levels.find(x=>pnl>=x&&!p.scaleOutHits.includes(x));if(!level)return false;
-  const frac=level>=(d.fiveBrain?60:150)?.25:.20;if(partialClose(d,p,t,frac,`runner scale-out +${level}%`)){p.scaleOutHits.push(level);return true;}return false;
+  const frac=level >= (d.fiveBrain?60:150) ? .25 : .20;if(partialClose(d,p,t,frac,`runner scale-out +${level}%`)){p.scaleOutHits.push(level);return true;}return false;
 }
 function manageCopyPosition(d,p,t){
   if(!d.copyLab||!d.copySource)return false;
