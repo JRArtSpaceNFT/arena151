@@ -78,7 +78,7 @@ const checks = [
   ['recovery high-water quality floor', 'RECOVERY_HIGH_WATER_REJECTED'],
   ['journal regression detector', 'function journalRegressionCutoff(rows)'],
   ['journal season rebuild', 'async function repairCurrentSeasonFromJournal'],
-  ['journal repair startup hook', 'const journalRepaired=await repairCurrentSeasonFromJournal(client)']
+  ['journal repair startup hook (ledger-completeness gated)', 'const journalRepaired=missingDetailedTrades()>0?false:await repairCurrentSeasonFromJournal(client)']
 ];
 
 const failures = checks.filter(([, needle]) => !src.includes(needle)).map(([name])=>name);
