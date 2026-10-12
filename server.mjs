@@ -7,6 +7,7 @@ import { createPumpLabAlphaOS } from './lib/pump-lab-alpha-os.mjs';
 import { createPumpLabSeason2Science } from './lib/pump-lab-season2-science.mjs';
 import { createPumpLabProfitAccelerator } from './lib/pump-lab-profit-accelerator.mjs';
 import { renderBotProfileHtml } from './lib/bot-profile.mjs';
+import { assessCandidate } from './lib/pump-lab-research-gate.mjs';
 
 const PORT = Number(process.env.PORT || 3000);
 const PUMP_KEY = process.env.PUMPPORTAL_API_KEY || '';
@@ -2482,6 +2483,8 @@ function researchCycle(){
   evaluateHypothesisArena();
   spawnResearchChallenger();
   const recent=trades.filter(t=>t.policyVersion===STRATEGY_ERA&&now()-t.closedAt<3600000&&!t.strategy.includes('-c'));const wins=recent.filter(t=>t.pnl>0);const avg=recent.length?recent.reduce((a,t)=>a+t.pnlPct,0)/recent.length:0;
+  const gateAudit=experimentSnapshot();
+  const gateMissing=gateAudit.filter(x=>x.researchGate.status==='INSUFFICIENT_DATA').length;
   const prod=strategyDefs.filter(d=>d.risk!=='CONTROL'&&!d.specialist);prod.forEach(markEquity);const best=[...prod].sort((a,b)=>b.equity-a.equity)[0];
   const misses=missedMonsters().slice(0,5),monsterLab=monsterPatternLab(),disc=discoveryLab(),scienceSnap=science.snapshot(strategyDefs.map(d=>d.id)),hypotheses=[];
   if(misses.length>=3)hypotheses.push('Rejection thresholds may be too strict for a subset of high-upside tokens; use matched monster-vs-control features before relaxing any production gate.');
@@ -2493,7 +2496,7 @@ function researchCycle(){
   const weather=marketWeather();const ex=exitLab();if(ex.n>=5&&ex.capture<45)hypotheses.push('Exit capture is below 45% of observed favorable excursion; prioritize longer-hold exit challengers.');const cal=confidenceCalibration().filter(x=>x.n>=5);if(cal.length&&cal.at(-1)?.hitRate<cal[0]?.hitRate)hypotheses.push('High confidence buckets are not yet better calibrated than lower buckets; confidence scores need more evidence.');if(weather.regime==='RISK OFF')hypotheses.push('Current regime is risk-off; compare defensive strategies against momentum before expanding exposure.');
   for(const h of scientistInsights())hypotheses.push(h.text);
   lastScientistRun=now();
-  research={last:now(),notes:[`${recent.length} production exits this hour · ${recent.length?((wins.length/recent.length)*100).toFixed(0):0}% win rate · avg ${avg.toFixed(1)}% · leader ${best?.name||'n/a'}`,'Production strategies remain stable. Challengers use separate paper capital and cannot silently rewrite the incumbent.'],hypotheses};
+  research={last:now(),notes:[`${recent.length} production exits this hour · ${recent.length?((wins.length/recent.length)*100).toFixed(0):0}% win rate · avg ${avg.toFixed(1)}% · leader ${best?.name||'n/a'}`,'Production strategies remain stable. Challengers use separate paper capital and cannot silently rewrite the incumbent.',`${gateMissing}/${gateAudit.length} research challengers lack complete risk-adjusted, double-cost and unseen-data evidence; no research pass grants live promotion.`],hypotheses};
   log('research','🧪 Research Director completed an hourly review','system',{hypotheses:hypotheses.length});
 }
 
@@ -2501,7 +2504,8 @@ function experimentSnapshot(){
   return challengers.map(ch=>{const p=strategyDefs.find(x=>x.id===ch.parentId),child=eraPerformance(ch.id),parent=eraPerformance(p.id),ho=eraPerformance(ch.id,'holdout'),pho=eraPerformance(p.id,'holdout');
     const baseline=pho.n>=8?pho.mean:(parent.n>=20?parent.mean:0),edge=ho.mean-baseline;let status='COLLECTING';
     if(ch.promotedAt)status='PROMOTED';else if(ch.promotionCandidateAt)status='HOLDOUT CANDIDATE';else if(child.n>=60&&ho.n>=12&&edge>3&&ho.mean>0&&ho.profitFactor>1.2)status='PROMOTION CANDIDATE';else if(child.n>=60&&ho.n>=12&&edge<-8)status='GRAVEYARD CANDIDATE';
-    return{id:ch.id,name:ch.name,parent:p.name,mutation:ch.mutation,era:STRATEGY_ERA,equity:ch.equity,parentEquity:p.equity,edge,sample:child.n,holdoutSample:ho.n,holdoutMean:ho.mean,holdoutProfitFactor:ho.profitFactor,profitFactor:child.profitFactor,status,autoPromotion:ALLOW_AUTO_PROMOTION};
+    const researchGate=assessCandidate({trades:child.n,profitFactor:child.profitFactor,oosSharpe:undefined,sharpe:undefined,doubleCostSharpe:undefined,maxDrawdown:Number.isFinite(ch.dd)?ch.dd/100:undefined});
+    return{id:ch.id,name:ch.name,parent:p.name,mutation:ch.mutation,era:STRATEGY_ERA,equity:ch.equity,parentEquity:p.equity,edge,sample:child.n,holdoutSample:ho.n,holdoutMean:ho.mean,holdoutProfitFactor:ho.profitFactor,profitFactor:child.profitFactor,status,autoPromotion:ALLOW_AUTO_PROMOTION,researchGate};
   });
 }
 
