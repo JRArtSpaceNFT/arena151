@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import {assessFunnel,ResearchFunnel} from '../lib/pump-lab-research-funnel.mjs';
 const base={mint:'mint1',symbol:'MOON',price:.001,mc:150000,liq:40000,ageMin:12,tx:38,buysPct:.67,
  flowFresh:true,risk:29,score:87,quality:86,quoteFresh:true,continuousPath:true,crossSource:true,
- authoritiesKnown:false,authorityOpen:false,observedSocial:false};
+ authoritiesKnown:false,authorityOpen:false,observedSocial:false,memeEligible:true};
 const token=(mint,fields={})=>({mint,symbol:mint,mc:base.mc,liq:base.liq,price:base.price,...fields});
 const features=(fields={})=>({age:base.ageMin,totalTx:base.tx,buyRatio:base.buysPct,flowFresh:true,risk:base.risk,score:base.score,...fields});
 const quality=(fields={})=>({score:base.quality,sourceCount:2,...fields});
-const opts=(ts=1000000,fields={})=>({ts,quoteFresh:true,continuousPath:true,...fields});
+const opts=(ts=1000000,fields={})=>({ts,quoteFresh:true,continuousPath:true,memeEligible:true,...fields});
 test('only genuine fields make it through cheap and trade-stage cuts',()=>{
  assert.equal(assessFunnel({...base,mc:null}).reason,'missing_metrics');
  assert.equal(assessFunnel({...base,flowFresh:false}).stage,'TRADE');
