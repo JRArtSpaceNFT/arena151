@@ -28,7 +28,7 @@ test('verified token facts permit qualified paper copy only',async()=>{
  const q={mint,symbol:'MOON',price:1,liq:50000,updatedAt:ts,verified:true,graduated:true};
  assert.equal(await d.inspectBuy({event,closed,quality,quote:()=>q}),true);
  assert.equal(d.positions.length,1);assert.equal(d.cash<1000,true);assert.equal(d.decisions[0].action,'PAPER_BUY');
- assert.equal(d.mark({...q,price:1.4},{verified:true,ts:ts+120000}),true);
+ assert.equal(d.mark({...q,price:1.4,updatedAt:ts+120000},{verified:true,ts:ts+120000}),true);
  assert.equal(d.positions.length,0);assert.equal(d.trades.length,1);assert.equal(d.trades[0].why,'take_profit');
 });
 test('missing quote and report failures never fabricate fills',async()=>{
