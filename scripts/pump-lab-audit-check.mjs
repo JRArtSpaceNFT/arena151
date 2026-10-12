@@ -14,6 +14,13 @@ must('Surge strategy', "'momentum','⚡','The Surge'");
 must('Rebound strategy', "'dip','↗️','The Rebound'");
 must('Runner strategy', "'champion','🏃','The Runner'");
 must('Flow strategy', "'smartmom','🧠','The Flow'");
+must('Gauntlet research desk', "id:'gauntlet',icon:'🧭',name:'The Gauntlet'");
+must('Gauntlet independent desk marker', 'researchDesk:true');
+must('six-bot runtime set', 'ACTIVE_RUNTIME_IDS');
+must('independent risk committee', 'function independentRiskVeto(d,t,f,quality,adv,alpha)');
+must('immutable lead ID', 'leadId=`${d.id}:${t.mint}`');
+must('holder concentration reader', 'function holderConcentrationPct(t)');
+must('abstain-first losing bot rule', 'abstain-first: losing/research strategy does not use exploratory entries');
 must('exact active five IDs', "new Set(['banker','momentum','dip','champion','smartmom'])");
 must('legacy challengers disabled', 'const challengers = [];');
 must('five brain marker', 'fiveBrain:true');
@@ -72,6 +79,7 @@ must('pre-trade safety', 'preTradeSafety(token,c={}', alphaSrc);
 const strategyBlock = src.slice(src.indexOf('const strategyDefs = ['), src.indexOf('const challengers = [];'));
 const activeRows = [...strategyBlock.matchAll(/^\s*\['(banker|momentum|dip|champion|smartmom)'/gm)].map(m=>m[1]);
 if (activeRows.length !== 5 || new Set(activeRows).size !== 5) failures.push('strategyDefs must contain exactly five active primary rows');
+if (!strategyBlock.includes("id:'gauntlet'") || !strategyBlock.includes('researchDesk:true')) failures.push('strategyDefs must include one separate independent Gauntlet research desk');
 for (const legacy of ['minute_sub100','minute_100_250','minute_500_1m','winner1','winner2','launchctl','random']) {
   if (strategyBlock.includes("'"+legacy+"'")) failures.push('retired active strategy still present: '+legacy);
 }
@@ -81,4 +89,4 @@ if (failures.length) {
   for (const name of failures) console.error(' - ' + name);
   process.exit(1);
 }
-console.log('PUMP LAB Five Brain audit passed: exactly five active bots + integrity-first execution + clean-era safeguards');
+console.log('PUMP LAB Five Brain audit passed: exactly five primary bots + one independent Gauntlet research desk + integrity-first execution + clean-era safeguards');
