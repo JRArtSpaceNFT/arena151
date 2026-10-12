@@ -1659,7 +1659,7 @@ function ingest(raw,source){
     continuousPath:integrity.ok,sourceDisagreement:/source|disagreement/i.test(String(integrity.reason||'')),
     authoritiesKnown:t.authoritiesVerified===true,
     authorityOpen:t.authoritiesVerified===true&&!!(t.mintAuthority||t.freezeAuthority),
-    socialVerified:false
+    socialVerified:false,memeEligible:memeUniverseEligibility(t).ok
   });
   maybeTrade(t,weather);
   if(shadowCohorts.observe(t,features(t),tokenDataQuality(t),{executable:tokenPriceIntegrity(t).executable,tradingUnlocked:durableTradingReady(),ts:now()}))scheduleCriticalSave();
@@ -4441,7 +4441,7 @@ setHealth('x-social','standby','Full X stream not connected · social agent uses
 setHealth('wallet-intel','standby','Connecting Solana stream + verified Fomo wallet watchlist…',{truth:'not connected'});setHealth('fomo-watchlist','standby','Preparing verified public wallet subscriptions',{truth:'not connected'});
 if((DATABASE_URL||REDIS_URL)&&!durableTradingReady())console.log('STATE_LOCK engaged · trading paused until a recovery source is healthy');
 log('system','🧠 PUMP LAB Five Brain reset started · PAPER ONLY','system');connectPumpPortal();connectSolanaStream();pumpPoll();dexPoll();console.log('PUMP LAB Five Brain + Gauntlet runtime online · PAPER ONLY');
-setTimeout(()=>reviewCopyDesk(),11000).unref?.();setTimeout(()=>runScheduled('funnel-research',()=>researchFunnel.choose(),{budgetMs:100}),300000).unref?.();setInterval(()=>runScheduled('funnel-research',()=>researchFunnel.choose(),{budgetMs:100}),300000).unref?.();setTimeout(stateSelfTest,5000).unref?.();setInterval(()=>alphaOS.runCapitalAuction(m=>tokens.get(m),executionQuote),2000).unref?.();
+setTimeout(()=>reviewCopyDesk(),11000).unref?.();setTimeout(()=>runScheduled('funnel-research',()=>researchFunnel.choose(),{budgetMs:100}),60000).unref?.();setInterval(()=>runScheduled('funnel-research',()=>researchFunnel.choose(),{budgetMs:100}),300000).unref?.();setTimeout(stateSelfTest,5000).unref?.();setInterval(()=>alphaOS.runCapitalAuction(m=>tokens.get(m),executionQuote),2000).unref?.();
 setInterval(()=>{alphaOS.observeWorld({weather:marketWeather(),tokens:[...tokens.values()].filter(t=>now()-t.updatedAt<900000),strategyEquity:Object.fromEntries(allTraders().map(d=>[d.id,d.equity]))});alphaOS.prune();},60000).unref?.();
 setInterval(()=>runScheduled('alpha-external',()=>alphaOS.pollExternal(),{budgetMs:5000}),30000).unref?.();
 setInterval(()=>runScheduled('stale-sweep',()=>stalePositionSweep(),{budgetMs:250,critical:true}),15000).unref?.();
