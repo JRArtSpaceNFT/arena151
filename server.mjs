@@ -1391,7 +1391,7 @@ function maybeTrade(t,weather=null) {
     if(executionQuality.veto){recordDecision(d,t,f,score,'REJECT','execution veto: '+executionQuality.reason,weather);continue;}
     if(d.risk!=='CONTROL'&&!d.fastScalp&&executionQuality.sizeMultiplier<.999){budget=Math.max(3,budget*executionQuality.sizeMultiplier);entryExec=science.executionSimulation(t,budget,'buy',{...executionQuote(t,budget,'buy'),notional:budget},alpha?.execution||{});executionQuality=profitAccelerator.executionQuality(entryExec,alpha?.execution||{});}
     const primaryPaper=!!(d.fiveBrain||d.researchDesk),scoreEdge=score-num(activeGuard.requiredScore||policy.min),alphaSafety=num(alpha?.preTradeSafety?.score),pStop=num(committeeRisk?.pStop);
-    const superConfidence=primaryPaper&&!exploratory&&regime!=='RISK OFF'&&regime!=='OFFLINE'&&scoreEdge>=10&&num(quality?.score)>=88&&num(adv?.score)<=35&&num(alpha?.expectedValue)>=6&&alphaSafety>=75&&num(scienceGate?.score)>=75&&(pStop<=0||pStop<=.35)&&alphaBudgetMult>=.95&&scienceSize>=.95&&num(executionQuality?.sizeMultiplier)>=.95;
+    const superConfidence=primaryPaper&&!exploratory&&regime!=='RISK OFF'&&regime!=='OFFLINE'&&scoreEdge>=10&&num(quality?.score)>=88&&num(adv?.score)<=35&&num(alpha?.expectedValue)>=6&&alphaSafety>=75&&num(scienceGate?.score)<=30&&(pStop<=0||pStop<=.35)&&alphaBudgetMult>=.95&&scienceSize>=.95&&num(executionQuality?.sizeMultiplier)>=.95;
     if(superConfidence){
       const superBudget=Math.min(PRIMARY_PAPER_SUPER_ENTRY_USD,num(sizing.maxBudget),d.cash*.35,d.equity*.25,t.liq>0?t.liq*.020:PRIMARY_PAPER_SUPER_ENTRY_USD);
       if(superBudget>=PRIMARY_PAPER_MIN_ENTRY_USD&&superBudget>budget){
