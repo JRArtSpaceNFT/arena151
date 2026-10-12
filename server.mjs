@@ -9,6 +9,7 @@ import { createPumpLabProfitAccelerator } from './lib/pump-lab-profit-accelerato
 import { renderBotProfileHtml } from './lib/bot-profile.mjs';
 import { evaluateTradeHistory } from './lib/pump-lab-research-gate.mjs';
 import { ShadowCohorts } from './lib/pump-lab-shadow-cohorts.mjs';
+import { CopyDesk } from './lib/pump-lab-copy-desk.mjs';
 
 const PORT = Number(process.env.PORT || 3000);
 const PUMP_KEY = process.env.PUMPPORTAL_API_KEY || '';
@@ -306,6 +307,7 @@ strategyDefs.push({
 
 const challengers = [];
 const shadowCohorts = new ShadowCohorts(); // separate paper research account
+const copyDesk = new CopyDesk(); // isolated paper-only observed wallet copy desk
 
 function makeChallenger(parentId,id,name,mutation,mods={}) {
   const p = strategyDefs.find(x=>x.id===parentId);
@@ -1647,6 +1649,11 @@ function ingest(raw,source){
   if(!old)log('token',`🪙 LIVE token spotted: ${t.symbol} · ${t.name}`,'info',{mint:t.mint,source});
   maybeTrade(t,weather);
   if(shadowCohorts.observe(t,features(t),tokenDataQuality(t),{executable:tokenPriceIntegrity(t).executable,tradingUnlocked:durableTradingReady(),ts:now()}))scheduleCriticalSave();
+  if(copyDesk.positions.some(p=>p.mint===t.mint)){
+    const verified=tokenPriceIntegrity(t).executable&&executionPathIntegrity(t).ok;
+    if(copyDesk.mark({mint:t.mint,symbol:t.symbol,price:t.price,liq:t.liq,updatedAt:num(t.quoteObservedAt||t.updatedAt)},
+      {verified,ts:now()}))scheduleCriticalSave();
+  }
   broadcast('tick',{mint:t.mint});
 }
 
@@ -1885,6 +1892,17 @@ async function parseWalletTx(sig,tx){
     }else if(hasPump)classification='Pump.fun program + token delta';
     const event={ts:now(),blockTime:tx?.blockTime?tx.blockTime*1000:null,slot:tx?.slot||null,signature:sig,wallet:x.owner,mint:x.mint,symbol:tok?.symbol||x.mint.slice(0,5),action,tokenDelta:delta,tokenPre:x.pre,tokenPost:x.post,sellFraction:delta<0&&x.pre>0?clamp((-delta)/x.pre,0,1):null,solDelta,price:tok?.price||0,mc:tok?.mc||0,classification,source:'Solana RPC',watchlist:!!watch,traderId:watch?.traderId||null,traderName:watch?.traderName||null,walletLabel:watch?.label||null,confidence:watch?.confidence||null};
     walletEvents.unshift(event);walletEvents.splice(1200);alphaOS.observeWalletEvent(event,tok); found++;
+    if(watch?.confidence==='verified'&&tok&&(action==='BUY'||action==='SELL')){
+      const liveQuote=()=>{const cur=tokens.get(x.mint);if(!cur)return null;return{
+        mint:cur.mint,symbol:cur.symbol,price:cur.price,liq:cur.liq,updatedAt:num(cur.quoteObservedAt||cur.updatedAt),
+        graduated:!!cur.graduated,verified:tokenPriceIntegrity(cur).executable&&executionPathIntegrity(cur).ok
+      }};
+      if(action==='BUY'){
+        const quality=alphaOS.walletQuality(x.owner,num(tok.mc)),closed=alphaOS.walletClosed.filter(z=>z.wallet===x.owner).slice(0,500);
+        void copyDesk.inspectBuy({event,quality,closed,quote:liveQuote}).then(changed=>{if(changed)scheduleCriticalSave()})
+          .catch(e=>setHealth('copy-desk','warn','Copy desk screen failed: '+String(e?.message||e).slice(0,120),{truth:'observed'}));
+      }else{const q=liveQuote();if(q&&copyDesk.mark(q,{verified:q.verified,ts:now(),sourceWallet:x.owner}))scheduleCriticalSave();}
+    }
     if(watch)log('smart-wallet',`👀 ${watch.traderName} · ${action} · ${event.symbol}`,'info',{traderId:watch.traderId,wallet:x.owner,mint:x.mint,signature:sig,confidence:watch.confidence});
     if(tok){
       tok.chainBuys=num(tok.chainBuys)+(action==='BUY'?1:0);tok.chainSells=num(tok.chainSells)+(action==='SELL'?1:0);tok.chainTx=num(tok.chainTx)+1;tok.lastChainAt=now();
@@ -2494,7 +2512,13 @@ function spawnResearchChallenger(){
   log('evolution',`🧬 Research Director spawned ${c.name}: ${mutation}`,'system',{parentId,id,mods});return c;
 }
 
+function reviewCopyDesk(){
+  const rows=[...WATCHED_WALLET_LOOKUP.entries()].filter(([,w])=>w?.confidence==='verified')
+    .map(([wallet])=>({wallet,quality:alphaOS.walletQuality(wallet),closed:alphaOS.walletClosed.filter(t=>t.wallet===wallet).slice(0,500)}));
+  return copyDesk.review(rows);
+}
 function researchCycle(){
+  reviewCopyDesk();
   evaluateEvolution();
   evaluateHypothesisArena();
   spawnResearchChallenger();
@@ -2875,7 +2899,7 @@ async function waitForInitialDurableRestore(maxMs=90000){
   return false;
 }
 
-function serialize(){reconcileAuthoritativeExperimentState({repair:true,source:'serialize'});return{stateMeta:{version:6,authority:STATE_AUTHORITY_VERSION,savedAt:now(),era:STRATEGY_ERA,exitCount:currentExitTotal(),tradeCount:Math.max(trades.length,expectedDetailedHistory),detailLedgerComplete:missingDetailedTrades()===0},auditVersion:AUDIT_VERSION,season:seasonInfo,forensicLedgerGaps,forensicRecovery,alphaOS:alphaOS.serialize(),science:science.serialize(),shadowCohorts:shadowCohorts.serialize(),strategies:strategyDefs.map(stripTrader),challengers:challengers.map(stripTrader),positions:positions.filter(p=>!p.closed),trades,activity,decisions,opportunities:[...opportunities],research,timeline,replayFrames,autopsies,promotions,graveyard,walletEvents:walletEvents.slice(0,1200),marketEvents:marketEvents.slice(-1000),discoveryLedger:discoveryLedger.slice(-1500),dnaArchive:[...dnaArchive],creators:[...creators].map(([k,v])=>[k,{...v,tokens:[...v.tokens]}])};}
+function serialize(){reconcileAuthoritativeExperimentState({repair:true,source:'serialize'});return{stateMeta:{version:6,authority:STATE_AUTHORITY_VERSION,savedAt:now(),era:STRATEGY_ERA,exitCount:currentExitTotal(),tradeCount:Math.max(trades.length,expectedDetailedHistory),detailLedgerComplete:missingDetailedTrades()===0},auditVersion:AUDIT_VERSION,season:seasonInfo,forensicLedgerGaps,forensicRecovery,alphaOS:alphaOS.serialize(),science:science.serialize(),shadowCohorts:shadowCohorts.serialize(),copyDesk:copyDesk.serialize(),strategies:strategyDefs.map(stripTrader),challengers:challengers.map(stripTrader),positions:positions.filter(p=>!p.closed),trades,activity,decisions,opportunities:[...opportunities],research,timeline,replayFrames,autopsies,promotions,graveyard,walletEvents:walletEvents.slice(0,1200),marketEvents:marketEvents.slice(-1000),discoveryLedger:discoveryLedger.slice(-1500),dnaArchive:[...dnaArchive],creators:[...creators].map(([k,v])=>[k,{...v,tokens:[...v.tokens]}])};}
 function stripTrader(d){return{id:d.id,name:d.name,icon:d.icon,risk:d.risk,type:d.type,parentId:d.parentId,mutation:d.mutation,auto:d.auto,bornAt:d.bornAt,cash:d.cash,peak:d.peak,dd:d.dd,auditPeak:d.auditPeak,auditDd:d.auditDd,wins:d.wins,losses:d.losses,n:d.n,version:d.version,min:d.min,stop:d.stop,take:d.take,size:d.size,maxOpen:d.maxOpen,riskCap:d.riskCap,exitMode:d.exitMode,sizeBias:d.sizeBias,promotionCandidateAt:d.promotionCandidateAt,promotedAt:d.promotedAt,graveyardAt:d.graveyardAt,hypothesisCandidateAt:d.hypothesisCandidateAt,hypothesisRetiredAt:d.hypothesisRetiredAt,hypothesisReason:d.hypothesisReason};}
 function criticalRecoveryTrades(){
   const seasonStart=num(seasonInfo?.startedAt)||0,primaryIds=new Set(strategyDefs.map(d=>d.id)),picked=[],seen=new Set();
@@ -2886,7 +2910,7 @@ function criticalRecoveryTrades(){
   for(const t of trades)add(t);
   return picked.slice(0,250);
 }
-function serializeCritical(){reconcileAuthoritativeExperimentState({repair:true,source:'serialize-critical'});return{stateMeta:{version:6,authority:STATE_AUTHORITY_VERSION,savedAt:now(),era:STRATEGY_ERA,scope:'critical',exitCount:currentExitTotal(),tradeCount:Math.max(trades.length,expectedDetailedHistory),detailLedgerComplete:missingDetailedTrades()===0},season:seasonInfo,forensicLedgerGaps,forensicRecovery,scienceEvidence:science.serializeCriticalEvidence(),alphaCritical:alphaOS.serializeCritical(),shadowCohorts:shadowCohorts.serialize(),strategies:strategyDefs.map(stripTrader),challengers:challengers.map(stripTrader),positions:positions.filter(p=>!p.closed),trades:criticalRecoveryTrades(),decisions:decisions.filter(x=>x.era===STRATEGY_ERA).slice(0,Math.min(750,MAX_DECISIONS)),activity:activity.slice(0,80),autopsies:autopsies.slice(0,80)};}
+function serializeCritical(){reconcileAuthoritativeExperimentState({repair:true,source:'serialize-critical'});return{stateMeta:{version:6,authority:STATE_AUTHORITY_VERSION,savedAt:now(),era:STRATEGY_ERA,scope:'critical',exitCount:currentExitTotal(),tradeCount:Math.max(trades.length,expectedDetailedHistory),detailLedgerComplete:missingDetailedTrades()===0},season:seasonInfo,forensicLedgerGaps,forensicRecovery,scienceEvidence:science.serializeCriticalEvidence(),alphaCritical:alphaOS.serializeCritical(),shadowCohorts:shadowCohorts.serialize(),copyDesk:copyDesk.serialize(),strategies:strategyDefs.map(stripTrader),challengers:challengers.map(stripTrader),positions:positions.filter(p=>!p.closed),trades:criticalRecoveryTrades(),decisions:decisions.filter(x=>x.era===STRATEGY_ERA).slice(0,Math.min(750,MAX_DECISIONS)),activity:activity.slice(0,80),autopsies:autopsies.slice(0,80)};}
 function restoreCritical(s){try{
   if(!s||typeof s!=='object')return false;
   const sanitized=!!s?.stateMeta?.fiveBrainSanitizedFromLegacy;
@@ -2902,6 +2926,7 @@ function restoreCritical(s){try{
   if(!sanitized&&s.scienceEvidence)science.restoreCriticalEvidence(s.scienceEvidence);
   if(!sanitized&&s.alphaCritical)alphaOS.restoreCritical(s.alphaCritical);
    if(!sanitized&&s.shadowCohorts)shadowCohorts.restore(s.shadowCohorts);
+   if(!sanitized&&s.copyDesk)copyDesk.restore(s.copyDesk);
   for(const x of s.strategies||[]){const d=strategyDefs.find(q=>q.id===x.id);if(!d)continue;for(const k of ['cash','peak','dd','auditPeak','auditDd','wins','losses','n','promotionCandidateAt','promotedAt','graveyardAt','bornAt','auto','hypothesisCandidateAt','hypothesisRetiredAt','hypothesisReason'])if(x[k]!==undefined)d[k]=x[k];}
   for(const x of s.challengers||[]){const d=challengers.find(q=>q.id===x.id);if(!d)continue;for(const k of ['cash','peak','dd','wins','losses','n','promotedAt','graveyardAt','bornAt','auto'])if(x[k]!==undefined)d[k]=x[k];}
   if(Array.isArray(s.positions))positions.splice(0,positions.length,...s.positions.filter(p=>!p.closed));
@@ -3049,7 +3074,7 @@ function restore(s){try{
     expectedDetailedHistory=0;forensicLedgerGaps={total:0,production:0,cohort:0,control:0,other:0,baselineAt:0,source:''};forensicRecovery={active:false,lastRepairAt:0,regressionCutoff:0,journalRows:0,detailedTrades:0,observedLedgerRows:0};
   }
   if(s.season)seasonInfo={...seasonInfo,...s.season};if(s.forensicLedgerGaps)forensicLedgerGaps={...forensicLedgerGaps,...s.forensicLedgerGaps};if(s.forensicRecovery)forensicRecovery={...forensicRecovery,...s.forensicRecovery};
-  if(!sanitized){if(s.alphaOS)alphaOS.restore(s.alphaOS);if(s.science)science.restore(s.science);if(s.shadowCohorts)shadowCohorts.restore(s.shadowCohorts);}
+  if(!sanitized){if(s.alphaOS)alphaOS.restore(s.alphaOS);if(s.science)science.restore(s.science);if(s.shadowCohorts)shadowCohorts.restore(s.shadowCohorts);if(s.copyDesk)copyDesk.restore(s.copyDesk);}
   for(const x of s.strategies||[]){
     const d=strategyDefs.find(q=>q.id===x.id);if(!d)continue;
     const codeVersion=num(d.version)||1;
@@ -3543,7 +3568,7 @@ function snapshot(){
   });
   return{now:now(),startedAt,paperOnly:true,stateAuthority:{version:STATE_AUTHORITY_VERSION,stateVersionTs,season:CLEAN_SEASON_LABEL,audit:lastAuthorityAudit},alphaOS:compactAlphaSnapshot(),profitAccelerator:profitAccelerator.snapshot({strategies:strategyDefs,trades,regime:weather.regime,era:STRATEGY_ERA,correlations:strategyCorrelation(),noTrade:noTradeAlpha()}),executionAssumptions:{fallbackFeeRate:FEE_RATE,fixedTxCostUsd:PAPER_FIXED_TX_COST_USD,feeSource:'pump.fun docs 2026-05-20',maxModeledSlippagePct:8},researchGovernance:{partition:'deterministic 80/20 by mint',learningSet:'train only',autoPromotion:ALLOW_AUTO_PROMOTION,minPromotionTrades:60,minHoldoutTrades:20},stateLock:storageStatus(),mode:'LIVE PAPER + V5.0 SEASON 3 CLEAN EXECUTION + ALPHA OS + AUDITED HOLDOUT RESEARCH',version:'5.0 Season 3 Clean Execution',target:TARGET,weather,providers:[...health.values()],
     summary:{capital:prod.reduce((a,d)=>a+d.equity,0),start:prod.length*START,trades:prod.reduce((a,d)=>a+d.n,0),open:positions.filter(p=>!p.closed&&prod.some(d=>d.id===p.strategy)).length,cohortCapital:cohort.reduce((a,d)=>a+d.equity,0),cohortStart:cohort.length*START,cohortTrades:cohort.reduce((a,d)=>a+d.n,0),cohortOpen:positions.filter(p=>!p.closed&&cohort.some(d=>d.id===p.strategy)).length,tokens:tokens.size,decisions:decisions.length,ledgerTrades,ledgerDetailedTrades:trades.length,ledgerRecoveredAggregateRows:num(forensicLedgerGaps.total),ledgerProductionTrades,ledgerEraProductionTrades:eraDetailedProductionTrades,ledgerCleanProductionTrades:cleanDetailedProductionTrades,ledgerCohortTrades,ledgerControlTrades,ledgerOtherTrades,scienceTrades:num(science.counters?.trades)},
-    shadowCohorts:shadowCohorts.snapshot(),
+    shadowCohorts:shadowCohorts.snapshot(),copyDesk:copyDesk.snapshot(),
      researchGrades:prod.map(d=>{const e=challengerResearch(d.id);return{id:d.id,name:d.name,status:e.gate.status,failed:e.gate.failed,sample:e.sample,missingExecution:e.missingExecution,forwardWindows:e.windows,netPnl:e.metrics?.netPnl??null,stressedNetPnl:e.metrics?.stressNetPnl??null,sharpe:e.metrics?.sharpe??null,oosSharpe:e.holdout?.sharpe??null};}),
     strategies:strategyDefs.map(d=>{const base=authoritativeStrategyView(d),ep=entryPolicy(d),pb=strategyPlaybook(d),eraTrades=cleanStrategyTrades(d.id);return{...base,winRate:base.n?base.wins/base.n*100:0,open:openCount(d.id),effectiveMin:ep.min,coldStart:ep.coldStart,entryRejects:ep.rejects,thresholdRelief:ep.relief,playbook:pb.instruction,era:STRATEGY_ERA,eraN:eraTrades.length,eraWinRate:eraTrades.length?eraTrades.filter(t=>t.pnl>0).length/eraTrades.length*100:0,eraPnl:eraTrades.reduce((a,t)=>a+num(t.pnl),0),eraAvgPnl:eraTrades.length?avg(eraTrades.map(t=>t.pnlPct)):0}}),experiments:experimentSnapshot(),tokens:active,
     narratives:(latestReplay?.narratives||[]).slice(0,12),creators:creatorLeaderboard().slice(0,20),activity:activity.slice(0,100),research,...uiResearchSnapshot(),timeline:timeline.slice(-80),decisions:decisions.slice(0,120),replay:replayFrames.slice(-3),
@@ -4066,7 +4091,7 @@ hr{border-color:#e0e3e5!important}
 <div class="pane" id="intel"><div class="card"><div class="sectionTitle"><h2>🌎 Narrative World</h2><p>Heat = momentum + buyer pressure + volume + fresh launches − saturation</p></div><div class="world" id="world"></div></div><div class="two" style="margin-top:12px"><div class="card scroll"><h3>CREATOR DNA · OBSERVED BY PUMP LAB</h3><table class="table"><thead><tr><th>Creator</th><th>Launches</th><th>Best X</th><th>Collapses</th><th>Graduations</th></tr></thead><tbody id="creators"></tbody></table></div><div class="card"><h3>DATA TRUTH</h3><div id="truth"></div></div></div><div class="card" style="margin-top:12px"><h3>👀 FOMO SMART-WALLET WATCHLIST</h3><div class="mini">Requested Fomo identities. Only corroborated public Solana mappings are subscribed; unresolved identities stay labeled resolving instead of being guessed.</div><div class="scroll"><table class="table"><thead><tr><th>Trader</th><th>Status</th><th>Wallets</th><th>Events</th><th>Buys</th><th>Sells</th><th>Tokens</th><th>Marked</th><th>Last</th></tr></thead><tbody id="fomoWatchlist"></tbody></table></div></div>
 <div class="two" style="margin-top:12px"><div class="card"><h3>⚡ FOMO WATCHLIST · RECENT ON-CHAIN ACTIVITY</h3><div class="mini">BUY/SELL requires Pump.fun evidence or token + native SOL direction. Otherwise PUMP LAB reports TOKEN IN/OUT rather than inventing a trade.</div><div class="scroll"><table class="table"><thead><tr><th>Trader</th><th>Action</th><th>Token</th><th>Token Δ</th><th>SOL Δ</th><th>When</th></tr></thead><tbody id="fomoEvents"></tbody></table></div></div><div class="card"><h3>🔭 GLOBAL WALLET ACTIVITY · ON-CHAIN OBSERVED</h3><div class="mini">Direct Solana observations. Marked return is inferred from token price when first observed, not a claim of realized wallet P&L.</div><div class="scroll"><table class="table"><thead><tr><th>Wallet</th><th>Events</th><th>Buys</th><th>Sells</th><th>Tokens</th><th>Marked</th><th>Score</th></tr></thead><tbody id="walletBoard"></tbody></table></div></div></div></div>
 <div class="pane" id="planet"><div class="card"><div class="sectionTitle"><h2>🌎 THE WORLD</h2><p>A live map of the token economy PUMP LAB can actually observe.</p></div><div id="worldStats" class="grid4"></div><div id="tokenWorld" class="worldGrid" style="margin-top:12px"></div></div><div class="two" style="margin-top:12px"><div class="card"><h3>🔥 WORLD LEADERS</h3><div id="worldLeaders"></div></div><div class="card"><h3>⚠️ WORLD RISKS</h3><div id="worldRisks"></div></div></div></div>
-<div class="pane" id="research"><div class="three"><div class="card"><h3>🧪 CHALLENGERS</h3><div id="experiments"></div></div><div class="card"><h3>🚀 MISSED MONSTERS</h3><div id="missed"></div></div><div class="card"><h3>🛟 SAVED MY ASS</h3><div id="saved"></div></div></div><div class="two" style="margin-top:12px"><div class="card"><h3>🏆 HALL OF FAME</h3><div id="hall"></div></div><div class="card"><h3>🧬 TRADE AUTOPSIES</h3><div id="autopsies"></div></div></div><div class="card" style="margin-top:12px"><h3>🧪 SIX NEW PAPER BOT EXPERIMENTS</h3><div id="shadowCohorts"></div></div><div class="card" style="margin-top:12px"><h3>RESEARCH DIRECTOR</h3><div id="researchText"></div></div><div class="card" style="margin-top:12px"><h3>🧯 PROCESS AUDIT & LIVE LAUNCH GATE</h3><div id="auditBoard"></div></div>
+<div class="pane" id="research"><div class="three"><div class="card"><h3>🧪 CHALLENGERS</h3><div id="experiments"></div></div><div class="card"><h3>🚀 MISSED MONSTERS</h3><div id="missed"></div></div><div class="card"><h3>🛟 SAVED MY ASS</h3><div id="saved"></div></div></div><div class="two" style="margin-top:12px"><div class="card"><h3>🏆 HALL OF FAME</h3><div id="hall"></div></div><div class="card"><h3>🧬 TRADE AUTOPSIES</h3><div id="autopsies"></div></div></div><div class="card" style="margin-top:12px"><h3>🧪 SIX NEW PAPER BOT EXPERIMENTS</h3><div id="shadowCohorts"></div></div><div class="card" style="margin-top:12px"><h3>RESEARCH DIRECTOR</h3><div id="researchText"></div><div id="copyDesk"></div></div><div class="card" style="margin-top:12px"><h3>🧯 PROCESS AUDIT & LIVE LAUNCH GATE</h3><div id="auditBoard"></div></div>
 <div class="card" style="margin-top:12px"><div class="sectionTitle"><h2>🧠 ALPHA OS · 12 SYSTEM STACK</h2><p>Wallet profitability/copyability, independent consensus, safety filtering, execution reality, probability, capital allocation and adaptive exits. Paper/shadow only.</p></div><div id="alphaOSBoard"></div></div>
 <div class="card" style="margin-top:12px"><div class="sectionTitle"><h2>MEME / CHART THEORY LAB</h2><p>Path quality, lifecycle and meme-market structure research. Paper only.</p></div><div id="memeChartLab"></div></div>
 <div class="card" style="margin-top:12px"><div class="sectionTitle"><h2>⚗️ HYPOTHESIS ARENA</h2><p>10 falsifiable momentum experiments. Separate paper bankrolls. 80/20 holdout. Bad ideas retire; promising ideas remain paper-only candidates.</p></div><div id="hypothesisArena"></div></div>
@@ -4176,6 +4201,7 @@ $('providerAudit').innerHTML='<div class="mini">Integrity score <b>'+one(s.provi
 const frames=s.replay||[];const rf=frames.length?frames[frames.length-1]:null;$('marketReplay').innerHTML=rf?'<div class="mini">'+new Date(rf.ts).toLocaleTimeString()+' · '+esc(rf.weather.regime)+' · '+rf.tokens.length+' active tokens</div><div style="margin-top:8px">'+rf.tokens.slice(0,12).map(t=>'<span class="vote '+(t.score>=70?'y':'n')+'">&#36;'+esc(t.symbol)+' '+one(t.score)+' / Q'+one(t.quality)+'</span>').join('')+'</div>':'<div class="muted">Collecting replay frames every 30 seconds.</div>';
 
 $('researchText').innerHTML='<p><b>Last cycle:</b> '+(s.research.last?new Date(s.research.last).toLocaleString():'collecting first hour')+'</p>'+s.research.notes.map(n=>'<p>• '+esc(n)+'</p>').join('')+(s.research.hypotheses.length?'<hr style="border-color:#223047"><b>Hypotheses under test</b>'+s.research.hypotheses.map(n=>'<p>🧠 '+esc(n)+'</p>').join(''):'')+'<hr style="border-color:#223047"><b>Five Bot Research Evidence</b><p class="mini">Strict evaluation on realized, net-cost paper trades. Insufficient data is not a pass.</p>'+ (s.researchGrades||[]).map(g=>'<div class="smallcard" style="margin:6px 0"><b>'+esc(g.name)+'</b> · '+esc(g.status)+'<div class="mini">n='+g.sample+' · walk forward='+g.forwardWindows+' · unverified fills='+g.missingExecution+' · net '+(g.netPnl===null?'n/a':money(g.netPnl))+' · 2× friction '+(g.stressedNetPnl===null?'n/a':money(g.stressedNetPnl))+'</div>'+(g.failed?.length?'<div class="mini">'+esc(g.failed.join(', '))+'</div>':'')+'</div>').join('');
+$('copyDesk').innerHTML=(!s.copyDesk?'':('<hr style="border-color:#223047"><b>FOMO COPY DESK · PAPER ONLY</b><p class="mini">Observed-wallet proxy consistency + Rugcheck fact veto + delayed paper fills. No Telegram wallet or paid LLM.</p><div class="mini">Copy paper equity: '+money(s.copyDesk.equity||0)+' · open '+(s.copyDesk.open||0)+' · closed '+(s.copyDesk.completed||0)+' · Rugcheck calls '+(s.copyDesk.reportRequests||0)+'</div>'+(s.copyDesk.leaders||[]).slice(0,3).map(l=>'<div class="smallcard" style="margin:5px 0">Leader '+esc(l.wallet.slice(0,6))+'… · '+esc(l.status)+' · n='+l.sample+' · '+esc((l.reasons||[]).slice(0,3).join(', '))+'</div>').join('')+(s.copyDesk.decisions||[]).slice(0,5).map(d=>'<div class="mini">'+esc(d.action)+' · '+esc(String(d.mint||'').slice(0,8))+' · '+esc(d.reason||'')+'</div>').join('')));
 
 const au=s.audit||{};$('auditBoard').innerHTML='<div class="big '+(au.liveReady?'green':'amber')+'">'+esc(au.status||'AUDITING')+'</div><div class="mini" style="margin:8px 0">Audit '+esc(au.auditVersion||'')+' · live gate is intentionally stricter than paper profitability.</div>'+
     ((au.critical||[]).length?'<div class="red"><b>BLOCKERS</b><br>'+au.critical.map(x=>'• '+esc(x)).join('<br>')+'</div>':'<div class="green">No critical system blockers.</div>')+
@@ -4396,7 +4422,7 @@ setHealth('x-social','standby','Full X stream not connected · social agent uses
 setHealth('wallet-intel','standby','Connecting Solana stream + verified Fomo wallet watchlist…',{truth:'not connected'});setHealth('fomo-watchlist','standby','Preparing verified public wallet subscriptions',{truth:'not connected'});
 if((DATABASE_URL||REDIS_URL)&&!durableTradingReady())console.log('STATE_LOCK engaged · trading paused until a recovery source is healthy');
 log('system','🧠 PUMP LAB Five Brain reset started · PAPER ONLY','system');connectPumpPortal();connectSolanaStream();pumpPoll();dexPoll();console.log('PUMP LAB Five Brain + Gauntlet runtime online · PAPER ONLY');
-setTimeout(stateSelfTest,5000).unref?.();setInterval(()=>alphaOS.runCapitalAuction(m=>tokens.get(m),executionQuote),2000).unref?.();
+setTimeout(()=>reviewCopyDesk(),11000).unref?.();setTimeout(stateSelfTest,5000).unref?.();setInterval(()=>alphaOS.runCapitalAuction(m=>tokens.get(m),executionQuote),2000).unref?.();
 setInterval(()=>{alphaOS.observeWorld({weather:marketWeather(),tokens:[...tokens.values()].filter(t=>now()-t.updatedAt<900000),strategyEquity:Object.fromEntries(allTraders().map(d=>[d.id,d.equity]))});alphaOS.prune();},60000).unref?.();
 setInterval(()=>runScheduled('alpha-external',()=>alphaOS.pollExternal(),{budgetMs:5000}),30000).unref?.();
 setInterval(()=>runScheduled('stale-sweep',()=>stalePositionSweep(),{budgetMs:250,critical:true}),15000).unref?.();
