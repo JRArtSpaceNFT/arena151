@@ -33,6 +33,9 @@ jobs:
              'trades':len(state.get('trades') or []),'highWaterExits':h.get('exitTotal'),
              'payloadMB':round(os.stat(p).st_size/1048576,2)}
           print('BACKUP_VERIFICATION',json.dumps(result,sort_keys=True))
-          assert ts>0 and len(state.get('strategies') or [])>10 and isinstance(state.get('trades'),list)
-          assert meta.get('version')==6
+          # Five Brain intentionally exposes five active portfolios; legacy >10 check is invalid.
+          assert ts>0 and len(state.get('strategies') or [])==5 and isinstance(state.get('trades'),list)
+          assert meta.get('version')==6 and meta.get('authority')=='v6-single-runtime-ledger-authority'
+          # Backups can become stale; fail if older than the configured 6h verification window.
+          assert 0 <= time.time()*1000-ts <= 6*3600000, 'Offsite backup is missing or stale (>6h)'
           PY
