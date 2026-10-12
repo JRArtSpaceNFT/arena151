@@ -492,8 +492,10 @@ function executionPathIntegrity(t){
 }
 function memeUniverseEligibility(t){
   const symbol=String(t?.symbol||'').toUpperCase(),name=String(t?.name||''),text=(symbol+' '+name).toLowerCase();
+  const fiatStableSymbols=new Set(['USD','USDC','USDT','USDS','DAI','FDUSD','PYUSD','EURC']);
   if(NON_MEME_SYMBOLS.has(symbol))return{ok:false,reason:'known tokenized stock/equity symbol'};
-  if(/\b(tokenized|tokenised|stock|equity|etf|xstock|nasdaq|spdr|reddit|nvidia)\b/i.test(text))return{ok:false,reason:'non-meme/tokenized security metadata'};
+  if(fiatStableSymbols.has(symbol))return{ok:false,reason:'non-meme fiat/stablecoin symbol'};
+  if(/\b(tokenized|tokenised|stock|equity|etf|xstock|nasdaq|spdr|reddit|nvidia|stablecoin|tether|usd coin|us dollar)\b/i.test(text))return{ok:false,reason:'non-meme/tokenized security metadata'};
   return{ok:true,reason:'meme-universe eligible'};
 }
 function cleanSeasonStart(){return num(seasonInfo?.startedAt)||0;}
@@ -976,13 +978,16 @@ function entryPolicy(d){
   let effectiveMin=d.min,relief=0;
   if(rows.length>=20&&Number.isFinite(p90)){
     if(isFrozenExperimentStrategy(d)&&eraTradeCount(d)<FROZEN_EXPERIMENT_MIN_TRADES){
-      // Collection mode: calibrate to the market we are actually observing while
-      // preserving every hard data/risk/liquidity/cross-source veto below.
-      const adaptiveFloor=Math.max(CORE_COLLECTION_MIN_SCORE_FLOOR,d.min-CORE_COLLECTION_MAX_SCORE_RELIEF);
+      // Collection mode may adapt slightly to the observed market, but it must never
+      // turn a losing strategy into a looser strategy. Keep relief small and remove
+      // it entirely once early realized evidence is negative.
+      const h=strategyHealth(d);
+      const maxCollectionRelief=h.n>=3&&h.avg<=0?0:Math.min(8,Math.max(0,CORE_COLLECTION_MAX_SCORE_RELIEF));
+      const adaptiveFloor=Math.max(58,d.min-maxCollectionRelief);
       effectiveMin=clamp((Number.isFinite(p75)?p75:p90)+3,adaptiveFloor,d.min);
       relief=Math.max(0,d.min-effectiveMin);
     }else if(coldStart){
-      const adaptiveFloor=Math.max(46,d.min-14);
+      const adaptiveFloor=Math.max(58,d.min-8);
       effectiveMin=clamp(p90+3,adaptiveFloor,d.min);
       relief=Math.max(0,d.min-effectiveMin);
     }else effectiveMin=Math.max(d.min,p90);
@@ -1071,19 +1076,21 @@ function entryGuard(d,t,f,score,policy,quality,adv,regime){
 }
 function dormantExplorationGuard(d,t,f,score,policy,quality,adv,regime){
   if(d.copyLab||d.risk==='CONTROL'||!policy.coldStart||policy.rejects<6||adv.hardVeto)return{ok:false};
-  const p=strategyPlaybook(d),stack=evidenceStack(t,f,quality),learned=Number.isFinite(policy.p90)?policy.p90-2:policy.min-8,scoreFloor=Math.max(40,Math.min(policy.min-5,learned));
-  const maxRisk=Math.min(76,(p.maxRisk??60)+14),minQuality=Math.max(52,(p.minQuality??60)-12);
-  const minBuy=Math.max(.44,(p.minBuy??.52)-.10),maxBuy=Math.min(.82,(p.maxBuy??.76)+.06);
-  const minMom=Math.max(40,(p.minMomentum??55)-15),maxMom=Math.min(98,(p.maxMomentum??92)+6);
-  const minAccel=Math.max(30,(p.minAccel??48)-16),minLiq=Math.max(2500,(p.minLiq??7000)*.38);
-  if(quality.score<minQuality||quality.sourceCount<1||!f.flowFresh||!f.liqFresh)return{ok:false};
-  if(f.totalTx<Math.max(3,(p.minTx??6)-5)||f.buyRatio<minBuy||f.buyRatio>maxBuy)return{ok:false};
-  if(f.risk>maxRisk||adv.score>=80||f.momentum<minMom||f.momentum>maxMom||f.acceleration<minAccel)return{ok:false};
+  const p=strategyPlaybook(d),stack=evidenceStack(t,f,quality),h=strategyHealth(d),learned=Number.isFinite(policy.p90)?policy.p90-2:policy.min-8;
+  const lossAwareFloor=h.n>=3&&h.avg<=0?policy.baseMin-4:policy.min-8;
+  const scoreFloor=Math.max(58,Math.min(policy.baseMin-3,Math.max(learned,lossAwareFloor)));
+  const maxRisk=Math.min(60,(p.maxRisk??60)+6),minQuality=Math.max(70,(p.minQuality??60)-6);
+  const minBuy=Math.max(.48,(p.minBuy??.52)-.06),maxBuy=Math.min(.80,(p.maxBuy??.76)+.04);
+  const minMom=Math.max(46,(p.minMomentum??55)-10),maxMom=Math.min(94,(p.maxMomentum??92)+3);
+  const minAccel=Math.max(38,(p.minAccel??48)-10),minLiq=Math.max(10000,(p.minLiq??7000)*.65);
+  if(quality.score<minQuality||quality.sourceCount<2||!f.flowFresh||!f.liqFresh)return{ok:false};
+  if(f.totalTx<Math.max(5,(p.minTx??6)-3)||f.buyRatio<minBuy||f.buyRatio>maxBuy)return{ok:false};
+  if(f.risk>maxRisk||adv.score>=72||f.momentum<minMom||f.momentum>maxMom||f.acceleration<minAccel)return{ok:false};
   if(t.liq<minLiq||score<scoreFloor)return{ok:false};
-  if(Number.isFinite(p.mcMin)&&t.mc<p.mcMin*.85)return{ok:false};
-  if(Number.isFinite(p.mcMax)&&t.mc>p.mcMax*1.15)return{ok:false};
-  if(Number.isFinite(p.minEvidence)&&stack.n<Math.max(2,p.minEvidence-2))return{ok:false};
-  return{ok:true,reason:'cold-start micro-probe',requiredScore:scoreFloor,minQuality,minBuyRatio:minBuy,health:strategyHealth(d),playbook:p,stack};
+  if(Number.isFinite(p.mcMin)&&t.mc<p.mcMin*.90)return{ok:false};
+  if(Number.isFinite(p.mcMax)&&t.mc>p.mcMax*1.10)return{ok:false};
+  if(Number.isFinite(p.minEvidence)&&stack.n<Math.max(3,p.minEvidence-1))return{ok:false};
+  return{ok:true,reason:'cold-start micro-probe',requiredScore:scoreFloor,minQuality,minBuyRatio:minBuy,health:h,playbook:p,stack};
 }
 
 
@@ -1151,18 +1158,19 @@ function productionSafetyGate(d,t,f,quality,alpha){
 function coldStartProbeSafety(d,t,f,quality,adv,alpha){
   if(d.copyLab||d.risk==='CONTROL'||d.specialist||d.minuteSampler)return{ok:false,reason:'cold-start probe not allowed for this strategy'};
   const reasons=[],tox=num(alpha?.toxicity?.score),pStop=num(alpha?.probability?.pStop15),congestion=num(alpha?.execution?.congestion),alphaSafety=num(alpha?.preTradeSafety?.score);
-  if(adv.hardVeto||num(adv.score)>=72)reasons.push('adversarial hard veto');
+  if(adv.hardVeto||num(adv.score)>=68)reasons.push('adversarial hard veto');
   if(!(t.price>0))reasons.push('invalid price');
   if(num(t.mc)<50000)reasons.push('market cap below $50K probe floor');
-  if(num(t.liq)<7500)reasons.push('liquidity below $7.5K probe floor');
-  if(num(quality?.score)<52||num(quality?.sourceCount)<1)reasons.push('insufficient observed data quality');
+  if(num(t.liq)<10000)reasons.push('liquidity below $10K probe floor');
+  if(num(quality?.score)<70||num(quality?.sourceCount)<2)reasons.push('insufficient cross-sourced data quality');
   if(!f.flowFresh||!f.liqFresh)reasons.push('stale flow or liquidity');
-  if(num(f.risk)>70)reasons.push('structural risk too high');
-  if(num(f.age)<.35)reasons.push('token too young for probe');
-  if(alpha?.toxicity?.veto||tox>=76)reasons.push('toxic flow veto');
-  if(pStop>.78)reasons.push('loss probability hard veto');
-  if(congestion>95)reasons.push('execution congestion hard veto');
-  if(alphaSafety<42)reasons.push('Alpha safety below probe floor');
+  if(num(f.risk)>60)reasons.push('structural risk too high');
+  if(num(f.age)<.75)reasons.push('token too young for probe');
+  if(alpha?.toxicity?.veto||tox>=68)reasons.push('toxic flow veto');
+  if(pStop>.60)reasons.push('loss probability hard veto');
+  if(congestion>90)reasons.push('execution congestion hard veto');
+  if(alphaSafety<60)reasons.push('Alpha safety below probe floor');
+  if(num(alpha?.expectedValue)<=0)reasons.push('model expectancy not positive');
   return{ok:reasons.length===0,reason:reasons[0]||'bounded cold-start probe safety passed',reasons,alphaSafety,toxicity:tox,pStop,congestion};
 }
 
@@ -1329,6 +1337,7 @@ function maybeTrade(t,weather=null) {
     if(!d.fastScalp&&budget<meaningfulFloor){recordDecision(d,t,f,score,'REJECT','paper sizing veto: final stake too small to be meaningful',weather);continue;}
     if(entryExec.slippage>.065){recordDecision(d,t,f,score,'REJECT','execution veto: modeled slippage',weather);continue;}
     const economics=tradeEconomicsAtTarget(d,t,budget,entryExec),economicFloor=(isFrozenExperimentStrategy(d)&&eraTradeCount(d)<FROZEN_EXPERIMENT_MIN_TRADES)?PAPER_COLLECTION_MIN_EXPECTED_NET_WIN_USD:Math.min(PAPER_MIN_EXPECTED_NET_WIN_USD,Math.max(10,budget*.10));
+    if(d.fiveBrain&&num(alpha?.expectedValue)<=0){recordDecision(d,t,f,score,'REJECT',`model EV veto: expected value ${num(alpha?.expectedValue).toFixed(1)} is not positive`,weather);continue;}
     if(d.risk!=='CONTROL'&&!d.fastScalp&&economics.netAtTarget<economicFloor){recordDecision(d,t,f,score,'REJECT',`economic edge veto: target net ${economics.netAtTarget.toFixed(0)} below ${economicFloor.toFixed(0)} after fees/slippage`,weather);continue;}
     const entry=entryExec.fillPrice;const cost=budget*(1+entryExec.feeRate)+num(entryExec.fixedCost)+num(entryExec.expectedFailureCost);
     if(cost>d.cash)continue;
