@@ -17,6 +17,7 @@ must('Flow strategy', "'smartmom','🧠','The Flow'");
 must('Gauntlet research desk', "id:'gauntlet',icon:'🧭',name:'The Gauntlet'");
 must('Gauntlet independent desk marker', 'researchDesk:true');
 must('six-bot runtime set', 'ACTIVE_RUNTIME_IDS');
+must('six-bot ledger authority', 'function isAuthoritativeRuntimeStrategy(d)');
 must('independent risk committee', 'function independentRiskVeto(d,t,f,quality,adv,alpha)');
 must('immutable lead ID', 'leadId=`${d.id}:${t.mint}`');
 must('holder concentration reader', 'function holderConcentrationPct(t)');
