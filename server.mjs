@@ -291,12 +291,12 @@ Object.assign(strategyDefs.find(d=>d.id==='smartmom'),{
 
 
 strategyDefs.push({
-  id:'gauntlet',icon:'🧭',name:'The Gauntlet',risk:'MED',size:.025,min:78,stop:7,take:42,maxOpen:2,
+  id:'gauntlet',icon:'🧭',name:'The Gauntlet',risk:'MED',size:.025,min:58,stop:7,take:42,maxOpen:2,
   thesis:'independent committee desk: Scout finds candidates, Entry requires clean cross-source confirmation, Risk must independently approve positive expectancy, and Exit enforces timed proof plus winner protection',
   version:7.1,fiveBrain:false,researchDesk:true,type:'research-desk',
   equity:START,cash:START,peak:START,dd:0,auditPeak:START,auditDd:0,wins:0,losses:0,n:0,
   exitMode:'committee',maxHold:45,scaleOut:true,
-  playbookOverride:{minQuality:90,minBuy:.54,maxBuy:.70,minTx:12,maxRisk:44,minMomentum:58,maxMomentum:84,minAccel:52,minLiq:25000,minAge:1.5,maxAge:30,mcMin:75000,mcMax:750000,requireCross:true,minEvidence:6,minChartQuality:68,minPathQuality:60,maxSpikeRisk:38,allowedStructures:['SMOOTH_TREND','BREAKOUT_RETEST','BREAKOUT','RECOVERY','BASE'],instruction:'Gauntlet: abstain by default; only cross-sourced positive-EV setups survive an independent adversarial risk vote. Passing is a valid outcome.'},
+  playbookOverride:{minQuality:76,minBuy:.51,maxBuy:.78,minTx:8,maxRisk:58,minMomentum:48,maxMomentum:90,minAccel:42,minLiq:10000,minAge:.75,maxAge:45,mcMin:40000,mcMax:1000000,requireCross:true,minEvidence:4,minChartQuality:50,minPathQuality:40,maxSpikeRisk:55,instruction:'Gauntlet: trade the strongest viable setups in the current market; use hard risk, cross-source, positive-EV and execution checks instead of an unrealistically high score wall.'},
   exitBrain:{proofMin:1.5,minSpark:3,failPnl:-1.5,confirmPeak:7,hardStop:7,trailStart:12,trailAbs:4,trailFrac:.25,maxHold:45}
 });
 
@@ -710,6 +710,7 @@ function strategyScore(d,f,t) {
   else if(sid==='swing')s=f.liqScore*.22+f.volScore*.13+f.flow*.16+f.momentum*.14+f.acceleration*.08+(100-f.risk)*.17+q.score*.10;
   else if(sid==='degen')s=f.early*.18+f.momentum*.25+f.acceleration*.18+f.flow*.20+f.volScore*.11+(100-f.risk)*.08;
   else if(sid==='smartmom')s=f.momentum*.27+f.acceleration*.17+f.flow*.25+f.volScore*.12+(100-f.risk)*.12+q.score*.07;
+  else if(sid==='gauntlet')s=f.score*.30+q.score*.20+f.momentum*.15+f.acceleration*.12+f.flow*.13+(100-f.risk)*.10;
   else if(sid==='culture'){const social=profitAccelerator.adjustedSocial(f.social,{trades,strategyId:sid,era:STRATEGY_ERA}).value;s=social*.19+f.momentum*.20+f.acceleration*.12+f.flow*.21+f.volScore*.12+(100-f.risk)*.10+q.score*.06;}
   else if(sid==='contrarian')s=clamp(42+f.rebound*.50+f.acceleration*.18+(100-f.risk)*.16+f.liqScore*.12);
   else if(sid==='sniper')s=f.score*.45+q.score*.18+f.momentum*.12+f.acceleration*.10+f.flow*.10+(100-f.risk)*.05;
@@ -990,19 +991,22 @@ function entryPolicy(d){
   const rejects=rows.filter(x=>x.action==='REJECT').length,scores=rows.map(x=>num(x.score)).filter(Number.isFinite);
   const p75=percentile(scores,.75),p90=percentile(scores,.90),coldStart=!rows.some(x=>x.action==='BUY'&&!x.exploratory);
   let effectiveMin=d.min,relief=0;
-  if(!d.researchDesk&&rows.length>=20&&Number.isFinite(p90)){
-    if(isFrozenExperimentStrategy(d)&&eraTradeCount(d)<FROZEN_EXPERIMENT_MIN_TRADES){
-      // Collection mode may adapt slightly to the observed market, but it must never
-      // turn a losing strategy into a looser strategy. Keep relief small and remove
-      // it entirely once early realized evidence is negative.
-      const h=strategyHealth(d);
-      const maxCollectionRelief=h.n>=3&&h.avg<=0?0:Math.min(8,Math.max(0,CORE_COLLECTION_MAX_SCORE_RELIEF));
-      const adaptiveFloor=Math.max(58,d.min-maxCollectionRelief);
-      effectiveMin=clamp((Number.isFinite(p75)?p75:p90)+3,adaptiveFloor,d.min);
+  if(rows.length>=20&&Number.isFinite(p90)){
+    if(d.researchDesk){
+      // Anti-paralysis calibration: Gauntlet follows the top slice of the live score
+      // distribution instead of a fixed wall that can sit above every candidate.
+      // This NEVER bypasses cross-source, risk, positive-EV, science or execution vetoes.
+      const h=strategyHealth(d),floor=h.n>=3&&h.avg<0?52:50,target=p90+(coldStart?5:7);
+      effectiveMin=clamp(target,floor,d.min);
+      relief=Math.max(0,d.min-effectiveMin);
+    }else if(isFrozenExperimentStrategy(d)&&eraTradeCount(d)<FROZEN_EXPERIMENT_MIN_TRADES){
+      // The five primary bots also calibrate to the current candidate distribution.
+      // Losses are handled by the independent risk committee and smaller sizing,
+      // rather than making the score threshold so high that no evidence can accrue.
+      effectiveMin=clamp(p90+4,CORE_COLLECTION_MIN_SCORE_FLOOR,d.min);
       relief=Math.max(0,d.min-effectiveMin);
     }else if(coldStart){
-      const adaptiveFloor=Math.max(58,d.min-8);
-      effectiveMin=clamp(p90+3,adaptiveFloor,d.min);
+      effectiveMin=clamp(p90+4,CORE_COLLECTION_MIN_SCORE_FLOOR,d.min);
       relief=Math.max(0,d.min-effectiveMin);
     }else effectiveMin=Math.max(d.min,p90);
   }
@@ -1160,6 +1164,13 @@ function tradeCadenceGuard(d,t){
 function productionSafetyGate(d,t,f,quality,alpha){
   if(d.risk==='CONTROL'||d.risk==='R&D'||d.specialist)return{ok:true,reason:'research/control population exempt'};
   const wc=alpha?.walletConsensus||alphaOS.walletConsensus(t,15),dna=creatorDNA(t),reasons=[];
+  if(d.researchDesk){
+    if(t.mc<40000)reasons.push('research desk safety: sub-$40K launch zone');
+    if(f.buyRatio>.84&&!wc.strong)reasons.push('research desk safety: euphoric buyer pressure');
+    if(quality.sourceCount<2)reasons.push('research desk safety: single-source data');
+    if(alpha?.preTradeSafety?.score<52)reasons.push('research desk safety: composite safety score');
+    return{ok:reasons.length===0,reason:reasons[0]||'research desk safety passed',reasons,walletConsensus:wc};
+  }
   if(t.mc<50000)reasons.push('production safety: sub-$50K launch zone');
   if(t.mc<100000&&!wc.strong)reasons.push('production safety: sub-$100K requires strong independent wallet consensus');
   if(dna.launches<=1&&!wc.strong)reasons.push('production safety: first-observed creator requires strong wallet consensus');
@@ -1197,18 +1208,18 @@ function independentRiskVeto(d,t,f,quality,adv,alpha){
   if(!(d.fiveBrain||d.researchDesk))return{ok:true,reason:'not governed by independent committee'};
   const h=strategyHealth(d),losing=h.n>=3&&h.avg<0,reasons=[];
   const ev=num(alpha?.expectedValue),pStop=num(alpha?.probability?.pStop15),tox=num(alpha?.toxicity?.score),safety=num(alpha?.preTradeSafety?.score);
-  const maxAdv=d.researchDesk?52:(losing?58:64),maxRisk=d.researchDesk?44:(losing?50:56),minQuality=d.researchDesk?90:(losing?78:72),minSafety=d.researchDesk?68:(losing?64:60);
+  const maxAdv=d.researchDesk?62:(losing?58:64),maxRisk=d.researchDesk?58:(losing?50:56),minQuality=d.researchDesk?76:(losing?78:72),minSafety=d.researchDesk?58:(losing?64:60);
   if(adv?.hardVeto||num(adv?.score)>=maxAdv)reasons.push('adversarial risk vote failed');
   if(num(quality?.score)<minQuality||num(quality?.sourceCount)<2)reasons.push('cross-source quality vote failed');
   if(num(f?.risk)>maxRisk)reasons.push('structural risk vote failed');
   if(ev<=0)reasons.push('expected value is not positive');
   if(losing&&ev<2)reasons.push('losing strategy requires stronger positive expectancy');
-  if(d.researchDesk&&ev<4)reasons.push('Gauntlet requires EV >= 4');
-  if(pStop>0&&(pStop>(d.researchDesk?.50:.58)))reasons.push('loss probability vote failed');
-  if(tox>0&&tox>=(d.researchDesk?58:66))reasons.push('toxicity vote failed');
+  if(d.researchDesk&&ev<1)reasons.push('Gauntlet requires positive EV with at least a small modeled edge');
+  if(pStop>0&&(pStop>(d.researchDesk?.58:.58)))reasons.push('loss probability vote failed');
+  if(tox>0&&tox>=(d.researchDesk?68:66))reasons.push('toxicity vote failed');
   if(safety>0&&safety<minSafety)reasons.push('pre-trade safety vote failed');
   const holder=holderConcentrationPct(t);
-  if(holder!==null&&holder>(d.researchDesk?38:45))reasons.push('holder concentration vote failed');
+  if(holder!==null&&holder>(d.researchDesk?45:45))reasons.push('holder concentration vote failed');
   return{ok:reasons.length===0,reason:reasons[0]||'independent risk committee approved',reasons,ev,pStop,tox,safety,holder,losing,recentAvg:h.avg,recentN:h.n};
 }
 
@@ -1328,7 +1339,7 @@ function maybeTrade(t,weather=null) {
     if(!accelGate.ok){if(!opportunities.has(`${d.id}:${t.mint}`))recordDecision(d,t,f,strategyScore(d,f,t),'REJECT',accelGate.reason,weather);continue;}
     const circuit=strategyRiskCircuit(d);
     if(!circuit.ok){if(!opportunities.has(`${d.id}:${t.mint}`))recordDecision(d,t,f,strategyScore(d,f,t),'REJECT',circuit.reason,weather);continue;}
-    if(openCount(d.id)>=Math.max(4,Number(d.maxOpen)||0)||d.cash<Math.max(5,d.equity*.02)||!(t.price>0))continue;
+    if(openCount(d.id)>=Math.max(1,Number(d.maxOpen)||1)||d.cash<Math.max(5,d.equity*.02)||!(t.price>0))continue;
     const score=strategyScore(d,f,t);const policy=entryPolicy(d);const regime=weather.regime,cadence=tradeCadenceGuard(d,t);
     if(!cadence.ok){if(!opportunities.has(`${d.id}:${t.mint}`))recordDecision(d,t,f,score,'REJECT',cadence.reason,weather);continue;}
     const lowBlocked=d.risk==='LOW'&&f.risk>policy.lowRiskLimit;
@@ -1375,7 +1386,7 @@ function maybeTrade(t,weather=null) {
     const meaningfulFloor=d.equity*(d.researchDesk?.015:exploratory?.015:(d.risk==='R&D'||d.specialist)?.025:.05);
     if(!d.fastScalp&&budget<meaningfulFloor){recordDecision(d,t,f,score,'REJECT','paper sizing veto: final stake too small to be meaningful',weather);continue;}
     if(entryExec.slippage>.065){recordDecision(d,t,f,score,'REJECT','execution veto: modeled slippage',weather);continue;}
-    const economics=tradeEconomicsAtTarget(d,t,budget,entryExec),economicFloor=(isFrozenExperimentStrategy(d)&&eraTradeCount(d)<FROZEN_EXPERIMENT_MIN_TRADES)?PAPER_COLLECTION_MIN_EXPECTED_NET_WIN_USD:Math.min(PAPER_MIN_EXPECTED_NET_WIN_USD,Math.max(10,budget*.10));
+    const economics=tradeEconomicsAtTarget(d,t,budget,entryExec),economicFloor=d.researchDesk?Math.max(2,budget*.04):(isFrozenExperimentStrategy(d)&&eraTradeCount(d)<FROZEN_EXPERIMENT_MIN_TRADES)?PAPER_COLLECTION_MIN_EXPECTED_NET_WIN_USD:Math.min(PAPER_MIN_EXPECTED_NET_WIN_USD,Math.max(10,budget*.10));
     if((d.fiveBrain||d.researchDesk)&&num(alpha?.expectedValue)<=0){recordDecision(d,t,f,score,'REJECT',`model EV veto: expected value ${num(alpha?.expectedValue).toFixed(1)} is not positive`,weather);continue;}
     if(d.risk!=='CONTROL'&&!d.fastScalp&&economics.netAtTarget<economicFloor){recordDecision(d,t,f,score,'REJECT',`economic edge veto: target net ${economics.netAtTarget.toFixed(0)} below ${economicFloor.toFixed(0)} after fees/slippage`,weather);continue;}
     const entry=entryExec.fillPrice;const cost=budget*(1+entryExec.feeRate)+num(entryExec.fixedCost)+num(entryExec.expectedFailureCost);
