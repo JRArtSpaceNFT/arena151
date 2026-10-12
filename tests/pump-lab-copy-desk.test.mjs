@@ -26,7 +26,7 @@ test('verified token facts permit qualified paper copy only',async()=>{
  const d=new CopyDesk({clock:()=>ts,fetchReport:async()=>report});
  const event={action:'BUY',confidence:'verified',watchlist:true,traderId:'leader',wallet,mint,signature:'sig-1',symbol:'MOON'};
  const q={mint,symbol:'MOON',price:1,liq:50000,updatedAt:ts,verified:true,graduated:true};
- assert.equal(await d.inspectBuy({event,closed,quality,quote:()=>q}),true);
+ assert.equal(await d.inspectBuy({event,closed,quality,quote:()=>q,tradingUnlocked:()=>true}),true);
  assert.equal(d.positions.length,1);assert.equal(d.cash<1000,true);assert.equal(d.decisions[0].action,'PAPER_BUY');
  assert.equal(d.mark({...q,price:1.4,updatedAt:ts+120000},{verified:true,ts:ts+120000}),true);
  assert.equal(d.positions.length,0);assert.equal(d.trades.length,1);assert.equal(d.trades[0].why,'take_profit');
@@ -34,10 +34,10 @@ test('verified token facts permit qualified paper copy only',async()=>{
 test('missing quote and report failures never fabricate fills',async()=>{
  const e={action:'BUY',confidence:'verified',watchlist:true,traderId:'leader',wallet,mint,signature:'sig-2'};
  const d=new CopyDesk({clock:()=>ts,fetchReport:async()=>{throw Error('unavailable')}});
- assert.equal(await d.inspectBuy({event:e,closed,quality,quote:()=>null}),true);
+ assert.equal(await d.inspectBuy({event:e,closed,quality,quote:()=>null,tradingUnlocked:()=>true}),true);
  assert.equal(d.positions.length,0);assert.match(d.decisions[0].reason,/rugcheck_unavailable/);
  const d2=new CopyDesk({clock:()=>ts,fetchReport:async()=>report});
- await d2.inspectBuy({event:e,closed,quality,quote:()=>({price:1,liq:50000,updatedAt:ts,verified:false})});
+ await d2.inspectBuy({event:e,closed,quality,quote:()=>({price:1,liq:50000,updatedAt:ts,verified:false}),tradingUnlocked:()=>true});
  assert.equal(d2.positions.length,0);assert.equal(d2.decisions[0].stage,'PRICE');
 });
 test('no approval for unknown or unverified wallet source',async()=>{
@@ -48,6 +48,14 @@ test('no approval for unknown or unverified wallet source',async()=>{
 test('copy desk checkpoint roundtrip restores independent paper history',async()=>{
  const d=new CopyDesk({clock:()=>ts,fetchReport:async()=>report});
  const e={action:'BUY',confidence:'verified',watchlist:true,traderId:'leader',wallet,mint,signature:'sig-3'};
- await d.inspectBuy({event:e,closed,quality,quote:()=>({mint,price:1,liq:100000,updatedAt:ts,verified:true})});
+ await d.inspectBuy({event:e,closed,quality,quote:()=>({mint,price:1,liq:100000,updatedAt:ts,verified:true}),tradingUnlocked:()=>true});
  const copied=new CopyDesk({clock:()=>ts});assert.equal(copied.restore(d.serialize()),true);assert.equal(copied.positions.length,d.positions.length);assert.equal(copied.cash,d.cash);
+});
+
+test('canonical store outage prevents copy purchase before external risk request',async()=>{
+ const e={action:'BUY',confidence:'verified',watchlist:true,traderId:'leader',wallet,mint,signature:'sig-storage'};
+ const d=new CopyDesk({clock:()=>ts,fetchReport:async()=>report});
+ assert.equal(await d.inspectBuy({event:e,quality,closed,quote:()=>null,tradingUnlocked:()=>false}),true);
+ assert.equal(d.positions.length,0);assert.equal(d.requestCount,0);
+ assert.equal(d.decisions[0].stage,'STORAGE');
 });
