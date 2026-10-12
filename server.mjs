@@ -1403,7 +1403,7 @@ function maybeTrade(t,weather=null) {
       }
     }
     const meaningfulFloor=primaryPaper?PRIMARY_PAPER_MIN_ENTRY_USD:d.equity*(exploratory?.015:(d.risk==='R&D'||d.specialist)?.025:.05);
-    if(!d.fastScalp&&budget<meaningfulFloor){recordDecision(d,t,f,score,'REJECT',primaryPaper?'paper sizing veto: primary trade below 
+    if(!d.fastScalp&&budget<meaningfulFloor){recordDecision(d,t,f,score,'REJECT',primaryPaper?('paper sizing veto: primary trade below minimum '+PRIMARY_PAPER_MIN_ENTRY_USD):'paper sizing veto: final stake too small to be meaningful',weather);continue;}
     if(entryExec.slippage>.065){recordDecision(d,t,f,score,'REJECT','execution veto: modeled slippage',weather);continue;}
     const economics=tradeEconomicsAtTarget(d,t,budget,entryExec),economicFloor=d.researchDesk?Math.max(2,budget*.04):(isFrozenExperimentStrategy(d)&&eraTradeCount(d)<FROZEN_EXPERIMENT_MIN_TRADES)?PAPER_COLLECTION_MIN_EXPECTED_NET_WIN_USD:Math.min(PAPER_MIN_EXPECTED_NET_WIN_USD,Math.max(10,budget*.10));
     if((d.fiveBrain||d.researchDesk)&&num(alpha?.expectedValue)<=0){recordDecision(d,t,f,score,'REJECT',`model EV veto: expected value ${num(alpha?.expectedValue).toFixed(1)} is not positive`,weather);continue;}
