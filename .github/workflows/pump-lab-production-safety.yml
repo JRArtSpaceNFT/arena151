@@ -14,6 +14,6 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-      - run: npm ci
+      - run: npm install --no-audit --no-fund # matches Render build; lockfile is currently out of sync
       - run: npm test
       - run: node --test tests/pump-lab-*.test.mjs
