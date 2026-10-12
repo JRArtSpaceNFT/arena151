@@ -10,6 +10,7 @@ import { renderBotProfileHtml } from './lib/bot-profile.mjs';
 import { evaluateTradeHistory } from './lib/pump-lab-research-gate.mjs';
 import { ShadowCohorts } from './lib/pump-lab-shadow-cohorts.mjs';
 import { CopyDesk } from './lib/pump-lab-copy-desk.mjs';
+import { canonicalStorageReady } from './lib/pump-lab-storage-policy.mjs';
 
 const PORT = Number(process.env.PORT || 3000);
 const PUMP_KEY = process.env.PUMPPORTAL_API_KEY || '';
@@ -891,6 +892,8 @@ function durableTradingReady(){
   // Never open new paper positions from it until Postgres is restored and checkpointed.
   if(emergencyOffsiteRestored&&(!db||!dbStateRestored||lastDurableSaveAt<=0))return false;
   if(!stateIntegrityOk||shuttingDown||lifecyclePhase==='DRAINING')return false;
+  // Emergency peer/local recovery keeps UI readable; never permits new paper buys if canonical Postgres is offline.
+  if(!canonicalStorageReady({databaseConfigured:!!DATABASE_URL,connected:!!db,restored:dbStateRestored,lastSaveAt:lastDurableSaveAt,lastRestoreAt:lastDurableRestoreAt}))return false;
   if(!DATABASE_URL&&!REDIS_URL&&!PEER_RECOVERY_URL)return true;
   if(!(dbStateRestored||kvStateRestored||localStateRestored||peerStateRestored))return false;
   const anchor=Math.max(lastDurableSaveAt,lastDurableRestoreAt,lastKvSaveAt,lastKvRestoreAt,lastLocalRestoreAt,lastPeerRestoreAt);
@@ -1649,7 +1652,7 @@ function ingest(raw,source){
   if(!old)log('token',`🪙 LIVE token spotted: ${t.symbol} · ${t.name}`,'info',{mint:t.mint,source});
   maybeTrade(t,weather);
   if(shadowCohorts.observe(t,features(t),tokenDataQuality(t),{executable:tokenPriceIntegrity(t).executable,tradingUnlocked:durableTradingReady(),ts:now()}))scheduleCriticalSave();
-  if(copyDesk.positions.some(p=>p.mint===t.mint)){
+  if(durableTradingReady()&&copyDesk.positions.some(p=>p.mint===t.mint)){
     const verified=tokenPriceIntegrity(t).executable&&executionPathIntegrity(t).ok;
     if(copyDesk.mark({mint:t.mint,symbol:t.symbol,price:t.price,liq:t.liq,updatedAt:num(t.quoteObservedAt||t.updatedAt)},
       {verified,ts:now()}))scheduleCriticalSave();
@@ -1899,9 +1902,9 @@ async function parseWalletTx(sig,tx){
       }};
       if(action==='BUY'){
         const quality=alphaOS.walletQuality(x.owner,num(tok.mc)),closed=alphaOS.walletClosed.filter(z=>z.wallet===x.owner).slice(0,500);
-        void copyDesk.inspectBuy({event,quality,closed,quote:liveQuote}).then(changed=>{if(changed)scheduleCriticalSave()})
+        void copyDesk.inspectBuy({event,quality,closed,quote:liveQuote,tradingUnlocked:()=>durableTradingReady()}).then(changed=>{if(changed)scheduleCriticalSave()})
           .catch(e=>setHealth('copy-desk','warn','Copy desk screen failed: '+String(e?.message||e).slice(0,120),{truth:'observed'}));
-      }else{const q=liveQuote();if(q&&copyDesk.mark(q,{verified:q.verified,ts:now(),sourceWallet:x.owner}))scheduleCriticalSave();}
+      }else{const q=liveQuote();if(durableTradingReady()&&q&&copyDesk.mark(q,{verified:q.verified,ts:now(),sourceWallet:x.owner}))scheduleCriticalSave();}
     }
     if(watch)log('smart-wallet',`👀 ${watch.traderName} · ${action} · ${event.symbol}`,'info',{traderId:watch.traderId,wallet:x.owner,mint:x.mint,signature:sig,confidence:watch.confidence});
     if(tok){
