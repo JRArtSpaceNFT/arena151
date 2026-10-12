@@ -7,6 +7,7 @@ import { createPumpLabAlphaOS } from './lib/pump-lab-alpha-os.mjs';
 import { createPumpLabSeason2Science } from './lib/pump-lab-season2-science.mjs';
 import { createPumpLabProfitAccelerator } from './lib/pump-lab-profit-accelerator.mjs';
 import { renderBotProfileHtml } from './lib/bot-profile.mjs';
+import { evaluateTradeHistory } from './lib/pump-lab-research-gate.mjs';
 
 const PORT = Number(process.env.PORT || 3000);
 const PUMP_KEY = process.env.PUMPPORTAL_API_KEY || '';
@@ -2436,13 +2437,25 @@ function eraPerformance(id,partition=null){
   return{n:rows.length,mean,total:rows.reduce((z,t)=>z+num(t.pnl),0),winRate:rows.length?wins.length/rows.length*100:0,
     profitFactor:grossLoss?grossWin/grossLoss:grossWin>0?9.99:0,tail:rets.length?percentile(rets,.10):0,ciLow:mean-1.96*se,ciHigh:mean+1.96*se};
 }
+// Cached deterministic challenger research: always based on the closed, current-era paper ledger.
+const researchGateCache=new Map();
+function challengerResearch(id){
+ const rows=trades.filter(t=>t.strategy===id&&t.policyVersion===STRATEGY_ERA);
+ const newest=rows.reduce((m,t)=>Math.max(m,Number(t.closedAt)||0),0);
+ const cached=researchGateCache.get(id);
+ if(cached&&cached.count===rows.length&&cached.newest===newest&&now()-cached.ts<60000)return cached.result;
+ const result=evaluateTradeHistory(rows);
+ researchGateCache.set(id,{count:rows.length,newest,ts:now(),result});
+ return result;
+}
 function evaluateEvolution(){
   for(const childDef of challengers){
     const parentDef=strategyDefs.find(x=>x.id===childDef.parentId);if(!parentDef)continue;
     const child=eraPerformance(childDef.id),parent=eraPerformance(parentDef.id),childHold=eraPerformance(childDef.id,'holdout'),parentHold=eraPerformance(parentDef.id,'holdout');
     if(child.n<60||childHold.n<12)continue;
     const baseline=parentHold.n>=8?parentHold.mean:(parent.n>=20?parent.mean:0),edge=childHold.mean-baseline,tailOk=childHold.tail>=(parentHold.n>=8?parentHold.tail-5:-25);
-    const candidate=edge>3&&childHold.mean>0&&childHold.profitFactor>1.20&&tailOk&&childHold.ciLow>-8;
+    const evidence=challengerResearch(childDef.id);
+    const candidate=evidence.gate?.status==='RESEARCH_PASS'&&edge>3&&childHold.mean>0&&childHold.profitFactor>1.20&&tailOk&&childHold.ciLow>-8;
     if(candidate&&!childDef.promotedAt){
       if(!childDef.promotionCandidateAt){
         childDef.promotionCandidateAt=now();
@@ -2482,6 +2495,8 @@ function researchCycle(){
   evaluateHypothesisArena();
   spawnResearchChallenger();
   const recent=trades.filter(t=>t.policyVersion===STRATEGY_ERA&&now()-t.closedAt<3600000&&!t.strategy.includes('-c'));const wins=recent.filter(t=>t.pnl>0);const avg=recent.length?recent.reduce((a,t)=>a+t.pnlPct,0)/recent.length:0;
+  const gateAudit=experimentSnapshot();
+  const gateMissing=gateAudit.filter(x=>x.researchGate.status==='INSUFFICIENT_DATA').length;
   const prod=strategyDefs.filter(d=>d.risk!=='CONTROL'&&!d.specialist);prod.forEach(markEquity);const best=[...prod].sort((a,b)=>b.equity-a.equity)[0];
   const misses=missedMonsters().slice(0,5),monsterLab=monsterPatternLab(),disc=discoveryLab(),scienceSnap=science.snapshot(strategyDefs.map(d=>d.id)),hypotheses=[];
   if(misses.length>=3)hypotheses.push('Rejection thresholds may be too strict for a subset of high-upside tokens; use matched monster-vs-control features before relaxing any production gate.');
@@ -2493,15 +2508,17 @@ function researchCycle(){
   const weather=marketWeather();const ex=exitLab();if(ex.n>=5&&ex.capture<45)hypotheses.push('Exit capture is below 45% of observed favorable excursion; prioritize longer-hold exit challengers.');const cal=confidenceCalibration().filter(x=>x.n>=5);if(cal.length&&cal.at(-1)?.hitRate<cal[0]?.hitRate)hypotheses.push('High confidence buckets are not yet better calibrated than lower buckets; confidence scores need more evidence.');if(weather.regime==='RISK OFF')hypotheses.push('Current regime is risk-off; compare defensive strategies against momentum before expanding exposure.');
   for(const h of scientistInsights())hypotheses.push(h.text);
   lastScientistRun=now();
-  research={last:now(),notes:[`${recent.length} production exits this hour · ${recent.length?((wins.length/recent.length)*100).toFixed(0):0}% win rate · avg ${avg.toFixed(1)}% · leader ${best?.name||'n/a'}`,'Production strategies remain stable. Challengers use separate paper capital and cannot silently rewrite the incumbent.'],hypotheses};
+  research={last:now(),notes:[`${recent.length} production exits this hour · ${recent.length?((wins.length/recent.length)*100).toFixed(0):0}% win rate · avg ${avg.toFixed(1)}% · leader ${best?.name||'n/a'}`,'Production strategies remain stable. Challengers use separate paper capital and cannot silently rewrite the incumbent.',`${gateMissing}/${gateAudit.length} research challengers still need complete risk-adjusted, doubled-cost and chronological unseen-data evidence; no research pass grants real-money authorization.`],hypotheses};
   log('research','🧪 Research Director completed an hourly review','system',{hypotheses:hypotheses.length});
 }
 
 function experimentSnapshot(){
   return challengers.map(ch=>{const p=strategyDefs.find(x=>x.id===ch.parentId),child=eraPerformance(ch.id),parent=eraPerformance(p.id),ho=eraPerformance(ch.id,'holdout'),pho=eraPerformance(p.id,'holdout');
     const baseline=pho.n>=8?pho.mean:(parent.n>=20?parent.mean:0),edge=ho.mean-baseline;let status='COLLECTING';
-    if(ch.promotedAt)status='PROMOTED';else if(ch.promotionCandidateAt)status='HOLDOUT CANDIDATE';else if(child.n>=60&&ho.n>=12&&edge>3&&ho.mean>0&&ho.profitFactor>1.2)status='PROMOTION CANDIDATE';else if(child.n>=60&&ho.n>=12&&edge<-8)status='GRAVEYARD CANDIDATE';
-    return{id:ch.id,name:ch.name,parent:p.name,mutation:ch.mutation,era:STRATEGY_ERA,equity:ch.equity,parentEquity:p.equity,edge,sample:child.n,holdoutSample:ho.n,holdoutMean:ho.mean,holdoutProfitFactor:ho.profitFactor,profitFactor:child.profitFactor,status,autoPromotion:ALLOW_AUTO_PROMOTION};
+    const evidence=challengerResearch(ch.id);const researchGate=evidence.gate;
+    if(ch.promotedAt)status='PROMOTED';else if(ch.promotionCandidateAt)status='HOLDOUT CANDIDATE';else if(researchGate?.status==='RESEARCH_PASS'&&child.n>=60&&ho.n>=12&&edge>3&&ho.mean>0&&ho.profitFactor>1.2)status='PROMOTION CANDIDATE';else if(child.n>=60&&ho.n>=12&&edge<-8)status='GRAVEYARD CANDIDATE';
+    const researchMetrics={sample:evidence.sample,missingExecution:evidence.missingExecution,windows:evidence.windows,metrics:evidence.metrics,holdout:evidence.holdout};
+    return{id:ch.id,name:ch.name,parent:p.name,mutation:ch.mutation,era:STRATEGY_ERA,equity:ch.equity,parentEquity:p.equity,edge,sample:child.n,holdoutSample:ho.n,holdoutMean:ho.mean,holdoutProfitFactor:ho.profitFactor,profitFactor:child.profitFactor,status,autoPromotion:ALLOW_AUTO_PROMOTION,researchGate,researchMetrics};
   });
 }
 
@@ -3222,7 +3239,7 @@ async function writeLocalCriticalAtomic(s){
 }
 function restorePinnedOffsite(){
   try{
-    const archive=new URL('./recovery/pump-lab-v6-pinned-offsite.json.gz',import.meta.url);
+    const archive=(process.env.NODE_ENV==='test'&&process.env.PUMP_LAB_TEST_OFFSITE_PATH)||new URL('./recovery/pump-lab-v6-pinned-offsite.json.gz',import.meta.url);
     const snapshot=JSON.parse(gunzipSync(fs.readFileSync(archive)).toString('utf8'));
     const state=snapshot?.state&&typeof snapshot.state==='object'?snapshot.state:snapshot;
     const meta=state?.stateMeta||{},savedAt=Number(meta.savedAt)||0;
@@ -4123,7 +4140,7 @@ $('fomoEvents').innerHTML=(s.fomoEvents||[]).slice(0,40).map(e=>'<tr><td><b>'+es
 $('walletBoard').innerHTML=(s.walletBoard||[]).map(w=>'<tr><td><code>'+esc(w.wallet.slice(0,7))+'…'+esc(w.wallet.slice(-5))+'</code></td><td>'+w.events+'</td><td class="green">'+w.buys+'</td><td class="red">'+w.sells+'</td><td>'+w.mints+'</td><td class="'+(w.marked>=0?'green':'red')+'">'+(w.marked>=0?'+':'')+one(w.marked)+'%</td><td>'+one(w.score)+'</td></tr>').join('')||'<tr><td colspan="7" class="muted">Listening for Pump.fun on-chain wallet activity…</td></tr>';
 $('creators').innerHTML=s.creators.map(c=>'<tr><td><code>'+esc(c.creator.slice(0,7))+'…'+esc(c.creator.slice(-5))+'</code></td><td>'+c.launches+'</td><td>'+one(c.bestPeakX)+'×</td><td>'+c.collapses+'</td><td>'+c.graduates+'</td></tr>').join('')||'<tr><td colspan="5" class="muted">Creator history is accumulating from observed launches.</td></tr>';
 $('truth').innerHTML='<div class="smallcard"><b>OBSERVED</b><p class="mini">Pump.fun launch/state snapshots, DEX Screener prices/liquidity/volume, any connected PumpPortal events.</p></div><div class="smallcard" style="margin-top:8px"><b>INFERRED</b><p class="mini">Risk score, narrative heat, consensus, creator reputation and market regime are PUMP LAB models built from observed data.</p></div><div class="smallcard" style="margin-top:8px"><b>NOT CONNECTED YET</b><p class="mini">Full X firehose, holder concentration, unresolved wallet-cluster members and metered token/account trade streams. Verified public Fomo wallets are tracked separately.</p></div>';
-$('experiments').innerHTML=s.experiments.map(e=>'<div class="smallcard" style="margin:7px 0"><b>'+esc(e.name)+'</b><span style="float:right" class="'+(e.edge>=0?'green':'red')+'">'+(e.edge>=0?'+':'')+money(e.edge)+'</span><div class="mini">vs '+esc(e.parent)+' · '+esc(e.mutation)+' · n='+e.sample+' · '+esc(e.status)+'</div></div>').join('');
+$('experiments').innerHTML=s.experiments.map(e=>'<div class="smallcard" style="margin:7px 0"><b>'+esc(e.name)+'</b><span style="float:right" class="'+(e.edge>=0?'green':'red')+'">'+(e.edge>=0?'+':'')+money(e.edge)+'</span><div class="mini">vs '+esc(e.parent)+' · '+esc(e.mutation)+' · n='+e.sample+' · '+esc(e.status)+'</div><div class="mini">Alpha gate: '+esc(e.researchGate?.status||'COLLECTING')+' · future windows '+(e.researchMetrics?.windows||0)+' · missing cost evidence '+(e.researchMetrics?.missingExecution||0)+(e.researchGate?.failed?.length?' · '+esc(e.researchGate.failed.join(', ')):'')+'</div></div>').join('');
 $('missed').innerHTML=listOpp(s.missed,'bestReturn',true,'No qualifying missed monsters yet.');$('saved').innerHTML=listOpp(s.saved,'worstReturn',false,'No qualifying saves yet.');
 $('hall').innerHTML=s.hall.slice(0,10).map(t=>'<div class="smallcard" style="margin:7px 0"><b>'+esc(t.strategyName||t.strategy)+' · $'+esc(t.symbol)+'</b><span style="float:right" class="green">+'+one(t.pnlPct)+'%</span><div class="mini">MFE '+one(t.mfe)+'% · MAE '+one(t.mae)+'% · '+esc(t.why)+'</div></div>').join('')||'<div class="muted">Collecting trades.</div>';
 $('autopsies').innerHTML=s.autopsies.slice(0,10).map(a=>'<div class="smallcard" style="margin:7px 0"><b>'+esc(a.strategyName)+' · $'+esc(a.symbol)+'</b><span style="float:right" class="'+(a.pnlPct>=0?'green':'red')+'">'+(a.pnlPct>=0?'+':'')+one(a.pnlPct)+'%</span><div class="mini">'+esc(a.verdict)+' · MFE '+one(a.mfe)+'% · MAE '+one(a.mae)+'%</div></div>').join('')||'<div class="muted">Autopsies appear after closed trades.</div>';

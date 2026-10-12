@@ -1,0 +1,19 @@
+name: Pump Lab production safety
+on:
+  pull_request:
+    branches: [pump-lab-deploy]
+  push:
+    branches: [pump-lab-deploy, pump-lab-ci-safety-20261012]
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm install --no-audit --no-fund # matches Render build; lockfile is currently out of sync
+      - run: npm test
+      - run: node --test tests/pump-lab-*.test.mjs
