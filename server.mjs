@@ -995,8 +995,12 @@ function entryPolicy(d){
     if(d.researchDesk){
       // Anti-paralysis calibration: Gauntlet follows the top slice of the live score
       // distribution instead of a fixed wall that can sit above every candidate.
-      // This NEVER bypasses cross-source, risk, positive-EV, science or execution vetoes.
-      const h=strategyHealth(d),floor=h.n>=3&&h.avg<0?52:50,target=p90+(coldStart?5:7);
+      // If cold-start rejects accumulate without a single real paper entry, the score
+      // gate eases in bounded stages. Hard quality/risk/EV/science/execution vetoes remain.
+      const h=strategyHealth(d);
+      const dryStage=coldStart?(rejects>=400?2:rejects>=200?1:0):0;
+      const floor=h.n>=3&&h.avg<0?52:(dryStage===2?44:dryStage===1?46:50);
+      const target=p90+(coldStart?(dryStage===2?2:dryStage===1?3:5):7);
       effectiveMin=clamp(target,floor,d.min);
       relief=Math.max(0,d.min-effectiveMin);
     }else if(isFrozenExperimentStrategy(d)&&eraTradeCount(d)<FROZEN_EXPERIMENT_MIN_TRADES){
