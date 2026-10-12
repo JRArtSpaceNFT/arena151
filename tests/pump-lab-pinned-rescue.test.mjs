@@ -55,8 +55,8 @@ test('read-only pinned recovery boots when DB, Key Value and peers are down', {t
   assert.equal(res.status,200);
   const s=await res.json();
   assert.ok(Number.isFinite(s?.summary?.ledgerTrades||0),'Restored ledger count must be defined');
-    assert.equal(s?.strategies?.length,5,'Five Brain migration must expose exactly five active bots');
-  for(const d of s.strategies){
+    assert.equal(s?.strategies?.filter(d=>d.id!=='gauntlet').length,5,'Five primary bots plus independent Gauntlet research');
+  for(const d of s.strategies.filter(d=>d.id!=='gauntlet')){
     assert.ok(Number.isFinite(d.cash)&&d.cash>=0,'Restored cash must be finite and nonnegative');
     assert.ok(Number.isFinite(d.n)&&d.n>=0,'Restored closed-trade count must be valid');
   }
