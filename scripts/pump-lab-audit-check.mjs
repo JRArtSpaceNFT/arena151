@@ -22,6 +22,10 @@ must('independent risk committee', 'function independentRiskVeto(d,t,f,quality,a
 must('immutable lead ID', 'leadId=`${d.id}:${t.mint}`');
 must('holder concentration reader', 'function holderConcentrationPct(t)');
 must('abstain-first losing bot rule', 'abstain-first: losing/research strategy does not use exploratory entries');
+must('Gauntlet score calibration', "else if(sid==='gauntlet')");
+must('Gauntlet anti-paralysis policy', 'Anti-paralysis calibration');
+must('Gauntlet research safety gate', 'research desk safety passed');
+must('Gauntlet max-open enforcement', 'Math.max(1,Number(d.maxOpen)||1)');
 must('exact active five IDs', "new Set(['banker','momentum','dip','champion','smartmom'])");
 must('legacy challengers disabled', 'const challengers = [];');
 must('five brain marker', 'fiveBrain:true');
