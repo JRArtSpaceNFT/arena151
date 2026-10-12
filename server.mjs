@@ -3239,7 +3239,7 @@ async function writeLocalCriticalAtomic(s){
 }
 function restorePinnedOffsite(){
   try{
-    const archive=new URL('./recovery/pump-lab-v6-pinned-offsite.json.gz',import.meta.url);
+    const archive=(process.env.NODE_ENV==='test'&&process.env.PUMP_LAB_TEST_OFFSITE_PATH)||new URL('./recovery/pump-lab-v6-pinned-offsite.json.gz',import.meta.url);
     const snapshot=JSON.parse(gunzipSync(fs.readFileSync(archive)).toString('utf8'));
     const state=snapshot?.state&&typeof snapshot.state==='object'?snapshot.state:snapshot;
     const meta=state?.stateMeta||{},savedAt=Number(meta.savedAt)||0;
