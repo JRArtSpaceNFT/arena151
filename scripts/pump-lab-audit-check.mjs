@@ -24,6 +24,7 @@ must('holder concentration reader', 'function holderConcentrationPct(t)');
 must('abstain-first losing bot rule', 'abstain-first: losing/research strategy does not use exploratory entries');
 must('Gauntlet score calibration', "else if(sid==='gauntlet')");
 must('Gauntlet anti-paralysis policy', 'Anti-paralysis calibration');
+must('Gauntlet staged self loosening', 'rejects>=400?2:rejects>=200?1:0');
 must('Gauntlet research safety gate', 'research desk safety passed');
 must('Gauntlet max-open enforcement', 'Math.max(1,Number(d.maxOpen)||1)');
 must('exact active five IDs', "new Set(['banker','momentum','dip','champion','smartmom'])");
