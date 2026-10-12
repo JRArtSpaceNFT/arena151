@@ -518,6 +518,7 @@ function cleanStrategyTrades(id){
 }
 function eraTradeCount(d){return cleanStrategyTrades(d.id).length;}
 function isFrozenExperimentStrategy(d){return !!d&&ACTIVE_EXPERIMENT_IDS.has(d.id);}
+function isAuthoritativeRuntimeStrategy(d){return !!d&&ACTIVE_RUNTIME_IDS.has(d.id);}
 function experimentStrategyEnabled(d){return !!d&&(d.minuteSampler||ACTIVE_RUNTIME_IDS.has(d.id));}
 function duplicateTickerAudit(){
   const by=new Map();for(const t of tokens.values()){const s=String(t?.symbol||'').toUpperCase();if(!s)continue;if(!by.has(s))by.set(s,new Set());by.get(s).add(t.mint);}
@@ -803,7 +804,7 @@ function experimentLedgerView(d){
 }
 function reconcileAuthoritativeExperimentState({repair=true,source='runtime'}={}){
   const rows=[];let repairs=0,ok=true;
-  for(const d of strategyDefs.filter(isFrozenExperimentStrategy)){
+  for(const d of strategyDefs.filter(isAuthoritativeRuntimeStrategy)){
     const v=experimentLedgerView(d);
     if(!v.coverageComplete){ok=false;rows.push({id:d.id,ok:false,reason:'ledger coverage below recovery high-water',ledgerN:v.n,minimumExpected:v.minimumExpected,runtimeN:num(d.n)});continue;}
     const drift={n:num(d.n)-v.n,wins:num(d.wins)-v.wins,losses:num(d.losses)-v.losses,cash:num(d.cash)-v.cash,equity:num(d.equity)-v.equity};
@@ -823,7 +824,7 @@ function reconcileAuthoritativeExperimentState({repair=true,source='runtime'}={}
   return lastAuthorityAudit;
 }
 function authoritativeStrategyView(d){
-  if(!isFrozenExperimentStrategy(d))return d;
+  if(!isAuthoritativeRuntimeStrategy(d))return d;
   const v=experimentLedgerView(d);
   if(!v.coverageComplete)return{...d,authority:'runtime-counters',authorityWarning:'ledger coverage incomplete'};
   return{...d,n:v.n,wins:v.wins,losses:v.losses,cash:v.cash,equity:v.equity,authority:'clean-ledger',authorityWarning:null};
