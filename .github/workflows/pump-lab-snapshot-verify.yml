@@ -34,7 +34,9 @@ jobs:
              'payloadMB':round(os.stat(p).st_size/1048576,2)}
           print('BACKUP_VERIFICATION',json.dumps(result,sort_keys=True))
           # Five Brain intentionally exposes five active portfolios; legacy >10 check is invalid.
-          ids={x.get('id') for x in (state.get('strategies') or [])}\n          five={'banker','momentum','dip','champion','smartmom'}\n          assert ts>0 and five.issubset(ids) and ids.issubset(five|{'gauntlet'}) and len(ids)==len(state.get('strategies') or []) and isinstance(state.get('trades'),list)
+          ids={x.get('id') for x in (state.get('strategies') or [])}
+          five={'banker','momentum','dip','champion','smartmom'}
+          assert ts>0 and five.issubset(ids) and ids.issubset(five|{'gauntlet'}) and len(ids)==len(state.get('strategies') or []) and isinstance(state.get('trades'),list)
           assert meta.get('version')==6 and meta.get('authority')=='v6-single-runtime-ledger-authority'
           # Backups can become stale; fail if older than the configured 6h verification window.
           assert 0 <= time.time()*1000-ts <= 6*3600000, 'Offsite backup is missing or stale (>6h)'
