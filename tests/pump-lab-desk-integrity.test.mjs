@@ -6,7 +6,7 @@ test('hypothetical FOMO fee floor implies over 1.9% round trip at $100 before sl
  assert.ok(c.breakEvenMovePct>1.89&&c.breakEvenMovePct<1.91);assert.equal(c.model,'HYPOTHETICAL_FOMO_ONLY');
 });
 test('fee floor yields a lower percentage at $250 but no misleading exact execution fill',()=>{
- const c=hypotheticalFomoEconomics(250);assert.equal(c.buyFee,1.125);assert.equal(c.flatFeePct,.9);
+ const c=hypotheticalFomoEconomics(250);assert.equal(c.buyFee,1.125);assert.ok(Math.abs(c.flatFeePct-.9)<1e-10);
  assert.ok(c.breakEvenMovePct>.9&&c.breakEvenMovePct<1);
  assert.match(c.excludes,/slippage/);
 });
