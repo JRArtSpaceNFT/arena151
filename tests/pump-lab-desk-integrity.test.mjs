@@ -19,10 +19,19 @@ test('no live market feed or canonical storage never reports READY',()=>{
  assert.equal(s.health,'DEGRADED_OR_UNVERIFIED');assert.equal(s.checks.marketFeedFresh,false);
  assert.equal(s.macroDial.value,null);assert.equal(s.macroDial.appliedToTrading,false);
 });
-test('fresh market feed plus canonical storage can report observed runtime readiness',()=>{
- const s=buildDeskIntegrityReport({at:1000000,runtime:{ready:true,durable:true,dbConnected:true,phase:'READY'},
- providers:[{component:'pump.fun',status:'ok',ts:990000}],tradeCount:44});
- assert.equal(s.health,'READY_OBSERVED');assert.equal(s.ledgerClosedTrades,44);
+test('recent actual token ingestion plus canonical storage can report observed readiness',()=>{
+ const s=buildDeskIntegrityReport({at:1000000,runtime:{ready:true,durable:true,dbConnected:true,phase:'READY',lastIngestAt:995000},
+ providers:[{component:'pumpportal',status:'ok',ts:990000}],tradeCount:44});
+ assert.equal(s.health,'READY_OBSERVED');assert.equal(s.ledgerClosedTrades,44);assert.equal(s.marketFeeds[0].source,'pumpportal');
+});
+test('a connected socket with stale ingestion never falsely reports running trading',()=>{
+ const s=buildDeskIntegrityReport({at:1000000,runtime:{ready:true,durable:true,dbConnected:true,phase:'READY',lastIngestAt:200000},
+ providers:[{component:'pumpportal',status:'ok',ts:990000}]});
+ assert.equal(s.health,'DEGRADED_OR_UNVERIFIED');assert.equal(s.checks.marketFeedFresh,false);
+});
+test('DEGRADED lifecycle cannot report fully ready even if other checks are green',()=>{
+ const s=buildDeskIntegrityReport({at:1000000,runtime:{ready:true,durable:true,dbConnected:true,phase:'DEGRADED',lastIngestAt:995000}});
+ assert.equal(s.health,'DEGRADED_OR_UNVERIFIED');
 });
 test('insufficient holdout can never be described as validated, even when return is high',()=>{
  const s=buildDeskIntegrityReport({at:1000000,bots:[{id:'banker',name:'Sentinel',n:5,fiveBrain:true}],
