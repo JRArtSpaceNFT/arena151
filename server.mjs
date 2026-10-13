@@ -10,7 +10,8 @@ import { renderBotProfileHtml } from './lib/bot-profile.mjs';
 import { evaluateTradeHistory } from './lib/pump-lab-research-gate.mjs';
 import { ShadowCohorts } from './lib/pump-lab-shadow-cohorts.mjs';
 import { CopyDesk } from './lib/pump-lab-copy-desk.mjs';
-import { ResearchFunnel } from './lib/pump-lab-research-funnel.mjs';
+import { ResearchFunnel,assessObservedFunnel } from './lib/pump-lab-research-funnel.mjs';
+import { calibrateFiveBrainEntry,evaluateFiveBrainExit } from './lib/pump-lab-fivebrain-execution.mjs';
 import { canonicalStorageReady } from './lib/pump-lab-storage-policy.mjs';
 
 const PORT = Number(process.env.PORT || 3000);
@@ -266,33 +267,33 @@ const strategyDefs = [
   ['champion','🏃','The Runner','MED',.04,73,11,95,4,'highest-conviction chart and evidence ensemble: scale winners, protect the right tail, refuse noisy structures'],
   ['smartmom','🧠','The Flow','MED',.04,71,9,55,4,'combine fresh buyer flow, quality, acceleration and verified wallet evidence when available; never use social hype alone']
 ].map(([id,icon,name,risk,size,min,stop,take,maxOpen,thesis]) => ({
-  id,icon,name,risk,size,min,stop,take,maxOpen,thesis,version:7,fiveBrain:true,
+  id,icon,name,risk,size,min,stop,take,maxOpen,thesis,version:8,fiveBrain:true,entryPolicyRevision:'fivebrain-funnel-v2',
   equity:START,cash:START,peak:START,dd:0,auditPeak:START,auditDd:0,wins:0,losses:0,n:0
 }));
 
 Object.assign(strategyDefs.find(d=>d.id==='banker'),{
   exitMode:'defensive',maxHold:60,scaleOut:false,
-  playbookOverride:{minQuality:88,minBuy:.52,maxBuy:.68,minTx:12,maxRisk:44,minMomentum:52,maxMomentum:80,minAccel:44,minLiq:25000,minAge:2,maxAge:35,mcMin:75000,requireCross:true,minEvidence:5,minChartQuality:58,minPathQuality:48,maxSpikeRisk:42,instruction:'Sentinel: cross-source price truth, deep liquidity, balanced buyers, low structural risk, no vertical spikes'},
+  playbookOverride:{minQuality:82,minBuy:.52,maxBuy:.68,minTx:10,maxRisk:44,minMomentum:49,maxMomentum:80,minAccel:42,minLiq:25000,minAge:1.5,maxAge:35,mcMin:75000,requireCross:true,minEvidence:5,minChartQuality:54,minPathQuality:44,maxSpikeRisk:42,instruction:'Sentinel: cross-source price truth, deep liquidity, balanced buyers, low structural risk, no vertical spikes'},
   exitBrain:{proofMin:1.5,minSpark:3,failPnl:-1.5,confirmPeak:6,hardStop:6,trailStart:10,trailAbs:3,trailFrac:.25,maxHold:60}
 });
 Object.assign(strategyDefs.find(d=>d.id==='momentum'),{
   exitMode:'runner',maxHold:90,scaleOut:true,
-  playbookOverride:{minQuality:82,minBuy:.55,maxBuy:.72,minTx:10,maxRisk:54,minMomentum:64,maxMomentum:88,minAccel:56,minLiq:12000,minAge:.8,maxAge:10,mcMin:40000,mcMax:400000,requireCross:true,minEvidence:5,minChartQuality:54,minPathQuality:45,maxSpikeRisk:48,instruction:'Surge: acceleration plus persistent buyers; reject exhausted/euphoric bursts and price discontinuities'},
+  playbookOverride:{minQuality:78,minBuy:.54,maxBuy:.72,minTx:8,maxRisk:54,minMomentum:60,maxMomentum:88,minAccel:52,minLiq:12000,minAge:.8,maxAge:10,mcMin:40000,mcMax:400000,requireCross:true,minEvidence:5,minChartQuality:50,minPathQuality:43,maxSpikeRisk:48,instruction:'Surge: acceleration plus persistent buyers; reject exhausted/euphoric bursts and price discontinuities'},
   exitBrain:{proofMin:1.0,minSpark:4,failPnl:-2,confirmPeak:8,hardStop:7,trailStart:14,trailAbs:4,trailFrac:.28,maxHold:90}
 });
 Object.assign(strategyDefs.find(d=>d.id==='dip'),{
   exitMode:'structure',maxHold:120,scaleOut:true,
-  playbookOverride:{minQuality:82,minBuy:.50,maxBuy:.70,minTx:9,maxRisk:54,minMomentum:48,maxMomentum:82,minAccel:50,minLiq:12000,minAge:2,maxAge:25,mcMin:50000,mcMax:600000,drawMin:-30,drawMax:-5,minRebound:4,requireCross:true,minEvidence:4,minChartQuality:50,maxSpikeRisk:46,allowedStructures:['RECOVERY','BREAKOUT_RETEST','BASE'],instruction:'Rebound: controlled drawdown followed by measurable rebound and renewed acceleration; never catch a falling knife'},
+  playbookOverride:{minQuality:78,minBuy:.50,maxBuy:.70,minTx:8,maxRisk:54,minMomentum:46,maxMomentum:82,minAccel:47,minLiq:12000,minAge:2,maxAge:25,mcMin:50000,mcMax:600000,drawMin:-30,drawMax:-4,minRebound:3.5,requireCross:true,minEvidence:4,minChartQuality:48,maxSpikeRisk:46,allowedStructures:['RECOVERY','BREAKOUT_RETEST','BASE'],instruction:'Rebound: controlled drawdown followed by measurable rebound and renewed acceleration; never catch a falling knife'},
   exitBrain:{proofMin:2.0,minSpark:4,failPnl:-2.5,confirmPeak:8,hardStop:8,trailStart:15,trailAbs:5,trailFrac:.30,maxHold:120}
 });
 Object.assign(strategyDefs.find(d=>d.id==='champion'),{
   exitMode:'conviction',maxHold:240,scaleOut:true,
-  playbookOverride:{minQuality:86,minBuy:.52,maxBuy:.72,minTx:12,maxRisk:50,minMomentum:56,maxMomentum:86,minAccel:48,minLiq:18000,minAge:2,maxAge:40,mcMin:80000,requireCross:true,minEvidence:6,minChartQuality:64,minPathQuality:56,maxSpikeRisk:42,allowedStructures:['SMOOTH_TREND','BREAKOUT_RETEST','BREAKOUT','COMPRESSION','RECOVERY'],instruction:'Runner: best total evidence plus clean chart structure; patiently preserve exceptional right-tail winners'},
+  playbookOverride:{minQuality:82,minBuy:.52,maxBuy:.72,minTx:10,maxRisk:50,minMomentum:54,maxMomentum:86,minAccel:46,minLiq:18000,minAge:2,maxAge:40,mcMin:80000,requireCross:true,minEvidence:5,minChartQuality:60,minPathQuality:52,maxSpikeRisk:42,allowedStructures:['SMOOTH_TREND','BREAKOUT_RETEST','BREAKOUT','COMPRESSION','RECOVERY'],instruction:'Runner: best total evidence plus clean chart structure; patiently preserve exceptional right-tail winners'},
   exitBrain:{proofMin:2.5,minSpark:5,failPnl:-3,confirmPeak:10,hardStop:9,trailStart:18,trailAbs:6,trailFrac:.33,maxHold:240}
 });
 Object.assign(strategyDefs.find(d=>d.id==='smartmom'),{
   exitMode:'runner',maxHold:100,scaleOut:true,
-  playbookOverride:{minQuality:84,minBuy:.54,maxBuy:.72,minTx:11,maxRisk:52,minMomentum:58,maxMomentum:86,minAccel:52,minLiq:14000,minAge:1.2,maxAge:20,mcMin:50000,mcMax:750000,requireCross:true,minEvidence:5,minChartQuality:54,minPathQuality:44,maxSpikeRisk:46,instruction:'Flow: fresh persistent order flow plus quality and acceleration; wallet intelligence is bonus evidence, never a substitute for market confirmation'},
+  playbookOverride:{minQuality:80,minBuy:.53,maxBuy:.72,minTx:9,maxRisk:52,minMomentum:54,maxMomentum:86,minAccel:48,minLiq:14000,minAge:1.2,maxAge:20,mcMin:50000,mcMax:750000,requireCross:true,minEvidence:5,minChartQuality:50,minPathQuality:44,maxSpikeRisk:46,instruction:'Flow: fresh persistent order flow plus quality and acceleration; wallet intelligence is bonus evidence, never a substitute for market confirmation'},
   exitBrain:{proofMin:1.25,minSpark:4,failPnl:-2,confirmPeak:7,hardStop:7,trailStart:14,trailAbs:4,trailFrac:.28,maxHold:100}
 });
 
@@ -1335,6 +1336,15 @@ function maybeTrade(t,weather=null) {
     const existing=positions.find(p=>p.strategy===d.id&&p.mint===t.mint&&!p.closed);
     if(existing){
       if(manageCopyPosition(d,existing,t))continue;
+      // Entry/exit policy v2: only closes against verified quotes and real, recent order flow.
+      if(d.fiveBrain){
+        const ex=evaluateFiveBrainExit({strategyId:d.id,holdMinutes:(now()-num(existing.opened))/60000,
+          pnlPct:pct(t.price,existing.entry),peakPnlPct:pct(existing.peakDuring||t.price,existing.entry),
+          acceleration:f.acceleration,momentum:f.momentum,buyRatio:f.buyRatio,flowFresh:f.flowFresh,
+          quoteVerified:tokenPriceIntegrity(t).executable&&executionPathIntegrity(t).ok,
+          estimatedNetProfitUsd:estimatedOpenProfitUsd(existing,t)-(existing.units*t.price)*(FEE_RATE+.01)});
+        if(ex.exit){const done=closePos(d,existing,t,`Five Brain v2 · ${ex.reason}`);if(done!==false)continue;}
+      }
       const alphaExit=alphaOS.exitPlan(existing,t,f),openProfitUsd=estimatedOpenProfitUsd(existing,t),alphaRiskExit=/risk|rug|liquidity|catastrophic|stop|fraud|honeypot|thesis|invalid/i.test(String(alphaExit.reason||'')),alphaProfitAllowed=openProfitUsd<=0||openProfitUsd>=PAPER_MIN_PROFIT_TAKE_USD||alphaRiskExit;
       const postEntryExperiment=!!d.postEntryProfile;
       if(alphaExit.action==='EXIT'&&alphaProfitAllowed&&(!postEntryExperiment||alphaRiskExit)){existing.alphaExit=alphaExit;closePos(d,existing,t,'Alpha OS · '+alphaExit.reason);continue;}
@@ -1357,7 +1367,17 @@ function maybeTrade(t,weather=null) {
     const circuit=strategyRiskCircuit(d);
     if(!circuit.ok){if(!opportunities.has(`${d.id}:${t.mint}`))recordDecision(d,t,f,strategyScore(d,f,t),'REJECT',circuit.reason,weather);continue;}
     if(openCount(d.id)>=Math.max(1,Number(d.maxOpen)||1)||d.cash<Math.max(5,d.equity*.02)||!(t.price>0))continue;
-    const score=strategyScore(d,f,t);const policy=entryPolicy(d);const regime=weather.regime,cadence=tradeCadenceGuard(d,t);
+    const score=strategyScore(d,f,t),basePolicy=entryPolicy(d);
+    const funnelSignal=d.fiveBrain?assessObservedFunnel(t,f,quality,{
+      quoteFresh:priceIntegrity.executable,continuousPath:executionPathIntegrity(t).ok,
+      sourceDisagreement:/source|disagreement/i.test(String(executionPathIntegrity(t).reason||'')),
+      memeEligible:universe.ok,ts:now()
+    }):null;
+    const entryRevision=d.fiveBrain?calibrateFiveBrainEntry({strategyId:d.id,baseMin:basePolicy.min,p75:basePolicy.p75,
+      p90:basePolicy.p90,closedTrades:eraTradeCount(d),funnel:funnelSignal,flowFresh:f.flowFresh,
+      quality:quality.score,marketRisk:f.risk}):null;
+    const policy=entryRevision?.enabled?{...basePolicy,min:entryRevision.min,entryRevision}:basePolicy;
+    const regime=weather.regime,cadence=tradeCadenceGuard(d,t);
     if(!cadence.ok){if(!opportunities.has(`${d.id}:${t.mint}`))recordDecision(d,t,f,score,'REJECT',cadence.reason,weather);continue;}
     const lowBlocked=d.risk==='LOW'&&f.risk>policy.lowRiskLimit;
     const sniperBlocked=(d.parentId==='sniper'||d.id==='sniper')&&f.risk>policy.sniperRiskLimit;
@@ -1421,7 +1441,7 @@ function maybeTrade(t,weather=null) {
     const entry=entryExec.fillPrice;const cost=budget*(1+entryExec.feeRate)+num(entryExec.fixedCost)+num(entryExec.expectedFailureCost);
     if(cost>d.cash)continue;
     d.cash-=cost;
-    const p={id:'p'+now()+Math.random(),leadId:`${d.id}:${t.mint}`,strategy:d.id,mint:t.mint,symbol:t.symbol,entry,entryHolderConcentration:holderConcentrationPct(t),units:budget/entry,originalUnits:budget/entry,invested:budget,entryCost:cost,entryExecution:entryExec,executionQuality,entryEconomics:economics,realizedProceeds:0,partialExits:[],scaleOutHits:[],sourceEntrySig:d.copyLab?(verifiedWalletSignal(t,d.copyWindowMin||15,d.copySource||null).events[0]?.signature||null):null,opened:now(),closed:false,lastPrice:t.price,lastMarkedAt:now(),markSource:'entry',score,entryFeatures:{...f,mc:t.mc,liq:t.liq},entryMc:t.mc,entryLiq:t.liq,entryQuality:quality.score,dnaHit25:similar.hit25,dnaSample:similar.n,allocationMult:allocatorMult,sizingMode:'alpha-os-ev-v1',samplePartition:partitionForMint(t.mint),sizing,alphaOS:alpha,budgetPct:d.equity>0?budget/d.equity:0,live100Equivalent:sizing.live100Equivalent,exitMode:exitModeFor(d),policyVersion:STRATEGY_ERA,guard:{requiredScore:activeGuard.requiredScore,minQuality:activeGuard.minQuality,minBuyRatio:activeGuard.minBuyRatio,recentAvg:activeGuard.health.avg,recentN:activeGuard.health.n,exploratory},coldStartProbe:exploratory,probeSafety:exploratory?probeSafety:null,reason:`${exploratory?'cold-start exploration · ':''}score ${score.toFixed(0)} · gate ${policy.min.toFixed(0)} · risk ${f.risk.toFixed(0)} · Q${quality.score.toFixed(0)} · stake ${(budget/Math.max(1,d.equity)*100).toFixed(1)}% · $100≈${sizing.live100Equivalent.toFixed(2)} · size×${sizing.mult.toFixed(2)} · expectancy×${sizing.expectancyMult.toFixed(2)} · science×${scienceSize.toFixed(2)} · EV ${alpha.expectedValue.toFixed(1)} · targetNet ${economics.netAtTarget.toFixed(0)} · RTcost ${economics.roundTripCosts.toFixed(1)} · safety ${alpha.preTradeSafety.score.toFixed(0)} · walletQ ${alpha.walletConsensus.score.toFixed(0)} · tox ${alpha.toxicity.score.toFixed(0)}`,entryRegime:regime,entryPhase:weather.phase,entryPriceSource:t.priceSource||t.sources?.[0]||'live',entrySources:[...(t.sources||[])],peakDuring:entry,troughDuring:entry};
+    const p={id:'p'+now()+Math.random(),leadId:`${d.id}:${t.mint}`,strategy:d.id,mint:t.mint,symbol:t.symbol,entry,entryHolderConcentration:holderConcentrationPct(t),units:budget/entry,originalUnits:budget/entry,invested:budget,entryCost:cost,entryExecution:entryExec,executionQuality,entryEconomics:economics,realizedProceeds:0,partialExits:[],scaleOutHits:[],sourceEntrySig:d.copyLab?(verifiedWalletSignal(t,d.copyWindowMin||15,d.copySource||null).events[0]?.signature||null):null,opened:now(),closed:false,lastPrice:t.price,lastMarkedAt:now(),markSource:'entry',score,entryRevision:d.fiveBrain?{version:'v2',reason:entryRevision?.reason,min:policy.min,funnelStage:funnelSignal?.stage}:null,entryFeatures:{...f,mc:t.mc,liq:t.liq},entryMc:t.mc,entryLiq:t.liq,entryQuality:quality.score,dnaHit25:similar.hit25,dnaSample:similar.n,allocationMult:allocatorMult,sizingMode:'alpha-os-ev-v1',samplePartition:partitionForMint(t.mint),sizing,alphaOS:alpha,budgetPct:d.equity>0?budget/d.equity:0,live100Equivalent:sizing.live100Equivalent,exitMode:exitModeFor(d),policyVersion:STRATEGY_ERA,guard:{requiredScore:activeGuard.requiredScore,minQuality:activeGuard.minQuality,minBuyRatio:activeGuard.minBuyRatio,recentAvg:activeGuard.health.avg,recentN:activeGuard.health.n,exploratory},coldStartProbe:exploratory,probeSafety:exploratory?probeSafety:null,reason:`${exploratory?'cold-start exploration · ':''}${d.fiveBrain?'Five Brain v2 '+(entryRevision?.reason||'')+' · ':''}score ${score.toFixed(0)} · gate ${policy.min.toFixed(0)} · risk ${f.risk.toFixed(0)} · Q${quality.score.toFixed(0)} · stake ${(budget/Math.max(1,d.equity)*100).toFixed(1)}% · $100≈${sizing.live100Equivalent.toFixed(2)} · size×${sizing.mult.toFixed(2)} · expectancy×${sizing.expectancyMult.toFixed(2)} · science×${scienceSize.toFixed(2)} · EV ${alpha.expectedValue.toFixed(1)} · targetNet ${economics.netAtTarget.toFixed(0)} · RTcost ${economics.roundTripCosts.toFixed(1)} · safety ${alpha.preTradeSafety.score.toFixed(0)} · walletQ ${alpha.walletConsensus.score.toFixed(0)} · tox ${alpha.toxicity.score.toFixed(0)}`,entryRegime:regime,entryPhase:weather.phase,entryPriceSource:t.priceSource||t.sources?.[0]||'live',entrySources:[...(t.sources||[])],peakDuring:entry,troughDuring:entry};
     p.season2Science=scienceGate;positions.push(p);science.recordEntry(p,t,{features:f,quality,market:weather});alphaOS.recordShadowEntry({position:p,token:t,alpha});recordDecision(d,t,f,score,'BUY',p.reason,weather);queueTradeJournal('BUY',d,p,t,{score,exploratory});scheduleCriticalSave();
     if(d.risk!=='R&D')log('buy',`${d.icon} ${d.name} bought ${t.symbol} · ${budget.toFixed(0)} paper · ${p.reason}`,'good',{strategy:d.id,mint:t.mint});
   }
