@@ -13,6 +13,7 @@ import { CopyDesk } from './lib/pump-lab-copy-desk.mjs';
 import { ResearchFunnel,assessObservedFunnel } from './lib/pump-lab-research-funnel.mjs';
 import { calibrateFiveBrainEntry,evaluateFiveBrainExit } from './lib/pump-lab-fivebrain-execution.mjs';
 import { canonicalStorageReady } from './lib/pump-lab-storage-policy.mjs';
+import { shouldEvaluateCoreToken,shouldProcessStrategy } from './lib/pump-lab-core-admission.mjs';
 
 const PORT = Number(process.env.PORT || 3000);
 const PUMP_KEY = process.env.PUMPPORTAL_API_KEY || '';
@@ -1329,11 +1330,17 @@ function adaptivePositionSizing(d,t,f,score,policy,quality,similar,guard,adv,reg
 
 function maybeTrade(t,weather=null) {
   if(shuttingDown||lifecyclePhase==='DRAINING'||!durableTradingReady())return;
+  // Feed ingestion, science, the shadow funnel, and copy-desk observations have
+  // already run independently. Only skip the expensive LIVE paper-trading loop
+  // for coins strictly below every active primary/desk risk floor.
+  if(!shouldEvaluateCoreToken({marketCap:t?.mc,hasOpenPosition:positions.some(p=>!p.closed&&p.mint===t?.mint)}))return;
   weather=weather||marketWeather();const f=features(t),quality=tokenDataQuality(t),adv=adversarialRisk(t,f,quality),similar=dnaSimilarity(t);
   for(const d of allTraders()){
+    const enabled=experimentStrategyEnabled(d);
+    const existing=positions.find(p=>p.strategy===d.id&&p.mint===t.mint&&!p.closed);
+    if(!shouldProcessStrategy({enabled,hasOpenPosition:!!existing}))continue;
     markEquity(d);
     if(d.hypothesis&&d.hypothesisRetiredAt)continue;
-    const existing=positions.find(p=>p.strategy===d.id&&p.mint===t.mint&&!p.closed);
     if(existing){
       if(manageCopyPosition(d,existing,t))continue;
       // Entry/exit policy v2: only closes against verified quotes and real, recent order flow.
@@ -1352,7 +1359,7 @@ function maybeTrade(t,weather=null) {
       if(manageScaleOut(d,existing,t))continue;
       const ex=exitDecision(d,existing,t,f);if(ex.exit)closePos(d,existing,t,ex.why);continue;
     }
-    if(!experimentStrategyEnabled(d))continue;
+    if(!enabled)continue;
     if(d.minuteSampler)continue;
     const priceIntegrity=tokenPriceIntegrity(t),universe=memeUniverseEligibility(t);
     if(!priceIntegrity.executable){recordDecision(d,t,f,strategyScore(d,f,t),'REJECT','data integrity: stale price quote',weather);continue;}
