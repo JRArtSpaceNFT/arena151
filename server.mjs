@@ -1399,7 +1399,7 @@ function maybeTrade(t,weather=null) {
     // During cold-start collection, limit each five-brain strategy to one open micro-probe.
     if(exploratory&&openCount(d.id)>=(frozenCollection?1:Math.max(4,Number(d.maxOpen)||0)))continue;
     if(!exploratory&&(score<policy.min||lowBlocked||sniperBlocked||customBlocked||adv.hardVeto||!guard.ok)){
-      if(!opportunities.has(`${d.id}:${t.mint}`))recordDecision(d,t,f,score,'REJECT',score<policy.min?'below threshold':adv.hardVeto?'adversarial veto':!guard.ok?guard.reason:'risk veto',weather);
+      if(!opportunities.has(`${d.id}:${t.mint}`))recordDecision(d,t,f,score,'REJECT',adv.hardVeto?'adversarial veto':!guard.ok?guard.reason:lowBlocked||sniperBlocked||customBlocked?'risk veto':score<policy.min?'below threshold':'other entry veto',weather);
       continue;
     }
     const corrGuard=d.risk==='CONTROL'?{ok:true,sizeMultiplier:1,reason:'control sample unrestricted'}:profitAccelerator.correlationGuard({strategyId:d.id,token:t,positions,correlations:strategyCorrelation(),tokens});
