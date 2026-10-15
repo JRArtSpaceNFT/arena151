@@ -34,7 +34,7 @@ must('strict price path integrity', 'function executionPathIntegrity(t)');
 must('cross-source discontinuity block', "cross-source price discontinuity");
 must('feed disagreement block', "price ping-pong / feed disagreement");
 must('stagnant price block', "stagnant quote");
-must('entry path integrity gate', "if(!pathIntegrity.ok)return fail('abstain: '+pathIntegrity.reason)");
+must('entry path integrity gate', "if(!pathIntegrity.ok)return fail('abstain: '+pathIntegrity.reason");
 must('chart quality gate', "abstain: chart quality");
 must('path continuity gate', "abstain: path continuity");
 must('spike risk gate', "abstain: spike/chase risk");
