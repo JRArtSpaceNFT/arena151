@@ -1835,11 +1835,19 @@ async function dexPoll(){
 }
 let quoteRefreshCursor=0;
 async function candidateQuoteRefresh(){
-  const candidates=[...tokens.values()].filter(t=>num(t.mc)>=40000&&num(t.price)>0);
-  if(!candidates.length)return;
-  candidates.sort((x,y)=>num(y.updatedAt)-num(x.updatedAt));
-  const chosen=Array.from({length:Math.min(20,candidates.length)},(_,i)=>candidates[(quoteRefreshCursor+i)%candidates.length]);
-  quoteRefreshCursor=(quoteRefreshCursor+chosen.length)%candidates.length;
+  const candidates=[...tokens.values()].filter(t=>num(t.mc)>0&&num(t.price)>0);
+  if(!candidates.length){setHealth('candidate-quotes','warn','No candidate tokens discovered',{truth:'observed'});return;}
+  // Prioritize candidates lacking a real observed price path; rotate the rest fairly.
+  const shortHistory=candidates.filter(t=>(t.history||[]).filter(h=>num(h.price)>0).length<2);
+  const readyHistory=candidates.filter(t=>(t.history||[]).filter(h=>num(h.price)>0).length>=2);
+  const sortOldest=(a,b)=>num(a.quoteObservedAt||a.updatedAt)-num(b.quoteObservedAt||b.updatedAt);
+  shortHistory.sort(sortOldest);readyHistory.sort(sortOldest);
+  const chosen=[...shortHistory.slice(0,14),...readyHistory.slice(0,6)].slice(0,20);
+  if(chosen.length<20){
+    const present=new Set(chosen.map(t=>t.mint));
+    for(const t of candidates.sort(sortOldest)){if(chosen.length>=20)break;if(!present.has(t.mint)){chosen.push(t);present.add(t.mint);}}
+  }
+  let dexUpdated=0,pumpUpdated=0,unmatched=0;
   try{
     const result=await fetchJson('https://api.dexscreener.com/tokens/v1/solana/'+chosen.map(t=>t.mint).join(','));
     const pairs=new Map();
@@ -1848,16 +1856,28 @@ async function candidateQuoteRefresh(){
       if(!mint)continue;
       if(!pairs.has(mint)||num(pair.liquidity?.usd)>num(pairs.get(mint).liquidity?.usd))pairs.set(mint,pair);
     }
-    let updated=0;
+    const missing=[];
     for(const token of chosen){
       const pair=pairs.get(token.mint);
-      if(!pair||!(num(pair.priceUsd)>0))continue;
-      ingest({...pair,mint:token.mint},'dexscreener');
-      updated++;
+      if(pair&&num(pair.priceUsd)>0){ingest({...pair,mint:token.mint},'dexscreener');dexUpdated++;}
+      else missing.push(token);
     }
-    setHealth('candidate-quotes',updated?'ok':'warn','Eligible quote samples: '+updated+'/'+chosen.length,{truth:'observed'});
+    // Pump.fun bonding curve coins may not have a DexScreener pair yet.
+    // Query their individual live coin snapshots; no synthetic price samples.
+    for(const token of missing.slice(0,8)){
+      try{
+        const raw=await fetchJson('https://frontend-api-v3.pump.fun/coins/'+encodeURIComponent(token.mint));
+        const q=normalize({...raw,mint:token.mint},'pump.fun-candidate');
+        if(q&&num(q.price)>0){ingest({...raw,mint:token.mint},'pump.fun-candidate');pumpUpdated++;}
+        else unmatched++;
+      }catch{unmatched++;}
+    }
+    unmatched+=Math.max(0,missing.length-8);
+    setHealth('candidate-quotes',dexUpdated+pumpUpdated?'ok':'warn','Verified refreshed '+(dexUpdated+pumpUpdated)+'/'+chosen.length+' (dex '+dexUpdated+', pump '+pumpUpdated+', no quote '+unmatched+')',{truth:'observed'});
+    if(dexUpdated+pumpUpdated===0)console.warn('CANDIDATE_REFRESH_ZERO '+JSON.stringify({candidates:candidates.length,chosen:chosen.length,unmatched}));
   }catch(error){
-    setHealth('candidate-quotes','warn',String(error.message),{truth:'observed'});
+    setHealth('candidate-quotes','warn','Candidate refresh failed: '+String(error.message),{truth:'observed'});
+    console.warn('CANDIDATE_REFRESH_ERROR '+String(error.message));
   }
 }
 function connectPumpPortal(){
