@@ -501,8 +501,8 @@ function executionPathIntegrity(t){
   const base=tokenPriceIntegrity(t),rows=(t?.history||[]).filter(x=>num(x.price)>0).slice(-12).map(x=>({ts:num(x.ts),price:num(x.price),source:String(x.priceSource||'')}));
   if(num(t?.price)>0)rows.push({ts:num(t?.quoteObservedAt||t?.updatedAt||now()),price:num(t.price),source:String(t?.priceSource||t?.sources?.[0]||'')});
   if(!base.executable)return{ok:false,reason:'stale/unverified quote',...base};
-  if(base.unchangedPriceTicks>=3&&base.distinctAgeMs>45000)return{ok:false,reason:'stagnant quote',...base};
-  if(rows.length<3)return{ok:false,reason:'insufficient continuous price path',observedSamples:rows.length,requiredSamples:3,tokenAgeMs:Math.max(0,now()-num(t?.createdAt||now())),sourceCount:Object.keys(t?.sourceSeen||{}).length,...base};
+  if(base.unchangedPriceTicks>=5&&base.distinctAgeMs>60000)return{ok:false,reason:'stagnant quote',...base};
+  if(rows.length<2)return{ok:false,reason:'insufficient continuous price path',observedSamples:rows.length,requiredSamples:2,tokenAgeMs:Math.max(0,now()-num(t?.createdAt||now())),sourceCount:Object.keys(t?.sourceSeen||{}).length,...base};
   let maxJump=0,crossSourceJump=0,pingPong=false,previousMove=null;
   for(let i=1;i<rows.length;i++){
     const move=pct(rows[i].price,rows[i-1].price),abs=Math.abs(move);maxJump=Math.max(maxJump,abs);
@@ -2858,14 +2858,14 @@ async function initDb(restoreState=true){
   if(db||dbConnecting)return;dbConnecting=true;let client=null;
   try{
     const {Client}=await import('pg');
-    client=new Client({connectionString:DATABASE_URL,ssl:DATABASE_URL.includes('render.com')?{rejectUnauthorized:false}:undefined,connectionTimeoutMillis:15000,keepAlive:true,keepAliveInitialDelayMillis:5000});
+    client=new Client({connectionString:DATABASE_URL,ssl:DATABASE_URL.includes('render.com')?{rejectUnauthorized:false}:undefined,connectionTimeoutMillis:8000,keepAlive:true,keepAliveInitialDelayMillis:5000,query_timeout:15000});
     client.on('error',e=>{
       if(db===client)db=null;
       setHealth('research-memory','warn','Postgres interrupted · independent failover remains active while reconnecting',{truth:'observed'});
       // Postgres is canonical when healthy, but a brief canonical-store outage is not
       // an engine outage when the peer/local failover has a fresh trusted checkpoint.
       if(!durableTradingReady()&&lifecyclePhase==='READY')setLifecycle('DEGRADED','durable storage unavailable');
-      console.warn('Postgres connection interrupted:',e.message);scheduleDbReconnect(5000);
+      console.warn('Postgres connection interrupted:',e.message);scheduleDbReconnect(1500);
     });
     await client.connect();db=client;dbReconnectAttempt=0;dbDisabledUntil=0;lastDbFailure='';
     await client.query('CREATE TABLE IF NOT EXISTS pump_lab_state (id text primary key, payload jsonb not null, updated_at timestamptz default now())');
