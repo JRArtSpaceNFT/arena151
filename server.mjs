@@ -502,7 +502,7 @@ function executionPathIntegrity(t){
   if(num(t?.price)>0)rows.push({ts:num(t?.quoteObservedAt||t?.updatedAt||now()),price:num(t.price),source:String(t?.priceSource||t?.sources?.[0]||'')});
   if(!base.executable)return{ok:false,reason:'stale/unverified quote',...base};
   if(base.unchangedPriceTicks>=3&&base.distinctAgeMs>45000)return{ok:false,reason:'stagnant quote',...base};
-  if(rows.length<3)return{ok:false,reason:'insufficient continuous price path',...base};
+  if(rows.length<3)return{ok:false,reason:'insufficient continuous price path',observedSamples:rows.length,requiredSamples:3,tokenAgeMs:Math.max(0,now()-num(t?.createdAt||now())),sourceCount:Object.keys(t?.sourceSeen||{}).length,...base};
   let maxJump=0,crossSourceJump=0,pingPong=false,previousMove=null;
   for(let i=1;i<rows.length;i++){
     const move=pct(rows[i].price,rows[i-1].price),abs=Math.abs(move);maxJump=Math.max(maxJump,abs);
@@ -1055,7 +1055,7 @@ function entryGuard(d,t,f,score,policy,quality,adv,regime){
   const learned=frozen?policy.min:(policy.coldStart?policy.min:(Number.isFinite(policy.p90)?policy.p90:policy.min)),requiredScore=Math.max(policy.min,learned+scoreBuffer);
   const fail=reason=>({ok:false,reason,requiredScore,minQuality,minBuyRatio,health:h,playbook:p,stack});
   const pathIntegrity=executionPathIntegrity(t);
-  if(!pathIntegrity.ok)return fail('abstain: '+pathIntegrity.reason);
+  if(!pathIntegrity.ok)return fail('abstain: '+pathIntegrity.reason+(pathIntegrity.reason==='insufficient continuous price path'?` (${pathIntegrity.observedSamples||0}/3 observed quotes)` :''));
   const chart=f.chart||{};
   if(Number.isFinite(p.minChartQuality)&&num(chart.chartQuality)<p.minChartQuality)return fail('abstain: chart quality');
   if(Number.isFinite(p.minPathQuality)&&num(chart.bullContinuity)<p.minPathQuality)return fail('abstain: path continuity');
