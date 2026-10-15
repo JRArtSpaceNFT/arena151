@@ -21,8 +21,8 @@ const PUMP_KEY = process.env.PUMPPORTAL_API_KEY || '';
 const ALLOW_METERED = (process.env.ALLOW_METERED_PUMPPORTAL || 'false') === 'true';
 const START = 1000;
 const TARGET = 100000;
-const STRATEGY_ERA = 'v7-five-brain-2026-10-11';
-const CLEAN_SEASON_LABEL = 'season4-five-brain-2026-10-11';
+const STRATEGY_ERA = 'v8-five-brain-2026-10-14';
+const CLEAN_SEASON_LABEL = 'season5-five-brain-2026-10-14';
 const STATE_AUTHORITY_VERSION = 'v6-single-runtime-ledger-authority';
 const ALLOW_SEASON_MIGRATION = (process.env.ALLOW_SEASON_MIGRATION || 'false') === 'true';
 const FEE_RATE = 0.0125; // conservative fallback for unknown venue/lifecycle
