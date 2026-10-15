@@ -1833,6 +1833,33 @@ async function dexPoll(){
     setHealth('dexscreener','ok',`Batch enrichment · ${n} Solana tokens`,{truth:'observed'});
   }catch(e){setHealth('dexscreener','warn',`Enrichment unavailable: ${e.message}`);}
 }
+let quoteRefreshCursor=0;
+async function candidateQuoteRefresh(){
+  const candidates=[...tokens.values()].filter(t=>num(t.mc)>=40000&&num(t.price)>0);
+  if(!candidates.length)return;
+  candidates.sort((x,y)=>num(y.updatedAt)-num(x.updatedAt));
+  const chosen=Array.from({length:Math.min(20,candidates.length)},(_,i)=>candidates[(quoteRefreshCursor+i)%candidates.length]);
+  quoteRefreshCursor=(quoteRefreshCursor+chosen.length)%candidates.length;
+  try{
+    const result=await fetchJson('https://api.dexscreener.com/tokens/v1/solana/'+chosen.map(t=>t.mint).join(','));
+    const pairs=new Map();
+    for(const pair of (Array.isArray(result)?result:[])){
+      const mint=pair.baseToken?.address;
+      if(!mint)continue;
+      if(!pairs.has(mint)||num(pair.liquidity?.usd)>num(pairs.get(mint).liquidity?.usd))pairs.set(mint,pair);
+    }
+    let updated=0;
+    for(const token of chosen){
+      const pair=pairs.get(token.mint);
+      if(!pair||!(num(pair.priceUsd)>0))continue;
+      ingest({...pair,mint:token.mint},'dexscreener');
+      updated++;
+    }
+    setHealth('candidate-quotes',updated?'ok':'warn','Eligible quote samples: '+updated+'/'+chosen.length,{truth:'observed'});
+  }catch(error){
+    setHealth('candidate-quotes','warn',String(error.message),{truth:'observed'});
+  }
+}
 function connectPumpPortal(){
   if(!PUMP_KEY){setHealth('pumpportal','standby','API key not connected · free realtime launch/migration stream available once added',{truth:'not connected'});return;}
   try{
@@ -4481,6 +4508,7 @@ setInterval(()=>runScheduled('runtime-prune',()=>pruneRuntimeMemory(),{budgetMs:
 setInterval(()=>runScheduled('solana-drain',()=>drainSolanaQueue(),{budgetMs:1500,critical:true}),700).unref?.();
 setInterval(()=>runScheduled('pump-poll',()=>pumpPoll(),{budgetMs:6000,critical:true}),7000).unref?.();
 setInterval(()=>runScheduled('dex-poll',()=>dexPoll(),{budgetMs:9000,critical:true}),20000).unref?.();
+setInterval(()=>runScheduled('candidate-quotes',()=>candidateQuoteRefresh(),{budgetMs:9000,critical:true}),15000).unref?.();
 setInterval(()=>runScheduled('pump-open-marks',()=>pumpOpenPositionPoll(),{budgetMs:4500,critical:true}),4000).unref?.();
 setTimeout(()=>runScheduled('minute-samplers',()=>minuteSamplerTick(),{budgetMs:18000,critical:true}),15000).unref?.();
 setInterval(()=>runScheduled('minute-samplers',()=>minuteSamplerTick(),{budgetMs:18000,critical:true}),50000).unref?.();
