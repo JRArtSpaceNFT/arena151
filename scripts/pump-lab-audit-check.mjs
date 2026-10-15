@@ -7,8 +7,8 @@ const failures = [];
 
 const must = (name, needle, hay=src) => { if (!hay.includes(needle)) failures.push(name); };
 
-must('Five Brain strategy era', "v7-five-brain-2026-10-11");
-must('Five Brain clean season', "season4-five-brain-2026-10-11");
+must('Five Brain strategy era', "v8-five-brain-2026-10-14");
+must('Five Brain clean season', "season5-five-brain-2026-10-14");
 must('Sentinel strategy', "'banker','🛡️','The Sentinel'");
 must('Surge strategy', "'momentum','⚡','The Surge'");
 must('Rebound strategy', "'dip','↗️','The Rebound'");
