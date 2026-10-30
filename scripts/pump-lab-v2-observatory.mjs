@@ -55,7 +55,7 @@ const first=page
 .replace('<b id="tokens">—</b>','<b id="tokens">'+state.trackedTokens+'</b>')
 .replace('<b id="fills">—</b>','<b id="fills">'+state.paperEngine.closedTrades+' closed / '+state.paperEngine.openPositions+' open</b>')
 .replace('<div id="warnings">Loading...</div>','<div id="warnings">'+state.warnings.map(x=>'<p class="warn">'+escHtml(x)+'</p>').join('')+'</div>')
-.replace('<tbody id="bots"></tbody>','<tbody id="bots">'+state.bots.map(b=>'<tr><td>'+escHtml(b.name)+'</td><td>+'</td><td>'+b.open+'</td><td>'+escHtml(b.enabled?'Tracking':'Storage blocked')+'</td></tr>').join('')+'</tbody>');
+.replace('<tbody id="bots"></tbody>','<tbody id="bots">'+state.bots.map(b=>'<tr><td>'+escHtml(b.name)+'</td><td>'+String(b.bankroll)+'</td><td>'+String(b.open)+'</td><td>'+escHtml(b.enabled?'Tracking':'Storage blocked')+'</td></tr>').join('')+'</tbody>');
 res.end(first)}).listen(PORT,'0.0.0.0',()=>{console.log('V2 observatory listening on '+PORT);startFeed()});
 +b.bankroll+'</td><td>'+b.open+'</td><td>'+escHtml(b.enabled?'Tracking':'Storage blocked')+'</td></tr>').join('')+'</tbody>');
 res.end(first)}).listen(PORT,'0.0.0.0',()=>{console.log('V2 observatory listening on '+PORT);startFeed()});
