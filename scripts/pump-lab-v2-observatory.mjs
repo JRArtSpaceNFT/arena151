@@ -55,5 +55,7 @@ const first=page
 .replace('<b id="tokens">—</b>','<b id="tokens">'+state.trackedTokens+'</b>')
 .replace('<b id="fills">—</b>','<b id="fills">'+state.paperEngine.closedTrades+' closed / '+state.paperEngine.openPositions+' open</b>')
 .replace('<div id="warnings">Loading...</div>','<div id="warnings">'+state.warnings.map(x=>'<p class="warn">'+escHtml(x)+'</p>').join('')+'</div>')
-.replace('<tbody id="bots"></tbody>','<tbody id="bots">'+state.bots.map(b=>'<tr><td>'+escHtml(b.name)+'</td><td>'+String(b.bankroll)+'</td><td>'+String(b.open)+'</td><td>'+escHtml(b.enabled?'Tracking':'Storage blocked')+'</td></tr>').join('')+'</tbody>');
+.replace('<tbody id="bots"></tbody>','<tbody id="bots">'+state.bots.map(b=>'<tr><td>'+escHtml(b.name)+'</td><td>'+String(b.bankroll)+'</td><td>'+String(b.open)+'</td><td>'+escHtml(b.enabled?'Tracking':'Storage blocked')+'</td></tr>').join('')+'</tbody>')
+.replace('<div id="trades" class="muted">No verified paper trade fills yet.</div>','<div id="trades" class="muted" style="white-space:pre-wrap;overflow-wrap:anywhere">'+(state.trades.length?escHtml(JSON.stringify(state.trades.slice(0,25),null,2)):'No recorded paper trades yet.')+'</div>')
+.replace('<div id="timeline"></div>','<div id="timeline">'+state.events.slice(0,20).map(e=>'<p><small>'+escHtml(e.at)+'</small> · '+escHtml(e.type)+' · '+escHtml((e.mint||'').slice(0,10))+'</p>').join('')+'</div>');
 res.end(first)}).listen(PORT,'0.0.0.0',()=>{console.log('V2 observatory listening on '+PORT);startFeed()});
