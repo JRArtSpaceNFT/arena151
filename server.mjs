@@ -2919,9 +2919,9 @@ async function initDb(restoreState=true){
     setHealth('research-memory','ok','Postgres durable memory online · failover armed',{truth:'observed'});
     if(lifecyclePhase==='DEGRADED'&&!shuttingDown&&durableTradingReady()&&systemPressure!=='CRITICAL')setLifecycle('READY','Postgres reconnected');
     console.log('Postgres durable memory online');
-    if(pendingTradeJournal.length)await flushTradeJournal(db);
+    if(pendingTradeJournal.length)await queueDbWrite(()=>flushTradeJournal(db),'high');
     validateStateIntegrity({repair:true});
-    if(stateVersionTs)await saveCritical();
+    if(stateVersionTs)scheduleCriticalSave(1250);
   }catch(e){
     if(db===client)db=null;
     try{await client?.end();}catch{}
