@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import { validateQuote, classifyMark, reconcileClosedLongTrade, validateSignalSnapshot } from '../lib/pump-lab-v2-integrity.mjs';
+const now=1_800_000_000_000, mint='A'.repeat(44);
+assert.deepEqual(validateQuote({mint,price:1,observedAtMs:now-6000},{nowMs:now}).reasons,['STALE_QUOTE']);
+assert.equal(validateQuote({mint,price:1,observedAtMs:now-100},{nowMs:now}).ok,true);
+assert.ok(validateQuote({mint,price:1,observedAtMs:now-100},{nowMs:now,prior:{mint,price:1,observedAtMs:now-200}}).reasons.includes('UNCHANGED_PRICE'));
+assert.equal(classifyMark({entryPrice:1, latestPrice:0,latestObservedAtMs:now,nowMs:now}).status,'UNCERTAIN');
+assert.equal(reconcileClosedLongTrade({entryPrice:1,exitPrice:.8,minObservedPrice:.9,realizedNetReturnFraction:-.2,entryFeeFraction:.01,exitFeeFraction:.01}).status,'REVIEW_REQUIRED');
+assert.equal(reconcileClosedLongTrade({entryPrice:1,exitPrice:.95,minObservedPrice:.9,realizedNetReturnFraction:-.06,entryFeeFraction:.005,exitFeeFraction:.005}).status,'CONSISTENT_WITH_OBSERVATIONS');
+assert.ok(validateSignalSnapshot({strategyId:'fortress',strategyVersion:'2.0',mint,featureObservedAtMs:now+1},{decisionAtMs:now}).reasons.includes('LOOKAHEAD_FEATURE'));
+console.log('Pump Lab v2 integrity unit checks passed');
